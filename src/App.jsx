@@ -18,7 +18,10 @@ import { ScribeNoteStructures } from './components/Scribe.jsx';
 import { useAsync } from './api/useAsync.js';
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from './api/templates.js';
 
+import { LandingPage } from './pages/LandingPage.jsx';
+import { ContentPage } from './pages/marketing/ContentPage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
+import { SignupPage } from './pages/SignupPage.jsx';
 import { VerifyPage } from './pages/VerifyPage.jsx';
 import { MfaPage } from './pages/MfaPage.jsx';
 import { MePage } from './pages/MePage.jsx';
@@ -42,7 +45,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  const [route, setRoute] = useState(() => location.hash.replace(/^#/, "") || "/scribe");
+  const [route, setRoute] = useState(() => location.hash.replace(/^#/, "") || "/");
   const [toast, setToast] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [quickNoteOpen, setQuickNoteOpen] = useState(false);
@@ -69,11 +72,32 @@ function App() {
 
   // Hash router
   useEffect(() => {
-    const onHash = () => setRoute(location.hash.replace(/^#/, "") || "/scribe");
+    const onHash = () => setRoute(location.hash.replace(/^#/, "") || "/");
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
   const navigate = (p) => { location.hash = p; };
+
+  // ── Auth gate ───────────────────────────────────────────────
+  // Routes reachable without a session: the auth screens and the
+  // public signature-verification deep link. Everything else needs login.
+  const isAuthRoute   = route === "/login" || route === "/signup";
+  // Landing is public: /welcome always, and the bare root only when signed out
+  // (authenticated users at "/" land on their workspace instead).
+  const isLanding     = route === "/welcome" || ((route === "/" || route === "") && !auth);
+  // Public marketing sub-pages (footer + feature/product/security content).
+  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security"];
+  const isMarketing = MARKETING_EXACT.includes(route)
+    || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/");
+  const isPublicRoute = isAuthRoute || isLanding || isMarketing || route.startsWith("/verify/");
+  const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
+  const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
+
+  // Keep the URL hash in sync with the gate decision.
+  useEffect(() => {
+    if (gateToLogin) navigate("/login");
+    else if (gateToHome) navigate("/");
+  }, [gateToLogin, gateToHome]);
 
   // Theme + density + accent
   useEffect(() => {
@@ -102,9 +126,35 @@ function App() {
 
   const r = route;
 
-  // ── auth routes ────────────────────────────────────────────
-  if (r === "/login") {
+  // ── auth gate (render the right view synchronously to avoid a flash) ─
+  if (gateToLogin) {
     view = <LoginPage navigate={navigate} lang={lang} />;
+    fullBleed = true;
+  } else if (gateToHome) {
+    view = <ScribeToday navigate={navigate} lang={lang} />;
+    title = lang === "uk" ? "Сьогодні" : "Today";
+  }
+  // ── auth routes ────────────────────────────────────────────
+  else if (r === "/login") {
+    view = <LoginPage navigate={navigate} lang={lang} />;
+    fullBleed = true;
+  }
+  // ── signup (request access — UI-only mock, no backend yet) ──
+  else if (r === "/signup") {
+    view = <SignupPage navigate={navigate} lang={lang} />;
+    fullBleed = true;
+  }
+  // ── public landing (marketing) ─────────────────────────────
+  else if (r === "/welcome" || ((r === "/" || r === "") && !auth)) {
+    view = <LandingPage navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
+  // ── public marketing sub-pages (footer + features/products/security) ─
+  else if (
+    ["/about", "/contact", "/careers", "/blog", "/features", "/security"].includes(r)
+    || r.startsWith("/legal/") || r.startsWith("/features/") || r.startsWith("/product/")
+  ) {
+    view = <ContentPage slug={r.replace(/^\//, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     fullBleed = true;
   }
   // ── mfa scaffold (sprint 16; flag-off path today) ───────────

@@ -7,6 +7,7 @@ import { useI18n } from '../i18n.js';
 import { Icon, Empty, SaveStatus } from './UI.jsx';
 import { Loading, asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
+import { Pagination } from './Pagination.jsx';
 import { useAsync } from '../api/useAsync.js';
 import { listReports, getReport, listReportVersions, getReportVersion, amendReport } from '../api/reports.js';
 import { listTemplates } from '../api/templates.js';
@@ -89,12 +90,17 @@ function SpecFilter({ value, onChange, lang, specs }) {
 
 // ── Reports list ──────────────────────────────────────────────────────────
 
+const REPORTS_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const REPORTS_DEFAULT_PAGE_SIZE = 20;
+
 export function ReportsList({ navigate, lang }) {
   const reportsReq = useAsync(() => listReports({}), []);
   const templatesReq = useAsync(() => listTemplates(), []);
   const templatesMap = useMemo(() => templatesToMap(templatesReq.data), [templatesReq.data]);
 
   const [filters, setFilters] = useState(() => decodeFilters(location.search));
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(REPORTS_DEFAULT_PAGE_SIZE);
 
   const setFilter = useCallback((key, val) => {
     setFilters(f => {
@@ -119,6 +125,13 @@ export function ReportsList({ navigate, lang }) {
     r.sort((a, b) => new Date(b.modified || b.modified_at || 0) - new Date(a.modified || a.modified_at || 0));
     return r;
   }, [all, filters, templatesMap, lang]);
+
+  // Reset to the first page whenever the filtered result set changes.
+  useEffect(() => { setPage(1); }, [filters]);
+
+  const pageCount = Math.max(1, Math.ceil(reports.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageReports = reports.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const counts = {
     mine:    all.filter(x => x.status === "draft").length,
@@ -196,11 +209,26 @@ export function ReportsList({ navigate, lang }) {
             <div style={{ padding: "40px 24px", textAlign: "center" }}>
               <Empty icon="fileText" title={lang === "uk" ? "Звітів не знайдено" : "No reports found"} />
             </div>
-          ) : reports.map(r => (
+          ) : pageReports.map(r => (
             <ReportRow key={r.id} r={r} tpl={templatesMap[r.template]} lang={lang}
               onClick={() => navigate(`/dictate/reports/${r.id}`)} />
           ))}
       </div>
+
+      {!reportsReq.loading && !reportsReq.error && reports.length > 0 && (
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          onPage={setPage}
+          onPrev={() => setPage(p => Math.max(1, p - 1))}
+          onNext={() => setPage(p => Math.min(pageCount, p + 1))}
+          total={reports.length}
+          pageSize={pageSize}
+          pageSizeOptions={REPORTS_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(n) => { setPageSize(n); setPage(1); }}
+          lang={lang}
+        />
+      )}
     </div>
   );
 }

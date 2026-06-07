@@ -1,7 +1,7 @@
 // Sidebar.jsx — Left sidebar with collapsible dropdown sections for
 // Workspace / Settings / Admin / Audit / Account. Replaces the flat sidebar.
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Icon, Logo } from "./UI.jsx";
+import { Icon, Logo, Modal } from "./UI.jsx";
 import { HealthBadge } from "./HealthBadge.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
 import { logout as apiLogout } from "../api/endpoints.js";
@@ -106,11 +106,18 @@ export function Sidebar({
     if (want) setOpenSet((cur) => { if (cur.has(want)) return cur; const n = new Set(cur); n.add(want); return n; });
   }, [route]);
 
+  // Sign-out is confirmed through a modal before the session is torn down.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
   const handleLogout = async () => {
+    setSigningOut(true);
     try {
       await apiLogout();
     } catch {}
     clear();
+    setSigningOut(false);
+    setConfirmOpen(false);
     if (onToast) onToast(lang === "uk" ? "Сесію завершено" : "Signed out");
     navigate("/login");
   };
@@ -144,6 +151,7 @@ export function Sidebar({
   const pickMenu = (fn) => () => { setMenuOpen(false); fn(); };
 
   return (
+    <>
     <aside className={"sb" + (collapsed ? " collapsed" : "")}>
       <div className="sb-brand">
         <div className="sb-brand-inner" onClick={() => navigate(product === "scribe" ? "/scribe" : "/dictate")}>
@@ -296,7 +304,7 @@ export function Sidebar({
                     </button>
                   )}
                   <div className="sb-user-menu-sep" />
-                  <button className="sb-user-menu-item danger" role="menuitem" onClick={pickMenu(handleLogout)}>
+                  <button className="sb-user-menu-item danger" role="menuitem" onClick={pickMenu(() => setConfirmOpen(true))}>
                     <Icon name="arrowLeft" size={14} />
                     <span>{lang === "uk" ? "Вийти" : "Sign out"}</span>
                   </button>
@@ -312,5 +320,43 @@ export function Sidebar({
         </div>
       </div>
     </aside>
+
+    {confirmOpen && (
+      <Modal onClose={() => { if (!signingOut) setConfirmOpen(false); }}>
+        <div className="signout-modal">
+          <span className="signout-modal-mark">
+            <Icon name="arrowLeft" size={20} />
+          </span>
+          <h2 className="signout-modal-title">
+            {lang === "uk" ? "Вийти з акаунту?" : "Sign out?"}
+          </h2>
+          <p className="signout-modal-body">
+            {lang === "uk"
+              ? "Поточну сесію буде завершено. Незбережені зміни може бути втрачено."
+              : "Your current session will end. Any unsaved changes may be lost."}
+          </p>
+          <div className="signout-modal-actions">
+            <button
+              className="btn btn-ghost"
+              onClick={() => setConfirmOpen(false)}
+              disabled={signingOut}
+            >
+              {lang === "uk" ? "Скасувати" : "Cancel"}
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={handleLogout}
+              disabled={signingOut}
+              autoFocus
+            >
+              {signingOut
+                ? lang === "uk" ? "Вихід…" : "Signing out…"
+                : lang === "uk" ? "Вийти" : "Sign out"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }

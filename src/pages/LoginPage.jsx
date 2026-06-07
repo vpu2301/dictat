@@ -2,8 +2,8 @@
 import React, { useState } from "react";
 import { Icon, Logo } from "../components/UI.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
+import { ForgotPasswordModal } from "../components/ForgotPasswordModal.jsx";
 import { login as apiLogin, me as apiMe } from "../api/endpoints.js";
-import { passwordResetUrl } from "../api/services.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 
 export function LoginPage({ navigate, lang = "en" }) {
@@ -13,6 +13,7 @@ export function LoginPage({ navigate, lang = "en" }) {
   const [phase, setPhase] = useState("idle"); // idle | submitting | success | error
   const [error, setError] = useState(null);
   const [mfaToast, setMfaToast] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -100,14 +101,32 @@ export function LoginPage({ navigate, lang = "en" }) {
 
         <div className="login-foot">
           <span>{lang === "uk" ? "Немає акаунту?" : "No account?"}</span>
-          <span className="muted">{lang === "uk" ? "Запит надсилає адмін тенанта." : "Tenant admin invites you."}</span>
+          <a
+            className="login-link"
+            href="#/signup"
+            onClick={(e) => { e.preventDefault(); navigate("/signup"); }}
+          >
+            {lang === "uk" ? "Запросити доступ" : "Request access"}
+          </a>
         </div>
         <div className="login-foot">
-          <a className="muted" href={passwordResetUrl()} target="_blank" rel="noreferrer">
+          <a
+            className="muted login-link"
+            href="#"
+            onClick={(e) => { e.preventDefault(); setForgotOpen(true); }}
+          >
             {lang === "uk" ? "Забули пароль?" : "Forgot password?"}
           </a>
         </div>
       </form>
+
+      {forgotOpen && (
+        <ForgotPasswordModal
+          lang={lang}
+          initialEmail={email}
+          onClose={() => setForgotOpen(false)}
+        />
+      )}
     </div>
   );
 }

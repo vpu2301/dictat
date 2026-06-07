@@ -1,12 +1,15 @@
 // AsrJobsListPage.jsx — /asr/jobs. Paginated list of recent jobs.
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Icon } from "../components/UI.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { AsrStatusPill } from "../components/AsrStatusPill.jsx";
+import { Pagination } from "../components/Pagination.jsx";
+import { useCursorPages } from "../api/useCursorPages.js";
 import { listJobs } from "../api/asr.js";
 
 const STATUSES = ["queued", "running", "complete", "failed", "cancelled"];
-const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const DEFAULT_PAGE_SIZE = 25;
 
 function fmtRelative(iso, lang) {
   if (!iso) return "—";
@@ -21,27 +24,20 @@ function fmtRelative(iso, lang) {
 
 export function AsrJobsListPage({ lang = "en", navigate }) {
   const [statusFilter, setStatusFilter] = useState("");
-  const [jobs, setJobs] = useState([]);
-  const [cursor, setCursor] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  const load = useCallback(async (cur, append) => {
-    setLoading(true); setError(null);
-    try {
-      const r = await listJobs({
-        status: statusFilter || undefined,
-        cursor: cur || undefined,
-        limit: PAGE_SIZE,
-      });
-      const next = r.jobs || r.items || (Array.isArray(r) ? r : []);
-      setJobs(append ? (prev) => [...prev, ...next] : () => next);
-      setCursor(r.next_cursor || null);
-    } catch (e) { setError(e); }
-    finally { setLoading(false); }
-  }, [statusFilter]);
+  const fetchPage = useCallback(async (cursor) => {
+    const r = await listJobs({
+      status: statusFilter || undefined,
+      cursor: cursor || undefined,
+      limit: pageSize,
+    });
+    const items = r.jobs || r.items || (Array.isArray(r) ? r : []);
+    return { items, nextCursor: r.next_cursor || null };
+  }, [statusFilter, pageSize]);
 
-  useEffect(() => { setJobs([]); setCursor(null); load(null, false); }, [load]);
+  const pg = useCursorPages(fetchPage, [statusFilter, pageSize]);
+  const { items: jobs, loading, error } = pg;
 
   return (
     <div className="page asr-jobs">
@@ -53,7 +49,7 @@ export function AsrJobsListPage({ lang = "en", navigate }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => load(null, false)} disabled={loading}>
+          <button className="btn" onClick={() => pg.reload()} disabled={loading}>
             <Icon name="refresh" size={13} />
             <span>{lang === "uk" ? "Оновити" : "Refresh"}</span>
           </button>
@@ -128,15 +124,18 @@ export function AsrJobsListPage({ lang = "en", navigate }) {
           </tbody>
         </table>
         <div className="audit-foot">
-          {loading && <span className="muted">{lang === "uk" ? "Завантаження…" : "Loading…"}</span>}
-          {!loading && cursor && (
-            <button className="btn" onClick={() => load(cursor, true)}>
-              {lang === "uk" ? "Наступна сторінка" : "Next page"}
-            </button>
-          )}
-          {!loading && !cursor && jobs.length > 0 && (
-            <span className="muted">{lang === "uk" ? "Кінець." : "End of results."}</span>
-          )}
+          <Pagination
+            page={pg.page}
+            hasPrev={pg.hasPrev}
+            hasNext={pg.hasNext}
+            onPrev={pg.prev}
+            onNext={pg.next}
+            loading={loading}
+            lang={lang}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </section>
     </div>

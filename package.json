@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:batch-a": "node scripts/integration/batch-a-verify.mjs"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",
