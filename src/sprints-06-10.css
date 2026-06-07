@@ -1,0 +1,607 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Sprints 06–10 — TipTap Editor · Signing Flow · Report Diff · Autocomplete
+   · Public Verification Page
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Sprint 06 — TipTap editor
+   ────────────────────────────────────────────────────────────────────────── */
+
+.tiptap-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* TipTap content root */
+.tiptap-content > .ProseMirror {
+  outline: none;
+  min-height: 120px;
+}
+
+/* Section nodes rendered inside TipTap doc */
+.tiptap-content section.tiptap-section {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 0 0 16px;
+  padding: 14px 16px 12px;
+  background: var(--surface);
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.tiptap-content section.tiptap-section:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Placeholder text inside empty paragraphs */
+.tiptap-content .ProseMirror p.is-empty:first-child::before,
+.tiptap-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  font-style: italic;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* Section labels overlay (title + required badge rendered above section block) */
+.tiptap-sections-labels {
+  display: none; /* section labels now rendered inside TipTap node view */
+}
+
+/* Inside the editor — section headings are injected by the SectionExtension renderHTML;
+   we style any h2/h3 that appears inside a section */
+.tiptap-content section.tiptap-section h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text-1);
+}
+
+/* Low-confidence mark */
+.word-low-confidence {
+  text-decoration: underline dotted var(--warn);
+  text-decoration-thickness: 2px;
+  cursor: pointer;
+}
+.word-low-confidence:hover {
+  background: var(--warn-soft);
+  border-radius: 3px;
+}
+
+/* Partial text (dictation in-flight) */
+.tiptap-content .partial,
+span.partial {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── Floating toolbar (Sprint 06) ──────────────────────────────────────── */
+
+.floating-toolbar {
+  position: absolute;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+  transform: translateX(-50%);
+  pointer-events: all;
+}
+
+.ft-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: background .1s, color .1s;
+}
+.ft-btn:hover { background: var(--surface-2); color: var(--text-1); }
+.ft-btn.on    { background: var(--accent-soft); color: var(--accent-text); }
+
+.ft-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--line);
+  margin: 0 2px;
+}
+
+/* ── Find & Replace (Sprint 06) ──────────────────────────────────────── */
+
+.find-replace {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow-1);
+}
+
+.fr-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fr-input {
+  flex: 1;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 13px;
+}
+
+/* ── Autocomplete ghost text hint (Sprint 10) ─────────────────────────── */
+
+.autocomplete-ghost-hint {
+  position: sticky;
+  bottom: 12px;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.autocomplete-ghost-text {
+  color: var(--muted);
+  opacity: 0.55;
+  font-style: normal;
+  font-size: 13px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.autocomplete-ghost-key {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Sprint 09 — Signing Flow
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Pre-sign review */
+.sign-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.sign-legal-notice {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--warn-soft);
+  border: 1px solid rgba(180, 83, 9, 0.2);
+  border-radius: var(--radius);
+  color: var(--warn);
+}
+
+/* Method picker */
+.sign-method-picker { display: flex; flex-direction: column; gap: 8px; }
+.sign-method-label  { font-size: 13px; font-weight: 500; }
+.sign-method-opts   { display: flex; flex-direction: column; gap: 6px; }
+
+.sign-method-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.sign-method-opt.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.sign-method-opt input { display: none; }
+
+/* QR display */
+.qr-wrapper {
+  position: relative;
+  display: inline-block;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-2);
+}
+.qr-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.7);
+}
+.qr-pulse {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: qr-pulse 1.2s ease-in-out infinite;
+}
+@keyframes qr-pulse {
+  0%, 100% { transform: scale(1); opacity: .8; }
+  50%       { transform: scale(1.2); opacity: .4; }
+}
+.qr-signing { opacity: .7; }
+
+.sign-status-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
+}
+.sign-countdown {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.sign-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 300px;
+}
+
+/* Certificate picker */
+.cert-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.cert-option.on { border-color: var(--accent); background: var(--accent-soft); }
+.cert-option.disabled { opacity: .5; cursor: not-allowed; }
+.cert-option input { display: none; }
+
+/* Success check animation */
+.sign-success-check {
+  font-size: 42px;
+  color: var(--ok);
+  animation: check-pop .4s cubic-bezier(.2, 1.6, .6, 1) both;
+}
+@keyframes check-pop {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+/* Signed report detail card */
+.signed-info-card {
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.signed-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+/* Amendment banner */
+.amendment-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--warn-soft);
+  border-bottom: 1px solid rgba(180, 83, 9, 0.2);
+  color: var(--warn);
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Sprint 08 — Report Diff
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.diff-legend {
+  display: flex;
+  gap: 20px;
+  padding: 8px 0 16px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.diff-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.diff-section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.diff-body {
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+ins.diff-insert {
+  background: rgba(4, 120, 87, 0.12);
+  color: #047857;
+  text-decoration: none;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+del.diff-delete {
+  background: rgba(220, 38, 38, 0.10);
+  color: #dc2626;
+  text-decoration: line-through;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+[data-theme="dark"] ins.diff-insert {
+  background: rgba(45, 212, 191, 0.15);
+  color: #2dd4bf;
+}
+[data-theme="dark"] del.diff-delete {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Sprint 10 — Autocomplete Pills
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.autocomplete-pills {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, calc(100% - 32px));
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+  z-index: 40;
+  overflow: hidden;
+}
+
+.pills-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.autocomplete-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  transition: background .1s;
+  border-bottom: 1px solid var(--line-2);
+}
+.autocomplete-pill:last-child { border-bottom: none; }
+.autocomplete-pill:hover,
+.autocomplete-pill.focused {
+  background: var(--surface-2);
+}
+
+.autocomplete-shortcut {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-left: 3px solid;
+}
+
+.autocomplete-text {
+  flex: 1;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autocomplete-source {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+/* Pause toast */
+.autocomplete-pause-toast {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+  z-index: 41;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Autocomplete settings panel */
+.autocomplete-settings {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px;
+  font-size: 13px;
+  gap: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Sprint 09 — Public Verification Page (/verify/:id)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.verify-page {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 16px;
+}
+
+.verify-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.verify-card {
+  width: 100%;
+  max-width: 560px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.verify-envelope-id {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  font-size: 12px;
+}
+
+.verify-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+}
+.verify-badge.valid   { background: rgba(4, 120, 87, 0.1);   border: 1px solid rgba(4, 120, 87, 0.2); }
+.verify-badge.invalid { background: rgba(220, 38, 38, 0.1);  border: 1px solid rgba(220, 38, 38, 0.2); }
+.verify-badge.warning { background: rgba(180, 83, 9, 0.08);  border: 1px solid rgba(180, 83, 9, 0.2); }
+
+.verify-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.verify-badge.valid   .verify-icon { color: var(--ok); }
+.verify-badge.invalid .verify-icon { color: var(--rec); }
+.verify-badge.warning .verify-icon { color: var(--warn); }
+
+.verify-title { font-weight: 600; font-size: 15px; }
+.verify-sub   { font-size: 13px; color: var(--text-3); margin-top: 2px; }
+
+.verify-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.verify-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--line-2);
+}
+.verify-row:last-child { border-bottom: none; }
+.verify-row > span:first-child { color: var(--muted); flex-shrink: 0; }
+
+.verify-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Rep status chips ─────────────────────────────────────────────────── */
+.rep-status-draft   { background: var(--surface-2); color: var(--text-3); }
+.rep-status-final   { background: var(--dictate-soft); color: var(--dictate); }
+.rep-status-signed  { background: var(--accent-soft); color: var(--accent-text); }
+.rep-status-amended { background: var(--warn-soft); color: var(--warn); }
