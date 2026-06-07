@@ -1,10 +1,15 @@
 // AuditEventsPage.jsx — /audit/events. Filters + cursor-paginated table.
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { Icon } from "../components/UI.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { SeverityChip } from "../components/SeverityChip.jsx";
 import { JsonViewer } from "../components/JsonViewer.jsx";
+import { Pagination } from "../components/Pagination.jsx";
+import { useCursorPages } from "../api/useCursorPages.js";
 import { listAuditEvents } from "../api/endpoints.js";
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+const DEFAULT_PAGE_SIZE = 100;
 
 const SEVERITIES = ["info", "warn", "sec", "error"];
 
@@ -23,34 +28,26 @@ function isoLocalToIso(s) {
 export function AuditEventsPage({ lang = "en" }) {
   const [filters, setFilters] = useState(initialFilters);
   const [draft, setDraft] = useState(initialFilters);
-  const [events, setEvents] = useState([]);
-  const [cursor, setCursor] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState({});
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  const load = useCallback(async (cur, append) => {
-    setLoading(true); setError(null);
-    try {
-      const r = await listAuditEvents({
-        kind: filters.kind || undefined,
-        severity: filters.severity || undefined,
-        actor_sub: filters.actor_sub || undefined,
-        since: isoLocalToIso(filters.since) || undefined,
-        until: isoLocalToIso(filters.until) || undefined,
-        from_seq: filters.from_seq || undefined,
-        to_seq: filters.to_seq || undefined,
-        cursor: cur || undefined,
-        limit: 100,
-      });
-      const next = r.events || [];
-      setEvents((cur ? (prev) => [...prev, ...next] : () => next));
-      setCursor(r.next_cursor || null);
-    } catch (e) { setError(e); }
-    finally { setLoading(false); }
-  }, [filters]);
+  const fetchPage = useCallback(async (cursor) => {
+    const r = await listAuditEvents({
+      kind: filters.kind || undefined,
+      severity: filters.severity || undefined,
+      actor_sub: filters.actor_sub || undefined,
+      since: isoLocalToIso(filters.since) || undefined,
+      until: isoLocalToIso(filters.until) || undefined,
+      from_seq: filters.from_seq || undefined,
+      to_seq: filters.to_seq || undefined,
+      cursor: cursor || undefined,
+      limit: pageSize,
+    });
+    return { items: r.events || [], nextCursor: r.next_cursor || null };
+  }, [filters, pageSize]);
 
-  useEffect(() => { setEvents([]); setCursor(null); load(null, false); }, [load]);
+  const pg = useCursorPages(fetchPage, [filters, pageSize]);
+  const { items: events, loading, error } = pg;
 
   const applyFilters = (e) => { e.preventDefault(); setFilters(draft); };
   const resetFilters = () => { setDraft(initialFilters); setFilters(initialFilters); };
@@ -174,13 +171,18 @@ export function AuditEventsPage({ lang = "en" }) {
           </tbody>
         </table>
         <div className="audit-foot">
-          {loading && <span className="muted">{lang === "uk" ? "Завантаження…" : "Loading…"}</span>}
-          {!loading && cursor && (
-            <button className="btn" onClick={() => load(cursor, true)}>{lang === "uk" ? "Наступна сторінка" : "Next page"}</button>
-          )}
-          {!loading && !cursor && events.length > 0 && (
-            <span className="muted">{lang === "uk" ? "Кінець." : "End of results."}</span>
-          )}
+          <Pagination
+            page={pg.page}
+            hasPrev={pg.hasPrev}
+            hasNext={pg.hasNext}
+            onPrev={pg.prev}
+            onNext={pg.next}
+            loading={loading}
+            lang={lang}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </section>
     </div>

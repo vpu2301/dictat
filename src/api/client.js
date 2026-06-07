@@ -102,6 +102,13 @@ async function request(baseUrl, path, init = {}) {
 
   if (!r.ok) {
     const problem = await r.json().catch(() => ({ detail: r.statusText, title: `HTTP ${r.status}` }));
+    // MFA / step-up is signalled via the WWW-Authenticate response header
+    // (CORS-exposed by the backend), not the JSON body. Surface it on the
+    // problem so callers like LoginPage can detect an MFA challenge.
+    const wwwAuth = r.headers.get("www-authenticate");
+    if (wwwAuth && problem && typeof problem === "object" && problem.www_authenticate == null) {
+      problem.www_authenticate = wwwAuth;
+    }
     throw new ApiError(r.status, problem);
   }
   if (r.status === 204) return undefined;
