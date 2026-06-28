@@ -35,6 +35,12 @@ const MATRIX = {
   "admin.user.invite":     { user: ["tenant_admin"] },
   "admin.user.deactivate": { user: ["tenant_admin"] },
 
+  // ── templates (report-service, sprint 06) ────────────────────────────
+  // Read/list/preview is open to all clinical roles; clone/update/deprecate
+  // is tenant_admin only (the backend 403s the write actions otherwise).
+  "templates.read":  { template: ["clinician", "tenant_admin", "auditor", "nurse"] },
+  "templates.write": { template: ["tenant_admin"] },
+
   // ── reports / patients / notes (NOT BUILT — sprints 08/11/12) ─────────
   // Leave entries here so usePermission won't crash; they always return
   // false until the matching FEATURE flag flips on.

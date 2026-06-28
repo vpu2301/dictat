@@ -1,0 +1,17 @@
+action,target_kind,clinician,auditor,tenant_admin,super_admin
+dictation.start,dictation,yes,no,yes,no
+dictation.read,dictation,yes,yes,yes,no
+dictation.finalize,dictation,yes,no,yes,no
+nlp.process,transcript,yes,no,yes,no
+nlp.read.abbreviations,abbreviation,yes,yes,yes,no
+nlp.write.abbreviations,abbreviation,no,no,yes,no
+asr.submit,job,yes,no,yes,no
+asr.read,job,yes,yes,yes,no
+asr.cancel,job,yes,no,yes,no
+audit.read,event,no,yes,yes,no
+audit.verify,chain,no,yes,yes,no
+admin.user.invite,user,no,no,yes,no
+admin.user.deactivate,user,no,no,yes,no
+reports.create,report,yes,no,yes,no
+reports.read,report,yes,yes,yes,no
+patients.read,patient,yes,no,yes,no

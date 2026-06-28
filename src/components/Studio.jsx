@@ -9,7 +9,8 @@ import { Icon, SaveStatus, Modal, Toast, Empty } from './UI.jsx';
 import { TipTapEditor, bodyToDoc, docToBody } from './TipTapEditor.jsx';
 import { SigningFlow } from './SigningFlow.jsx';
 import { useAsync } from '../api/useAsync.js';
-import { listTemplates, createTemplate } from '../api/templates.js';
+import { getTemplate, toStudioTemplate } from '../api/templates.js';
+import { getStarredIds, toggleStar as toggleStarPref, getUsage, recordUse } from '../api/templatePrefs.js';
 import { createReport, updateReport } from '../api/reports.js';
 import { matchVoiceCommand, insertionFor } from '../dictation/voiceCommands.js';
 import {
@@ -20,6 +21,17 @@ import {
   useGhostText,
   useBackoff,
 } from './AutocompletePanel.jsx';
+
+// Coerce arbitrary text into a backend slug: ^[a-z][a-z0-9_]*$.
+function slugify(input, fallback = "item") {
+  let s = String(input || "").toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (!/^[a-z]/.test(s)) s = `${fallback}_${s}`.replace(/_+$/, "");
+  s = s.replace(/[^a-z0-9_]/g, "");
+  if (!/^[a-z]/.test(s)) s = `t_${s}`;
+  return s;
+}
 
 // ── Web Speech wrapper ─────────────────────────────────────────────────
 function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
@@ -300,25 +312,41 @@ function AddTemplateDialog({ onClose, onCreate }) {
   const addSection    = () => setSections(arr => [...arr, { uk: "", en: "", required: false }]);
   const removeSection = (i) => setSections(arr => arr.filter((_, idx) => idx !== i));
   const valid = (nameUk.trim() || nameEn.trim()) && code.trim() && sections.every(s => (s.uk.trim() || s.en.trim()));
+  // Build a strict backend TemplateDefinition (§3). Slugs must match
+  // ^[a-z][a-z0-9_]*$; voice_aliases must be unique across the whole template.
   const submit = () => {
     if (!valid) return;
-    const id = "tpl-" + Date.now().toString(36);
-    const tpl = {
-      id, specialty, icon,
-      name: { uk: nameUk.trim() || nameEn.trim(), en: nameEn.trim() || nameUk.trim() },
-      code: code.trim().toUpperCase(),
+    const usedIds = new Set();
+    const usedAliases = new Set();
+    const def = {
+      code: slugify(code, "tpl"),
+      name: (lang === "uk" ? nameUk : nameEn).trim() || nameUk.trim() || nameEn.trim(),
+      language: lang === "uk" ? "uk" : "en",
+      specialty: specialty,
+      schema_version: 1,
       sections: sections.map((s, i) => {
-        const uk = s.uk.trim() || s.en.trim();
-        const en = s.en.trim() || s.uk.trim();
+        const uk = s.uk.trim();
+        const en = s.en.trim();
+        let id = slugify(en || uk, `section_${i + 1}`);
+        while (usedIds.has(id)) id = `${id}_${i}`;
+        usedIds.add(id);
+        const aliases = [uk.toLowerCase(), en.toLowerCase()]
+          .filter(Boolean)
+          .filter((a) => !usedAliases.has(a));
+        aliases.forEach((a) => usedAliases.add(a));
         return {
-          id: en.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `sec-${i}`,
+          id,
+          name: (lang === "uk" ? uk : en) || uk || en,
+          voice_aliases: aliases,
           required: !!s.required,
-          anchor: { uk: uk.toLowerCase(), en: en.toLowerCase() },
-          name: { uk, en },
+          field_type: "free_text",
+          asr_prompt: "",
+          min_chars: 0,
+          order: i,
         };
       }),
     };
-    onCreate(tpl);
+    onCreate(def);
   };
   const iconOpts = ["fileText", "scan", "heart", "scalpel", "bone"];
   const specOpts = ["radiology", "cardiology", "cardiacSurgery", "orthopaedics"];
@@ -391,6 +419,16 @@ function AddTemplateDialog({ onClose, onCreate }) {
   );
 }
 
+// Translate a specialty key, falling back to a humanized slug for backend
+// specialties (e.g. "family_medicine") that have no i18n entry.
+function specLabel(t, specialty) {
+  if (!specialty) return "";
+  const key = `spec.${specialty}`;
+  const translated = t(key);
+  if (translated !== key) return translated;
+  return String(specialty).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 // ── Section nav (left rail) — Sprint 06 enhanced ───────────────────────
 function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTemplate, onAddTemplate }) {
   const { t, lang } = useI18n();
@@ -404,6 +442,18 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
     return () => document.removeEventListener("mousedown", onDoc);
   }, [pickerOpen]);
 
+  // Template picker: search, starred filter, and stars/usage prefs (interim
+  // client-side; backend will provide these — see templatePrefs.js).
+  const [query, setQuery] = useState("");
+  const [starredOnly, setStarredOnly] = useState(false);
+  const [stars, setStars] = useState(() => getStarredIds());
+  const [usage, setUsage] = useState(() => getUsage());
+  // Refresh prefs each time the picker opens (cheap; reflects other tabs/uses).
+  useEffect(() => {
+    if (pickerOpen) { setStars(getStarredIds()); setUsage(getUsage()); setQuery(""); }
+  }, [pickerOpen]);
+  const handleStar = (id, e) => { e.stopPropagation(); toggleStarPref(id); setStars(getStarredIds()); };
+
   const filled = (id) => {
     const v = (body[id] || "").trim();
     if (!v) return "missing";
@@ -414,9 +464,22 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
   const done  = template.sections.filter(s => filled(s.id) === "filled").length;
   const all   = Object.values(templatesMap || {});
 
+  const nameOf = (tpl) => String(tpl.name?.[lang] || tpl.name?.en || tpl.code || "");
+  // Filter by search + starred, then order by most-used first (ties → name).
+  const q = query.trim().toLowerCase();
+  const visible = all
+    .filter(tpl => !q || `${nameOf(tpl)} ${tpl.code} ${tpl.specialty}`.toLowerCase().includes(q))
+    .filter(tpl => !starredOnly || stars.has(tpl.id))
+    .sort((a, b) => {
+      const ua = usage[a.id] || 0, ub = usage[b.id] || 0;
+      if (ub !== ua) return ub - ua;
+      return nameOf(a).localeCompare(nameOf(b));
+    });
+  const starredCount = all.reduce((n, tpl) => n + (stars.has(tpl.id) ? 1 : 0), 0);
+
   return (
     <>
-      <div className="rail-h">{t("nav.dictation")} · {t(`spec.${template.specialty}`)}</div>
+      <div className="rail-h">{t("nav.dictation")} · {specLabel(t, template.specialty)}</div>
       <div className="tpl-picker" ref={pickerRef}>
         <button
           type="button"
@@ -428,28 +491,77 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
           <div className="tpl-icon"><Icon name={template.icon || "fileText"} size={16} /></div>
           <div className="tpl-meta">
             <div className="tpl-name">{template.name[lang] || template.name.en}</div>
-            <div className="tpl-spec">{template.code} · {t(`spec.${template.specialty}`)}</div>
+            <div className="tpl-spec">{template.code} · {specLabel(t, template.specialty)}</div>
           </div>
           <Icon name="chevDown" size={14} className={"muted chev" + (pickerOpen ? " up" : "")} />
         </button>
         {pickerOpen && (
           <div className="tpl-dropdown" role="listbox">
-            <div className="tpl-dropdown-h">{t("tpl.switch")}</div>
-            {all.map(tpl => (
+            <div className="tpl-dropdown-search">
+              <Icon name="search" size={14} className="muted" />
+              <input
+                autoFocus
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={lang === "uk" ? "Пошук шаблону…" : "Search templates…"}
+                aria-label={lang === "uk" ? "Пошук шаблону" : "Search templates"}
+              />
+            </div>
+            <div className="tpl-dropdown-filter">
               <button
-                key={tpl.id} type="button" role="option"
-                aria-selected={tpl.id === template.id}
-                className={"tpl-option" + (tpl.id === template.id ? " active" : "")}
-                onClick={() => { onSelectTemplate(tpl.id); setPickerOpen(false); }}
+                type="button"
+                className={"tpl-filter-chip" + (starredOnly ? " on" : "")}
+                onClick={() => setStarredOnly(s => !s)}
+                aria-pressed={starredOnly}
               >
-                <div className="tpl-icon sm"><Icon name={tpl.icon || "fileText"} size={14} /></div>
-                <div className="tpl-meta">
-                  <div className="tpl-name">{tpl.name[lang] || tpl.name.en}</div>
-                  <div className="tpl-spec">{tpl.code} · {t(`spec.${tpl.specialty}`)} · <span className="muted">{tpl.sections.length} {t("tpl.sections")}</span></div>
-                </div>
-                {tpl.id === template.id && <Icon name="check" size={14} className="accent" />}
+                <Icon name="star" size={12} fill={starredOnly ? "currentColor" : "none"} />
+                <span>{lang === "uk" ? "Лише обрані" : "Starred"}{starredCount > 0 ? ` (${starredCount})` : ""}</span>
               </button>
-            ))}
+              <span className="tpl-dropdown-count muted">{visible.length}</span>
+            </div>
+            <div className="tpl-dropdown-list">
+              {visible.length === 0 ? (
+                <div className="tpl-dropdown-empty">
+                  {starredOnly
+                    ? (lang === "uk" ? "Немає обраних шаблонів" : "No starred templates")
+                    : (lang === "uk" ? "Нічого не знайдено" : "No matches")}
+                </div>
+              ) : visible.map(tpl => {
+                const uc = usage[tpl.id] || 0;
+                const starred = stars.has(tpl.id);
+                return (
+                  <div className="tpl-option-row" key={tpl.id}>
+                    <button
+                      type="button" role="option"
+                      aria-selected={tpl.id === template.id}
+                      className={"tpl-option" + (tpl.id === template.id ? " active" : "")}
+                      onClick={() => { recordUse(tpl.id); onSelectTemplate(tpl.id); setPickerOpen(false); }}
+                    >
+                      <div className="tpl-icon sm"><Icon name={tpl.icon || "fileText"} size={14} /></div>
+                      <div className="tpl-meta">
+                        <div className="tpl-name">{nameOf(tpl)}</div>
+                        <div className="tpl-spec">{tpl.code} · {specLabel(t, tpl.specialty)}{tpl.sections?.length ? <> · <span className="muted">{tpl.sections.length} {t("tpl.sections")}</span></> : null}{uc > 0 ? <> · <span className="muted">{uc}×</span></> : null}</div>
+                      </div>
+                      {tpl.id === template.id && <Icon name="check" size={14} className="accent" />}
+                    </button>
+                    <button
+                      type="button"
+                      className={"tpl-option-star" + (starred ? " on" : "")}
+                      onClick={(e) => handleStar(tpl.id, e)}
+                      aria-pressed={starred}
+                      aria-label={starred
+                        ? (lang === "uk" ? "Прибрати з обраних" : "Unstar")
+                        : (lang === "uk" ? "Додати в обрані" : "Star")}
+                      title={starred
+                        ? (lang === "uk" ? "Прибрати з обраних" : "Unstar")
+                        : (lang === "uk" ? "Додати в обрані" : "Star")}
+                    >
+                      <Icon name="star" size={14} fill={starred ? "currentColor" : "none"} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
             <div className="tpl-dropdown-sep" />
             <button type="button" className="tpl-add" onClick={() => { setAddOpen(true); setPickerOpen(false); }}>
               <Icon name="plus" size={14} />
@@ -539,7 +651,19 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   const { t } = useI18n();
   const templatesList = useMemo(() => Object.values(templatesMap), [templatesMap]);
   const [templateId,  setTemplateId]  = useState(null);
-  const template = (templateId && templatesMap[templateId]) || null;
+
+  // The list endpoint omits schema_jsonb (no sections); fetch the full template
+  // detail for the active id and adapt it to the Studio shape (the backend
+  // loads it into the dictation session at start — we don't re-send it).
+  const detailReq = useAsync(
+    () => getTemplate(templateId),
+    [templateId],
+    { enabled: !!templateId },
+  );
+  const template = useMemo(
+    () => (detailReq.data ? toStudioTemplate(detailReq.data) : null),
+    [detailReq.data],
+  );
 
   const [body,        setBody]        = useState({});
   const [activeId,    setActiveId]    = useState(null);
@@ -551,19 +675,49 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   const [toasts,      setToasts]      = useState([]);
   const reportIdRef = useRef(null);
 
+  // Live dictation WebSocket client, when a session is running. Section-aware
+  // ASR is driven over this socket via switch_section (templates §4): no HTTP
+  // on this path. Null while the Studio is on the Web-Speech fallback path.
+  const wsClientRef = useRef(null);
+
+  // Tell the backend ASR which section we're in now. Fires on a user click in
+  // the rail and on a voice `navigate_section`. The recoverable error frame
+  // (code:"bad_message") for an invalid id is surfaced as a non-fatal toast and
+  // keeps the session alive.
+  const notifySectionSwitch = useCallback((sectionId, reason) => {
+    if (!sectionId) return;
+    const ws = wsClientRef.current;
+    if (ws && typeof ws.switchSection === "function") {
+      ws.switchSection(sectionId, reason);
+    }
+  }, []);
+
+  const pickSection = useCallback((sectionId, reason = "user_click") => {
+    setActiveId(sectionId);
+    notifySectionSwitch(sectionId, reason);
+  }, [notifySectionSwitch]);
+
   // Pick the first available template once the list loads.
   useEffect(() => {
     if (templateId || !templatesList.length) return;
-    const first = templatesList[0];
-    setTemplateId(first.id);
-    setActiveId(first.sections?.[0]?.id ?? null);
+    setTemplateId(templatesList[0].id);
   }, [templatesList, templateId]);
 
-  const onAddTemplate = useCallback(tpl => {
-    externalAddTemplate?.(tpl);
-    setTemplateId(tpl.id);
-    setBody({});
-    setActiveId(tpl.sections?.[0]?.id ?? null);
+  // Once the detail (with sections) loads, default the active section.
+  useEffect(() => {
+    const secs = template?.sections;
+    if (!secs?.length) return;
+    setActiveId((cur) => (cur && secs.some((s) => s.id === cur)) ? cur : secs[0].id);
+  }, [template]);
+
+  const onAddTemplate = useCallback(async (definition) => {
+    const newId = await externalAddTemplate?.(definition);
+    if (newId) {
+      setTemplateId(newId);
+      setBody({});
+      reportIdRef.current = null;
+      setActiveId(null); // the detail-load effect sets the first section
+    }
   }, [externalAddTemplate]);
 
   // Sprint 10 — autocomplete state
@@ -632,6 +786,20 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       if (ins != null) setBody(prev => ({ ...prev, [activeId]: (prev[activeId] || "") + ins }));
       else if (cmd.op === "save_draft") triggerSave();
       else if (cmd.op === "stop_dictation") speech.stop();
+      else if (cmd.op === "navigate_section") {
+        // "розділ діагноз" → jump to the matching section and tell the ASR
+        // (reason: voice_command). Match the spoken phrase against the
+        // template's voice_aliases / section id / intent keyword.
+        const norm = trimmed.toLowerCase().replace(/[.,!?]+$/, "").trim();
+        const keyword = (cmd.intent.split(".")[1] || "").toLowerCase();
+        const target = template?.sections?.find(s =>
+          (s.voice_aliases || []).includes(norm) ||
+          s.id === keyword ||
+          s.id.includes(keyword) ||
+          (s.name?.en || "").toLowerCase().includes(keyword),
+        );
+        if (target) pickSection(target.id, "voice_command");
+      }
       return;
     }
     setBody(prev => {
@@ -641,7 +809,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       return { ...prev, [activeId]: cur + sep + text };
     });
     setSaveState("unsaved");
-  }, [activeId, dictLang, triggerSave]);
+  }, [activeId, dictLang, triggerSave, template, pickSection]);
 
   const speech = useSpeechRecognition({ lang: dictLang, enabled: true, onPartial: onPartialCb, onFinal: onFinalCb });
 
@@ -724,14 +892,19 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   }, [pillSugs, acPrefs.pillsEnabled, backoff.paused]);
 
   if (!template) {
+    const loading = !!templateId && detailReq.loading;
     return (
       <div className="studio">
         <Empty
           icon="fileText"
-          title={lang === "uk" ? "Шаблони недоступні" : "No templates available"}
-          body={lang === "uk"
-            ? "Не вдалося завантажити шаблони звітів."
-            : "Report templates could not be loaded."}
+          title={loading
+            ? (lang === "uk" ? "Завантаження шаблону…" : "Loading template…")
+            : (lang === "uk" ? "Шаблони недоступні" : "No templates available")}
+          body={loading
+            ? ""
+            : (lang === "uk"
+              ? "Не вдалося завантажити шаблони звітів."
+              : "Report templates could not be loaded.")}
         />
       </div>
     );
@@ -744,13 +917,13 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           template={template}
           body={body}
           activeId={activeId}
-          onPick={setActiveId}
+          onPick={(id) => pickSection(id, "user_click")}
           templatesMap={templatesMap}
           onSelectTemplate={id => {
             setTemplateId(id);
             setBody({});
             reportIdRef.current = null;
-            setActiveId(templatesMap[id]?.sections?.[0]?.id ?? null);
+            setActiveId(null); // the detail-load effect sets the first section
           }}
           onAddTemplate={onAddTemplate}
         />
@@ -772,7 +945,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           body={body}
           onBodyChange={b => { setBody(b); setSaveState("unsaved"); }}
           activeId={activeId}
-          onActiveSectionChange={setActiveId}
+          onActiveSectionChange={(id) => pickSection(id, "user_click")}
           partial={partial}
           readOnly={false}
           lang={lang}

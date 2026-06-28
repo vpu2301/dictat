@@ -16,7 +16,7 @@ import { ConsentScreen, RecordingIndicator } from './components/ConsentFlow.jsx'
 import { TemplatesPage } from './components/TemplatesPage.jsx';
 import { ScribeNoteStructures } from './components/Scribe.jsx';
 import { useAsync } from './api/useAsync.js';
-import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from './api/templates.js';
+import { listTemplates, createTemplate, toStudioTemplate } from './api/templates.js';
 
 import { LandingPage } from './pages/LandingPage.jsx';
 import { ContentPage } from './pages/marketing/ContentPage.jsx';
@@ -58,17 +58,27 @@ function App() {
 
   const fireToast = (msg) => setToast({ msg });
 
-  // Shared template state — loaded from the core service.
-  const templatesReq = useAsync(() => listTemplates(), []);
+  // Shared template summaries — feed the dictation Studio's template picker.
+  // The Templates admin page (/dictate/templates) self-manages its own data.
+  // Summaries carry no schema_jsonb (no sections); the Studio fetches detail
+  // for the active template. Adapt the backend shape to the legacy Studio shape.
+  const templatesReq = useAsync(() => listTemplates({ limit: 200 }), []);
   const templatesMap = useMemo(() => {
     const list = Array.isArray(templatesReq.data)
       ? templatesReq.data
       : (templatesReq.data?.items || []);
-    return Object.fromEntries(list.map((t) => [t.id, t]));
+    return Object.fromEntries(list.map((t) => {
+      const adapted = toStudioTemplate(t);
+      return [adapted.id, adapted];
+    }));
   }, [templatesReq.data]);
-  const handleAddTemplate    = async (tpl) => { await createTemplate(tpl);        templatesReq.reload(); };
-  const handleUpdateTemplate = async (tpl) => { await updateTemplate(tpl.id, tpl); templatesReq.reload(); };
-  const handleDeleteTemplate = async (id)  => { await deleteTemplate(id);          templatesReq.reload(); };
+  // Create-from-scratch (Studio "new template" dialog). Returns the new id so
+  // the Studio can select it; the detail fetch then loads its sections.
+  const handleAddTemplate = async (definition) => {
+    const res = await createTemplate(definition);
+    await templatesReq.reload();
+    return res?.id ?? null;
+  };
 
   // Hash router
   useEffect(() => {
@@ -139,7 +149,7 @@ function App() {
     view = <LoginPage navigate={navigate} lang={lang} />;
     fullBleed = true;
   }
-  // ── signup (request access — UI-only mock, no backend yet) ──
+  // ── signup (request-access lead — admin-invite-only, doc 03 §4.1) ──
   else if (r === "/signup") {
     view = <SignupPage navigate={navigate} lang={lang} />;
     fullBleed = true;
@@ -218,9 +228,7 @@ function App() {
     view = <ReportView id={id} lang={lang} navigate={navigate} />;
     crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: lang === "uk" ? "Звіти" : "Reports", path: "/dictate/reports", onClick: () => navigate("/dictate/reports") }, { label: id }];
   } else if (r === "/dictate/templates") {
-    view = <TemplatesPage lang={lang} templates={templatesMap}
-             onAdd={handleAddTemplate} onUpdate={handleUpdateTemplate} onDelete={handleDeleteTemplate}
-             navigate={navigate} />;
+    view = <TemplatesPage lang={lang} navigate={navigate} />;
     crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: lang === "uk" ? "Шаблони" : "Templates" }];
   }
   // ── asr (batch transcription) ──────────────────────────────

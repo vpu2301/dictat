@@ -63,6 +63,8 @@ export const Icon = ({ name, size = 16, ...rest }) => {
     italic: <path d="M19 4h-9M14 20H5M15 4 9 20" />,
     underline: <><path d="M6 4v6a6 6 0 0 0 12 0V4M4 20h16" /></>,
     list: <><path d="M8 6h13M8 12h13M8 18h13" /><circle cx="3" cy="6" r="1" /><circle cx="3" cy="12" r="1" /><circle cx="3" cy="18" r="1" /></>,
+    grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />,
+    star: <path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.3l-5.8 3.05 1.11-6.46-4.7-4.58 6.49-.94z" />,
     diff: <><path d="M12 5v14M5 12h14M3 3l18 18M3 21 21 3" stroke="none" /><path d="M17 7H7v4h10V7zM7 13h10v4H7z" /></>,
   };
   return (

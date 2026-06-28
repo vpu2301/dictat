@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useI18n } from '../i18n.js'
-import { suggest } from '../api/nlp.js'
+import { suggest } from '../api/autocomplete.js'
 
 // ── Source metadata ───────────────────────────────────────────────────────
 
@@ -24,10 +24,10 @@ function sourceColor(source) {
   return SOURCE_META[source]?.color || 'var(--muted)'
 }
 
-// ── Suggestion fetching (nlp-service) ─────────────────────────────────────
+// ── Suggestion fetching (autocomplete-service) ────────────────────────────
 // Layer A (ghost) and Layer B (pills) both pull ranked snippets from
-// POST /nlp/suggest. Suggestions are best-effort: a failed request resolves
-// to an empty list and never interrupts dictation.
+// POST /autocomplete/suggest. Suggestions are best-effort: a failed request
+// resolves to an empty list and never interrupts dictation.
 
 async function fetchSuggestions({ templateId, sectionId, prefix, language, limit, signal }) {
   if (!sectionId) return []

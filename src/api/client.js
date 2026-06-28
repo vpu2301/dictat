@@ -147,3 +147,12 @@ export async function tryRefresh() {
     return null;
   }
 }
+
+// ── E2E test seam (dev only) ────────────────────────────────────────────
+// Exposes the live client on window so the Playwright suite (e2e/auth.spec.js)
+// can drive single-flight / silent-refresh / refresh-fail→logout
+// deterministically against route-mocked endpoints. Gated to Vite dev
+// (import.meta.env.DEV) so it is never present in a production bundle.
+if (typeof window !== "undefined" && import.meta.env && import.meta.env.DEV) {
+  window.__mdxClient = { api, apiAt, getAccessToken, setAccessToken, tryRefresh, wasReplayDetected };
+}

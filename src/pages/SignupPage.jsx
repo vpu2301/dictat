@@ -1,12 +1,13 @@
-// SignupPage.jsx — /signup. UI-only mock (no backend yet).
+// SignupPage.jsx — /signup. "Request access" lead form (doc 03 §4.1, option A).
 //
-// This platform is admin-invite-only (a tenant admin invites users via
-// POST /admin/users/invite). This page is a front-end prototype of a
-// "request access" form: it validates locally and shows a success state.
-// TODO(backend): wire to a real registration / access-request endpoint when
-// one exists. Until then nothing is sent over the network.
+// This platform is admin-invite-only: a tenant admin provisions users via
+// POST /admin/users/invite, which is what sets their credentials. There is NO
+// self-serve account creation, so this page does NOT collect a password — it
+// captures a lead and (when VITE_ACCESS_REQUEST_EMAIL is set) composes a mail
+// draft to the team. Real onboarding happens through the invite flow.
 import React, { useState } from "react";
 import { Icon, Logo } from "../components/UI.jsx";
+import { ACCESS_REQUEST_EMAIL } from "../api/services.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -16,8 +17,7 @@ export function SignupPage({ navigate, lang = "en" }) {
     displayName: "",
     email: "",
     organization: "",
-    password: "",
-    confirm: "",
+    message: "",
   });
   const [errors, setErrors] = useState({});
   const [phase, setPhase] = useState("idle"); // idle | submitting | success
@@ -31,11 +31,30 @@ export function SignupPage({ navigate, lang = "en" }) {
       next.email = uk ? "Невірна електронна пошта." : "Enter a valid email.";
     if (!form.organization.trim())
       next.organization = uk ? "Вкажіть клініку." : "Enter your clinic.";
-    if (form.password.length < 8)
-      next.password = uk ? "Мінімум 8 символів." : "At least 8 characters.";
-    if (form.confirm !== form.password)
-      next.confirm = uk ? "Паролі не збігаються." : "Passwords do not match.";
     return next;
+  };
+
+  // Lightweight lead submission: compose a mail draft to the configured
+  // address. No backend endpoint exists (and none is in scope), so this is the
+  // sanctioned "lead" path — see doc 03 §4.1. If no address is configured we
+  // simply confirm receipt without composing anything.
+  const sendLead = () => {
+    if (!ACCESS_REQUEST_EMAIL) return;
+    const subject = `Access request — ${form.organization.trim()}`;
+    const body = [
+      `Name: ${form.displayName.trim()}`,
+      `Email: ${form.email.trim()}`,
+      `Clinic / organization: ${form.organization.trim()}`,
+      form.message.trim() ? `\nMessage:\n${form.message.trim()}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const href = `mailto:${ACCESS_REQUEST_EMAIL}?subject=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(body)}`;
+    // Opening a mail draft must not navigate the SPA away; mailto: is handled
+    // by the OS mail client and leaves the page intact.
+    window.location.href = href;
   };
 
   const onSubmit = async (e) => {
@@ -44,8 +63,7 @@ export function SignupPage({ navigate, lang = "en" }) {
     setErrors(next);
     if (Object.keys(next).length) return;
     setPhase("submitting");
-    // TODO(backend): replace this simulated delay with the real request.
-    await new Promise((r) => setTimeout(r, 600));
+    sendLead();
     setPhase("success");
   };
 
@@ -71,8 +89,8 @@ export function SignupPage({ navigate, lang = "en" }) {
             </h1>
             <p className="login-sub">
               {uk
-                ? "Дякуємо! Адміністратор вашого тенанта розгляне запит і надішле запрошення на вашу пошту."
-                : "Thanks! Your tenant admin will review the request and send an invite to your email."}
+                ? "Дякуємо! Наша команда зв'яжеться з вами. Доступ надає адміністратор вашої клініки через запрошення на пошту."
+                : "Thanks! Our team will reach out shortly. Accounts are provisioned by your clinic's administrator via an email invite."}
             </p>
           </div>
           <button
@@ -120,8 +138,8 @@ export function SignupPage({ navigate, lang = "en" }) {
         <h1 className="login-title">{uk ? "Запит доступу" : "Request access"}</h1>
         <p className="login-sub">
           {uk
-            ? "Заповніть форму — адмін тенанта надішле запрошення."
-            : "Fill in the form — a tenant admin will send you an invite."}
+            ? "Розкажіть про себе — наша команда зв'яжеться та надішле запрошення. Самостійна реєстрація недоступна; акаунти створює адміністратор клініки."
+            : "Tell us about yourself and our team will reach out with an invite. There is no self-serve sign-up — accounts are created by your clinic's administrator."}
         </p>
 
         {field({
@@ -143,18 +161,20 @@ export function SignupPage({ navigate, lang = "en" }) {
           autoComplete: "organization",
           placeholder: uk ? "Міська лікарня №1" : "City Hospital No. 1",
         })}
-        {field({
-          name: "password",
-          label: uk ? "Пароль" : "Password",
-          type: "password",
-          autoComplete: "new-password",
-        })}
-        {field({
-          name: "confirm",
-          label: uk ? "Підтвердіть пароль" : "Confirm password",
-          type: "password",
-          autoComplete: "new-password",
-        })}
+        <label className="login-field">
+          <span>{uk ? "Повідомлення (необов'язково)" : "Message (optional)"}</span>
+          <textarea
+            value={form.message}
+            onChange={set("message")}
+            rows={3}
+            disabled={phase === "submitting"}
+            placeholder={
+              uk
+                ? "Коротко про вашу клініку та потреби."
+                : "A little about your clinic and what you need."
+            }
+          />
+        </label>
 
         <button
           type="submit"

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Icon, Logo, Modal } from "./UI.jsx";
 import { HealthBadge } from "./HealthBadge.jsx";
+import { TenantBadge } from "./TenantBadge.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
 import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
@@ -254,6 +255,7 @@ export function Sidebar({
       <div className="sb-spacer" />
 
       <div className="sb-foot">
+        {state && <TenantBadge lang={lang} collapsed={collapsed} />}
         {!collapsed && (
           <div className="sb-controls">
             <HealthBadge lang={lang} />
