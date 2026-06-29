@@ -8,10 +8,12 @@ import { useI18n } from '../i18n.js';
 import { Icon, SaveStatus, Modal, Toast, Empty } from './UI.jsx';
 import { TipTapEditor, bodyToDoc, docToBody } from './TipTapEditor.jsx';
 import { SigningFlow } from './SigningFlow.jsx';
+import { ReportPreview } from './ReportPreview.jsx';
+import { useAuth } from '../auth/AuthContext.jsx';
 import { useAsync } from '../api/useAsync.js';
 import { getTemplate, toStudioTemplate } from '../api/templates.js';
 import { getStarredIds, toggleStar as toggleStarPref, getUsage, recordUse } from '../api/templatePrefs.js';
-import { createReport, updateReport } from '../api/reports.js';
+import { createReport, updateReport, finalizeReport, downloadReportPdf } from '../api/reports.js';
 import { matchVoiceCommand, insertionFor } from '../dictation/voiceCommands.js';
 import {
   AutocompletePills,
@@ -593,8 +595,6 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
           const state       = filled(s.id);
           const dotState    = (s.required && state === "missing") ? "missing" : state;
           const wc          = (body[s.id] || "").split(/\s+/).filter(Boolean).length;
-          // Sprint 06: ● filled, ◐ partial, ○ missing
-          const indicator   = state === "filled" ? "●" : state === "partial" ? "◐" : "○";
           return (
             <div
               key={s.id}
@@ -606,7 +606,7 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
               onKeyDown={e => e.key === 'Enter' && onPick(s.id)}
               aria-current={s.id === activeId ? 'true' : undefined}
             >
-              <span className="dot" aria-hidden="true">{indicator}</span>
+              <span className="dot" aria-hidden="true" />
               <span className="label">{s.name[lang] || s.name.en}</span>
               {wc > 0 && <span className="word-count">{wc}</span>}
               {s.required && state === "missing" && <span className="req" aria-label="Required">!</span>}
@@ -619,7 +619,7 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
 }
 
 // ── Editor toolbar (above editor) ──────────────────────────────────────
-function EditorToolbar({ onSave, saveState, lastSavedAt, onSign, onExport, patient }) {
+function EditorToolbar({ saveState, lastSavedAt, patient }) {
   const { t } = useI18n();
   return (
     <div className="editor-toolbar">
@@ -635,12 +635,58 @@ function EditorToolbar({ onSave, saveState, lastSavedAt, onSign, onExport, patie
       </div>
       <div className="spacer" />
       <SaveStatus state={saveState} lastSavedAt={lastSavedAt} />
-      <div className="vdiv" />
-      <button className="btn ghost sm" onClick={onExport}>
-        <Icon name="download" size={13} /> {t("action.export")}
+    </div>
+  );
+}
+
+// ── Active-section indicator: shows which section dictation lands in ───────
+function DictationStatusBar({ template, activeId, listening, lang }) {
+  const sec = (template?.sections || []).find((s) => s.id === activeId);
+  const name = sec ? (sec.name[lang] || sec.name.en) : "—";
+  const idx = (template?.sections || []).findIndex((s) => s.id === activeId);
+  return (
+    <div className={"dictation-status-bar" + (listening ? " live" : "")}>
+      <span className="dsb-dot" aria-hidden="true" />
+      <span className="dsb-label">
+        {listening
+          ? (lang === "uk" ? "Диктуєте у розділ" : "Dictating into")
+          : (lang === "uk" ? "Активний розділ" : "Active section")}
+      </span>
+      <span className="dsb-section">{name}</span>
+      {idx >= 0 && (
+        <span className="dsb-pos">{idx + 1}/{template.sections.length}</span>
+      )}
+    </div>
+  );
+}
+
+// ── Footer action bar: save draft + download draft PDF + complete dictation ──
+function StudioFooter({ done, total, onSaveDraft, onDownloadDraft, onComplete, saveState, lang }) {
+  const saving = saveState === "saving";
+  const saved  = saveState === "saved";
+  const saveLabel = saving
+    ? (lang === "uk" ? "Збереження…" : "Saving…")
+    : saved
+      ? (lang === "uk" ? "Збережено" : "Saved")
+      : (lang === "uk" ? "Зберегти чернетку" : "Save draft");
+  return (
+    <div className="studio-footer">
+      <div className="studio-footer-info">
+        <span className="sf-progress">{done}/{total} {lang === "uk" ? "розділів" : "sections"}</span>
+      </div>
+      <button
+        className="btn ghost"
+        onClick={onSaveDraft}
+        disabled={saving || saved}
+        title={lang === "uk" ? "Зберегти, щоб продовжити пізніше (⌘S)" : "Save to continue later (⌘S)"}
+      >
+        <Icon name={saving ? "refresh" : saved ? "check" : "save"} size={14} /> {saveLabel}
       </button>
-      <button className="btn primary sm" onClick={onSign}>
-        <Icon name="sign" size={13} /> {t("action.sign")}
+      <button className="btn ghost" onClick={onDownloadDraft}>
+        <Icon name="download" size={14} /> {lang === "uk" ? "PDF (чернетка)" : "Draft PDF"}
+      </button>
+      <button className="btn primary" onClick={onComplete}>
+        <Icon name="check" size={14} /> {lang === "uk" ? "Завершити диктування" : "Complete dictation"}
       </button>
     </div>
   );
@@ -672,8 +718,12 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   const [saveState,   setSaveState]   = useState("saved");
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [signOpen,    setSignOpen]    = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [toasts,      setToasts]      = useState([]);
+  const { state: auth } = useAuth();
+  const author = auth?.dbUser?.display_name || auth?.claims?.sub || null;
   const reportIdRef = useRef(null);
+  const reportVersionRef = useRef(0);  // optimistic-lock version for draft autosave
 
   // Live dictation WebSocket client, when a session is running. Section-aware
   // ASR is driven over this socket via switch_section (templates §4): no HTTP
@@ -749,10 +799,17 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     setSaveState("saving");
     try {
       if (reportIdRef.current) {
-        await updateReport(reportIdRef.current, { body });
+        const r = await updateReport(reportIdRef.current, {
+          expected_version: reportVersionRef.current,
+          template_id: templateId,
+          template_schema_version: template?.schema_version,
+          body,
+        });
+        if (r?.version_number != null) reportVersionRef.current = r.version_number;
       } else if (templateId) {
-        const r = await createReport({ template: templateId, language: dictLang, body, status: "draft" });
+        const r = await createReport({ template_id: templateId, template_schema_version: template?.schema_version, body });
         reportIdRef.current = r?.id ?? null;
+        reportVersionRef.current = r?.version_number ?? 1;
       }
       setSaveState("saved");
       setLastSavedAt(Date.now());
@@ -760,7 +817,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       // Leave the document dirty so the next autosave tick retries.
       setSaveState("unsaved");
     }
-  }, [body, templateId, dictLang]);
+  }, [body, templateId, template, dictLang]);
 
   const triggerSave = useCallback(() => { saveDraft(); }, [saveDraft]);
 
@@ -812,6 +869,56 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   }, [activeId, dictLang, triggerSave, template, pickSection]);
 
   const speech = useSpeechRecognition({ lang: dictLang, enabled: true, onPartial: onPartialCb, onFinal: onFinalCb });
+
+  // ── Complete dictation / draft export ──────────────────────────────
+  // Stop the mic, persist the draft (creating the report if needed), then open
+  // the written-report preview. Synthesis of raw dictation into polished prose
+  // is a backend step (see the Desktop backend task) — today we render the
+  // dictated body against the template structure.
+  const completeDictation = useCallback(async () => {
+    if (speech.state === "listening") speech.pause();
+    await saveDraft();
+    setPreviewOpen(true);
+  }, [saveDraft, speech]);
+
+  // Apply accepted AI-synthesized prose back into the draft. The autosave effect
+  // persists it (and bumps the optimistic-lock version).
+  const applySynthesis = useCallback((updates) => {
+    if (!updates || !Object.keys(updates).length) return;
+    setBody(prev => ({ ...prev, ...updates }));
+    setSaveState("unsaved");
+  }, []);
+
+  // Finalize from the preview → real "finalized" transition with optimistic
+  // locking. Persists the latest draft first so the version we send is current.
+  // Throws (with .problems on a 422, .status on a 409) for the preview to surface.
+  const finalizeFromPreview = useCallback(async () => {
+    if (!reportIdRef.current) throw new Error("no_report");
+    await saveDraft();
+    const r = await finalizeReport(reportIdRef.current, {
+      expected_version: reportVersionRef.current,
+    });
+    if (r?.version_number != null) reportVersionRef.current = r.version_number;
+    pushToast({ message: lang === "uk" ? "Звіт завершено" : "Report finalized" });
+    return r;
+  }, [saveDraft, lang]);
+
+  const downloadDraft = useCallback(async () => {
+    if (!reportIdRef.current) { await saveDraft(); }
+    if (!reportIdRef.current) {
+      pushToast({ message: lang === "uk"
+        ? "Спершу збережіть чернетку, щоб завантажити PDF"
+        : "Save the draft first to download the PDF" });
+      return;
+    }
+    try {
+      await downloadReportPdf(reportIdRef.current, { variant: "draft", lang });
+    } catch (e) {
+      pushToast({ message: lang === "uk"
+        ? "Не вдалося завантажити PDF"
+        : "Could not download the PDF" });
+    }
+  }, [saveDraft, lang]);
 
   // ── Autosave ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -934,9 +1041,12 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           patient={patient}
           saveState={saveState}
           lastSavedAt={lastSavedAt}
-          onSave={triggerSave}
-          onSign={() => setSignOpen(true)}
-          onExport={() => pushToast({ message: lang === "uk" ? "PDF згенеровано" : "PDF generated" })}
+        />
+        <DictationStatusBar
+          template={template}
+          activeId={activeId}
+          listening={speech.state === "listening"}
+          lang={lang}
         />
         {/* Sprint 06: TipTap section-aware editor */}
         <TipTapEditor
@@ -968,6 +1078,16 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
         {backoff.pauseMsg && (
           <AutocompletePauseToast onResume={backoff.resume} lang={lang} />
         )}
+
+        <StudioFooter
+          done={template.sections.filter(s => (body[s.id] || "").trim().length > 0).length}
+          total={template.sections.length}
+          onSaveDraft={triggerSave}
+          onDownloadDraft={downloadDraft}
+          onComplete={completeDictation}
+          saveState={saveState}
+          lang={lang}
+        />
       </section>
 
       <aside className="right">
@@ -986,6 +1106,21 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           <AutocompleteSettings prefs={acPrefs} onChange={setAcPrefs} lang={lang} />
         </div>
       </aside>
+
+      {/* Completed dictation → written-report preview */}
+      <ReportPreview
+        open={previewOpen}
+        lang={lang}
+        template={template}
+        body={body}
+        patient={patient}
+        author={author}
+        reportId={reportIdRef.current}
+        onClose={() => setPreviewOpen(false)}
+        onSign={() => { setPreviewOpen(false); setSignOpen(true); }}
+        onApplySynthesis={applySynthesis}
+        onFinalize={finalizeFromPreview}
+      />
 
       {/* Sprint 09: Full signing flow */}
       {signOpen && (

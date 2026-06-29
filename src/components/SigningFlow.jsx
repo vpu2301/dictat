@@ -316,7 +316,7 @@ function LocalKeyFlow({ reportId, onSuccess, onCancel }) {
                 ? '1. Завантажте непідписаний PDF.\n2. Підпишіть у програмі «Cipher» або «ІІТ Користувач».\n3. Завантажте підписаний PDF нижче.'
                 : '1. Download the unsigned PDF.\n2. Sign it using Cipher or ІІТ User software.\n3. Upload the signed PDF below.'}
             </div>
-            <a href={unsignedPdfUrl(reportId)} className="btn" target="_blank" rel="noopener noreferrer">
+            <a href={unsignedPdfUrl(reportId, lang)} className="btn" target="_blank" rel="noopener noreferrer">
               <Icon name="download" size={14} /> {uk ? 'Завантажити PDF' : 'Download PDF'}
             </a>
             <button className="btn primary" onClick={() => setPhase('upload')}>

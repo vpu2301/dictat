@@ -43,13 +43,16 @@ function templatesToMap(data) {
 
 function StatusChip({ status, lang }) {
   const labels = {
-    draft:   { uk: "Чернетка",   en: "Draft"   },
-    final:   { uk: "Фінал",      en: "Final"   },
-    signed:  { uk: "Підписано",  en: "Signed"  },
-    amended: { uk: "З правками", en: "Amended" },
+    draft:     { uk: "Чернетка",   en: "Draft"   },
+    final:     { uk: "Фінал",      en: "Final"   },
+    finalized: { uk: "Завершено",  en: "Finalized" }, // backend transition name (guide §4)
+    signed:    { uk: "Підписано",  en: "Signed"  },
+    amended:   { uk: "З правками", en: "Amended" },
   };
   const label = labels[status]?.[lang] ?? status;
-  return <span className={`chip rep-status-${status}`}>{label}</span>;
+  // Reuse the "final" chip styling for the backend's "finalized" status.
+  const cls = status === "finalized" ? "final" : status;
+  return <span className={`chip rep-status-${cls}`}>{label}</span>;
 }
 
 // ── Specialty filter dropdown ─────────────────────────────────────────────
@@ -310,6 +313,12 @@ export function ReportView({ id, navigate, lang }) {
   }
 
   const tpl = templatesToMap(templatesReq.data)[r.template];
+  // Localized section titles resolved server-side (guide §3): key by section_key,
+  // fall back to the template's own section name when null/absent.
+  const labelMap = Object.fromEntries(
+    (r.section_labels || []).filter(l => l?.section_key).map(l => [l.section_key, l.name || {}]),
+  );
+  const sectionLabel = (s) => loc(labelMap[s.id], lang) || loc(s.name, lang);
   const isSigned = r.status === "signed" || r.status === "amended";
   const versions = asList(versionsReq.data);
   const signature = r.signature || {};
@@ -407,7 +416,7 @@ export function ReportView({ id, navigate, lang }) {
               return (
                 <div key={s.id} className="section-block">
                   <div className="sec-h">
-                    <span>{loc(s.name, lang)}</span>
+                    <span>{sectionLabel(s)}</span>
                     {s.required && <span className="req-tag">{lang === "uk" ? "Обов'язково" : "Required"}</span>}
                   </div>
                   <div className="body" style={{ whiteSpace: "pre-wrap" }}>

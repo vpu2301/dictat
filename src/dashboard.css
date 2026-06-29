@@ -1,0 +1,243 @@
+/* dashboard.css — Business-owner dashboard (#/dashboard).
+   Reuses the app design tokens from styles.css (:root). Imported once in
+   main.jsx after sprints-11-15.css so these rules win for .dashboard-* scopes. */
+
+.dashboard {
+  padding: 20px 24px 48px;
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── Header / range selector ─────────────────────────────────────────── */
+.dash-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.dash-head h1 { margin: 0; font-size: 22px; }
+.dash-head .muted { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.dash-tenant {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-2);
+  background: var(--surface-2); border: 1px solid var(--line, var(--surface-2));
+  padding: 3px 9px; border-radius: 999px;
+}
+.dash-range {
+  display: inline-flex; background: var(--surface-2);
+  border: 1px solid var(--line, var(--surface-2)); border-radius: 8px; overflow: hidden;
+}
+.dash-range button {
+  border: 0; background: transparent; color: var(--text-2);
+  padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer;
+}
+.dash-range button.on { background: var(--accent); color: var(--accent-text, #fff); }
+.dash-range button:not(.on):hover { background: var(--surface); color: var(--text-1); }
+
+/* ── Sticky section scroll-menu ──────────────────────────────────────── */
+/* Pins directly below the app's sticky topbar (.tb, top:0 z-index:10).
+   Using top: var(--topbar-h) keeps it from sliding under the topbar and
+   vanishing; z-index sits below the topbar but above panel content. */
+.dash-scrollmenu {
+  position: sticky; top: var(--topbar-h, 52px); z-index: 6;
+  display: flex; gap: 4px; overflow-x: auto;
+  padding: 8px 0; margin: -4px 0 2px;
+  background: var(--bg, var(--surface));
+  border-bottom: 1px solid var(--line, var(--surface-2));
+  scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+}
+.dash-scrollmenu::-webkit-scrollbar { height: 4px; }
+.dash-scrollmenu::-webkit-scrollbar-thumb { background: var(--line, var(--surface-2)); border-radius: 4px; }
+.dash-scrollmenu button {
+  flex: none; border: 1px solid transparent; background: transparent;
+  color: var(--text-2); padding: 6px 12px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap;
+  scroll-snap-align: start; transition: background .12s, color .12s;
+}
+.dash-scrollmenu button:hover { background: var(--surface-2); color: var(--text-1); }
+.dash-scrollmenu button.on {
+  background: var(--accent-soft, rgba(10,138,122,.12));
+  color: var(--accent); border-color: var(--accent);
+}
+
+/* Anchored sections — offset so the sticky topbar + scroll-menu don't
+   cover the heading when jumping to a section. */
+.dash-section { scroll-margin-top: calc(var(--topbar-h, 52px) + 56px); }
+
+/* ── Grid scaffolding ────────────────────────────────────────────────── */
+.dash-statrow {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(4, 1fr);
+}
+.dash-2col {
+  display: grid; gap: 14px;
+  grid-template-columns: 3fr 2fr;
+}
+@media (max-width: 900px) {
+  .dash-statrow { grid-template-columns: repeat(2, 1fr); }
+  .dash-2col { grid-template-columns: 1fr; }
+}
+@media (max-width: 540px) {
+  .dash-statrow { grid-template-columns: 1fr; }
+  .dashboard { padding: 16px 14px 40px; }
+}
+
+/* ── Panel shell ─────────────────────────────────────────────────────── */
+.dash-panel {
+  background: var(--surface);
+  border: 1px solid var(--line, var(--surface-2));
+  border-radius: var(--radius-2, 12px);
+  box-shadow: var(--shadow-1, 0 1px 2px rgba(0,0,0,.04));
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.dash-panel-h { display: flex; align-items: center; gap: 8px; }
+.dash-panel-h h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.dash-panel-h .dash-panel-icon { color: var(--accent); display: inline-flex; }
+.dash-panel-h .dash-panel-sub { margin-left: auto; font-size: 11px; color: var(--muted); }
+.dash-gap-note {
+  font-size: 11px; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.dash-gap-note::before { content: "ⓘ"; opacity: .7; }
+
+.dash-panel-loading, .dash-panel-error, .dash-panel-empty {
+  min-height: 90px; display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 13px; text-align: center;
+}
+.dash-panel-error { color: var(--rec, #dc2626); flex-direction: column; gap: 8px; }
+.dash-retry {
+  border: 1px solid var(--line, var(--surface-2)); background: var(--surface-2);
+  color: var(--text-1); border-radius: 7px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+}
+
+/* ── StatCard ────────────────────────────────────────────────────────── */
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--line, var(--surface-2));
+  border-radius: var(--radius-2, 12px);
+  box-shadow: var(--shadow-1, 0 1px 2px rgba(0,0,0,.04));
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 96px;
+}
+.stat-card.accent { border-color: var(--accent); }
+.stat-card-h { display: flex; align-items: center; gap: 8px; }
+.stat-card-label { font-size: 12px; color: var(--text-2); font-weight: 500; }
+.stat-card-icon { margin-left: auto; color: var(--accent); display: inline-flex; }
+.stat-card-value {
+  font-size: 28px; font-weight: 700; line-height: 1.05; color: var(--text-1);
+  font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 4px;
+}
+.stat-card-approx { font-size: 16px; color: var(--muted); font-weight: 500; }
+.stat-card-err { color: var(--muted); }
+.stat-card-sub { font-size: 12px; color: var(--muted); }
+.stat-card-skel {
+  height: 30px; width: 60%; border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--line, #eee) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%; animation: dash-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes dash-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+/* ── Sparkline / MiniBar ─────────────────────────────────────────────── */
+.sparkline-line { stroke: var(--accent); }
+.sparkline-area { fill: var(--accent-soft, rgba(10,138,122,.12)); stroke: none; }
+.sparkline-dot { fill: var(--accent); }
+.minibar { display: flex; align-items: flex-end; width: 100%; }
+.minibar-col { flex: 1; display: flex; align-items: flex-end; justify-content: center; }
+.minibar-fill {
+  width: 100%; max-width: 18px; border-radius: 3px 3px 0 0;
+  background: var(--accent-soft, rgba(10,138,122,.25));
+}
+.minibar-col.has .minibar-fill { background: var(--accent); }
+.minibar-empty, .sparkline { opacity: .5; }
+
+/* ── StatusBreakdown ─────────────────────────────────────────────────── */
+.status-breakdown { display: flex; flex-direction: column; gap: 12px; }
+.sbar {
+  display: flex; height: 14px; border-radius: 7px; overflow: hidden;
+  background: var(--surface-2); gap: 1px;
+}
+.sbar-seg { display: block; height: 100%; }
+.sbar-seg.sbar-empty { background: var(--surface-2); }
+.sbar-legend {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px 14px;
+}
+.sbar-legend li { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.sbar-dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.sbar-legend-label { color: var(--text-2); text-transform: capitalize; }
+.sbar-legend-count { margin-left: auto; font-weight: 600; color: var(--text-1); font-variant-numeric: tabular-nums; }
+
+/* ── StatusBadge ─────────────────────────────────────────────────────── */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px;
+  text-transform: capitalize; line-height: 1.5;
+}
+.status-badge-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+.status-badge.tone-ok     { background: rgba(4,120,87,.12);  color: #047857; }
+.status-badge.tone-info   { background: var(--accent-soft, rgba(10,138,122,.12)); color: var(--accent); }
+.status-badge.tone-warn   { background: rgba(180,83,9,.12);  color: #b45309; }
+.status-badge.tone-danger { background: rgba(220,38,38,.12); color: #dc2626; }
+.status-badge.tone-muted  { background: var(--surface-2);    color: var(--muted); }
+
+/* ── License / role bars ─────────────────────────────────────────────── */
+.dash-rolebars { display: flex; flex-direction: column; gap: 8px; }
+.dash-rolebar { display: grid; grid-template-columns: 92px 1fr 28px; align-items: center; gap: 10px; font-size: 12px; }
+.dash-rolebar-name { color: var(--text-2); text-transform: capitalize; }
+.dash-rolebar-track { height: 8px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.dash-rolebar-fill { height: 100%; background: var(--accent); border-radius: 5px; }
+.dash-rolebar-val { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dash-seatlimit {
+  font-size: 12px; color: var(--muted); padding: 8px 10px;
+  background: var(--surface-2); border-radius: 8px; border: 1px dashed var(--line, #ddd);
+}
+
+/* ── Doctors table ───────────────────────────────────────────────────── */
+.dash-table-wrap { overflow-x: auto; }
+.dash-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dash-table th {
+  text-align: left; font-weight: 500; color: var(--muted); font-size: 11px;
+  text-transform: uppercase; letter-spacing: .03em; padding: 0 10px 8px; white-space: nowrap;
+}
+.dash-table td { padding: 9px 10px; border-top: 1px solid var(--line, var(--surface-2)); vertical-align: middle; }
+.dash-table tbody tr { cursor: pointer; }
+.dash-table tbody tr:hover { background: var(--surface-2); }
+.dash-table .dash-doc-name { font-weight: 500; color: var(--text-1); }
+.dash-table .dash-doc-email { color: var(--muted); font-size: 12px; }
+.dash-table td.dash-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── Recently signed list ────────────────────────────────────────────── */
+.dash-signed-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.dash-signed-list li a {
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px;
+  font-size: 13px; color: var(--text-1); cursor: pointer; text-decoration: none;
+}
+.dash-signed-list li a:hover { background: var(--surface-2); }
+.dash-signed-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-signed-when { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+/* ── Capabilities grid ───────────────────────────────────────────────── */
+.dash-caps {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.dash-cap {
+  border: 1px solid var(--line, var(--surface-2)); border-radius: 10px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; background: var(--surface);
+}
+.dash-cap-h { display: flex; align-items: center; gap: 8px; }
+.dash-cap-icon { color: var(--accent); display: inline-flex; flex: none; }
+.dash-cap-name { font-size: 13px; font-weight: 600; flex: 1; }
+.dash-cap-dot { width: 8px; height: 8px; border-radius: 999px; flex: none; background: var(--muted); }
+.dash-cap-dot.ready    { background: #10b981; }
+.dash-cap-dot.starting { background: #f59e0b; }
+.dash-cap-dot.down     { background: #dc2626; }
+.dash-cap-dot.unknown  { background: #9ca3af; }
+.dash-cap-desc { font-size: 12px; color: var(--text-2); line-height: 1.4; }
+.dash-cap-proof { font-size: 11px; color: var(--muted); margin-top: auto; }

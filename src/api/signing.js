@@ -49,9 +49,13 @@ export async function uploadSignedPdf(signingId, file) {
 }
 
 // Absolute URL of the unsigned PDF to hand to local signing software. The
-// report document lives on the report-service (:8006).
-export function unsignedPdfUrl(reportId) {
-  return `${SERVICES.report}/v1/reports/${encodeURIComponent(reportId)}/pdf`;
+// report document lives on the report-service (:8006). Points at the watermarked
+// draft variant (frontend guide §2) since a not-yet-signed report is, by
+// definition, a draft; the backend forces non-signed reports to draft anyway.
+export function unsignedPdfUrl(reportId, lang) {
+  const qs = new URLSearchParams({ variant: "draft" });
+  if (lang) qs.set("lang", lang);
+  return `${SERVICES.report}/v1/reports/${encodeURIComponent(reportId)}/pdf?${qs}`;
 }
 
 // Absolute URL of the PUBLIC signed-PDF download (GET /verify/{token}/pdf).

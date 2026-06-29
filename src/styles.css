@@ -1183,10 +1183,20 @@ kbd {
 }
 .section-item:hover { background: var(--surface-2); color: var(--text-1); }
 .section-item.active { background: var(--dictate-soft); color: var(--dictate); font-weight: 500; }
-.section-item .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); flex-shrink: 0; transition: background .2s; }
-.section-item[data-state="filled"] .dot { background: var(--ok); }
-.section-item[data-state="partial"] .dot { background: var(--warn); }
-.section-item.active .dot { background: var(--dictate); }
+.section-item .dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  box-sizing: border-box;
+  border: 2px solid var(--line); background: transparent;
+  flex-shrink: 0;
+  transition: background .2s, border-color .2s;
+}
+/* needs to be dictated → hollow ring (default state above) */
+/* partially dictated → half-filled */
+.section-item[data-state="partial"] .dot { border-color: var(--warn); background: linear-gradient(to right, var(--warn) 50%, transparent 50%); }
+/* done → solid */
+.section-item[data-state="filled"] .dot { border-color: var(--ok); background: var(--ok); }
+/* while dictating (active section) → solid accent, gently pulsing */
+.section-item.active .dot { border-color: var(--dictate); background: var(--dictate); animation: pulse 1.4s ease-in-out infinite; }
 .section-item .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .section-item .word-count { font-family: var(--mono); font-size: 10.5px; color: var(--muted); flex-shrink: 0; }
 .section-item .req { font-size: 10px; font-weight: 700; color: var(--rec); padding: 1px 5px; background: var(--rec-soft); border-radius: 99px; flex-shrink: 0; }
@@ -1656,7 +1666,9 @@ kbd {
 }
 
 /* Template card */
+.tpl-card-wrap { position: relative; display: flex; }
 .tpl-card {
+  flex: 1; min-width: 0;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -1665,6 +1677,26 @@ kbd {
   transition: border-color .15s, box-shadow .15s;
 }
 .tpl-card:hover { border-color: var(--text-3); box-shadow: var(--shadow-2); }
+
+/* Star / favorite toggle (cards + list rows) */
+.tpl-star-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex: none;
+  border: 0; border-radius: 8px; background: transparent;
+  color: var(--muted); cursor: pointer;
+  transition: color .12s, background .12s, opacity .12s;
+}
+.tpl-star-btn:hover { background: var(--surface-2); color: var(--accent); }
+.tpl-star-btn.on { color: var(--accent); }
+.tpl-star-btn.sm { width: 26px; height: 26px; }
+/* In cards, float the star in the top-right corner and reveal on hover. */
+.tpl-card-wrap .tpl-star-btn {
+  position: absolute; top: 8px; right: 8px;
+  opacity: 0;
+}
+.tpl-card-wrap:hover .tpl-star-btn,
+.tpl-card-wrap .tpl-star-btn.on,
+.tpl-card-wrap .tpl-star-btn:focus-visible { opacity: 1; }
 
 .tpl-card-top  { display: flex; align-items: flex-start; gap: 12px; }
 .tpl-card-icon {

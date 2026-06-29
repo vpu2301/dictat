@@ -25,6 +25,8 @@ import { SignupPage } from './pages/SignupPage.jsx';
 import { VerifyPage } from './pages/VerifyPage.jsx';
 import { MfaPage } from './pages/MfaPage.jsx';
 import { MePage } from './pages/MePage.jsx';
+import { ProfilePage } from './pages/ProfilePage.jsx';
+import { DashboardPage } from './pages/DashboardPage.jsx';
 import { AdminUsersPage } from './pages/AdminUsersPage.jsx';
 import { AuditEventsPage } from './pages/AuditEventsPage.jsx';
 import { AuditVerifyPage } from './pages/AuditVerifyPage.jsx';
@@ -34,7 +36,7 @@ import { AsrSubmitPage } from './pages/AsrSubmitPage.jsx';
 import { AsrJobsListPage } from './pages/AsrJobsListPage.jsx';
 import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
 import { RequireAuth, RequireRole } from './auth/RequireRole.jsx';
-import { useAuth } from './auth/AuthContext.jsx';
+import { useAuth, hasAnyRole } from './auth/AuthContext.jsx';
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "theme": "light",
@@ -108,6 +110,13 @@ function App() {
     if (gateToLogin) navigate("/login");
     else if (gateToHome) navigate("/");
   }, [gateToLogin, gateToHome]);
+
+  // Tenant admins land on their dashboard. When an authenticated owner hits the
+  // bare root (post-login or "Dictator" brand click), send them to #/dashboard.
+  const isTenantAdmin = hasAnyRole(auth?.claims, ["tenant_admin"]);
+  useEffect(() => {
+    if (auth && isTenantAdmin && (route === "/" || route === "")) navigate("/dashboard");
+  }, [auth, isTenantAdmin, route]);
 
   // Theme + density + accent
   useEffect(() => {
@@ -267,10 +276,24 @@ function App() {
     view = <SettingsPage lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     crumbs = [{ label: lang === "uk" ? "Налаштування" : "Settings" }];
   }
-  // ── account / me ───────────────────────────────────────────
+  // ── business-owner dashboard (tenant_admin) ────────────────
+  else if (r === "/dashboard") {
+    view = (
+      <RequireRole any={["tenant_admin"]} navigate={navigate}>
+        <DashboardPage lang={lang} navigate={navigate} />
+      </RequireRole>
+    );
+    crumbs = [{ label: lang === "uk" ? "Панель" : "Dashboard" }];
+  }
+  // ── account / profile ──────────────────────────────────────
+  else if (r === "/profile") {
+    view = <RequireAuth navigate={navigate}><ProfilePage lang={lang} navigate={navigate} /></RequireAuth>;
+    crumbs = [{ label: lang === "uk" ? "Профіль" : "Profile" }];
+  }
+  // ── account / identity (token inspector) ───────────────────
   else if (r === "/me") {
     view = <RequireAuth navigate={navigate}><MePage lang={lang} /></RequireAuth>;
-    crumbs = [{ label: lang === "uk" ? "Профіль" : "Profile" }];
+    crumbs = [{ label: lang === "uk" ? "Ідентичність" : "Identity" }];
   }
   // ── admin ──────────────────────────────────────────────────
   else if (r === "/admin/users") {

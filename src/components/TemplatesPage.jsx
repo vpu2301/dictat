@@ -18,6 +18,7 @@ import { ApiErrorView } from "./ApiErrorView.jsx";
 import { Pagination } from "./Pagination.jsx";
 import { useAsync } from "../api/useAsync.js";
 import { usePermission } from "../auth/permissions.js";
+import { getStarredIds, toggleStar } from "../api/templatePrefs.js";
 import {
   listTemplates, getTemplate, cloneTemplate, updateTemplate, deleteTemplate, getSectionPrompt,
   validateDefinition, classifyEdit, isSlug, FIELD_TYPES, ASR_PROMPT_MAX, SYNTHESIS_PROMPT_MAX,
@@ -128,7 +129,15 @@ export function TemplatesPage({ lang, navigate }) {
   const [language, setLanguage]     = useState("");
   const [showDeprecated, setShowDep]= useState(false);
   const [customOnly, setCustomOnly] = useState(false);
+  const [starredOnly, setStarredOnly] = useState(false);
   const [search, setSearch]         = useState("");
+
+  // Per-user favorites (interim localStorage-backed — see templatePrefs.js).
+  const [stars, setStars] = useState(() => getStarredIds());
+  const onToggleStar = useCallback((id) => {
+    toggleStar(id);
+    setStars(getStarredIds());
+  }, []);
 
   const [viewMode, setViewMode]     = useState("grid"); // "grid" | "list"
   const [page, setPage]             = useState(1);
@@ -151,13 +160,19 @@ export function TemplatesPage({ lang, navigate }) {
 
   const all = asList(req.data);
   const list = useMemo(() => {
-    if (!search.trim()) return all;
-    const q = search.trim().toLowerCase();
-    return all.filter((t) =>
-      `${t.name || ""} ${t.code || ""} ${t.specialty || ""}`.toLowerCase().includes(q));
-  }, [all, search]);
+    let out = all;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      out = out.filter((t) =>
+        `${t.name || ""} ${t.code || ""} ${t.specialty || ""}`.toLowerCase().includes(q));
+    }
+    if (starredOnly) out = out.filter((t) => stars.has(t.id));
+    // Surface starred templates first; otherwise preserve server order.
+    return out.slice().sort((a, b) => (stars.has(b.id) ? 1 : 0) - (stars.has(a.id) ? 1 : 0));
+  }, [all, search, starredOnly, stars]);
 
   const customCount = all.filter((t) => !(t.is_system || t.tenant_id == null)).length;
+  const starredCount = all.filter((t) => stars.has(t.id)).length;
 
   // Client-side pagination over the filtered list.
   const pageCount = Math.max(1, Math.ceil(list.length / pageSize));
@@ -170,7 +185,7 @@ export function TemplatesPage({ lang, navigate }) {
   // Reset to page 1 whenever the filtered result set changes.
   useEffect(() => {
     setPage(1);
-  }, [search, specialty, language, customOnly, showDeprecated]);
+  }, [search, specialty, language, customOnly, showDeprecated, starredOnly]);
 
   const fireToast = useCallback((msg) => {
     setToast(msg);
@@ -248,6 +263,12 @@ export function TemplatesPage({ lang, navigate }) {
           {T(lang, "Лише власні", "Custom only")}
         </label>
         <label className="tpl-toggle">
+          <input type="checkbox" checked={starredOnly} onChange={(e) => setStarredOnly(e.target.checked)} />
+          <Icon name="star" size={12} fill={starredOnly ? "currentColor" : "none"} />
+          {T(lang, "Лише обрані", "Starred only")}
+          {starredCount > 0 && ` (${starredCount})`}
+        </label>
+        <label className="tpl-toggle">
           <input type="checkbox" checked={showDeprecated} onChange={(e) => setShowDep(e.target.checked)} />
           {T(lang, "Показати депрековані", "Show deprecated")}
         </label>
@@ -291,11 +312,13 @@ export function TemplatesPage({ lang, navigate }) {
           {viewMode === "grid" ? (
             <div className="tpl-grid">
               {pageItems.map((tpl) => (
-                <TemplateCard key={tpl.id} tpl={tpl} lang={lang} onOpen={() => setOpenId(tpl.id)} />
+                <TemplateCard key={tpl.id} tpl={tpl} lang={lang} onOpen={() => setOpenId(tpl.id)}
+                  starred={stars.has(tpl.id)} onToggleStar={onToggleStar} />
               ))}
             </div>
           ) : (
-            <TemplateTable items={pageItems} lang={lang} onOpen={setOpenId} />
+            <TemplateTable items={pageItems} lang={lang} onOpen={setOpenId}
+              stars={stars} onToggleStar={onToggleStar} />
           )}
           <Pagination
             page={safePage}
@@ -341,35 +364,54 @@ export function TemplatesPage({ lang, navigate }) {
 }
 
 // ── Card ─────────────────────────────────────────────────────────────────────
-function TemplateCard({ tpl, lang, onOpen }) {
+function TemplateCard({ tpl, lang, onOpen, starred, onToggleStar }) {
   const specLabel = SPECIALTIES.find((s) => s[0] === tpl.specialty);
   return (
-    <button className="tpl-card as-button" onClick={onOpen}
-      style={{ opacity: tpl.status === "deprecated" ? 0.6 : 1 }}>
-      <div className="tpl-card-top">
-        <div className="tpl-card-icon"><Icon name={specialtyIcon(tpl.specialty)} size={18} /></div>
-        <div className="tpl-card-meta">
-          <div className="tpl-card-name">{tpl.name}</div>
-          <div className="tpl-card-sub">
-            <span className="chip" style={{ fontSize: 11 }}>{tpl.code}</span>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              {specLabel ? T(lang, specLabel[1], specLabel[2]) : tpl.specialty}
-            </span>
+    <div className="tpl-card-wrap" style={{ opacity: tpl.status === "deprecated" ? 0.6 : 1 }}>
+      <button className="tpl-card as-button" onClick={onOpen}>
+        <div className="tpl-card-top">
+          <div className="tpl-card-icon"><Icon name={specialtyIcon(tpl.specialty)} size={18} /></div>
+          <div className="tpl-card-meta">
+            <div className="tpl-card-name">{tpl.name}</div>
+            <div className="tpl-card-sub">
+              <span className="chip" style={{ fontSize: 11 }}>{tpl.code}</span>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                {specLabel ? T(lang, specLabel[1], specLabel[2]) : tpl.specialty}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="tpl-card-badges">
-        <OriginBadge tpl={tpl} lang={lang} />
-        <span className="tpl-badge lang">{(tpl.language || "").toUpperCase()}</span>
-        <span className="tpl-badge version">v{tpl.schema_version}</span>
-        <StatusBadge status={tpl.status} lang={lang} />
-      </div>
+        <div className="tpl-card-badges">
+          <OriginBadge tpl={tpl} lang={lang} />
+          <span className="tpl-badge lang">{(tpl.language || "").toUpperCase()}</span>
+          <span className="tpl-badge version">v{tpl.schema_version}</span>
+          <StatusBadge status={tpl.status} lang={lang} />
+        </div>
+      </button>
+      <StarButton starred={starred} lang={lang} onToggle={() => onToggleStar(tpl.id)} />
+    </div>
+  );
+}
+
+// Shared star toggle. Stops propagation so it never triggers the row/card open.
+function StarButton({ starred, lang, onToggle, className = "" }) {
+  return (
+    <button
+      type="button"
+      className={`tpl-star-btn ${className}` + (starred ? " on" : "")}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      aria-pressed={starred}
+      title={starred
+        ? T(lang, "Прибрати з обраних", "Remove from starred")
+        : T(lang, "Додати в обрані", "Add to starred")}
+    >
+      <Icon name="star" size={15} fill={starred ? "currentColor" : "none"} />
     </button>
   );
 }
 
 // ── List view ─────────────────────────────────────────────────────────────────
-function TemplateTable({ items, lang, onOpen }) {
+function TemplateTable({ items, lang, onOpen, stars, onToggleStar }) {
   return (
     <div className="ptable">
       <div className="tpl-thead">
@@ -382,13 +424,14 @@ function TemplateTable({ items, lang, onOpen }) {
         <span>{T(lang, "Статус", "Status")}</span>
       </div>
       {items.map((tpl) => (
-        <TemplateRow key={tpl.id} tpl={tpl} lang={lang} onOpen={() => onOpen(tpl.id)} />
+        <TemplateRow key={tpl.id} tpl={tpl} lang={lang} onOpen={() => onOpen(tpl.id)}
+          starred={stars.has(tpl.id)} onToggleStar={onToggleStar} />
       ))}
     </div>
   );
 }
 
-function TemplateRow({ tpl, lang, onOpen }) {
+function TemplateRow({ tpl, lang, onOpen, starred, onToggleStar }) {
   const specLabel = SPECIALTIES.find((s) => s[0] === tpl.specialty);
   return (
     <div
@@ -400,6 +443,7 @@ function TemplateRow({ tpl, lang, onOpen }) {
       style={{ opacity: tpl.status === "deprecated" ? 0.6 : 1 }}
     >
       <div className="tpl-trow-name">
+        <StarButton starred={starred} lang={lang} onToggle={() => onToggleStar(tpl.id)} className="sm" />
         <div className="tpl-card-icon"><Icon name={specialtyIcon(tpl.specialty)} size={16} /></div>
         <span>{tpl.name}</span>
       </div>

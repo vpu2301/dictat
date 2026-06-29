@@ -291,7 +291,7 @@ export function Sidebar({
             <div className={"sb-user-menu" + (collapsed ? " collapsed" : "")} role="menu">
               {state ? (
                 <>
-                  <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/me"))}>
+                  <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/profile"))}>
                     <Icon name="user" size={14} />
                     <span>{lang === "uk" ? "Профіль" : "Profile"}</span>
                   </button>
@@ -299,6 +299,12 @@ export function Sidebar({
                     <Icon name="sliders" size={14} />
                     <span>{lang === "uk" ? "Налаштування" : "Settings"}</span>
                   </button>
+                  {isAdmin && (
+                    <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/dashboard"))}>
+                      <Icon name="grid" size={14} />
+                      <span>{lang === "uk" ? "Панель" : "Dashboard"}</span>
+                    </button>
+                  )}
                   {isAuditor && (
                     <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/audit/events"))}>
                       <Icon name="history" size={14} />
