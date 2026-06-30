@@ -225,8 +225,9 @@ function App() {
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Шаблони" : "Templates" }];
   }
   // ── dictate ────────────────────────────────────────────────
-  else if (r === "/dictate" || r === "/dictate/") {
-    view = <DictationStudio lang={lang}
+  else if (r === "/dictate" || r === "/dictate/" || r.startsWith("/dictate?")) {
+    const pm = r.match(/patient=([\w-]+)/);
+    view = <DictationStudio lang={lang} patientId={pm?.[1]}
              templatesMap={templatesMap} onAddTemplate={handleAddTemplate} />;
     showTopbar = false;
   } else if (r === "/dictate/reports") {
