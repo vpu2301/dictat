@@ -14,6 +14,7 @@ import { useAsync } from '../api/useAsync.js';
 import { getTemplate, toStudioTemplate } from '../api/templates.js';
 import { getStarredIds, toggleStar as toggleStarPref, getUsage, recordUse } from '../api/templatePrefs.js';
 import { createReport, updateReport, finalizeReport, downloadReportPdf } from '../api/reports.js';
+import { getPatient } from '../api/patients.js';
 import { matchVoiceCommand, insertionFor } from '../dictation/voiceCommands.js';
 import {
   AutocompletePills,
@@ -693,8 +694,24 @@ function StudioFooter({ done, total, onSaveDraft, onDownloadDraft, onComplete, s
 }
 
 // ── Main: DictationStudio ──────────────────────────────────────────────
-export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient }) {
+export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId }) {
   const { t } = useI18n();
+
+  // When dictation is launched from a patient (/dictate?patient=<id>), resolve
+  // the patient so the report is filed against them and the toolbar shows the
+  // context. An explicit `patient` prop wins over the fetched one.
+  const patientReq = useAsync(
+    () => (patientId ? getPatient(patientId) : Promise.resolve(null)),
+    [patientId],
+    { enabled: !!patientId },
+  );
+  const patient = useMemo(() => {
+    if (patientProp) return patientProp;
+    const p = patientReq.data;
+    if (!p) return undefined;
+    const name = p.name?.[lang] || p.name?.uk || p.name?.en || p.mrn || "";
+    return { id: p.id, mrn: p.mrn, ref: p.mrn, label: name };
+  }, [patientProp, patientReq.data, lang]);
   const templatesList = useMemo(() => Object.values(templatesMap), [templatesMap]);
   const [templateId,  setTemplateId]  = useState(null);
 
@@ -807,7 +824,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
         });
         if (r?.version_number != null) reportVersionRef.current = r.version_number;
       } else if (templateId) {
-        const r = await createReport({ template_id: templateId, template_schema_version: template?.schema_version, body });
+        const r = await createReport({ template_id: templateId, template_schema_version: template?.schema_version, body, patient_id: patient?.id });
         reportIdRef.current = r?.id ?? null;
         reportVersionRef.current = r?.version_number ?? 1;
       }
@@ -817,7 +834,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       // Leave the document dirty so the next autosave tick retries.
       setSaveState("unsaved");
     }
-  }, [body, templateId, template, dictLang]);
+  }, [body, templateId, template, dictLang, patient]);
 
   const triggerSave = useCallback(() => { saveDraft(); }, [saveDraft]);
 
