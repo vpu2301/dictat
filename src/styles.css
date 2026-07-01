@@ -364,6 +364,22 @@ kbd {
 .sb-user-menu-item.danger:hover { background: rgba(193, 59, 59, 0.08); }
 .sb-user-menu-sep { height: 1px; background: var(--line); margin: 4px 2px; }
 
+/* Secondary nav (Clinic / Admin / Audit) folded into the account dropup.
+   Each section carries a header and is divided from the account items above. */
+.sb-more-section { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+.sb-more-head {
+  padding: 6px 10px 3px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.sb-user-menu .sb-user-menu-item.on {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+.sb-user-menu .sb-user-menu-item.on svg { color: var(--accent); }
+
 .sb-controls { display: flex; align-items: center; gap: 4px; padding: 0 4px; }
 .lang-pill {
   display: inline-flex;

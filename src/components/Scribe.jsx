@@ -6,6 +6,7 @@ import { Icon, Empty, Modal } from './UI.jsx';
 import { LoadGate, asList } from './DataStates.jsx';
 import { Pagination } from './Pagination.jsx';
 import { useAsync } from '../api/useAsync.js';
+import { useClaims } from '../auth/AuthContext.jsx';
 import { listPatients, createPatient } from '../api/patients.js';
 import { listSchedule } from '../api/encounters.js';
 import { listNotes, listNoteStructures } from '../api/notes.js';
@@ -504,7 +505,11 @@ export function ScribePatients({ navigate, lang }) {
   const [addOpen, setAddOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(SCRIBE_DEFAULT_PAGE_SIZE);
-  const req = useAsync(() => listPatients({ query: q || undefined }), [q]);
+  // Patients are tenant-scoped server-side (RLS on the active tenant). Re-key on
+  // claims.tid so the roster refetches when the active clinic changes (after a
+  // switch + re-auth). TENANT.md §2.5.
+  const activeTid = useClaims()?.tid;
+  const req = useAsync(() => listPatients({ query: q || undefined }), [q, activeTid]);
   const list = asList(req.data);
 
   // Server re-queries on `q`; reset to the first page when results change.

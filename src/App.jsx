@@ -7,6 +7,7 @@ import {
 import { Icon, TopBar, Toast, Empty } from './components/UI.jsx';
 import { Sidebar } from './components/Sidebar.jsx';
 import { DictationStudio } from './components/Studio.jsx';
+import { DictateToday } from './components/DictateHome.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
 import { ScribeToday, ScribePatients, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
 import { EnhancedScribePatient } from './components/PatientProfile.jsx';
@@ -28,6 +29,8 @@ import { MePage } from './pages/MePage.jsx';
 import { ProfilePage } from './pages/ProfilePage.jsx';
 import { DashboardPage } from './pages/DashboardPage.jsx';
 import { AdminUsersPage } from './pages/AdminUsersPage.jsx';
+import { TenantSettingsPage } from './pages/TenantSettingsPage.jsx';
+import { TenantMembersPage } from './pages/TenantMembersPage.jsx';
 import { AuditEventsPage } from './pages/AuditEventsPage.jsx';
 import { AuditVerifyPage } from './pages/AuditVerifyPage.jsx';
 import { ForbiddenPage } from './pages/ForbiddenPage.jsx';
@@ -130,7 +133,7 @@ function App() {
     const onKey = (e) => {
       if (e.target.matches("input, textarea, [contenteditable]")) return;
       if (e.key === "n" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/scribe/consult/new"); }
-      if (e.key === "d" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/dictate"); }
+      if (e.key === "d" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/dictate/studio"); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -225,9 +228,15 @@ function App() {
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Шаблони" : "Templates" }];
   }
   // ── dictate ────────────────────────────────────────────────
-  else if (r === "/dictate" || r === "/dictate/" || r.startsWith("/dictate?")) {
+  // /dictate is the product landing (overview); the recording Studio lives at
+  // /dictate/studio so switching products doesn't drop straight into recording.
+  else if (r === "/dictate" || r === "/dictate/") {
+    view = <DictateToday lang={lang} navigate={navigate} />;
+    title = lang === "uk" ? "Диктування" : "Dictation";
+  } else if (r === "/dictate/studio" || r.startsWith("/dictate/studio?") || r.startsWith("/dictate?")) {
     const pm = r.match(/patient=([\w-]+)/);
-    view = <DictationStudio lang={lang} patientId={pm?.[1]}
+    const tm = r.match(/template=([\w-]+)/);
+    view = <DictationStudio lang={lang} patientId={pm?.[1]} initialTemplateId={tm?.[1]}
              templatesMap={templatesMap} onAddTemplate={handleAddTemplate} />;
     showTopbar = false;
   } else if (r === "/dictate/reports") {
@@ -305,6 +314,14 @@ function App() {
     );
     crumbs = [{ label: lang === "uk" ? "Адмін" : "Admin" }, { label: lang === "uk" ? "Користувачі" : "Users" }];
   }
+  // ── clinic / tenant ────────────────────────────────────────
+  else if (r === "/tenant" || r === "/tenant/settings") {
+    view = <RequireAuth navigate={navigate}><TenantSettingsPage lang={lang} onToast={fireToast} /></RequireAuth>;
+    crumbs = [{ label: lang === "uk" ? "Клініка" : "Clinic" }, { label: lang === "uk" ? "Налаштування" : "Settings" }];
+  } else if (r === "/tenant/members") {
+    view = <RequireAuth navigate={navigate}><TenantMembersPage lang={lang} onToast={fireToast} /></RequireAuth>;
+    crumbs = [{ label: lang === "uk" ? "Клініка" : "Clinic" }, { label: lang === "uk" ? "Учасники" : "Members" }];
+  }
   // ── audit ──────────────────────────────────────────────────
   else if (r === "/audit/events") {
     view = (
@@ -379,7 +396,7 @@ function App() {
           tweaks={tweaks}
           setTweak={setTweak}
           onNewSession={() => navigate("/scribe/consult/new")}
-          onNewDictation={() => navigate("/dictate")}
+          onNewDictation={() => navigate("/dictate/studio")}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(c => !c)}
           onToast={fireToast}

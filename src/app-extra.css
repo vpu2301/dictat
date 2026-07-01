@@ -968,3 +968,99 @@
 }
 .fp-body { padding-top: 4px; text-align: center; }
 .fp-note { font-size: 14px; color: var(--muted); line-height: 1.55; margin: 0; }
+
+/* ── Tenant (Clinic) — switcher popover + settings/members (TENANT.md) ─────── */
+.tsw-wrap { position: relative; }
+.tsw-chip {
+  width: 100%; border: 1px solid var(--line); cursor: pointer;
+  font: inherit; text-align: left;
+}
+.tsw-chip:hover { background: var(--surface-3, var(--surface-2)); }
+.tsw-chip.open { border-color: var(--accent); }
+.tsw-chip .tenant-badge-text { flex: 1; }
+
+.tsw-menu {
+  position: absolute; bottom: calc(100% + 6px); left: 0; right: 0;
+  min-width: 240px; z-index: 50;
+  background: var(--surface-1, #fff); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.18);
+  padding: 6px; max-height: 60vh; overflow: auto;
+}
+.tsw-menu.collapsed { left: 0; right: auto; width: 260px; }
+.tsw-menu-h { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 6px 8px 4px; }
+.tsw-menu-empty { padding: 10px 8px; font-size: 12.5px; color: var(--muted); }
+.tsw-menu-pad { padding: 6px; }
+.tsw-menu-sep { height: 1px; background: var(--line); margin: 6px 4px; }
+
+.tsw-item, .tsw-action {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px; border: 0; background: none; border-radius: 8px;
+  cursor: pointer; font: inherit; color: var(--text-1); text-align: left;
+}
+.tsw-item:hover, .tsw-action:hover { background: var(--surface-2); }
+.tsw-item.active { background: var(--accent-soft); }
+.tsw-item:disabled { opacity: .6; cursor: default; }
+.tsw-item-text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.2; }
+.tsw-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tsw-item-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tsw-item-mark { color: var(--accent); display: flex; }
+.tsw-action { color: var(--text-2); font-size: 12.5px; }
+
+.tsw-logo { border-radius: 6px; object-fit: cover; flex: none; }
+.tsw-logo-fallback {
+  display: grid; place-items: center; width: 22px; height: 22px;
+  border-radius: 6px; background: var(--accent-soft); color: var(--accent-text, var(--accent));
+  font-size: 12px; font-weight: 700; flex: none;
+}
+.tsw-note {
+  margin: 6px 4px 2px; padding: 10px; border-radius: 8px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.tsw-note-title { font-size: 12.5px; font-weight: 600; }
+.tsw-note-body { font-size: 12px; color: var(--muted); margin: 4px 0 8px; line-height: 1.45; }
+
+/* Settings + members pages */
+.tenant-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .tenant-grid { grid-template-columns: 1fr; } }
+.tenant-main { display: flex; flex-direction: column; gap: 14px; }
+.tenant-side { display: flex; flex-direction: column; gap: 14px; }
+.tenant-card { padding: 14px 16px; }
+.tenant-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .tenant-fields { grid-template-columns: 1fr; } }
+.admin-field-toggle { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 10px; }
+.admin-field-toggle input { width: auto; }
+.admin-field-toggle small { margin-left: auto; }
+
+.tenant-readonly-note {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  padding: 8px 12px; border-radius: 8px; font-size: 12.5px; color: var(--text-2);
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.tenant-meta-grid { display: flex; flex-wrap: wrap; gap: 18px; }
+.tenant-meta-grid > div { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.tenant-meta-grid code { font-family: var(--mono); font-size: 11px; color: var(--text-2); }
+.tenant-save-bar { display: flex; align-items: center; gap: 12px; position: sticky; bottom: 0; padding: 10px 0; }
+
+.tenant-logo-preview {
+  display: grid; place-items: center; height: 120px; border-radius: 10px;
+  background: var(--surface-2); border: 1px dashed var(--line); margin-bottom: 12px; overflow: hidden;
+}
+.tenant-logo-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.tenant-logo-fallback { width: 56px; height: 56px; font-size: 26px; border-radius: 12px; }
+.tenant-logo-actions { display: flex; flex-direction: column; gap: 8px; }
+.tenant-logo-url { display: flex; gap: 6px; }
+.tenant-logo-url input { flex: 1; min-width: 0;
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 12.5px; }
+
+.tenant-letterhead {
+  border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 8px;
+  background: var(--surface-1, #fff);
+}
+.tenant-letterhead-name { font-size: 15px; font-weight: 700; color: var(--text-1); }
+.tenant-letterhead-sub { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+.tenant-letterhead-line { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+
+.tenant-members-table select { padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); font: inherit; font-size: 12.5px; }
+.tenant-row-error td { padding-top: 0 !important; }
+.tenant-row-error .field-error { display: inline-flex; align-items: center; gap: 6px; }
+.tenant-members-table tr.row-busy { opacity: .6; }

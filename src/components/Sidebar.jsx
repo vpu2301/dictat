@@ -3,10 +3,13 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Icon, Logo, Modal } from "./UI.jsx";
 import { HealthBadge } from "./HealthBadge.jsx";
-import { TenantBadge } from "./TenantBadge.jsx";
+import { ClinicMenuSection, CreateClinicModal } from "./TenantSwitcher.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
 import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
+import { useAsync } from "../api/useAsync.js";
+import { asList } from "./DataStates.jsx";
+import { listReports } from "../api/reports.js";
 
 // One collapsible group ── header clickable, body slides under.
 // When the sidebar itself is collapsed, the group header is hidden and the
@@ -86,6 +89,17 @@ export function Sidebar({
 
   const product = route.startsWith("/dictate") ? "dictate" : "scribe";
 
+  // Live count for the "Reports" nav badge — number of draft reports needing
+  // attention (mirrors the Reports page's own `mine` count). Only fetched when
+  // the Dictate product is active and the reports feature is on; hidden at zero
+  // so an empty Reports list shows no badge (replaces the old hardcoded "7").
+  const reportsBadgeReq = useAsync(
+    () => listReports({ limit: 200 }),
+    [claims?.tid],
+    { enabled: !!state && FEATURES.reports && product === "dictate" },
+  );
+  const draftReportCount = asList(reportsBadgeReq.data).filter((r) => r.status === "draft").length;
+
   // open dropdowns — persisted to localStorage
   const [openSet, setOpenSet] = useState(() => {
     try {
@@ -100,9 +114,7 @@ export function Sidebar({
   // Auto-open the group matching the active route on navigation.
   useEffect(() => {
     let want = null;
-    if (route.startsWith("/admin")) want = "admin";
-    else if (route.startsWith("/audit")) want = "audit";
-    else if (route.startsWith("/asr")) want = "asr";
+    if (route.startsWith("/asr")) want = "asr";
     else if (route.startsWith("/scribe") || route.startsWith("/dictate")) want = "workspace";
     if (want) setOpenSet((cur) => { if (cur.has(want)) return cur; const n = new Set(cur); n.add(want); return n; });
   }, [route]);
@@ -110,6 +122,9 @@ export function Sidebar({
   // Sign-out is confirmed through a modal before the session is torn down.
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  // Create-clinic modal is owned here (not inside the account menu) so it
+  // survives the menu closing when "Create clinic" is picked.
+  const [createClinicOpen, setCreateClinicOpen] = useState(false);
 
   const handleLogout = async () => {
     setSigningOut(true);
@@ -150,6 +165,32 @@ export function Sidebar({
     };
   }, [menuOpen]);
   const pickMenu = (fn) => () => { setMenuOpen(false); fn(); };
+
+  // Secondary nav (Admin / Audit) — folded into the account dropup so the
+  // sidebar footer stays clean. Clinic controls live in ClinicMenuSection just
+  // above these. Each section is role-gated.
+  const navSections = useMemo(() => {
+    const secs = [];
+    if (isAdmin) {
+      secs.push({
+        title: lang === "uk" ? "Адмін" : "Admin",
+        items: [
+          { icon: "grid", label: lang === "uk" ? "Панель" : "Dashboard", path: "/dashboard", exact: true },
+          { icon: "users", label: lang === "uk" ? "Користувачі" : "Users", path: "/admin/users", exact: true },
+        ],
+      });
+    }
+    if (isAuditor) {
+      secs.push({
+        title: lang === "uk" ? "Аудит" : "Audit",
+        items: [
+          { icon: "history", label: lang === "uk" ? "Події" : "Events", path: "/audit/events", prefix: "/audit/events" },
+          { icon: "shield", label: lang === "uk" ? "Перевірка ланцюга" : "Chain verify", path: "/audit/verify", exact: true },
+        ],
+      });
+    }
+    return secs;
+  }, [isAdmin, isAuditor, lang]);
 
   return (
     <>
@@ -208,11 +249,14 @@ export function Sidebar({
           </>
         ) : (
           <>
-            <NavLink {...{ route, navigate, collapsed }} icon="mic" label={lang === "uk" ? "Студія" : "Studio"} path="/dictate" exact />
+            <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={lang === "uk" ? "Огляд" : "Overview"} path="/dictate" exact />
+            <NavLink {...{ route, navigate, collapsed }} icon="mic"
+                     label={lang === "uk" ? "Студія" : "Studio"}
+                     path="/dictate/studio" prefix="/dictate/studio" />
             <NavLink {...{ route, navigate, collapsed }} icon="fileText"
                      label={lang === "uk" ? "Звіти" : "Reports"}
                      path="/dictate/reports" prefix="/dictate/reports"
-                     badge={FEATURES.reports ? "7" : undefined}
+                     badge={FEATURES.reports && draftReportCount > 0 ? String(draftReportCount) : undefined}
                      comingSoon={!FEATURES.reports} />
             <NavLink {...{ route, navigate, collapsed }} icon="layers"
                      label={lang === "uk" ? "Шаблони" : "Templates"}
@@ -235,27 +279,9 @@ export function Sidebar({
         </Group>
       )}
 
-      {/* ── Admin (tenant_admin only) ───────────────────────── */}
-      {isAdmin && (
-        <Group id="admin" title={lang === "uk" ? "Адмін" : "Admin"} icon="shield"
-               openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed}>
-          <NavLink {...{ route, navigate, collapsed }} icon="users" label={lang === "uk" ? "Користувачі" : "Users"} path="/admin/users" exact />
-        </Group>
-      )}
-
-      {/* ── Audit (auditor or tenant_admin) ─────────────────── */}
-      {isAuditor && (
-        <Group id="audit" title={lang === "uk" ? "Аудит" : "Audit"} icon="history"
-               openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed}>
-          <NavLink {...{ route, navigate, collapsed }} icon="history" label={lang === "uk" ? "Події" : "Events"} path="/audit/events" prefix="/audit/events" />
-          <NavLink {...{ route, navigate, collapsed }} icon="shield" label={lang === "uk" ? "Перевірка ланцюга" : "Chain verify"} path="/audit/verify" exact />
-        </Group>
-      )}
-
       <div className="sb-spacer" />
 
       <div className="sb-foot">
-        {state && <TenantBadge lang={lang} collapsed={collapsed} />}
         {!collapsed && (
           <div className="sb-controls">
             <HealthBadge lang={lang} />
@@ -299,18 +325,32 @@ export function Sidebar({
                     <Icon name="sliders" size={14} />
                     <span>{lang === "uk" ? "Налаштування" : "Settings"}</span>
                   </button>
-                  {isAdmin && (
-                    <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/dashboard"))}>
-                      <Icon name="grid" size={14} />
-                      <span>{lang === "uk" ? "Панель" : "Dashboard"}</span>
-                    </button>
-                  )}
-                  {isAuditor && (
-                    <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/audit/events"))}>
-                      <Icon name="history" size={14} />
-                      <span>{lang === "uk" ? "Аудит" : "Audit log"}</span>
-                    </button>
-                  )}
+                  <ClinicMenuSection
+                    lang={lang}
+                    navigate={navigate}
+                    onToast={onToast}
+                    onNavigate={(path) => { setMenuOpen(false); navigate(path); }}
+                    onCreateClinic={() => { setMenuOpen(false); setCreateClinicOpen(true); }}
+                  />
+                  {navSections.map((sec) => (
+                    <div className="sb-more-section" key={sec.title}>
+                      <div className="sb-more-head">{sec.title}</div>
+                      {sec.items.map((it) => {
+                        const active = it.exact ? route === it.path : route.startsWith(it.prefix || it.path);
+                        return (
+                          <button
+                            key={it.path}
+                            className={"sb-user-menu-item" + (active ? " on" : "")}
+                            role="menuitem"
+                            onClick={pickMenu(() => navigate(it.path))}
+                          >
+                            <Icon name={it.icon} size={14} />
+                            <span>{it.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
                   <div className="sb-user-menu-sep" />
                   <button className="sb-user-menu-item danger" role="menuitem" onClick={pickMenu(() => setConfirmOpen(true))}>
                     <Icon name="arrowLeft" size={14} />
@@ -364,6 +404,17 @@ export function Sidebar({
           </div>
         </div>
       </Modal>
+    )}
+
+    {createClinicOpen && (
+      <CreateClinicModal
+        lang={lang}
+        onClose={() => setCreateClinicOpen(false)}
+        onCreated={(t) => {
+          setCreateClinicOpen(false);
+          if (onToast) onToast(lang === "uk" ? `Клініку «${t.display_name}» створено` : `Clinic “${t.display_name}” created`);
+        }}
+      />
     )}
     </>
   );
