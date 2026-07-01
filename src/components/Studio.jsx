@@ -694,10 +694,10 @@ function StudioFooter({ done, total, onSaveDraft, onDownloadDraft, onComplete, s
 }
 
 // ── Main: DictationStudio ──────────────────────────────────────────────
-export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId }) {
+export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId, initialTemplateId }) {
   const { t } = useI18n();
 
-  // When dictation is launched from a patient (/dictate?patient=<id>), resolve
+  // When dictation is launched from a patient (/dictate/studio?patient=<id>), resolve
   // the patient so the report is filed against them and the toolbar shows the
   // context. An explicit `patient` prop wins over the fetched one.
   const patientReq = useAsync(
@@ -713,7 +713,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     return { id: p.id, mrn: p.mrn, ref: p.mrn, label: name };
   }, [patientProp, patientReq.data, lang]);
   const templatesList = useMemo(() => Object.values(templatesMap), [templatesMap]);
-  const [templateId,  setTemplateId]  = useState(null);
+  const [templateId,  setTemplateId]  = useState(initialTemplateId || null);
 
   // The list endpoint omits schema_jsonb (no sections); fetch the full template
   // detail for the active id and adapt it to the Studio shape (the backend

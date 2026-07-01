@@ -167,7 +167,7 @@ export function ReportsList({ navigate, lang }) {
                   onClick={() => { navigator.clipboard?.writeText(location.href); }}>
             <Icon name="download" size={14} /> {lang === "uk" ? "Копіювати посилання" : "Copy link"}
           </button>
-          <button className="btn accent" onClick={() => navigate("/dictate")}>
+          <button className="btn accent" onClick={() => navigate("/dictate/studio")}>
             <Icon name="plus" size={14} /> {lang === "uk" ? "Новий звіт" : "New report"}
           </button>
         </div>

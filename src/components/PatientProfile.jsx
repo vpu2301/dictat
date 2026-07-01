@@ -519,7 +519,7 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
           <button className="btn ghost sm" style={{ color: "var(--rec)", borderColor: "color-mix(in srgb, var(--rec) 30%, transparent)" }} onClick={() => setEraseOpen(true)}>
             <Icon name="flag" size={13} /> {lang === "uk" ? "Видалити дані" : "Schedule erasure"}
           </button>
-          <button className="btn ghost sm" onClick={() => navigate(`/dictate?patient=${id}`)}>
+          <button className="btn ghost sm" onClick={() => navigate(`/dictate/studio?patient=${id}`)}>
             <Icon name="fileText" size={13} /> {lang === "uk" ? "Диктувати звіт" : "Dictate report"}
           </button>
           <button className="btn accent" onClick={() => navigate(`/scribe/consult/new?patient=${id}`)}>
