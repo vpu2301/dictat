@@ -59,12 +59,69 @@ function DiffSection({ title, oldText, newText, lang }) {
 // ── Amendment modal ───────────────────────────────────────────────────────
 
 import { Modal } from './UI.jsx'
+import { buildReportContent } from '../api/reports.js'
 
-export function AmendmentModal({ report, template, lang, onConfirm, onCancel }) {
+function loc(v, lang) {
+  if (v == null) return ''
+  if (typeof v === 'object') return v[lang] ?? v.en ?? Object.values(v)[0] ?? ''
+  return v
+}
+
+const AMENDMENT_TYPES = [
+  { key: 'correction',   uk: 'Виправлення', en: 'Correction' },
+  { key: 'addition',     uk: 'Доповнення',  en: 'Addition' },
+  { key: 'clarification',uk: 'Уточнення',   en: 'Clarification' },
+]
+
+// An amendment is a new *version* of the body, so the modal collects the
+// amendment type, a reason, AND an editable copy of the report content seeded
+// from the signed version. onConfirm receives the full AmendRequest payload
+// ({ amendment_type, amendment_reason, content }); content is nested per the
+// backend contract (buildReportContent).
+export function AmendmentModal({ report, template, lang, onConfirm, onCancel, initialBody }) {
   const { t } = useI18n()
   const uk = lang === 'uk'
+  const content = report?.content || {}
+  const seedSections = content.sections || []
+
+  const [amendmentType, setAmendmentType] = React.useState('correction')
   const [reason, setReason] = React.useState('')
-  const valid = reason.trim().length >= 20
+  // Editable body keyed by section_key. Seeded from the current version, but a
+  // voice-dictated draft (initialBody, from the report-view mic) wins per key so
+  // the modal opens with the spoken corrections already applied.
+  const [body, setBody] = React.useState(() =>
+    Object.fromEntries(seedSections.map(s => [
+      s.section_key,
+      (initialBody && s.section_key in initialBody) ? initialBody[s.section_key] : (s.text || ''),
+    ])))
+
+  // Localized section titles resolved server-side (guide §3), keyed by section_key.
+  const labelMap = React.useMemo(() => Object.fromEntries(
+    (report?.section_labels || []).filter(l => l?.section_key).map(l => [l.section_key, l.name || {}])
+  ), [report])
+  const sectionLabel = (key) => loc(labelMap[key], lang) || key
+
+  const reasonValid = reason.trim().length >= 20
+  const changed = seedSections.some(s => (body[s.section_key] ?? '') !== (s.text || ''))
+  const valid = reasonValid && changed
+
+  const setSection = (key, text) => setBody(b => ({ ...b, [key]: text }))
+
+  const submit = () => {
+    if (!valid) return
+    const contentPayload = buildReportContent({
+      template_id: content.template_id,
+      template_schema_version: content.template_schema_version,
+      body,
+      title: content.title,
+      encounter_date: content.encounter_date,
+    })
+    onConfirm({
+      amendment_type: amendmentType,
+      amendment_reason: reason.trim(),
+      content: contentPayload,
+    })
+  }
 
   return (
     <Modal onClose={onCancel}>
@@ -82,11 +139,43 @@ export function AmendmentModal({ report, template, lang, onConfirm, onCancel }) 
             <span className="muted">{uk ? 'Поточна версія' : 'Current version'}</span>
             <span>v{report?.version || 1} · {uk ? 'Підписано' : 'Signed'}</span>
           </div>
-          <div className="signed-row">
-            <span className="muted">{uk ? 'Автор' : 'Author'}</span>
-            <span>{report?.author?.name?.[lang] || report?.author?.name?.en || '—'}</span>
-          </div>
         </div>
+
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>{uk ? 'Тип правки *' : 'Amendment type *'}</span>
+          <div className="seg" style={{ display: 'flex', gap: 6 }}>
+            {AMENDMENT_TYPES.map(ty => (
+              <button
+                key={ty.key}
+                type="button"
+                className={`btn sm${amendmentType === ty.key ? ' accent' : ''}`}
+                onClick={() => setAmendmentType(ty.key)}
+                aria-pressed={amendmentType === ty.key}
+              >
+                {uk ? ty.uk : ty.en}
+              </button>
+            ))}
+          </div>
+        </label>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>{uk ? 'Зміст звіту' : 'Report content'}</span>
+          {seedSections.length === 0 ? (
+            <span className="muted" style={{ fontSize: 12 }}>{uk ? '— порожній звіт —' : '— empty report —'}</span>
+          ) : seedSections.map(s => (
+            <label key={s.section_key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{sectionLabel(s.section_key)}</span>
+              <textarea
+                className="ti"
+                rows={3}
+                value={body[s.section_key] ?? ''}
+                onChange={e => setSection(s.section_key, e.target.value)}
+                style={{ resize: 'vertical' }}
+              />
+            </label>
+          ))}
+        </div>
+
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span style={{ fontSize: 13, fontWeight: 500 }}>
             {uk ? 'Причина правок *' : 'Reason for amendment *'}
@@ -102,14 +191,19 @@ export function AmendmentModal({ report, template, lang, onConfirm, onCancel }) 
             style={{ resize: 'vertical' }}
           />
           <span className="muted" style={{ fontSize: 11, textAlign: 'right' }}>
-            {reason.length} / 500 {!valid && reason.length > 0 && `— ${uk ? 'мін. 20' : 'min. 20'}`}
+            {reason.length} / 4000 {!reasonValid && reason.length > 0 && `— ${uk ? 'мін. 20' : 'min. 20'}`}
           </span>
         </label>
+        {!changed && reasonValid && (
+          <span className="muted" style={{ fontSize: 11 }}>
+            {uk ? 'Змініть текст звіту, щоб внести правку.' : 'Edit the report text to make an amendment.'}
+          </span>
+        )}
       </div>
       <div className="modal-foot">
         <button className="btn" onClick={onCancel}>{uk ? 'Скасувати' : 'Cancel'}</button>
-        <button className="btn primary" disabled={!valid} onClick={() => onConfirm(reason)}>
-          {uk ? 'Почати правки' : 'Begin amendment'}
+        <button className="btn primary" disabled={!valid} onClick={submit}>
+          {uk ? 'Зберегти правки' : 'Save amendment'}
         </button>
       </div>
     </Modal>

@@ -13,8 +13,9 @@ import { useAuth } from '../auth/AuthContext.jsx';
 import { useAsync } from '../api/useAsync.js';
 import { getTemplate, toStudioTemplate } from '../api/templates.js';
 import { getStarredIds, toggleStar as toggleStarPref, getUsage, recordUse } from '../api/templatePrefs.js';
-import { createReport, updateReport, finalizeReport, downloadReportPdf } from '../api/reports.js';
-import { getPatient } from '../api/patients.js';
+import { createReport, updateReport, finalizeReport, downloadReportPdf, getReport } from '../api/reports.js';
+import { getPatient, listPatients } from '../api/patients.js';
+import { asList } from './DataStates.jsx';
 import { matchVoiceCommand, insertionFor } from '../dictation/voiceCommands.js';
 import {
   AutocompletePills,
@@ -36,8 +37,64 @@ function slugify(input, fallback = "item") {
   return s;
 }
 
+// ── Autosave pacing ────────────────────────────────────────────────────
+// The report-service rate-limits draft PUTs to 1 per 5s per draft (429
+// autosave_rate_limited). Space our autosaves comfortably above that so normal
+// typing never trips the limiter; the idle debounce still flushes quickly once
+// the user pauses within the window.
+const AUTOSAVE_DEBOUNCE_MS = 1500;      // quiet period after the last keystroke
+const AUTOSAVE_MIN_INTERVAL_MS = 6000;  // ≥ backend's 5s/draft, padded
+
+// Normalize the draft PUT/POST error `detail` into an object. The backend
+// contract is `{ error, ... }`, but it sometimes serializes detail as a string —
+// either JSON, or a Python dict repr with single quotes
+// (`{'error': 'optimistic_lock_mismatch', 'current_version': 11, ...}`). If we
+// don't parse that back into an object, the version-conflict / rate-limit
+// recovery below never matches and the raw dict leaks into a toast.
+function saveErrorDetail(e) {
+  const d = e && e.problem && e.problem.detail;
+  if (d && typeof d === "object") return d;
+  if (typeof d === "string") {
+    try { return JSON.parse(d); } catch {}
+    // Python repr → JSON: single→double quotes (values here are ints/idents,
+    // so no embedded apostrophes to worry about).
+    try { return JSON.parse(d.replace(/'/g, '"')); } catch {}
+    // Last resort: scrape the known fields out of whatever string we got.
+    const err = /error["']?\s*[:=]\s*["']?([a-z_]+)/i.exec(d);
+    const cv  = /current_version["']?\s*[:=]\s*(\d+)/i.exec(d);
+    const ra  = /retry_after["']?\s*[:=]\s*(\d+)/i.exec(d);
+    return {
+      ...(err ? { error: err[1] } : { error: d }),
+      ...(cv ? { current_version: Number(cv[1]) } : {}),
+      ...(ra ? { retry_after: Number(ra[1]) } : {}),
+    };
+  }
+  return {};
+}
+function saveErrorCode(e) {
+  const d = saveErrorDetail(e);
+  return d.error || (e && e.problem && e.problem.code) || "";
+}
+// Seconds to wait after a 429, from the body's retry_after (Retry-After header
+// isn't surfaced through ApiError). Defaults to the 5s window.
+function retryAfterMs(e) {
+  const d = saveErrorDetail(e);
+  const ra = d.retry_after ?? (e && e.problem && e.problem.retry_after);
+  const n = Number(ra);
+  return (Number.isFinite(n) && n > 0 ? n : 5) * 1000;
+}
+// The server's authoritative version from a 409 optimistic_lock_mismatch, so we
+// can adopt it and retry instead of getting stuck.
+function conflictCurrentVersion(e) {
+  const d = saveErrorDetail(e);
+  if (d.error === "optimistic_lock_mismatch" && d.current_version != null) return d.current_version;
+  return null;
+}
+
 // ── Web Speech wrapper ─────────────────────────────────────────────────
-function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
+// Exported so the report view can reuse the same recognizer for voice
+// amendments (Reports.jsx) — one dictation engine across the app.
+export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
   const [state, setState] = useState("idle");
   const [level, setLevel] = useState(0);
   const recogRef = useRef(null);
@@ -215,7 +272,7 @@ function MicCard({ state, level, dictLang, setDictLang, onClick, hotkey }) {
   );
 }
 
-function LevelMeter({ active, level }) {
+export function LevelMeter({ active, level }) {
   const bars = 20;
   return (
     <div className={"level-meter" + (active ? " on" : "")}>
@@ -693,25 +750,153 @@ function StudioFooter({ done, total, onSaveDraft, onDownloadDraft, onComplete, s
   );
 }
 
+// Normalize any patient shape (roster row, fetched record, or prop) into the
+// compact { id, mrn, ref, label, ... } the Studio/report pipeline expects.
+function normalizePatient(p, lang) {
+  if (!p) return null;
+  if (p.label && p.ref) return p; // already normalized
+  const name =
+    (typeof p.name === "object" ? (p.name?.[lang] || p.name?.uk || p.name?.en) : p.name) ||
+    p.label || p.mrn || "";
+  return {
+    id: p.id,
+    mrn: p.mrn,
+    ref: p.ref || p.mrn,
+    label: name,
+    name: p.name,
+    age: p.age,
+    sex: p.sex,
+  };
+}
+
+function patientInitials(label) {
+  const parts = String(label || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
+}
+
+// ── Patient gate ───────────────────────────────────────────────────────
+// A report is never dictated without a patient (medico-legal requirement):
+// the Studio renders this picker until a patient is chosen, and only then
+// mounts the dictation surface. Search reuses the roster list endpoint.
+function PatientGate({ lang, onSelect }) {
+  const { t } = useI18n();
+  const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(query.trim()), 200);
+    return () => clearTimeout(id);
+  }, [query]);
+
+  const patientsReq = useAsync(
+    () => listPatients({ query: debounced || undefined, limit: 8 }),
+    [debounced],
+  );
+  const patients = asList(patientsReq.data);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  return (
+    <div className="studio">
+      <div className="patient-gate">
+        <div className="patient-gate-card">
+          <div className="patient-gate-icon"><Icon name="user" size={22} /></div>
+          <h2>{lang === "uk" ? "Оберіть пацієнта" : "Select a patient"}</h2>
+          <p className="muted">
+            {lang === "uk"
+              ? "Диктування завжди прив'язане до пацієнта. Оберіть пацієнта, щоб почати."
+              : "Every dictation is filed against a patient. Choose one to begin."}
+          </p>
+
+          <label className="search-input" style={{ width: "100%", marginTop: 8 }}>
+            <Icon name="search" size={14} />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={lang === "uk" ? "Пошук за іменем або МКА…" : "Search by name or MRN…"}
+              aria-label={lang === "uk" ? "Пошук пацієнта" : "Search patient"}
+            />
+          </label>
+
+          <div className="patient-gate-list" role="listbox">
+            {patientsReq.loading ? (
+              <div className="muted" style={{ padding: 16, textAlign: "center" }}>
+                {lang === "uk" ? "Завантаження…" : "Loading…"}
+              </div>
+            ) : patients.length === 0 ? (
+              <Empty
+                icon="user"
+                title={lang === "uk" ? "Пацієнтів не знайдено" : "No patients found"}
+                body={debounced
+                  ? (lang === "uk" ? "Спробуйте інший запит." : "Try a different search.")
+                  : (lang === "uk" ? "Почніть вводити, щоб знайти пацієнта." : "Start typing to find a patient.")}
+              />
+            ) : (
+              patients.map((p) => {
+                const norm = normalizePatient(p, lang);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="option"
+                    className="patient-gate-row"
+                    onClick={() => onSelect(norm)}
+                  >
+                    <span className="avatar" style={{ width: 32, height: 32, fontSize: 12, flexShrink: 0 }}>
+                      {p.initials || patientInitials(norm.label)}
+                    </span>
+                    <span className="patient-gate-row-meta">
+                      <span className="patient-gate-row-name">{norm.label}</span>
+                      <span className="patient-gate-row-sub muted">
+                        {norm.ref}{norm.age != null ? ` · ${norm.age}${norm.sex || ""}` : ""}
+                      </span>
+                    </span>
+                    <Icon name="chevRight" size={14} className="muted" />
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main: DictationStudio ──────────────────────────────────────────────
-export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId, initialTemplateId }) {
+export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId, initialTemplateId, reportId }) {
   const { t } = useI18n();
 
-  // When dictation is launched from a patient (/dictate/studio?patient=<id>), resolve
-  // the patient so the report is filed against them and the toolbar shows the
-  // context. An explicit `patient` prop wins over the fetched one.
-  const patientReq = useAsync(
-    () => (patientId ? getPatient(patientId) : Promise.resolve(null)),
-    [patientId],
-    { enabled: !!patientId },
+  // Reopening an existing draft (/dictate/studio?report=<id>): fetch the report
+  // envelope so its body, template, patient and version can be rehydrated into
+  // the Studio. Autosave then keeps updating THIS report (never creates a copy)
+  // and its status is untouched — a draft stays a draft.
+  const reportReq = useAsync(
+    () => (reportId ? getReport(reportId) : Promise.resolve(null)),
+    [reportId],
+    { enabled: !!reportId },
   );
+
+  // When dictation is launched from a patient (/dictate/studio?patient=<id>) or a
+  // reopened draft, resolve the patient so the report is filed against them and
+  // the toolbar shows the context. An explicit `patient` prop wins over the
+  // fetched one; a reopened draft supplies its patient_id from the envelope.
+  const effectivePatientId = patientId || reportReq.data?.patient_id || null;
+  const patientReq = useAsync(
+    () => (effectivePatientId ? getPatient(effectivePatientId) : Promise.resolve(null)),
+    [effectivePatientId],
+    { enabled: !!effectivePatientId },
+  );
+  // A patient chosen in the gate (when the Studio is opened without one).
+  const [pickedPatient, setPickedPatient] = useState(null);
   const patient = useMemo(() => {
-    if (patientProp) return patientProp;
-    const p = patientReq.data;
-    if (!p) return undefined;
-    const name = p.name?.[lang] || p.name?.uk || p.name?.en || p.mrn || "";
-    return { id: p.id, mrn: p.mrn, ref: p.mrn, label: name };
-  }, [patientProp, patientReq.data, lang]);
+    if (patientProp) return normalizePatient(patientProp, lang);
+    if (pickedPatient) return pickedPatient;
+    return normalizePatient(patientReq.data, lang) || undefined;
+  }, [patientProp, pickedPatient, patientReq.data, lang]);
   const templatesList = useMemo(() => Object.values(templatesMap), [templatesMap]);
   const [templateId,  setTemplateId]  = useState(initialTemplateId || null);
 
@@ -741,6 +926,36 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   const author = auth?.dbUser?.display_name || auth?.claims?.sub || null;
   const reportIdRef = useRef(null);
   const reportVersionRef = useRef(0);  // optimistic-lock version for draft autosave
+  // Autosave pacing/serialization (see AUTOSAVE_* constants).
+  const savingRef = useRef(false);              // a PUT/POST is in flight
+  const lastSaveAttemptRef = useRef(0);         // ts of the last network attempt
+  const autosaveBackoffUntilRef = useRef(0);    // don't retry before this ts (429)
+  const latestBodyRef = useRef(body);           // to detect edits made mid-save
+  latestBodyRef.current = body;
+  // Bumped after every save attempt so the autosave effect re-evaluates even
+  // when the doc was already "unsaved" (edits that landed mid-save must flush).
+  const [saveTick, setSaveTick] = useState(0);
+
+  // Rehydrate a reopened draft once its envelope loads. Seeding reportIdRef +
+  // reportVersionRef means the very next autosave PUTs the existing report
+  // (updateReport branch) instead of POSTing a new one. Guarded by a ref so a
+  // later autosave-driven data refresh can't clobber in-progress edits.
+  const seededReportRef = useRef(null);
+  useEffect(() => {
+    const rep = reportReq.data;
+    if (!rep?.id || seededReportRef.current === rep.id) return;
+    seededReportRef.current = rep.id;
+    const content = rep.content || {};
+    reportIdRef.current = rep.id;
+    reportVersionRef.current = rep.version_number ?? 1;
+    if (content.template_id) setTemplateId(content.template_id);
+    const nextBody = {};
+    for (const s of content.sections || []) {
+      if (s?.section_key) nextBody[s.section_key] = s.text || "";
+    }
+    setBody(nextBody);
+    setSaveState("saved");
+  }, [reportReq.data]);
 
   // Live dictation WebSocket client, when a session is running. Section-aware
   // ASR is driven over this socket via switch_section (templates §4): no HTTP
@@ -764,11 +979,14 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     notifySectionSwitch(sectionId, reason);
   }, [notifySectionSwitch]);
 
-  // Pick the first available template once the list loads.
+  // Pick the first available template once the list loads. Skip while a reopened
+  // draft is still loading — its own template (from the envelope) must win, not a
+  // default first pick.
   useEffect(() => {
     if (templateId || !templatesList.length) return;
+    if (reportId && !reportReq.data) return;
     setTemplateId(templatesList[0].id);
-  }, [templatesList, templateId]);
+  }, [templatesList, templateId, reportId, reportReq.data]);
 
   // Once the detail (with sections) loads, default the active section.
   useEffect(() => {
@@ -811,8 +1029,31 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
 
   useEffect(() => { setDictLang(lang); }, [lang]);
 
+  // ── Toasts ─────────────────────────────────────────────────────────
+  // Declared before saveDraft: saveDraft lists pushToast in its dependency
+  // array, so pushToast must be initialized first (a `const` referenced above
+  // its declaration throws a TDZ error during render).
+  const pushToast = useCallback(toast => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts(s => [...s, { ...toast, id }]);
+  }, []);
+
   // ── Persistence ────────────────────────────────────────────────────
   const saveDraft = useCallback(async () => {
+    // Serialize: never overlap two saves. A slow PUT racing the next autosave
+    // tick is what desyncs the optimistic-lock version (→ 409). The autosave
+    // effect reschedules once this one finishes if the doc is still dirty.
+    if (savingRef.current) return;
+    // No report yet and no patient id: nothing to persist safely. Keep the doc
+    // dirty so autosave retries once the patient resolves (the backend
+    // hard-requires patient_id — a create without it 422s).
+    if (!reportIdRef.current && !(templateId && patient?.id)) {
+      setSaveState("unsaved");
+      return;
+    }
+    savingRef.current = true;
+    lastSaveAttemptRef.current = Date.now();
+    const savedBody = body;  // to detect edits landed while this save was in flight
     setSaveState("saving");
     try {
       if (reportIdRef.current) {
@@ -823,18 +1064,52 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           body,
         });
         if (r?.version_number != null) reportVersionRef.current = r.version_number;
-      } else if (templateId) {
-        const r = await createReport({ template_id: templateId, template_schema_version: template?.schema_version, body, patient_id: patient?.id });
+      } else {
+        const r = await createReport({ template_id: templateId, template_schema_version: template?.schema_version, body, patient_id: patient.id });
         reportIdRef.current = r?.id ?? null;
         reportVersionRef.current = r?.version_number ?? 1;
       }
-      setSaveState("saved");
       setLastSavedAt(Date.now());
-    } catch {
-      // Leave the document dirty so the next autosave tick retries.
+      // If the user kept typing during the save, stay dirty so those edits flush.
+      setSaveState(latestBodyRef.current === savedBody ? "saved" : "unsaved");
+    } catch (e) {
+      // Leave the doc dirty so the next tick retries.
       setSaveState("unsaved");
+      const status = e && e.status;
+      const code = saveErrorCode(e);
+
+      // 429 — backend autosave rate limit (1 PUT / 5s / draft). Expected
+      // backpressure, not a real failure: back off for retry_after and retry
+      // silently. No toast (this was the scary "autosave_rate_limited" toast).
+      if (status === 429 || code === "autosave_rate_limited") {
+        autosaveBackoffUntilRef.current = Date.now() + retryAfterMs(e);
+        return;
+      }
+      // 409 optimistic-lock mismatch — our version is stale (a save raced, or a
+      // reopened draft seeded a stale version). Adopt the server's
+      // current_version and retry silently.
+      if (status === 409 || code === "optimistic_lock_mismatch") {
+        const cv = conflictCurrentVersion(e);
+        if (cv != null) reportVersionRef.current = cv;
+        return;
+      }
+
+      // Genuine, actionable failures still surface.
+      const isMissingPatient = status === 422 &&
+        /patient_not_found/.test(code || e.message || "");
+      pushToast({
+        message: isMissingPatient
+          ? (lang === "uk"
+            ? "Оберіть пацієнта, перш ніж зберігати звіт"
+            : "Select a patient before saving the report")
+          : (lang === "uk" ? "Не вдалося зберегти: " : "Save failed: ")
+            + ((e && e.message) || (lang === "uk" ? "спробуйте ще раз" : "will retry")),
+      });
+    } finally {
+      savingRef.current = false;
+      setSaveTick(n => n + 1);  // re-arm the autosave effect (mid-save edits)
     }
-  }, [body, templateId, template, dictLang, patient]);
+  }, [body, templateId, template, dictLang, patient, pushToast, lang]);
 
   const triggerSave = useCallback(() => { saveDraft(); }, [saveDraft]);
 
@@ -938,11 +1213,24 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   }, [saveDraft, lang]);
 
   // ── Autosave ───────────────────────────────────────────────────────
+  // Flush a short quiet-period after the last keystroke, but never faster than
+  // the backend's per-draft rate limit (1 save / 5s — see report-service
+  // AutosaveRateLimiter). We compute the delay from three constraints and take
+  // the largest: the idle debounce, the time still owed on the min-interval
+  // since the last attempt, and any active 429 backoff. This keeps continuous
+  // dictation from tripping a stream of 429 `autosave_rate_limited` responses
+  // while still saving promptly when the user pauses.
   useEffect(() => {
     if (saveState !== "unsaved") return;
-    const id = setTimeout(() => { saveDraft(); }, 1200);
+    const now = Date.now();
+    const delay = Math.max(
+      AUTOSAVE_DEBOUNCE_MS,
+      AUTOSAVE_MIN_INTERVAL_MS - (now - lastSaveAttemptRef.current),
+      autosaveBackoffUntilRef.current - now,
+    );
+    const id = setTimeout(() => { saveDraft(); }, delay);
     return () => clearTimeout(id);
-  }, [saveState, body, saveDraft]);
+  }, [saveState, body, saveDraft, saveTick]);
 
   // ── Hotkeys ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -958,12 +1246,6 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  // ── Toasts ─────────────────────────────────────────────────────────
-  const pushToast = useCallback(toast => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts(s => [...s, { ...toast, id }]);
   }, []);
 
   // ── Mic actions ────────────────────────────────────────────────────
@@ -1014,6 +1296,23 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       setShowPills(false);
     }
   }, [pillSugs, acPrefs.pillsEnabled, backoff.paused]);
+
+  // Patient gate: a report is never dictated without a patient. Until one is
+  // resolved (from a prop, the ?patient= URL, a reopened draft, or the gate
+  // picker) we render the picker instead of the recording surface. While a known
+  // patient or a reopened report is still loading, show a spinner rather than
+  // flashing the picker.
+  if (!patient) {
+    const resolving = (effectivePatientId && patientReq.loading) || (reportId && reportReq.loading);
+    if (resolving) {
+      return (
+        <div className="studio">
+          <Empty icon="user" title={lang === "uk" ? "Завантаження…" : "Loading…"} />
+        </div>
+      );
+    }
+    return <PatientGate lang={lang} onSelect={setPickedPatient} />;
+  }
 
   if (!template) {
     const loading = !!templateId && detailReq.loading;

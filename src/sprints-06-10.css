@@ -664,6 +664,48 @@ del.diff-delete {
 .studio-footer-info { flex: 1; min-width: 0; }
 .studio-footer .sf-progress { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
+/* ── Patient gate (select a patient before dictating) ─────────────────── */
+.patient-gate {
+  grid-column: 1 / -1;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 64px 24px; overflow-y: auto; min-height: 0;
+  background: var(--bg);
+}
+.patient-gate-card {
+  width: 100%; max-width: 440px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line); border-radius: 14px;
+  padding: 28px 24px;
+  box-shadow: 0 8px 30px rgba(15,23,42,0.06);
+  text-align: center;
+}
+.patient-gate-icon {
+  width: 48px; height: 48px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent); margin-bottom: 4px;
+}
+.patient-gate-card h2 { margin: 0; font-size: 18px; }
+.patient-gate-card > p { margin: 0 0 4px; font-size: 13px; line-height: 1.45; }
+.patient-gate-list {
+  width: 100%; margin-top: 8px;
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 340px; overflow-y: auto;
+}
+.patient-gate-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 8px 10px;
+  background: transparent; border: 1px solid transparent; border-radius: 10px;
+  cursor: pointer; text-align: left; transition: background .12s, border-color .12s;
+}
+.patient-gate-row:hover, .patient-gate-row:focus-visible {
+  background: var(--bg); border-color: var(--line); outline: none;
+}
+.patient-gate-row-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.patient-gate-row-name { font-size: 13.5px; font-weight: 500; }
+.patient-gate-row-sub { font-size: 11.5px; }
+
 /* ── Written-report preview modal ─────────────────────────────────────── */
 .report-preview-overlay {
   position: fixed; inset: 0; z-index: 200;
@@ -782,4 +824,49 @@ del.diff-delete {
 .rp-sec-problem > div { display: flex; align-items: center; gap: 6px; }
 @media (max-width: 640px) {
   .rp-diff { grid-template-columns: 1fr; }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Reports list — row "…" menu (versions / compare / cancel)
+   ────────────────────────────────────────────────────────────────────────── */
+
+.row-actions-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 45;
+  min-width: 220px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-2, 0 12px 32px rgba(0, 0, 0, .18));
+  display: flex; flex-direction: column; gap: 2px;
+}
+.row-action {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 8px 10px;
+  background: none; border: 0; border-radius: 8px;
+  font-size: 13px; color: var(--text-1, inherit); text-align: left;
+  cursor: pointer;
+}
+.row-action:hover { background: var(--surface-hover, rgba(0,0,0,.05)); }
+.row-action.danger { color: #c13b3b; }
+.row-action.danger:hover { background: rgba(193, 59, 59, 0.08); }
+
+/* Versions & compare modal */
+.versions-modal { width: min(560px, 92vw); display: flex; flex-direction: column; max-height: 82vh; }
+.vm-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid var(--line);
+}
+.vm-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.vm-head p  { margin: 3px 0 0; font-size: 12.5px; }
+.vm-body { padding: 16px 20px; overflow-y: auto; }
+.vm-divider { height: 1px; background: var(--line); margin: 16px 0; }
+.vm-sub { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+
+/* Cancel confirmation modal */
+.cancel-modal { width: min(440px, 92vw); }
+.cancel-summary {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; padding: 10px 12px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
 }

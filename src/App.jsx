@@ -236,7 +236,8 @@ function App() {
   } else if (r === "/dictate/studio" || r.startsWith("/dictate/studio?") || r.startsWith("/dictate?")) {
     const pm = r.match(/patient=([\w-]+)/);
     const tm = r.match(/template=([\w-]+)/);
-    view = <DictationStudio lang={lang} patientId={pm?.[1]} initialTemplateId={tm?.[1]}
+    const rm = r.match(/report=([\w-]+)/);
+    view = <DictationStudio lang={lang} patientId={pm?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
              templatesMap={templatesMap} onAddTemplate={handleAddTemplate} />;
     showTopbar = false;
   } else if (r === "/dictate/reports") {

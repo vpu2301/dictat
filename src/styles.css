@@ -334,7 +334,7 @@ kbd {
   bottom: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: var(--surface);
+  background: var(--surface-hover);
   border: 1px solid var(--line);
   border-radius: 10px;
   box-shadow: var(--shadow-2);
@@ -363,6 +363,28 @@ kbd {
 .sb-user-menu-item.danger { color: #c13b3b; }
 .sb-user-menu-item.danger:hover { background: rgba(193, 59, 59, 0.08); }
 .sb-user-menu-sep { height: 1px; background: var(--line); margin: 4px 2px; }
+
+/* Flyout submenu — folds Clinic / Admin / Audit into side panels so the
+   account dropup stays short. Panel is a touch brighter than the parent menu. */
+.sb-submenu-wrap { position: relative; }
+.sb-submenu-trigger .sb-submenu-label { flex: 1; }
+.sb-submenu-trigger > svg:last-child { color: var(--muted); }
+.sb-submenu-trigger.open { background: var(--surface-2); }
+/* Fixed to the viewport (left/bottom set inline from the trigger's rect) so it
+   escapes the sidebar's overflow clip and paints above the main content. */
+.sb-user-submenu {
+  position: fixed;
+  min-width: 210px;
+  max-height: 62vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-2);
+  padding: 4px;
+  display: flex; flex-direction: column;
+  z-index: 120;
+}
 
 /* Secondary nav (Clinic / Admin / Audit) folded into the account dropup.
    Each section carries a header and is divided from the account items above. */
@@ -1607,6 +1629,122 @@ kbd {
 .meta-row  { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
 .meta-label { color: var(--muted); flex-shrink: 0; }
 .meta-value { font-weight: 500; color: var(--text-1); text-align: right; }
+
+/* ─── Report sidebar tabs (Versions / Diff / History) ─────────────────── */
+.side-tabs {
+  display: flex; gap: 4px;
+  padding: 3px;
+  margin-bottom: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.side-tab {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 6px 4px;
+  border: 0; border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.side-tab:hover { color: var(--text-1); }
+.side-tab.on {
+  background: var(--surface);
+  color: var(--text-1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+}
+
+/* Diff tab — version pickers */
+.diff-tab { display: flex; flex-direction: column; gap: 12px; }
+.diff-tab-row { display: flex; align-items: flex-end; gap: 8px; }
+.diff-tab-row label { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.diff-tab-row label > span { font-size: 11px; color: var(--muted); }
+.diff-tab-row .ti { padding: 6px 8px; font-size: 13px; }
+.diff-tab-row > .chev, .diff-tab-row > svg { margin-bottom: 8px; }
+
+/* History timeline */
+.history-timeline {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+}
+.history-event {
+  position: relative;
+  display: flex; gap: 12px;
+  padding-bottom: 16px;
+}
+.history-event::before {
+  content: ""; position: absolute;
+  left: 11px; top: 24px; bottom: 0;
+  width: 1px; background: var(--line);
+}
+.history-event:last-child { padding-bottom: 0; }
+.history-event:last-child::before { display: none; }
+.he-dot {
+  flex-shrink: 0;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent-text, var(--accent));
+  border: 1px solid var(--accent);
+}
+.he-body { min-width: 0; }
+.he-label { font-size: 13px; font-weight: 500; color: var(--text-1); }
+.he-time  { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.he-sub   { font-size: 12px; color: var(--text-2, var(--muted)); margin-top: 4px; line-height: 1.4; }
+
+/* ─── "…" insights menu (versions / diff / history off the right rail) ─── */
+.insights-wrap { position: relative; display: inline-flex; }
+.insights-btn { padding: 6px 8px; }
+.insights-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+  width: 320px; max-height: 70vh; overflow-y: auto;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2, 0 12px 32px rgba(0, 0, 0, .18));
+}
+.insights-menu .side-tabs { margin-bottom: 12px; }
+
+/* ─── Report-view dictation panel (right rail) ────────────────────────── */
+.dictate-panel {
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+}
+.dictate-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dictate-secs { display: flex; flex-wrap: wrap; gap: 6px; }
+.dictate-sec-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  cursor: pointer; transition: border-color .12s, color .12s, background .12s;
+}
+.dictate-sec-chip:hover { color: var(--text-1); border-color: var(--text-3); }
+.dictate-sec-chip.on {
+  background: var(--dictate-soft, var(--accent-soft));
+  border-color: var(--dictate, var(--accent));
+  color: var(--dictate-text, var(--accent-text, var(--accent)));
+}
+.dictate-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+.dictate-area {
+  width: 100%; resize: vertical; min-height: 120px;
+  font-size: 13px; line-height: 1.55;
+}
+.dictate-partial {
+  font-size: 12.5px; line-height: 1.5; color: var(--muted); font-style: italic;
+  padding: 2px 2px 0; margin-top: -4px;
+}
+.dictate-mic {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 6px 0 2px;
+}
 
 /* ─── New patient modal ───────────────────────────────────────────────── */
 .np-form { display: flex; flex-direction: column; gap: 16px; }

@@ -8,8 +8,7 @@ import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
 import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
 import { useAsync } from "../api/useAsync.js";
-import { asList } from "./DataStates.jsx";
-import { listReports } from "../api/reports.js";
+import { countReports } from "../api/reports.js";
 
 // One collapsible group ── header clickable, body slides under.
 // When the sidebar itself is collapsed, the group header is hidden and the
@@ -39,6 +38,56 @@ function Group({ id, title, icon, defaultOpen = false, openSet, setOpenSet, coll
         <Icon name={open ? "chevDown" : "chevRight"} size={12} />
       </button>
       {open && <div className="sb-group-body">{children}</div>}
+    </div>
+  );
+}
+
+// A single account-menu row that opens a flyout submenu to the side. Used to
+// fold the Clinic / Admin / Audit sections so the dropup stays short. Opens on
+// hover (with a small close delay so the pointer can cross the gap) and also
+// toggles on click for keyboard/touch.
+function SubMenu({ icon, label, children }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null); // { left, bottom } in viewport px
+  const triggerRef = useRef(null);
+  const timer = useRef(null);
+  // The account dropup lives inside `.sb`, which clips horizontal overflow, so
+  // an absolutely-positioned flyout would be cut off at the sidebar edge. We
+  // position it `fixed` from the trigger's rect instead, escaping the clip.
+  const place = () => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setPos({ left: Math.round(r.right + 6), bottom: Math.round(window.innerHeight - r.bottom - 5) });
+  };
+  const openNow = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } place(); setOpen(true); };
+  const closeSoon = () => { timer.current = setTimeout(() => setOpen(false), 140); };
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  return (
+    <div className="sb-submenu-wrap" onMouseEnter={openNow} onMouseLeave={closeSoon}>
+      <button
+        ref={triggerRef}
+        className={"sb-user-menu-item sb-submenu-trigger" + (open ? " open" : "")}
+        role="menuitem"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => { if (!open) place(); setOpen((v) => !v); }}
+      >
+        <Icon name={icon} size={14} />
+        <span className="sb-submenu-label">{label}</span>
+        <Icon name="chevRight" size={13} />
+      </button>
+      {open && pos && (
+        <div
+          className="sb-user-submenu"
+          role="menu"
+          style={{ left: pos.left, bottom: pos.bottom }}
+          onMouseEnter={openNow}
+          onMouseLeave={closeSoon}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -89,16 +138,17 @@ export function Sidebar({
 
   const product = route.startsWith("/dictate") ? "dictate" : "scribe";
 
-  // Live count for the "Reports" nav badge — number of draft reports needing
-  // attention (mirrors the Reports page's own `mine` count). Only fetched when
-  // the Dictate product is active and the reports feature is on; hidden at zero
-  // so an empty Reports list shows no badge (replaces the old hardcoded "7").
+  // Live count for the "Reports" nav badge — exact number of draft reports
+  // needing attention (mirrors the Reports page's own `mine` count). Uses the
+  // cheap total=exact path so the badge is accurate rather than counting a
+  // truncated page. Only fetched when the Dictate product is active and the
+  // reports feature is on; hidden at zero so an empty list shows no badge.
   const reportsBadgeReq = useAsync(
-    () => listReports({ limit: 200 }),
+    () => countReports({ status: "draft" }),
     [claims?.tid],
     { enabled: !!state && FEATURES.reports && product === "dictate" },
   );
-  const draftReportCount = asList(reportsBadgeReq.data).filter((r) => r.status === "draft").length;
+  const draftReportCount = typeof reportsBadgeReq.data === "number" ? reportsBadgeReq.data : 0;
 
   // open dropdowns — persisted to localStorage
   const [openSet, setOpenSet] = useState(() => {
@@ -174,6 +224,7 @@ export function Sidebar({
     if (isAdmin) {
       secs.push({
         title: lang === "uk" ? "Адмін" : "Admin",
+        icon: "grid",
         items: [
           { icon: "grid", label: lang === "uk" ? "Панель" : "Dashboard", path: "/dashboard", exact: true },
           { icon: "users", label: lang === "uk" ? "Користувачі" : "Users", path: "/admin/users", exact: true },
@@ -183,6 +234,7 @@ export function Sidebar({
     if (isAuditor) {
       secs.push({
         title: lang === "uk" ? "Аудит" : "Audit",
+        icon: "history",
         items: [
           { icon: "history", label: lang === "uk" ? "Події" : "Events", path: "/audit/events", prefix: "/audit/events" },
           { icon: "shield", label: lang === "uk" ? "Перевірка ланцюга" : "Chain verify", path: "/audit/verify", exact: true },
@@ -269,7 +321,7 @@ export function Sidebar({
       {/* ── Transcription (ASR — all authed users) ─────────── */}
       {state && (
         <Group id="asr" title={lang === "uk" ? "Транскрипція" : "Transcription"} icon="bot"
-               openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed}>
+               openSet={openSet} setOpenSet={setOpenSet}>
           <NavLink {...{ route, navigate, collapsed }} icon="inbox"
                    label={lang === "uk" ? "Завдання" : "Jobs"}
                    path="/asr/jobs" prefix="/asr/jobs" />
@@ -325,16 +377,18 @@ export function Sidebar({
                     <Icon name="sliders" size={14} />
                     <span>{lang === "uk" ? "Налаштування" : "Settings"}</span>
                   </button>
-                  <ClinicMenuSection
-                    lang={lang}
-                    navigate={navigate}
-                    onToast={onToast}
-                    onNavigate={(path) => { setMenuOpen(false); navigate(path); }}
-                    onCreateClinic={() => { setMenuOpen(false); setCreateClinicOpen(true); }}
-                  />
+                  <SubMenu icon="home" label={lang === "uk" ? "Клініка" : "Clinic"}>
+                    <ClinicMenuSection
+                      embedded
+                      lang={lang}
+                      navigate={navigate}
+                      onToast={onToast}
+                      onNavigate={(path) => { setMenuOpen(false); navigate(path); }}
+                      onCreateClinic={() => { setMenuOpen(false); setCreateClinicOpen(true); }}
+                    />
+                  </SubMenu>
                   {navSections.map((sec) => (
-                    <div className="sb-more-section" key={sec.title}>
-                      <div className="sb-more-head">{sec.title}</div>
+                    <SubMenu key={sec.title} icon={sec.icon} label={sec.title}>
                       {sec.items.map((it) => {
                         const active = it.exact ? route === it.path : route.startsWith(it.prefix || it.path);
                         return (
@@ -349,7 +403,7 @@ export function Sidebar({
                           </button>
                         );
                       })}
-                    </div>
+                    </SubMenu>
                   ))}
                   <div className="sb-user-menu-sep" />
                   <button className="sb-user-menu-item danger" role="menuitem" onClick={pickMenu(() => setConfirmOpen(true))}>

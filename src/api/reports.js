@@ -23,7 +23,12 @@ export async function listReports({
   total, author_id, encounter_date_from, encounter_date_to,
 } = {}) {
   const qs = new URLSearchParams();
-  if (status)   qs.set("status", status);
+  // `status` may be a single value or an array; the backend `?status=` is a
+  // `list[str]`, so emit one repeated param per value (lets "All" mean "all
+  // active statuses" rather than literally-everything incl. cancelled).
+  if (status) {
+    (Array.isArray(status) ? status : [status]).forEach((s) => s && qs.append("status", s));
+  }
   if (template) qs.set("template", template);
   // Backend search param is `q`; keep `query` as the public alias.
   if (query)    qs.set("q", query);
@@ -35,6 +40,21 @@ export async function listReports({
   if (cursor)   qs.set("cursor", cursor);
   const tail = qs.toString() ? `?${qs}` : "";
   return a(`/v1/reports/search${tail}`, { method: "GET" });
+}
+
+// Pull the hit array out of a search response (the endpoint returns
+// { hits, next_cursor, total_estimated } — NOT { items }).
+export function reportHits(res) {
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.hits)) return res.hits;
+  return [];
+}
+
+// Exact count of reports matching a filter, via the cheap total=exact path.
+export async function countReports(params = {}) {
+  const r = await listReports({ ...params, limit: 1, total: "exact" });
+  const exact = r && (r.total_exact ?? r.total_estimated);
+  return typeof exact === "number" ? exact : reportHits(r).length;
 }
 
 // GET /v1/reports/{id} → ReportEnvelope. With include_content the envelope also
@@ -51,7 +71,7 @@ export async function getReport(id, { includeContent = true } = {}) {
 // sections: [{section_key, text}], ... } } and rejects unknown fields
 // (extra="forbid"). It does NO template/section validation at create — that is
 // deferred to finalize — so a light mapping is enough for drafts.
-function buildReportContent({ template_id, template_schema_version, body, title, encounter_date }) {
+export function buildReportContent({ template_id, template_schema_version, body, title, encounter_date }) {
   let sections = [];
   if (typeof body === "string") {
     // Free-text editor: park the whole document in a single "note" section.
@@ -132,11 +152,15 @@ export async function getReportVersion(id, version) {
   return a(`/v1/reports/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}`, { method: "GET" });
 }
 
-// POST /v1/reports/{id}/amend  body: { reason, body }
-export async function amendReport(id, { reason, body }) {
+// POST /v1/reports/{id}/amend (AmendRequest, extra="forbid"). An amendment is a
+// *new version* of the body, not just a note: it carries the amendment type, a
+// reason (1..4000 chars), and the full replacement `content` (same nested shape
+// as create/draft — build it with buildReportContent). 200 → report goes
+// signed → amended and a new version is written.
+export async function amendReport(id, { amendment_type, amendment_reason, content }) {
   return a(`/v1/reports/${encodeURIComponent(id)}/amend`, {
     method: "POST",
-    body: JSON.stringify({ reason, body }),
+    body: JSON.stringify({ amendment_type, amendment_reason, content }),
   });
 }
 

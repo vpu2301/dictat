@@ -7,7 +7,8 @@ import { Icon, Empty } from './UI.jsx';
 import { LoadGate, asList } from './DataStates.jsx';
 import { useAsync } from '../api/useAsync.js';
 import { useClaims } from '../auth/AuthContext.jsx';
-import { listReports } from '../api/reports.js';
+import { listReports, countReports } from '../api/reports.js';
+import { openReportPath } from './Reports.jsx';
 import { listTemplates } from '../api/templates.js';
 
 // ── Helpers (mirrors Scribe.jsx / Reports.jsx conventions) ────────────────
@@ -73,7 +74,28 @@ export function DictateToday({ navigate, lang }) {
   const reportsReq  = useAsync(() => listReports({ limit: 50 }), [activeTid]);
   const templatesReq = useAsync(() => listTemplates({ limit: 200 }), [activeTid]);
 
-  const reports   = asList(reportsReq.data);
+  // Exact stat-tile counts (cheap total=exact calls) rather than counting the
+  // truncated 50-row feed fetched above. Order: total(active) / drafts / signed.
+  const statsReq = useAsync(
+    () => Promise.all([
+      countReports({ status: ["draft", "finalized", "signed", "amended"] }),
+      countReports({ status: "draft" }),
+      countReports({ status: ["signed", "amended"] }),
+    ]),
+    [activeTid],
+  );
+  const [totalCount, draftCount, signedCount] = statsReq.data || [];
+
+  // The search endpoint returns PHI-minimised hits (report_id, template_id,
+  // patient_name_redacted, updated_at). Alias them onto the flat shape this
+  // page's row/derivation code expects (id / template / patient / modified).
+  const reports   = asList(reportsReq.data).map((h) => ({
+    ...h,
+    id: h.report_id ?? h.id,
+    template: h.template_id ?? h.template,
+    modified: h.updated_at ?? h.modified,
+    patient: h.patient_name_redacted ? { name: h.patient_name_redacted } : h.patient,
+  }));
   const templates = asList(templatesReq.data);
   const tplMap = Object.fromEntries(templates.map((t) => [t.id, t]));
 
@@ -87,9 +109,9 @@ export function DictateToday({ navigate, lang }) {
     .slice(0, 5);
 
   const stats = [
-    { label: lang === "uk" ? "Усього звітів" : "Total reports", value: reports.length },
-    { label: lang === "uk" ? "Чернеток" : "Drafts", value: drafts.length },
-    { label: lang === "uk" ? "Підписаних" : "Signed", value: reports.filter(isSigned).length },
+    { label: lang === "uk" ? "Усього звітів" : "Total reports", value: totalCount ?? reports.length },
+    { label: lang === "uk" ? "Чернеток" : "Drafts", value: draftCount ?? drafts.length },
+    { label: lang === "uk" ? "Підписаних" : "Signed", value: signedCount ?? reports.filter(isSigned).length },
   ];
 
   const openStudio = (tid) => navigate(tid ? `/dictate/studio?template=${tid}` : "/dictate/studio");
@@ -140,7 +162,7 @@ export function DictateToday({ navigate, lang }) {
                 <div className="note-feed">
                   {drafts.slice(0, 5).map((r) => (
                     <ReportRow key={r.id} r={r} tpl={tplMap[r.template]} lang={lang}
-                      onClick={() => navigate(`/dictate/reports/${r.id}`)} />
+                      onClick={() => navigate(openReportPath(r))} />
                   ))}
                 </div>
               )
@@ -160,7 +182,7 @@ export function DictateToday({ navigate, lang }) {
               <div className="note-feed">
                 {recent.map((r) => (
                   <ReportRow key={r.id} r={r} tpl={tplMap[r.template]} lang={lang}
-                    onClick={() => navigate(`/dictate/reports/${r.id}`)} />
+                    onClick={() => navigate(openReportPath(r))} />
                 ))}
               </div>
             )}

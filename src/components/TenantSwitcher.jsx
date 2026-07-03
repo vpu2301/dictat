@@ -35,7 +35,7 @@ function LogoTile({ tenant, size = 18 }) {
 // - onNavigate(path): close the account menu and route (Sidebar wires this).
 // - onCreateClinic():  open the create-clinic modal at the Sidebar level so it
 //   survives the account menu closing.
-export function ClinicMenuSection({ lang = "en", navigate, onToast, onNavigate, onCreateClinic }) {
+export function ClinicMenuSection({ lang = "en", navigate, onToast, onNavigate, onCreateClinic, embedded = false }) {
   const claims = useClaims();
   const [switching, setSwitching] = useState(null); // tenant id in-flight
   const [note, setNote] = useState(null);           // { tenant, note }
@@ -63,10 +63,8 @@ export function ClinicMenuSection({ lang = "en", navigate, onToast, onNavigate, 
     }
   };
 
-  return (
-    <div className="sb-more-section">
-      <div className="sb-more-head">{lang === "uk" ? "Клініка" : "Clinic"}</div>
-
+  const body = (
+    <>
       {tenantsReq.loading && (
         <div className="muted" style={{ padding: "6px 10px", fontSize: 12 }}>
           {lang === "uk" ? "Завантаження…" : "Loading…"}
@@ -131,6 +129,15 @@ export function ClinicMenuSection({ lang = "en", navigate, onToast, onNavigate, 
           <span>{lang === "uk" ? "Створити клініку" : "Create clinic"}</span>
         </button>
       )}
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <div className="sb-more-section">
+      <div className="sb-more-head">{lang === "uk" ? "Клініка" : "Clinic"}</div>
+      {body}
     </div>
   );
 }
