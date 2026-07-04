@@ -13,6 +13,8 @@ import { listReports, countReports, reportHits, getReport, listReportVersions, g
 import { listTemplates, getTemplate, toStudioTemplate } from '../api/templates.js';
 import { AmendmentModal, ReportDiffView } from './ReportDiff.jsx';
 import { SigningFlow } from './SigningFlow.jsx';
+import { SignedBadge } from './signing/SignedBadge.jsx';
+import { verifiedPdfUrl } from '../api/signing.js';
 import { useSpeechRecognition, LevelMeter } from './Studio.jsx';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -818,6 +820,9 @@ export function ReportView({ id, navigate, lang }) {
   const [showAmend, setShowAmend] = useState(false);
   const [amendSeed, setAmendSeed] = useState(null); // dictated body → AmendmentModal.initialBody
   const [signOpen, setSignOpen] = useState(false);
+  // The envelope returned by the sign flow — sole source of the signature
+  // badge (its signature_level comes from the API verbatim, never inferred).
+  const [signedEnvelope, setSignedEnvelope] = useState(null);
   const [toasts, setToasts] = useState([]);
   const insightsRef = React.useRef(null);
 
@@ -863,8 +868,6 @@ export function ReportView({ id, navigate, lang }) {
   const sectionLabel = (key) => loc(labelMap[key], lang) || key;
   const isSigned = r.status === "signed" || r.status === "amended";
   const versions = asList(versionsReq.data);
-  const signature = r.signature || {};
-  const envelopeId = signature.envelope_id || r.envelope_id;
 
   if (showDiff && diffPair && tpl) {
     return (
@@ -913,9 +916,11 @@ export function ReportView({ id, navigate, lang }) {
           ) : (
             <>
               <button className="btn sm" onClick={() => window.print()}><Icon name="download" size={12} /> {lang === "uk" ? "Експорт" : "Export"}</button>
-              <button className="btn accent sm" onClick={() => setSignOpen(true)}>
-                <Icon name="sign" size={12} /> {lang === "uk" ? "Підписати" : "Sign"}
-              </button>
+              {r.status === "finalized" && (
+                <button className="btn accent sm" onClick={() => setSignOpen(true)} data-testid="sign-report">
+                  <Icon name="sign" size={12} /> {lang === "uk" ? "Підписати" : "Sign"}
+                </button>
+              )}
             </>
           )}
 
@@ -991,21 +996,28 @@ export function ReportView({ id, navigate, lang }) {
         <div className="editor-scroll">
           <div className="editor">
             {isSigned && (
-              <div className="signed-banner">
+              <div className="signed-banner" data-testid="signed-banner">
                 <Icon name="shield" size={15} />
                 <div>
                   <strong>{lang === "uk" ? "Підписано цифровим підписом" : "Digitally signed"}</strong>
                   {r.signed_at && <>{" · "}{formatDate(r.signed_at, lang)}</>}
-                  {(signature.sha || envelopeId) && (
+                  {/* Signature-level badge appears only with an envelope in
+                      hand — its level is the API's, never inferred here. */}
+                  {signedEnvelope?.signature_level && (
+                    <div style={{ marginTop: 6 }}>
+                      <SignedBadge envelope={signedEnvelope} lang={lang} />
+                    </div>
+                  )}
+                  {signedEnvelope?.verification_token && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                      {signature.sha && (
-                        <span style={{ fontFamily: "var(--mono)", fontSize: 11, opacity: .75 }}>SHA: {signature.sha}</span>
-                      )}
-                      {envelopeId && (
-                        <a href={`#/verify/${envelopeId}`} style={{ fontSize: 11, color: 'var(--accent)', marginLeft: 8 }}>
-                          {lang === 'uk' ? 'Верифікувати →' : 'Verify →'}
-                        </a>
-                      )}
+                      <a href={`#/verify/${signedEnvelope.verification_token}`} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 11, color: 'var(--accent)' }}>
+                        {lang === 'uk' ? 'Верифікувати →' : 'Verify →'}
+                      </a>
+                      <a href={verifiedPdfUrl(signedEnvelope.verification_token)} download
+                        style={{ fontSize: 11, color: 'var(--accent)' }}>
+                        {lang === 'uk' ? 'Підписаний PDF ↓' : 'Signed PDF ↓'}
+                      </a>
                     </div>
                   )}
                 </div>
@@ -1076,12 +1088,16 @@ export function ReportView({ id, navigate, lang }) {
       )}
 
       {signOpen && (
-        <SigningFlow lang={lang} reportId={id}
-          onClose={() => setSignOpen(false)}
-          onSigned={() => {
+        <SigningFlow lang={lang} reportId={id} report={r}
+          onClose={() => {
             setSignOpen(false);
-            pushToast(lang === 'uk' ? 'Звіт підписано' : 'Report signed');
+            // Refresh only on close — reloading earlier flips the page into
+            // its loading branch and would unmount the success dialog.
             reportReq.reload(); versionsReq.reload();
+          }}
+          onSigned={(envelope) => {
+            setSignedEnvelope(envelope || null);
+            pushToast(lang === 'uk' ? 'Звіт підписано' : 'Report signed');
           }} />
       )}
     </div>

@@ -12,4 +12,10 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version || '0.0.0'),
   },
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.{js,jsx}'],
+    setupFiles: ['src/test/setup.js'],
+    globals: true,
+  },
 })

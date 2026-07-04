@@ -1433,7 +1433,16 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
         author={author}
         reportId={reportIdRef.current}
         onClose={() => setPreviewOpen(false)}
-        onSign={() => { setPreviewOpen(false); setSignOpen(true); }}
+        onSign={() => {
+          setPreviewOpen(false);
+          if (!reportIdRef.current) {
+            pushToast({ message: lang === "uk"
+              ? "Спершу збережіть чернетку, щоб підписати звіт"
+              : "Save the draft first to sign the report" });
+            return;
+          }
+          setSignOpen(true);
+        }}
         onApplySynthesis={applySynthesis}
         onFinalize={finalizeFromPreview}
       />
@@ -1442,6 +1451,8 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       {signOpen && (
         <SigningFlow
           lang={lang}
+          reportId={reportIdRef.current}
+          report={{ title: template?.name?.[lang] || template?.name?.uk, code: template?.code }}
           onClose={() => setSignOpen(false)}
           onSigned={() => {
             setSignOpen(false);

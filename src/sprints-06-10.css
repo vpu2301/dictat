@@ -870,3 +870,46 @@ del.diff-delete {
   font-size: 13px; padding: 10px 12px;
   background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
 }
+
+/* ── S09 revision: signature-level badge + file-key / dev signing ───────── */
+
+.sig-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 6px 12px; border-radius: 8px; font-size: 12.5px;
+  max-width: 100%;
+}
+.sig-badge.qualified {
+  background: rgba(4, 120, 87, 0.1); border: 1px solid rgba(4, 120, 87, 0.25);
+}
+.sig-badge.qualified .sig-badge-mark {
+  font-weight: 800; letter-spacing: 0.04em; color: var(--ok);
+}
+.sig-badge.dev {
+  background: var(--surface-2); border: 1px dashed var(--muted);
+  color: var(--muted);
+}
+.sig-badge.dev .sig-badge-mark {
+  font-weight: 800; letter-spacing: 0.08em; color: var(--muted);
+}
+.sig-badge-detail {
+  display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  min-width: 0;
+}
+.sig-badge-detail > span + span::before { content: "·"; margin-right: 8px; opacity: .5; }
+
+.sig-error {
+  color: var(--rec); font-size: 12.5px; line-height: 1.5;
+  padding: 8px 12px; background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.2); border-radius: 8px;
+}
+
+.sig-dev-notice {
+  font-size: 12.5px; line-height: 1.6;
+  padding: 10px 12px; border-radius: 8px;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(180, 83, 9, 0.08), rgba(180, 83, 9, 0.08) 12px,
+    rgba(180, 83, 9, 0.16) 12px, rgba(180, 83, 9, 0.16) 24px
+  );
+  border: 1px solid rgba(180, 83, 9, 0.35);
+}
