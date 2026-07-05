@@ -22,7 +22,10 @@ import { listTemplates, createTemplate, toStudioTemplate } from './api/templates
 import { LandingPage } from './pages/LandingPage.jsx';
 import { ContentPage } from './pages/marketing/ContentPage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
-import { SignupPage } from './pages/SignupPage.jsx';
+import { SignupFlow } from './pages/SignupFlow.jsx';
+import { PricingPage } from './pages/PricingPage.jsx';
+import { BlogPage } from './pages/BlogPage.jsx';
+import { BlogPostPage } from './pages/BlogPostPage.jsx';
 import { VerifyPage } from './pages/VerifyPage.jsx';
 import { MfaPage } from './pages/MfaPage.jsx';
 import { MePage } from './pages/MePage.jsx';
@@ -109,9 +112,10 @@ function App() {
   // (authenticated users at "/" land on their workspace instead).
   const isLanding     = route === "/welcome" || ((route === "/" || route === "") && !auth);
   // Public marketing sub-pages (footer + feature/product/security content).
-  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security"];
+  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing"];
   const isMarketing = MARKETING_EXACT.includes(route)
-    || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/");
+    || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/")
+    || route.startsWith("/blog/");
   const isPublicRoute = isAuthRoute || isLanding || isMarketing || route.startsWith("/verify/");
   const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
   const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
@@ -169,9 +173,9 @@ function App() {
     view = <LoginPage navigate={navigate} lang={lang} />;
     fullBleed = true;
   }
-  // ── signup (request-access lead — admin-invite-only, doc 03 §4.1) ──
+  // ── signup (Heidi-style entry: create account or book a demo) ──
   else if (r === "/signup") {
-    view = <SignupPage navigate={navigate} lang={lang} />;
+    view = <SignupFlow navigate={navigate} lang={lang} />;
     fullBleed = true;
   }
   // ── public landing (marketing) ─────────────────────────────
@@ -180,8 +184,20 @@ function App() {
     fullBleed = true;
   }
   // ── public marketing sub-pages (footer + features/products/security) ─
+  else if (r === "/pricing") {
+    view = <PricingPage navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
+  else if (r === "/blog") {
+    view = <BlogPage navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
+  else if (r.startsWith("/blog/")) {
+    view = <BlogPostPage slug={r.replace(/^\/blog\//, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
   else if (
-    ["/about", "/contact", "/careers", "/blog", "/features", "/security"].includes(r)
+    ["/about", "/contact", "/careers", "/features", "/security"].includes(r)
     || r.startsWith("/legal/") || r.startsWith("/features/") || r.startsWith("/product/")
   ) {
     view = <ContentPage slug={r.replace(/^\//, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;

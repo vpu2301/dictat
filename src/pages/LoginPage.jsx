@@ -46,79 +46,85 @@ export function LoginPage({ navigate, lang = "en" }) {
   };
 
   return (
-    <div className="login-shell">
-      <form className="login-card" onSubmit={onSubmit} noValidate>
-        <div className="login-brand">
-          <Logo size={32} />
-          <div>
-            <div className="login-brand-name">Dictator</div>
-            <div className="login-brand-tag">{lang === "uk" ? "Медичне диктування" : "Medical dictation"}</div>
+    <div className="lp mk-auth-shell">
+      <div className="mk-auth">
+        <a
+          className="mk-auth-logo"
+          href="#/welcome"
+          onClick={(e) => { e.preventDefault(); navigate("/welcome"); }}
+        >
+          <Logo size={34} />
+        </a>
+        <h1 className="mk-auth-title">{lang === "uk" ? "Вхід" : "Sign in"}</h1>
+        <p className="mk-auth-sub">{lang === "uk" ? "Введіть облікові дані вашого тенанта." : "Use your tenant credentials."}</p>
+
+        <form className="mk-auth-form" onSubmit={onSubmit} noValidate>
+          <label className="mk-auth-field">
+            <span>{lang === "uk" ? "Електронна пошта" : "Email"}</span>
+            <input
+              type="email"
+              autoComplete="username"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@clinic.example"
+              required
+              disabled={phase === "submitting"}
+            />
+          </label>
+
+          <label className="mk-auth-field">
+            <span>{lang === "uk" ? "Пароль" : "Password"}</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={phase === "submitting"}
+            />
+          </label>
+
+          {error && <ApiErrorView error={error} lang={lang} />}
+          {mfaToast && (
+            <div className="login-toast">
+              <Icon name="shield" size={14} />
+              <span>{lang === "uk" ? "Потрібна MFA — зверніться до адміна." : "MFA required — contact admin."}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="mk-auth-btn primary"
+            disabled={phase === "submitting" || !email || !password}
+          >
+            {phase === "submitting"
+              ? (lang === "uk" ? "Вхід…" : "Signing in…")
+              : (lang === "uk" ? "Увійти" : "Sign in")}
+          </button>
+
+          <div className="mk-auth-foot">
+            <a
+              className="mk-auth-link"
+              href="#"
+              onClick={(e) => { e.preventDefault(); setForgotOpen(true); }}
+            >
+              {lang === "uk" ? "Забули пароль?" : "Forgot password?"}
+            </a>
           </div>
-        </div>
+        </form>
 
-        <h1 className="login-title">{lang === "uk" ? "Увійти" : "Sign in"}</h1>
-        <p className="login-sub">{lang === "uk" ? "Введіть облікові дані вашого тенанта." : "Use your tenant credentials."}</p>
-
-        <label className="login-field">
-          <span>{lang === "uk" ? "Електронна пошта" : "Email"}</span>
-          <input
-            type="email"
-            autoComplete="username"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@clinic.example"
-            required
-            disabled={phase === "submitting"}
-          />
-        </label>
-
-        <label className="login-field">
-          <span>{lang === "uk" ? "Пароль" : "Password"}</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={phase === "submitting"}
-          />
-        </label>
-
-        {error && <ApiErrorView error={error} lang={lang} />}
-        {mfaToast && (
-          <div className="login-toast">
-            <Icon name="shield" size={14} />
-            <span>{lang === "uk" ? "Потрібна MFA — зверніться до адміна." : "MFA required — contact admin."}</span>
-          </div>
-        )}
-
-        <button type="submit" className="btn btn-primary login-submit" disabled={phase === "submitting"}>
-          {phase === "submitting"
-            ? (lang === "uk" ? "Вхід…" : "Signing in…")
-            : (lang === "uk" ? "Увійти" : "Sign in")}
-        </button>
-
-        <div className="login-foot">
+        <div className="mk-auth-foot">
           <span>{lang === "uk" ? "Немає акаунту?" : "No account?"}</span>
           <a
-            className="login-link"
+            className="mk-auth-link"
             href="#/signup"
             onClick={(e) => { e.preventDefault(); navigate("/signup"); }}
           >
-            {lang === "uk" ? "Запросити доступ" : "Request access"}
+            {lang === "uk" ? "Реєстрація" : "Sign up"}
           </a>
         </div>
-        <div className="login-foot">
-          <a
-            className="muted login-link"
-            href="#"
-            onClick={(e) => { e.preventDefault(); setForgotOpen(true); }}
-          >
-            {lang === "uk" ? "Забули пароль?" : "Forgot password?"}
-          </a>
-        </div>
-      </form>
+      </div>
 
       {forgotOpen && (
         <ForgotPasswordModal
