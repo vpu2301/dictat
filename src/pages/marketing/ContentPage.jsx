@@ -64,6 +64,57 @@ function ContactForm({ lang }) {
   );
 }
 
+/* Pricing tiers with a monthly / yearly billing switch. */
+function PricingBlock({ block, lang, go }) {
+  const uk = lang === "uk";
+  const [yearly, setYearly] = useState(true);
+  const items = block.items || [];
+  // Only show the switch when at least one tier actually differs by period.
+  const hasSwitch = items.some((t) => t.priceYearly && t.priceYearly !== t.priceMonthly);
+
+  return (
+    <section className="mk-section">
+      {block.heading && (
+        <div className="lp-head">
+          <h2 className="lp-h2">{block.heading}</h2>
+          {block.sub && <p className="lp-sub">{block.sub}</p>}
+        </div>
+      )}
+      {hasSwitch && (
+        <div className="mk-billing" role="group" aria-label={uk ? "Період оплати" : "Billing period"}>
+          <button type="button" className={`mk-billing-opt${!yearly ? " is-active" : ""}`} aria-pressed={!yearly} onClick={() => setYearly(false)}>
+            {uk ? "Щомісяця" : "Monthly"}
+          </button>
+          <button type="button" className={`mk-billing-opt${yearly ? " is-active" : ""}`} aria-pressed={yearly} onClick={() => setYearly(true)}>
+            {uk ? "Щороку" : "Yearly"}
+            <span className="mk-billing-save">{uk ? "−20%" : "Save 20%"}</span>
+          </button>
+        </div>
+      )}
+      <div className="mk-tiers">
+        {items.map((t, i) => {
+          const price = (yearly ? t.priceYearly : t.priceMonthly) ?? t.price;
+          const period = (yearly ? t.periodYearly : t.periodMonthly) ?? t.period;
+          return (
+            <article className={`mk-tier${t.featured ? " is-featured" : ""}`} key={i}>
+              {t.badge && <span className="mk-tier-badge">{t.badge}</span>}
+              <h3 className="mk-tier-name">{t.name}</h3>
+              <div className="mk-tier-price">{price}</div>
+              <div className="mk-tier-period">{period}</div>
+              <p className="mk-tier-desc">{t.desc}</p>
+              {t.trial && <div className="mk-tier-trial"><Icon name="sparkle" size={13} /> {t.trial}</div>}
+              <a className={`btn ${t.featured ? "btn-primary" : ""} mk-tier-cta`} href={`#${t.cta.path}`} onClick={go(t.cta.path)}>{t.cta.label}</a>
+              <ul className="mk-tier-points">
+                {t.points.map((p, j) => <li key={j}><Icon name="check" size={14} /> {p}</li>)}
+              </ul>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function Block({ block, lang, navigate }) {
   const go = (path) => (e) => { e.preventDefault(); navigate(path); };
 
@@ -207,6 +258,35 @@ function Block({ block, lang, navigate }) {
                 <a className="mk-contact-value" href={`mailto:${it.value}`}>{it.value}</a>
                 <p>{it.note}</p>
               </div>
+            ))}
+          </div>
+        </section>
+      );
+
+    case "pricing":
+      return <PricingBlock block={block} lang={lang} go={go} />;
+
+    case "quotes":
+      return (
+        <section className="mk-section">
+          {block.heading && (
+            <div className="lp-head">
+              <h2 className="lp-h2">{block.heading}</h2>
+              {block.sub && <p className="lp-sub">{block.sub}</p>}
+            </div>
+          )}
+          <div className="mk-quotes">
+            {block.items.map((q, i) => (
+              <figure className="mk-quote" key={i}>
+                <blockquote>“{q.text}”</blockquote>
+                <figcaption>
+                  <span className="mk-quote-ava" aria-hidden="true">{q.name.slice(0, 1)}</span>
+                  <span className="mk-quote-who">
+                    <span className="mk-quote-name">{q.name}</span>
+                    <span className="mk-quote-role">{q.role} · {q.org}</span>
+                  </span>
+                </figcaption>
+              </figure>
             ))}
           </div>
         </section>

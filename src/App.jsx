@@ -101,9 +101,9 @@ function App() {
   // (authenticated users at "/" land on their workspace instead).
   const isLanding     = route === "/welcome" || ((route === "/" || route === "") && !auth);
   // Public marketing sub-pages (footer + feature/product/security content).
-  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security"];
+  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing", "/specialties", "/customers", "/faq"];
   const isMarketing = MARKETING_EXACT.includes(route)
-    || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/");
+    || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/") || route.startsWith("/specialties/");
   const isPublicRoute = isAuthRoute || isLanding || isMarketing || route.startsWith("/verify/");
   const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
   const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
@@ -173,8 +173,8 @@ function App() {
   }
   // ── public marketing sub-pages (footer + features/products/security) ─
   else if (
-    ["/about", "/contact", "/careers", "/blog", "/features", "/security"].includes(r)
-    || r.startsWith("/legal/") || r.startsWith("/features/") || r.startsWith("/product/")
+    ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing", "/specialties", "/customers", "/faq"].includes(r)
+    || r.startsWith("/legal/") || r.startsWith("/features/") || r.startsWith("/product/") || r.startsWith("/specialties/")
   ) {
     view = <ContentPage slug={r.replace(/^\//, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     fullBleed = true;

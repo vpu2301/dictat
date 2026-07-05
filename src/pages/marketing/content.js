@@ -509,6 +509,185 @@ function build(lang) {
         cta,
       ],
     },
+
+    /* ─────────────────────── Pricing ──────────────────────── */
+    pricing: {
+      hero: {
+        eyebrow: uk ? "Ціни" : "Pricing",
+        title: uk ? "Прозорі тарифи для практики будь-якого розміру" : "Clear plans for practices of every size",
+        sub: uk
+          ? "Почніть безкоштовно та масштабуйтеся, коли команда буде готова. Без прихованих платежів — усі можливості документації в кожному платному тарифі."
+          : "Start free and scale when your team is ready. No hidden fees — every paid plan includes the full documentation workflow.",
+      },
+      blocks: [
+        { type: "pricing", billed: true, items: uk
+          ? [
+              { name: "Старт", priceMonthly: "₴0", priceYearly: "₴0", periodMonthly: "назавжди", periodYearly: "назавжди", desc: "Спробуйте Dictat у власному темпі.",
+                cta: { label: "Запросити доступ", path: "/signup" },
+                points: ["До 20 диктувань на місяць", "Потокове розпізнавання мови", "Системні шаблони нотаток", "Експорт у PDF"] },
+              { name: "Pro", priceMonthly: "₴690", priceYearly: "₴550", periodMonthly: "за лікаря / місяць", periodYearly: "за лікаря / місяць, річна оплата", desc: "Для лікаря, який документує щодня.", featured: true, badge: "Найпопулярніший", trial: "14 днів безкоштовно · без картки",
+                cta: { label: "Запросити доступ", path: "/signup" },
+                points: ["Необмежені диктування", "Власні шаблони та автодоповнення", "Версії, порівняння та амендменти", "Підпис Дія / ІІТ", "Пріоритетна підтримка"] },
+              { name: "Клініка", priceMonthly: "₴550", priceYearly: "₴450", periodMonthly: "за лікаря / місяць, від 5 лікарів", periodYearly: "за лікаря / місяць, річна оплата, від 5 лікарів", desc: "Для команд і відділень.", trial: "14 днів безкоштовно · без картки",
+                cta: { label: "Зв'язатися з нами", path: "/contact" },
+                points: ["Усе з Pro", "Панель адміністратора та ролі", "Незмінний журнал аудиту", "Шаблони закладу з версіями", "Онбординг команди"] },
+              { name: "Enterprise", priceMonthly: "Індивідуально", priceYearly: "Індивідуально", periodMonthly: "лікарні та мережі", periodYearly: "лікарні та мережі", desc: "Розгортання на вашій інфраструктурі.",
+                cta: { label: "Запросити демо", path: "/contact" },
+                points: ["Self-hosted розгортання", "Інтеграція з МІС через API", "SLA та виділена підтримка", "Навчання та супровід міграції"] },
+            ]
+          : [
+              { name: "Starter", priceMonthly: "$0", priceYearly: "$0", periodMonthly: "forever", periodYearly: "forever", desc: "Try Dictat at your own pace.",
+                cta: { label: "Request access", path: "/signup" },
+                points: ["Up to 20 dictations a month", "Streaming speech recognition", "System note templates", "PDF export"] },
+              { name: "Pro", priceMonthly: "$19", priceYearly: "$15", periodMonthly: "per clinician / month", periodYearly: "per clinician / month, billed annually", desc: "For the clinician documenting daily.", featured: true, badge: "Most popular", trial: "14-day free trial · no card required",
+                cta: { label: "Request access", path: "/signup" },
+                points: ["Unlimited dictations", "Custom templates & autocomplete", "Versions, diffs & amendments", "Дія / ІІТ e-signature", "Priority support"] },
+              { name: "Clinic", priceMonthly: "$15", priceYearly: "$12", periodMonthly: "per clinician / month, 5+ seats", periodYearly: "per clinician / month, billed annually, 5+ seats", desc: "For teams and departments.", trial: "14-day free trial · no card required",
+                cta: { label: "Talk to us", path: "/contact" },
+                points: ["Everything in Pro", "Admin dashboard & roles", "Immutable audit log", "Versioned tenant templates", "Team onboarding"] },
+              { name: "Enterprise", priceMonthly: "Custom", priceYearly: "Custom", periodMonthly: "hospitals & networks", periodYearly: "hospitals & networks", desc: "Deployed on your infrastructure.",
+                cta: { label: "Book a demo", path: "/contact" },
+                points: ["Self-hosted deployment", "EHR integration via API", "SLA & dedicated support", "Training and migration help"] },
+            ] },
+        { type: "faq", heading: uk ? "Питання про тарифи" : "Pricing questions", items: uk
+          ? [
+              { q: "Чи можна змінити тариф пізніше?", a: "Так, тариф можна підвищити або знизити будь-коли — зміни набувають чинності з наступного розрахункового періоду." },
+              { q: "Що станеться з даними після завершення пробного періоду?", a: "Ваші документи залишаються доступними для читання та експорту. Ми нічого не видаляємо без вашого явного запиту." },
+              { q: "Чи є знижки для державних закладів?", a: "Так, для державних та комунальних закладів охорони здоров'я діють окремі умови — напишіть нам." },
+              { q: "Як відбувається оплата?", a: "Щомісячно або щорічно (зі знижкою) за рахунком. Для тарифу Клініка та Enterprise доступний договір із закладом." },
+            ]
+          : [
+              { q: "Can I change plans later?", a: "Yes — upgrade or downgrade at any time; changes apply from the next billing period." },
+              { q: "What happens to my data after the trial?", a: "Your documents stay readable and exportable. We never delete anything without your explicit request." },
+              { q: "Are there discounts for public institutions?", a: "Yes, public and municipal healthcare institutions get separate terms — write to us." },
+              { q: "How does billing work?", a: "Monthly or annually (with a discount) by invoice. Clinic and Enterprise plans support institution-level contracts." },
+            ] },
+        cta,
+      ],
+    },
+
+    /* ───────────────────── Specialties hub ─────────────────── */
+    specialties: {
+      hero: {
+        eyebrow: uk ? "Спеціальності" : "Specialties",
+        title: uk ? "Створено для вашої спеціальності" : "Built for your specialty",
+        sub: uk
+          ? "Шаблони, термінологія та робочі процеси Dictat адаптовані під те, як документує саме ваша галузь — від амбулаторного прийому до операційної."
+          : "Dictat's templates, terminology and workflows adapt to how your field documents — from the consult room to the operating theatre.",
+      },
+      blocks: [
+        { type: "grid", heading: uk ? "Оберіть свою галузь" : "Find your field", sub: uk
+            ? "Кожна сторінка показує, як Dictat вписується у ваш робочий день."
+            : "Each page shows how Dictat fits your working day.",
+          items: uk
+            ? [
+                { icon: "home", title: "Сімейна медицина", desc: "Структуровані нотатки прийому, направлення та виписки — без вечірньої паперової роботи.", path: "/specialties/general-practice" },
+                { icon: "scan", title: "Радіологія", desc: "Диктуйте висновки за шаблонами модальностей швидше, ніж встигли б надрукувати.", path: "/specialties/radiology" },
+                { icon: "heart", title: "Психіатрія і психологія", desc: "Тримайте зоровий контакт — сесія документується сама.", path: "/specialties/mental-health" },
+                { icon: "scalpel", title: "Хірургія", desc: "Протоколи операцій і передопераційні огляди голосом, одразу після втручання.", path: "/specialties/surgery" },
+                { icon: "users", title: "Педіатрія", desc: "Уся увага — дитині та батькам, а не клавіатурі.", path: "/specialties/pediatrics" },
+                { icon: "waveform", title: "Кардіологія", desc: "ЕхоКГ, ЕКГ та консультативні висновки в структурованому вигляді.", path: "/specialties/cardiology" },
+              ]
+            : [
+                { icon: "home", title: "General practice", desc: "Structured visit notes, referrals and discharge summaries — no evening paperwork.", path: "/specialties/general-practice" },
+                { icon: "scan", title: "Radiology", desc: "Dictate reports against modality templates faster than you could type.", path: "/specialties/radiology" },
+                { icon: "heart", title: "Psychiatry & psychology", desc: "Keep eye contact — the session documents itself.", path: "/specialties/mental-health" },
+                { icon: "scalpel", title: "Surgery", desc: "Operative notes and pre-op assessments by voice, right after the procedure.", path: "/specialties/surgery" },
+                { icon: "users", title: "Pediatrics", desc: "Full attention on the child and parents, not the keyboard.", path: "/specialties/pediatrics" },
+                { icon: "waveform", title: "Cardiology", desc: "Echo, ECG and consult reports in structured form.", path: "/specialties/cardiology" },
+              ] },
+        { type: "prose", heading: uk ? "Не бачите своєї спеціальності?" : "Don't see your specialty?",
+          paragraphs: uk
+            ? ["Шаблони Dictat налаштовуються під будь-яку галузь: 16 системних структур плюс власні шаблони вашого закладу з версіями. Напишіть нам — покажемо, як Dictat працюватиме саме у вашій практиці."]
+            : ["Dictat templates adapt to any field: 16 system structures plus your institution's own versioned templates. Write to us — we'll show how Dictat fits your practice."] },
+        cta,
+      ],
+    },
+
+    /* ──────────────────── Customer stories ─────────────────── */
+    customers: {
+      hero: {
+        eyebrow: uk ? "Історії клієнтів" : "Customer stories",
+        title: uk ? "Лікарі, які повернули собі вечори" : "Clinicians who got their evenings back",
+        sub: uk
+          ? "Клініки та лікарні по всій Україні документують голосом. Ось що змінилося для них."
+          : "Clinics and hospitals document by voice every day. Here is what changed for them.",
+      },
+      blocks: [
+        { type: "stats", items: uk
+          ? [{ v: "6+ год", l: "економії на тиждень на лікаря" }, { v: "40%", l: "менше часу на документацію" }, { v: "12+", l: "спеціальностей у продакшені" }, { v: "98%", l: "точність розпізнавання" }]
+          : [{ v: "6+ hrs", l: "saved per clinician per week" }, { v: "40%", l: "less time on documentation" }, { v: "12+", l: "specialties in production" }, { v: "98%", l: "recognition accuracy" }] },
+        { type: "quotes", items: uk
+          ? [
+              { text: "Раніше я закінчувала виписки о дев'ятій вечора. Тепер документ готовий, щойно пацієнт виходить з кабінету.", name: "Олена К.", role: "Сімейна лікарка", org: "Медичний центр, Київ" },
+              { text: "Висновок КТ, який я друкував пів години, тепер диктую за п'ять хвилин — і шаблон сам розставляє все по секціях.", name: "Андрій М.", role: "Радіолог", org: "Обласна лікарня, Львів" },
+              { text: "Для психотерапії найцінніше — контакт. Dictat прибрав ноутбук, що стояв між мною та пацієнтом.", name: "Марія С.", role: "Психотерапевтка", org: "Приватна практика, Одеса" },
+              { text: "Ми перевели відділення на Dictat за тиждень. Аудит і підпис Дія закрили питання комплаєнсу одразу.", name: "Ігор Т.", role: "Медичний директор", org: "Мережа клінік, Дніпро" },
+            ]
+          : [
+              { text: "I used to finish discharge summaries at nine in the evening. Now the document is ready by the time the patient leaves the room.", name: "Olena K.", role: "Family physician", org: "Medical center, Kyiv" },
+              { text: "A CT report that took me half an hour to type is now a five-minute dictation — and the template lays out every section itself.", name: "Andrii M.", role: "Radiologist", org: "Regional hospital, Lviv" },
+              { text: "In psychotherapy, contact is everything. Dictat removed the laptop that used to sit between me and my patient.", name: "Maria S.", role: "Psychotherapist", org: "Private practice, Odesa" },
+              { text: "We moved the whole department to Dictat in a week. Audit trails and Дія signing settled compliance from day one.", name: "Ihor T.", role: "Medical director", org: "Clinic network, Dnipro" },
+            ] },
+        { type: "prose", heading: uk ? "Хочете поділитися своєю історією?" : "Want to share your story?",
+          paragraphs: uk
+            ? ["Якщо ваша команда вже працює з Dictat і хоче розповісти про свій досвід — напишіть нам. Ми любимо показувати реальні робочі процеси реальних лікарів."]
+            : ["If your team already runs on Dictat and wants to talk about it — write to us. We love showing real workflows from real clinicians."] },
+        cta,
+      ],
+    },
+
+    /* ───────────────────────── FAQ ─────────────────────────── */
+    faq: {
+      hero: {
+        eyebrow: uk ? "Допомога" : "Help",
+        title: uk ? "Часті питання" : "Frequently asked questions",
+        sub: uk
+          ? "Все про продукт, дані та впровадження. Не знайшли відповіді — напишіть нам."
+          : "Everything about the product, data and rollout. Can't find an answer — write to us.",
+      },
+      blocks: [
+        { type: "faq", heading: uk ? "Продукт" : "Product", items: uk
+          ? [
+              { q: "Чим Scribe відрізняється від Dictate?", a: "Scribe слухає прийом і сам формує структуровану нотатку з розмови з пацієнтом. Dictate — класичне диктування: ви надиктовуєте звіт за шаблоном, керуючи структурою голосовими командами." },
+              { q: "Які мови підтримуються?", a: "Українська та англійська — і для розпізнавання мови, і для інтерфейсу. Медична термінологія та скорочення розпізнаються в обох мовах." },
+              { q: "Чи працює Dictat з моєю МІС?", a: "Готові документи експортуються у PDF та передаються через API. Для тарифу Enterprise ми будуємо пряму інтеграцію з вашою медичною інформаційною системою." },
+              { q: "Що як модель почує щось неправильно?", a: "Слова з низькою впевненістю підсвічуються для перевірки, а жоден документ не фіналізується автоматично — останнє слово завжди за лікарем." },
+            ]
+          : [
+              { q: "How is Scribe different from Dictate?", a: "Scribe listens to the visit and builds a structured note from the patient conversation. Dictate is classic dictation: you speak a report into a template, steering the structure with voice commands." },
+              { q: "Which languages are supported?", a: "Ukrainian and English — for both speech recognition and the interface. Medical terminology and abbreviations are recognized in both." },
+              { q: "Does Dictat work with my EHR?", a: "Finished documents export to PDF and via API. On the Enterprise plan we build a direct integration with your medical information system." },
+              { q: "What if the model mishears something?", a: "Low-confidence words are highlighted for review, and no document is ever finalized automatically — the clinician always has the last word." },
+            ] },
+        { type: "faq", heading: uk ? "Дані та безпека" : "Data & security", items: uk
+          ? [
+              { q: "Куди потрапляє аудіо моїх прийомів?", a: "Нікуди за межі вашого розгортання. Усе розпізнавання та генерація працюють на self-hosted моделях — жодне аудіо, транскрипт чи нотатка не надсилаються до сторонніх API." },
+              { q: "Як оформлюється згода пацієнта?", a: "Перед записом фіксується явна згода пацієнта, а під час запису видно постійний індикатор. Без згоди запис не починається." },
+              { q: "Хто бачить документи в моїй клініці?", a: "Доступ визначають ролі: лікар, адміністратор, аудитор. Ізоляція між закладами забезпечується на рівні бази даних (row-level security), а не коду застосунку." },
+              { q: "Чи юридично значущий підпис?", a: "Так. Документи підписуються кваліфікованим електронним підписом через Дія або ІІТ, а підписаний PDF можна перевірити за публічним посиланням." },
+            ]
+          : [
+              { q: "Where does my visit audio go?", a: "Nowhere outside your deployment. All recognition and generation run on self-hosted models — no audio, transcript or note is ever sent to a third-party API." },
+              { q: "How is patient consent handled?", a: "Explicit consent is captured before recording, and a persistent indicator is visible throughout. No consent — no recording." },
+              { q: "Who can see documents in my clinic?", a: "Roles decide: clinician, administrator, auditor. Isolation between institutions is enforced by the database (row-level security), not application code." },
+              { q: "Is the signature legally binding?", a: "Yes. Documents are signed with a qualified electronic signature via Дія or ІІТ, and the signed PDF can be verified at a public link." },
+            ] },
+        { type: "faq", heading: uk ? "Впровадження" : "Rollout", items: uk
+          ? [
+              { q: "Скільки триває впровадження?", a: "Окремий лікар починає працювати того ж дня. Клініка з власними шаблонами зазвичай повністю переходить за один-два тижні." },
+              { q: "Чи потрібне спеціальне обладнання?", a: "Ні — достатньо браузера та мікрофона. Для гучних середовищ радимо гарнітуру, але це не обов'язково." },
+              { q: "Як навчити команду?", a: "Інтерфейс знайомий кожному, хто вже диктував повідомлення в телефоні. Для тарифів Клініка та Enterprise ми проводимо онбординг команди." },
+            ]
+          : [
+              { q: "How long does rollout take?", a: "A single clinician starts the same day. A clinic with custom templates typically fully switches within one to two weeks." },
+              { q: "Do I need special hardware?", a: "No — a browser and a microphone are enough. For noisy environments we recommend a headset, but it's optional." },
+              { q: "How do we train the team?", a: "The interface is familiar to anyone who has dictated a message on their phone. Clinic and Enterprise plans include team onboarding." },
+            ] },
+        cta,
+      ],
+    },
   };
 }
 
@@ -686,9 +865,135 @@ function buildFeatureDetail(slug, lang) {
   };
 }
 
+/* ── Individual specialty pages ───────────────────────────────
+   Generated from one table so the six pages stay consistent. */
+const SPECIALTY_DETAIL = {
+  "general-practice": {
+    icon: "home",
+    uk: { title: "Сімейна медицина", sub: "Прийом за прийомом — а документація пише себе сама. Структуровані нотатки, направлення та виписки без вечірньої паперової роботи.",
+      points: ["Нотатка прийому готова до кінця консультації", "Направлення та виписки з шаблонів", "Історія пацієнта та таймлайн візитів під рукою"],
+      cards: [
+        { icon: "mic", title: "Скрайб на прийомі", desc: "Scribe слухає розмову та розкладає її в структуровану нотатку — скарги, анамнез, об'єктивно, план." },
+        { icon: "layers", title: "Шаблони під первинку", desc: "Профогляди, диспансеризація, довідки — готові структури для щоденних сценаріїв." },
+        { icon: "clock", title: "Кінець робочого дня — вчасно", desc: "Лікарі первинної ланки економлять понад 6 годин на тиждень на документації." },
+      ] },
+    en: { title: "General practice", sub: "Visit after visit — and the documentation writes itself. Structured notes, referrals and discharge summaries without evening paperwork.",
+      points: ["The visit note is ready by the end of the consult", "Referrals and summaries from templates", "Patient history and visit timeline at hand"],
+      cards: [
+        { icon: "mic", title: "A scribe in the room", desc: "Scribe listens to the conversation and lays it out into a structured note — complaints, history, exam, plan." },
+        { icon: "layers", title: "Primary-care templates", desc: "Check-ups, screenings, certificates — ready structures for everyday scenarios." },
+        { icon: "clock", title: "Leave on time", desc: "Primary-care clinicians save over 6 hours a week on documentation." },
+      ] },
+  },
+  radiology: {
+    icon: "scan",
+    uk: { title: "Радіологія", sub: "Диктуйте висновки за шаблонами модальностей — КТ, МРТ, УЗД, рентген — швидше, ніж встигли б надрукувати.",
+      points: ["Шаблони під кожну модальність", "Голосові команди для навігації по секціях", "Перевірка МКХ-10 перед фіналізацією"],
+      cards: [
+        { icon: "keyboard", title: "Руки на знімку, не на клавіатурі", desc: "«Секція висновок», «новий абзац» — структура керується голосом, поки ви дивитесь на зображення." },
+        { icon: "history", title: "Версії та амендменти", desc: "Append-only історія кожного висновку: правки прозорі, порівняння версій вбудоване." },
+        { icon: "sign", title: "Підпис без паперу", desc: "КЕП через Дія або ІІТ одразу після перевірки — підписаний PDF з публічною перевіркою." },
+      ] },
+    en: { title: "Radiology", sub: "Dictate reports against modality templates — CT, MRI, ultrasound, X-ray — faster than you could type.",
+      points: ["Templates per modality", "Voice commands to move between sections", "ICD-10 validation before finalization"],
+      cards: [
+        { icon: "keyboard", title: "Hands on the image, not the keys", desc: "\"Section: impression\", \"new paragraph\" — steer the structure by voice while you read the study." },
+        { icon: "history", title: "Versions & amendments", desc: "An append-only history for every report: edits are transparent, diffs are built in." },
+        { icon: "sign", title: "Paperless sign-off", desc: "Qualified signature via Дія or ІІТ right after review — a signed PDF with public verification." },
+      ] },
+  },
+  "mental-health": {
+    icon: "heart",
+    uk: { title: "Психіатрія і психологія", sub: "Найцінніше в терапії — контакт. Dictat прибирає ноутбук між вами та пацієнтом і документує сесію сам.",
+      points: ["Зоровий контакт протягом усієї сесії", "Явна згода пацієнта перед записом", "Структуровані нотатки сесій та динаміка"],
+      cards: [
+        { icon: "check", title: "Згода — перш за все", desc: "Запис не почнеться без зафіксованої згоди, а індикатор видно протягом усієї сесії." },
+        { icon: "eye", title: "Присутність замість конспекту", desc: "Слухайте й спостерігайте — структурована нотатка сесії буде готова після завершення." },
+        { icon: "shield", title: "Максимальна чутливість даних", desc: "Self-hosted моделі: жоден запис чи транскрипт не залишає вашого розгортання." },
+      ] },
+    en: { title: "Psychiatry & psychology", sub: "Contact is what matters in therapy. Dictat removes the laptop between you and the patient and documents the session itself.",
+      points: ["Eye contact through the whole session", "Explicit patient consent before recording", "Structured session notes and progress over time"],
+      cards: [
+        { icon: "check", title: "Consent first", desc: "Recording won't start without captured consent, and the indicator stays visible all session." },
+        { icon: "eye", title: "Presence over note-taking", desc: "Listen and observe — a structured session note is ready when you finish." },
+        { icon: "shield", title: "Highest data sensitivity", desc: "Self-hosted models: no recording or transcript ever leaves your deployment." },
+      ] },
+  },
+  surgery: {
+    icon: "scalpel",
+    uk: { title: "Хірургія", sub: "Протокол операції — голосом, одразу після втручання, поки деталі свіжі. Передопераційні огляди та виписки — з шаблонів.",
+      points: ["Протокол операції за 5 хвилин після втручання", "Обов'язкові секції перевіряються перед фіналізацією", "Повна історія змін кожного протоколу"],
+      cards: [
+        { icon: "mic", title: "Надиктуйте, поки свіже", desc: "Продиктуйте хід операції одразу після виходу з операційної — шаблон сам розставить секції." },
+        { icon: "check", title: "Нічого не пропущено", desc: "Система не дасть фіналізувати протокол без обов'язкових секцій та коду МКХ-10." },
+        { icon: "history", title: "Прозорість для комісій", desc: "Незмінний аудит і версії — кожна правка протоколу зафіксована й доступна для перевірки." },
+      ] },
+    en: { title: "Surgery", sub: "The operative note — by voice, right after the procedure, while details are fresh. Pre-op assessments and discharges from templates.",
+      points: ["Operative note 5 minutes after the procedure", "Required sections validated before finalization", "Full change history for every note"],
+      cards: [
+        { icon: "mic", title: "Dictate while it's fresh", desc: "Speak the operative course as you leave the theatre — the template lays out the sections." },
+        { icon: "check", title: "Nothing missed", desc: "The system won't finalize a note without required sections and a valid ICD-10 code." },
+        { icon: "history", title: "Transparent for review boards", desc: "Immutable audit and versioning — every edit to the note is recorded and verifiable." },
+      ] },
+  },
+  pediatrics: {
+    icon: "users",
+    uk: { title: "Педіатрія", sub: "Дитина, батьки й лікар — розмова, а не клавіатура. Dictat фіксує прийом і формує нотатку, поки ви працюєте з маленьким пацієнтом.",
+      points: ["Уся увага — дитині та батькам", "Шаблони профоглядів і щеплень", "Історія розвитку в таймлайні пацієнта"],
+      cards: [
+        { icon: "heart", title: "Контакт, який лікує", desc: "Педіатрія — це довіра. Скрайб слухає у фоні, поки ви спілкуєтеся з родиною." },
+        { icon: "layers", title: "Шаблони під вік", desc: "Профогляди за віком, календар щеплень, довідки для садка та школи — все у структурах." },
+        { icon: "users", title: "Родина бачить лікаря", desc: "Батьки відзначають різницю, коли лікар дивиться на дитину, а не в монітор." },
+      ] },
+    en: { title: "Pediatrics", sub: "The child, the parents and the clinician — a conversation, not a keyboard. Dictat captures the visit while you work with your small patient.",
+      points: ["Full attention on the child and parents", "Well-child and vaccination templates", "Development history in the patient timeline"],
+      cards: [
+        { icon: "heart", title: "Contact that heals", desc: "Pediatrics runs on trust. The scribe listens in the background while you engage the family." },
+        { icon: "layers", title: "Age-based templates", desc: "Well-child checks by age, vaccination schedules, school certificates — all structured." },
+        { icon: "users", title: "The family sees the doctor", desc: "Parents notice the difference when the clinician looks at the child, not the monitor." },
+      ] },
+  },
+  cardiology: {
+    icon: "waveform",
+    uk: { title: "Кардіологія", sub: "ЕхоКГ, ЕКГ, холтер і консультативні висновки — у структурованому вигляді, з термінологією, яку модель справді розуміє.",
+      points: ["Шаблони ЕхоКГ, ЕКГ та консультацій", "Медична термінологія та скорочення розпізнаються", "Динаміка показників у версіях документів"],
+      cards: [
+        { icon: "waveform", title: "Термінологія без спотикань", desc: "Фракція викиду, регургітація, градієнти — модель натренована на медичній мові." },
+        { icon: "sliders", title: "Нормалізація значень", desc: "Числа, одиниці та скорочення форматуються послідовно в усьому висновку." },
+        { icon: "layers", title: "Структуровані обстеження", desc: "Кожен вид обстеження має свою структуру — висновок завжди повний і послідовний." },
+      ] },
+    en: { title: "Cardiology", sub: "Echo, ECG, Holter and consult reports — structured, with terminology the model actually understands.",
+      points: ["Echo, ECG and consult templates", "Medical terminology and abbreviations recognized", "Trends across document versions"],
+      cards: [
+        { icon: "waveform", title: "Terminology without stumbles", desc: "Ejection fraction, regurgitation, gradients — the model is trained on medical speech." },
+        { icon: "sliders", title: "Value normalization", desc: "Numbers, units and abbreviations are formatted consistently across the report." },
+        { icon: "layers", title: "Structured studies", desc: "Every study type has its structure — the report is always complete and consistent." },
+      ] },
+  },
+};
+
+function buildSpecialtyDetail(slug, lang) {
+  const d = SPECIALTY_DETAIL[slug];
+  if (!d) return null;
+  const uk = lang === "uk";
+  const t = uk ? d.uk : d.en;
+  const cta = uk ? CTA.uk : CTA.en;
+  return {
+    hero: { eyebrow: uk ? "Спеціальність" : "Specialty", title: t.title, sub: t.sub, icon: d.icon, points: t.points,
+      cta: { label: uk ? "Запросити доступ" : "Request access", path: "/signup" } },
+    blocks: [
+      { type: "grid", cols: 3, items: t.cards },
+      { type: "backlink", label: uk ? "Усі спеціальності" : "All specialties", path: "/specialties" },
+      cta,
+    ],
+  };
+}
+
 /* Public resolver used by ContentPage. Returns null for unknown slugs. */
 export function getContent(slug, lang) {
   const m = slug.match(/^features\/(.+)$/);
   if (m) return buildFeatureDetail(m[1], lang);
+  const s = slug.match(/^specialties\/(.+)$/);
+  if (s) return buildSpecialtyDetail(s[1], lang);
   return build(lang)[slug] || null;
 }

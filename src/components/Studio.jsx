@@ -4,7 +4,7 @@
 // and autocomplete (Sprint 10) are wired here.
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useI18n } from '../i18n.js';
+import { useI18n, specLabel } from '../i18n.js';
 import { Icon, SaveStatus, Modal, Toast, Empty } from './UI.jsx';
 import { TipTapEditor, bodyToDoc, docToBody } from './TipTapEditor.jsx';
 import { SigningFlow } from './SigningFlow.jsx';
@@ -477,16 +477,6 @@ function AddTemplateDialog({ onClose, onCreate }) {
       </div>
     </Modal>
   );
-}
-
-// Translate a specialty key, falling back to a humanized slug for backend
-// specialties (e.g. "family_medicine") that have no i18n entry.
-function specLabel(t, specialty) {
-  if (!specialty) return "";
-  const key = `spec.${specialty}`;
-  const translated = t(key);
-  if (translated !== key) return translated;
-  return String(specialty).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // ── Section nav (left rail) — Sprint 06 enhanced ───────────────────────

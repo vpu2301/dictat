@@ -13,6 +13,7 @@
 
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { Icon, Empty } from "./UI.jsx";
+import { FilterDropdown } from "./FilterDropdown.jsx";
 import { Loading, asList } from "./DataStates.jsx";
 import { ApiErrorView } from "./ApiErrorView.jsx";
 import { Pagination } from "./Pagination.jsx";
@@ -37,7 +38,8 @@ const TEMPLATE_PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
 const SPECIALTIES = [
   ["cardiology",          "Кардіологія",      "Cardiology"],
   ["family_medicine",     "Сімейна медицина", "Family medicine"],
-  ["emergency_department","Невідкладна",      "Emergency dept."],
+  ["emergency_medicine",  "Невідкладна",      "Emergency medicine"],
+  ["general",             "Загальна практика","General practice"],
   ["neurology",           "Неврологія",       "Neurology"],
   ["internal_medicine",   "Терапія",          "Internal medicine"],
   ["surgery",             "Хірургія",         "Surgery"],
@@ -243,20 +245,26 @@ export function TemplatesPage({ lang, navigate }) {
           />
         </label>
 
-        <select className="ti" style={{ width: "auto", padding: "5px 10px" }}
-          value={specialty} onChange={(e) => setSpecialty(e.target.value)}>
-          <option value="">{T(lang, "Всі спеціальності", "All specialties")}</option>
-          {SPECIALTIES.map(([v, uk, en]) => (
-            <option key={v} value={v}>{T(lang, uk, en)}</option>
-          ))}
-        </select>
+        <FilterDropdown
+          value={specialty}
+          onChange={setSpecialty}
+          ariaLabel={T(lang, "Спеціальність", "Specialty")}
+          options={[
+            { value: "", label: T(lang, "Всі спеціальності", "All specialties") },
+            ...SPECIALTIES.map(([v, uk, en]) => ({ value: v, label: T(lang, uk, en) })),
+          ]}
+        />
 
-        <select className="ti" style={{ width: "auto", padding: "5px 10px" }}
-          value={language} onChange={(e) => setLanguage(e.target.value)}>
-          <option value="">{T(lang, "Всі мови", "All languages")}</option>
-          <option value="uk">{T(lang, "Українська", "Ukrainian")}</option>
-          <option value="en">{T(lang, "Англійська", "English")}</option>
-        </select>
+        <FilterDropdown
+          value={language}
+          onChange={setLanguage}
+          ariaLabel={T(lang, "Мова", "Language")}
+          options={[
+            { value: "", label: T(lang, "Всі мови", "All languages") },
+            { value: "uk", label: T(lang, "Українська", "Ukrainian") },
+            { value: "en", label: T(lang, "Англійська", "English") },
+          ]}
+        />
 
         <label className="tpl-toggle">
           <input type="checkbox" checked={customOnly} onChange={(e) => setCustomOnly(e.target.checked)} />

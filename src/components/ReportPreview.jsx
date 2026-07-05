@@ -305,9 +305,6 @@ export function ReportPreview({
         </div>
 
         <footer className="report-preview-foot">
-          <button className="btn" onClick={onClose}>
-            <Icon name="arrowLeft" size={13} /> {T(lang, "Повернутись до редагування", "Back to editing")}
-          </button>
           {finalErr && (
             <span className="rp-foot-err" role="alert">
               {finalErr.kind === "conflict" || finalErr.kind === "finalize"
@@ -315,19 +312,23 @@ export function ReportPreview({
                 : T(lang, "Не вдалося завантажити PDF.", "Could not download the PDF.")}
             </span>
           )}
-          <div style={{ flex: 1 }} />
-          <button className="btn ghost" onClick={handleDownload} disabled={!reportId}>
-            <Icon name="download" size={13} /> {T(lang, "Завантажити PDF (чернетка)", "Download PDF (draft)")}
+          <button className="btn" onClick={onClose}>
+            <Icon name="arrowLeft" size={13} /> {T(lang, "До редагування", "Back to editing")}
           </button>
-          {onFinalize && (
-            <button className="btn" onClick={handleFinalize} disabled={finalizing || !reportId}>
-              <Icon name={finalizing ? "refresh" : "check"} size={13} />
-              {finalizing ? T(lang, "Завершення…", "Finalizing…") : T(lang, "Завершити", "Finalize")}
+          <div className="report-preview-foot-r">
+            <button className="btn ghost" onClick={handleDownload} disabled={!reportId}>
+              <Icon name="download" size={13} /> {T(lang, "PDF (чернетка)", "PDF (draft)")}
             </button>
-          )}
-          <button className="btn primary" onClick={onSign}>
-            <Icon name="sign" size={13} /> {T(lang, "Підписати звіт", "Sign report")}
-          </button>
+            {onFinalize && (
+              <button className="btn" onClick={handleFinalize} disabled={finalizing || !reportId}>
+                <Icon name={finalizing ? "refresh" : "check"} size={13} />
+                {finalizing ? T(lang, "Завершення…", "Finalizing…") : T(lang, "Завершити", "Finalize")}
+              </button>
+            )}
+            <button className="btn primary" onClick={onSign}>
+              <Icon name="sign" size={13} /> {T(lang, "Підписати звіт", "Sign report")}
+            </button>
+          </div>
         </footer>
       </div>
     </div>

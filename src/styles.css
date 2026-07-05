@@ -3,32 +3,36 @@
    Two products: Scribe (conversation notes) + Dictate (medical reports)
    ───────────────────────────────────────────────────────────────────────── */
 
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
+/* Editorial display serif — used ONLY on the public marketing site (.lp), never the platform.
+   Source Serif 4 carries full Cyrillic (Fraunces does not — it silently fell back to Georgia
+   on every Ukrainian heading, which read as "off/untrustworthy"). Medical-journal credibility. */
+@import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap");
 
 :root {
-  /* Type */
-  --sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  /* Type — Space Grotesk approximates Anthropic's Styrene; Geist fallback carries Cyrillic */
+  --sans: "Space Grotesk", "Geist", ui-sans-serif, system-ui, sans-serif;
   --mono: "Geist Mono", ui-monospace, monospace;
 
-  /* Light tokens (default) */
-  --bg: #f6f7f9;
+  /* Light tokens (default) — white-dominant: pure white base, subtle grey separation */
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f1f3f6;
-  --surface-hover: #f7f8fa;
-  --text-1: #0b1220;
-  --text-2: #2d3640;
-  --text-3: #4a5563;
-  --muted: #6b7480;
-  --line: #e3e7ec;
-  --line-2: #ebeef2;
+  --surface-2: #f6f6f7;
+  --surface-hover: #f4f4f5;
+  --text-1: #101f1b;
+  --text-2: #2c322e;
+  --text-3: #4a514a;
+  --muted: #6b7266;
+  --line: #e4e4e7;
+  --line-2: #eeeef0;
 
-  --accent: #0a8a7a;
-  --accent-2: #086e62;
-  --accent-soft: #e6f4f1;
-  --accent-text: #0a5e54;
+  --accent: #0c6b5d;
+  --accent-2: #084f45;
+  --accent-soft: #e4efec;
+  --accent-text: #0a564c;
 
-  --scribe: #0a8a7a;
-  --scribe-soft: #e6f4f1;
+  --scribe: #0c6b5d;
+  --scribe-soft: #e4efec;
   --dictate: #4338ca;
   --dictate-soft: #ecebfb;
 
@@ -63,13 +67,13 @@
   --line: #232a35;
   --line-2: #1d242e;
 
-  --accent: #2dd4bf;
-  --accent-2: #5eead4;
-  --accent-soft: rgba(45, 212, 191, 0.10);
-  --accent-text: #5eead4;
+  --accent: #35c8af;
+  --accent-2: #6fe0c9;
+  --accent-soft: rgba(53, 200, 175, 0.11);
+  --accent-text: #6fe0c9;
 
-  --scribe: #2dd4bf;
-  --scribe-soft: rgba(45, 212, 191, 0.10);
+  --scribe: #35c8af;
+  --scribe-soft: rgba(53, 200, 175, 0.11);
   --dictate: #818cf8;
   --dictate-soft: rgba(129, 140, 248, 0.10);
 
@@ -1252,6 +1256,21 @@ kbd {
 .ti { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 10px; font-size: 13px; color: var(--text-1); outline: none; }
 .ti:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .ti.mono { font-family: var(--mono); }
+select.ti, select.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7480' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+}
+select.ti:hover, select.select:hover { border-color: var(--muted); }
+select.ti option, select.select option { background: var(--surface); color: var(--text-1); }
+[data-theme="dark"] select.ti, [data-theme="dark"] select.select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8493' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
 .req-toggle { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .req-toggle span { font-size: 11px; font-weight: 700; color: var(--rec); padding: 2px 6px; border: 1px dashed var(--rec); border-radius: 4px; }
 .iconbtn { width: 28px; height: 28px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
@@ -1663,6 +1682,9 @@ kbd {
 .diff-tab-row label { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .diff-tab-row label > span { font-size: 11px; color: var(--muted); }
 .diff-tab-row .ti { padding: 6px 8px; font-size: 13px; }
+/* Version pickers use the shared FilterDropdown; stretch it like the old select */
+.diff-tab-row .filter-dd { width: 100%; }
+.diff-tab-row .filter-dd-btn { width: 100%; justify-content: space-between; }
 .diff-tab-row > .chev, .diff-tab-row > svg { margin-bottom: 8px; }
 
 /* History timeline */

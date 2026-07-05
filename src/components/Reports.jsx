@@ -3,8 +3,9 @@
 // Version diff via ReportDiff. Amendment via AmendmentModal.
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useI18n } from '../i18n.js';
+import { useI18n, specLabel } from '../i18n.js';
 import { Icon, Empty, SaveStatus, Modal } from './UI.jsx';
+import { FilterDropdown } from './FilterDropdown.jsx';
 import { Loading, asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { Pagination } from './Pagination.jsx';
@@ -80,37 +81,20 @@ function StatusChip({ status, lang }) {
 
 // ── Specialty filter dropdown ─────────────────────────────────────────────
 
+// Same design as the Templates toolbar dropdowns (shared FilterDropdown).
+// "" means "all specialties"; the URL/filter state keeps using null for that.
 function SpecFilter({ value, onChange, lang, specs }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const ref = React.useRef(null);
-  useEffect(() => {
-    const close = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-  const label = value ? t(`spec.${value}`) : (lang === "uk" ? "Спеціальність" : "Specialty");
   return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button className={`btn ghost sm${value ? " accent" : ""}`} onClick={() => setOpen(!open)} style={{ gap: 6 }}>
-        <Icon name="filter" size={12} />
-        {label}
-        <Icon name="chevDown" size={11} />
-        {value && (
-          <span style={{ marginLeft: 2, opacity: .7 }} onClick={e => { e.stopPropagation(); onChange(null); }}>×</span>
-        )}
-      </button>
-      {open && (
-        <div className="tpl-dropdown" style={{ minWidth: 200 }}>
-          {specs.map(s => (
-            <button key={s} className={`tpl-option${value === s ? " active" : ""}`}
-                    onClick={() => { onChange(s); setOpen(false); }}>
-              {t(`spec.${s}`)}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <FilterDropdown
+      value={value ?? ""}
+      onChange={v => onChange(v || null)}
+      ariaLabel={lang === "uk" ? "Спеціальність" : "Specialty"}
+      options={[
+        { value: "", label: lang === "uk" ? "Всі спеціальності" : "All specialties" },
+        ...specs.map(s => ({ value: s, label: specLabel(t, s) })),
+      ]}
+    />
   );
 }
 
@@ -340,7 +324,7 @@ function ReportRow({ r, tpl, onClick, onChanged, lang }) {
       </div>
       <div>
         <div style={{ fontSize: 13, fontWeight: 500 }}>{loc(tpl?.name, lang) || loc(r.title, lang) || (lang === "uk" ? "Без шаблону" : "No template")}</div>
-        {tpl?.specialty && <div className="psub">{t(`spec.${tpl.specialty}`)}</div>}
+        {tpl?.specialty && <div className="psub">{specLabel(t, tpl.specialty)}</div>}
       </div>
       <div><StatusChip status={r.status} lang={lang} /></div>
       <div>
@@ -579,23 +563,21 @@ function DiffTab({ versions, loading, lang, onCompare }) {
     );
   }
 
-  const opts = versions.map(v => v.version_number);
+  const opts = versions.map(v => ({ value: v.version_number, label: `v${v.version_number}` }));
   const same = from === to;
   return (
     <div className="diff-tab">
       <div className="diff-tab-row">
         <label>
           <span>{uk ? "Від" : "From"}</span>
-          <select className="ti" value={from ?? ""} onChange={e => setFrom(Number(e.target.value))}>
-            {opts.map(n => <option key={n} value={n}>v{n}</option>)}
-          </select>
+          <FilterDropdown value={from} onChange={setFrom} options={opts}
+                          ariaLabel={uk ? "Від версії" : "From version"} />
         </label>
         <Icon name="arrowRight" size={13} className="muted" />
         <label>
           <span>{uk ? "До" : "To"}</span>
-          <select className="ti" value={to ?? ""} onChange={e => setTo(Number(e.target.value))}>
-            {opts.map(n => <option key={n} value={n}>v{n}</option>)}
-          </select>
+          <FilterDropdown value={to} onChange={setTo} options={opts}
+                          ariaLabel={uk ? "До версії" : "To version"} />
         </label>
       </div>
       <button
@@ -1027,7 +1009,7 @@ export function ReportView({ id, navigate, lang }) {
             <h1 className="report-title">{loc(r.title, lang) || loc(tpl?.name, lang) || r.code}</h1>
             <div className="report-meta">
               <span className="chip">{r.code}</span>
-              {tpl?.specialty && <span>{t(`spec.${tpl.specialty}`)}</span>}
+              {tpl?.specialty && <span>{specLabel(t, tpl.specialty)}</span>}
               {r.patient_name_redacted && <><span>·</span><span>{r.patient_name_redacted}</span></>}
               {r.encounter_date && <><span>·</span><span className="mono" style={{ fontSize: 12 }}>{formatDate(r.encounter_date, lang)}</span></>}
             </div>
