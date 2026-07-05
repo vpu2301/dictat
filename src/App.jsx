@@ -67,7 +67,15 @@ function App() {
   // The Templates admin page (/dictate/templates) self-manages its own data.
   // Summaries carry no schema_jsonb (no sections); the Studio fetches detail
   // for the active template. Adapt the backend shape to the legacy Studio shape.
-  const templatesReq = useAsync(() => listTemplates({ limit: 200 }), []);
+  // Keyed on auth: when the app boots logged-out (no refresh cookie) and the
+  // user signs in afterwards, this must re-fetch — otherwise the one mount-time
+  // call fired without a bearer token, failed, and the Studio would forever show
+  // "No templates available". Gated so we don't fire it while unauthenticated.
+  const templatesReq = useAsync(
+    () => listTemplates({ limit: 200 }),
+    [auth],
+    { enabled: !!auth },
+  );
   const templatesMap = useMemo(() => {
     const list = Array.isArray(templatesReq.data)
       ? templatesReq.data
@@ -238,7 +246,9 @@ function App() {
     const tm = r.match(/template=([\w-]+)/);
     const rm = r.match(/report=([\w-]+)/);
     view = <DictationStudio lang={lang} patientId={pm?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
-             templatesMap={templatesMap} onAddTemplate={handleAddTemplate} />;
+             templatesMap={templatesMap} onAddTemplate={handleAddTemplate}
+             templatesLoading={templatesReq.loading} templatesError={templatesReq.error}
+             onRetryTemplates={templatesReq.reload} />;
     showTopbar = false;
   } else if (r === "/dictate/reports") {
     view = <ReportsList lang={lang} navigate={navigate} />;
