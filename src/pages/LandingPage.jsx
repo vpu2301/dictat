@@ -1,9 +1,9 @@
 // LandingPage.jsx — Public marketing landing for Dictat.
 // Sticky menu, hero, products, features, workflow, security, CTA, footer.
 // Bilingual (uk/en) via the shared `lang` tweak; no auth required.
-import React, { useEffect, useState } from "react";
-import { Icon, Logo } from "../components/UI.jsx";
-import { FOOTER } from "./marketing/MarketingShell.jsx";
+import React from "react";
+import { Icon } from "../components/UI.jsx";
+import { MarketingShell } from "./marketing/MarketingShell.jsx";
 
 /* ── Copy ─────────────────────────────────────────────────────
    One bilingual dictionary keeps the marketing surface readable
@@ -74,7 +74,7 @@ const COPY = {
     ],
     ctaTitle: "Готові повернути час лікарям?",
     ctaSub: "Спробуйте Dictat у вашій клініці вже сьогодні.",
-    ctaPrimary: "Запросити доступ",
+    ctaPrimary: "Зареєструватися",
     ctaSecondary: "Увійти",
     footer: {
       tag: "Медичне диктування голосом.",
@@ -151,7 +151,7 @@ const COPY = {
     ],
     ctaTitle: "Ready to give clinicians their time back?",
     ctaSub: "Try Dictat in your clinic today.",
-    ctaPrimary: "Request access",
+    ctaPrimary: "Sign up",
     ctaSecondary: "Sign in",
     footer: {
       tag: "Medical dictation by voice.",
@@ -165,58 +165,243 @@ const COPY = {
   },
 };
 
+/* ── Hero demo — an interactive dictaphone / player ───────────
+   A working mock of the Dictate recorder: the transcript streams
+   in word-by-word (with a low-confidence word flagged), the timer
+   ticks, the waveform reacts and the structured note fills in.
+   The transport controls are real — play/pause, restart and skip
+   all work, and the progress bar is seekable. Ten different
+   dictations rotate through, one per specialty. A `*` suffix marks
+   a low-confidence token. Isolated in its own component so only
+   this subtree re-renders on each tick. */
+const SCRIPTS = {
+  uk: [
+    { tpl: "Терапія · Первинний огляд", patient: "І. Коваленко",
+      tokens: ["Пацієнт", "скаржиться", "на", "кашель", "із", "мокротинням", "упродовж", "двох", "днів", "та", "субфебрильну*", "температуру.", "При", "огляді", "—", "дихання", "везикулярне,", "сатурація", "98%."],
+      cmdAt: 12, cmd: "Розпізнано команду · «Нова секція»",
+      note: [{ h: "Скарги", d: "Кашель із мокротинням, 2 дні. Субфебрилітет." }, { h: "Об'єктивно", d: "Дихання везикулярне. SpO₂ 98%." }, { h: "Висновок", d: "Гострий бронхіт." }] },
+    { tpl: "Кардіологія · Повторний візит", patient: "О. Шевченко",
+      tokens: ["Скарги", "на", "головний", "біль", "та", "періодичне", "серцебиття.", "Артеріальний", "тиск", "150", "на", "95,", "пульс", "82", "ритмічний.", "Тони", "серця", "приглушені*."],
+      cmdAt: 12, cmd: "Розпізнано команду · «Виміряти тиск»",
+      note: [{ h: "Скарги", d: "Головний біль, серцебиття." }, { h: "Об'єктивно", d: "АТ 150/95, ЧСС 82." }, { h: "Висновок", d: "Артеріальна гіпертензія 2 ст." }] },
+    { tpl: "Радіологія · Опис знімка", patient: "М. Бондаренко",
+      tokens: ["Оглядова", "рентгенографія", "органів", "грудної", "клітки.", "Легеневі", "поля", "прозорі,", "вогнищевих", "та", "інфільтративних*", "тіней", "не", "виявлено.", "Синуси", "вільні."],
+      cmdAt: 11, cmd: "Розпізнано команду · «Вставити шаблон»",
+      note: [{ h: "Метод", d: "Рентгенографія ОГК." }, { h: "Опис", d: "Без вогнищевих змін." }, { h: "Висновок", d: "Патології не виявлено." }] },
+    { tpl: "Педіатрія · Гострий прийом", patient: "Дитина, 4 р.",
+      tokens: ["Дитина", "неспокійна,", "температура", "до", "38.5", "та", "скарги", "на", "біль", "у", "вусі.", "Отоскопія", "—", "перетинка", "гіперемована*,", "вибухає."],
+      cmdAt: 12, cmd: "Розпізнано команду · «Додати діагноз»",
+      note: [{ h: "Скарги", d: "Біль у вусі, гарячка." }, { h: "Об'єктивно", d: "Отоскопія — гіперемія." }, { h: "Висновок", d: "Гострий середній отит." }] },
+    { tpl: "Дерматологія · Консультація", patient: "Н. Мельник",
+      tokens: ["Скарги", "на", "висип", "та", "свербіж", "на", "згинальних", "поверхнях.", "Шкіра", "суха,", "вогнища", "еритеми", "з", "ліхеніфікацією*.", "Дермографізм", "білий."],
+      cmdAt: 11, cmd: "Розпізнано команду · «Нова секція»",
+      note: [{ h: "Скарги", d: "Висип, свербіж." }, { h: "Об'єктивно", d: "Еритема, сухість шкіри." }, { h: "Висновок", d: "Атопічний дерматит." }] },
+    { tpl: "Ортопедія · Травмпункт", patient: "Р. Ткаченко",
+      tokens: ["Травма", "правого", "гомілковостопного", "суглоба", "під", "час", "бігу.", "Набряк", "латеральної", "кісточки,", "навантаження", "обмежене*,", "рухи", "болючі."],
+      cmdAt: 10, cmd: "Розпізнано команду · «Призначити рентген»",
+      note: [{ h: "Скарги", d: "Біль, набряк суглоба." }, { h: "Об'єктивно", d: "Набряк латеральної кісточки." }, { h: "Висновок", d: "Розтягнення зв'язок." }] },
+    { tpl: "Гастроентерологія · Візит", patient: "С. Кравченко",
+      tokens: ["Скарги", "на", "біль", "в", "епігастрії", "після", "їжі", "та", "печію.", "Язик", "обкладений,", "живіт", "м'який,", "болючий*", "в", "епігастрії."],
+      cmdAt: 12, cmd: "Розпізнано команду · «Додати призначення»",
+      note: [{ h: "Скарги", d: "Біль в епігастрії, печія." }, { h: "Об'єктивно", d: "Болючість в епігастрії." }, { h: "Висновок", d: "Хронічний гастрит." }] },
+    { tpl: "Ендокринологія · Контроль", patient: "Л. Поліщук",
+      tokens: ["Контрольний", "огляд,", "діабет", "2", "типу.", "Глюкоза", "натще", "7.8,", "HbA1c", "7.1", "відсотка.", "Скарг", "на", "гіпоглікемії*", "немає."],
+      cmdAt: 11, cmd: "Розпізнано команду · «Оновити план»",
+      note: [{ h: "Скарги", d: "Без гіпоглікемій." }, { h: "Об'єктивно", d: "Глюкоза 7.8, HbA1c 7.1%." }, { h: "Висновок", d: "ЦД 2 типу, субкомпенсація." }] },
+    { tpl: "Неврологія · Первинний огляд", patient: "В. Савченко",
+      tokens: ["Скарги", "на", "пульсуючий", "однобічний", "головний", "біль", "зі", "світлобоязню.", "Неврологічний", "статус", "без", "вогнищевої*", "симптоматики.", "Менінгеальних", "знаків", "немає."],
+      cmdAt: 12, cmd: "Розпізнано команду · «Нова секція»",
+      note: [{ h: "Скарги", d: "Однобічний головний біль." }, { h: "Об'єктивно", d: "Без вогнищевої симптоматики." }, { h: "Висновок", d: "Мігрень без аури." }] },
+    { tpl: "Отоларингологія · Прийом", patient: "Ю. Гриценко",
+      tokens: ["Скарги", "на", "біль", "у", "горлі", "та", "утруднене", "ковтання.", "Зів", "гіперемований,", "мигдалики", "збільшені", "з", "нальотом*,", "лімфовузли", "чутливі."],
+      cmdAt: 11, cmd: "Розпізнано команду · «Додати діагноз»",
+      note: [{ h: "Скарги", d: "Біль у горлі, дисфагія." }, { h: "Об'єктивно", d: "Гіперемія зіва, наліт." }, { h: "Висновок", d: "Гострий фарингіт." }] },
+  ],
+  en: [
+    { tpl: "Primary care · Initial visit", patient: "J. Carter",
+      tokens: ["Patient", "presents", "with", "a", "two-day", "history", "of", "productive", "cough", "and", "low-grade", "fever.", "On", "exam,", "chest", "is", "clear", "to", "auscultation*,", "oxygen", "saturation", "98%."],
+      cmdAt: 14, cmd: "Voice command · “New section”",
+      note: [{ h: "Symptoms", d: "Productive cough, 2 days. Low-grade fever." }, { h: "Exam", d: "Chest clear on auscultation. SpO₂ 98%." }, { h: "Assessment", d: "Acute bronchitis." }] },
+    { tpl: "Cardiology · Follow-up", patient: "A. Reed",
+      tokens: ["Reports", "headache", "and", "occasional", "palpitations.", "Blood", "pressure", "150", "over", "95,", "pulse", "82", "and", "regular.", "Heart", "sounds", "are", "muffled*."],
+      cmdAt: 12, cmd: "Voice command · “Measure BP”",
+      note: [{ h: "Symptoms", d: "Headache, palpitations." }, { h: "Exam", d: "BP 150/95, HR 82." }, { h: "Assessment", d: "Stage 2 hypertension." }] },
+    { tpl: "Radiology · Report", patient: "M. Doyle",
+      tokens: ["Frontal", "chest", "radiograph.", "Lung", "fields", "are", "clear,", "no", "focal", "or", "infiltrative*", "opacities", "identified.", "Costophrenic", "angles", "are", "sharp."],
+      cmdAt: 12, cmd: "Voice command · “Insert template”",
+      note: [{ h: "Technique", d: "Frontal chest radiograph." }, { h: "Findings", d: "No focal opacities." }, { h: "Impression", d: "No acute abnormality." }] },
+    { tpl: "Pediatrics · Acute visit", patient: "Child, 4 y",
+      tokens: ["Child", "is", "irritable", "with", "fever", "up", "to", "38.5", "and", "reports", "ear", "pain.", "Otoscopy", "shows", "an", "erythematous*,", "bulging", "membrane."],
+      cmdAt: 12, cmd: "Voice command · “Add diagnosis”",
+      note: [{ h: "Symptoms", d: "Ear pain, fever." }, { h: "Exam", d: "Otoscopy — erythema." }, { h: "Assessment", d: "Acute otitis media." }] },
+    { tpl: "Dermatology · Consult", patient: "N. Foster",
+      tokens: ["Complains", "of", "a", "rash", "and", "itching", "over", "the", "flexural", "surfaces.", "Skin", "is", "dry", "with", "erythema", "and", "lichenification*."],
+      cmdAt: 11, cmd: "Voice command · “New section”",
+      note: [{ h: "Symptoms", d: "Rash, itching." }, { h: "Exam", d: "Erythema, dryness." }, { h: "Assessment", d: "Atopic dermatitis." }] },
+    { tpl: "Orthopedics · Urgent care", patient: "R. Baker",
+      tokens: ["Injury", "to", "the", "right", "ankle", "while", "running.", "Swelling", "over", "the", "lateral", "malleolus,", "weight", "bearing", "is", "limited*,", "movement", "painful."],
+      cmdAt: 12, cmd: "Voice command · “Order X-ray”",
+      note: [{ h: "Symptoms", d: "Pain, swelling." }, { h: "Exam", d: "Lateral malleolus swelling." }, { h: "Assessment", d: "Ligament sprain." }] },
+    { tpl: "Gastroenterology · Visit", patient: "S. Clarke",
+      tokens: ["Reports", "epigastric", "pain", "after", "meals", "and", "heartburn.", "Tongue", "is", "coated,", "abdomen", "soft,", "moderately", "tender*", "in", "the", "epigastrium."],
+      cmdAt: 12, cmd: "Voice command · “Add prescription”",
+      note: [{ h: "Symptoms", d: "Epigastric pain, heartburn." }, { h: "Exam", d: "Epigastric tenderness." }, { h: "Assessment", d: "Chronic gastritis." }] },
+    { tpl: "Endocrinology · Review", patient: "L. Palmer",
+      tokens: ["Routine", "review", "for", "type", "2", "diabetes.", "Fasting", "glucose", "7.8,", "HbA1c", "7.1", "percent.", "No", "episodes", "of", "hypoglycemia*", "reported."],
+      cmdAt: 12, cmd: "Voice command · “Update plan”",
+      note: [{ h: "Symptoms", d: "No hypoglycemia." }, { h: "Exam", d: "Glucose 7.8, HbA1c 7.1%." }, { h: "Assessment", d: "T2DM, sub-optimal control." }] },
+    { tpl: "Neurology · Initial visit", patient: "V. Snyder",
+      tokens: ["Describes", "a", "throbbing", "one-sided", "headache", "with", "photophobia.", "Neurological", "exam", "shows", "no", "focal*", "deficits.", "No", "meningeal", "signs", "present."],
+      cmdAt: 12, cmd: "Voice command · “New section”",
+      note: [{ h: "Symptoms", d: "One-sided headache." }, { h: "Exam", d: "No focal deficit." }, { h: "Assessment", d: "Migraine without aura." }] },
+    { tpl: "ENT · Visit", patient: "Y. Grant",
+      tokens: ["Complains", "of", "a", "sore", "throat", "and", "difficulty", "swallowing.", "Pharynx", "is", "erythematous,", "tonsils", "enlarged", "with", "exudate*,", "nodes", "tender."],
+      cmdAt: 12, cmd: "Voice command · “Add diagnosis”",
+      note: [{ h: "Symptoms", d: "Sore throat, dysphagia." }, { h: "Exam", d: "Pharyngeal erythema, exudate." }, { h: "Assessment", d: "Acute pharyngitis." }] },
+  ],
+};
+
+// Fixed waveform silhouette (percent heights) — animated via CSS.
+const WAVE = [22, 40, 30, 58, 44, 72, 52, 88, 60, 46, 74, 34, 64, 48, 82, 56,
+  38, 68, 50, 78, 42, 60, 32, 54, 46, 70, 36, 62, 44, 80, 52, 66];
+
+const pad2 = (x) => String(x).padStart(2, "0");
+const fmt = (s) => `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`;
+
+// Delay (ms) before the next word appears — paced to natural speech:
+// longer words take longer to say, and we pause at commas / sentence ends.
+const wordDelay = (tk) => {
+  const w = (tk || "").replace(/\*$/, "");
+  let ms = 270 + w.length * 26;
+  if (/[.!?]$/.test(w)) ms += 480;          // sentence break
+  else if (/[,;:—]$/.test(w)) ms += 240;    // clause break
+  return ms;
+};
+
+function HeroDemo({ lang, navigate }) {
+  const list = SCRIPTS[lang] || SCRIPTS.en;
+  const [idx, setIdx] = React.useState(0);   // which dictation (0..9)
+  const [n, setN] = React.useState(0);       // tokens revealed
+  const [playing, setPlaying] = React.useState(true);
+  const [elapsed, setElapsed] = React.useState(0);   // live recording clock (s)
+
+  const d = list[idx % list.length];
+  const total = d.tokens.length;
+
+  // Live elapsed clock — counts up in real time while recording, the way a
+  // real dictaphone does (this is live speech-to-text, so there is no fixed
+  // track length to scrub). Resets whenever the dictation changes.
+  React.useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [playing]);
+  React.useEffect(() => { setElapsed(0); }, [idx]);
+
+  // Reveal one word at a time, each scheduled with its own natural delay
+  // (self-rescheduling timeout, not a fixed interval). When the note is
+  // complete we linger, then roll to the next dictation. The effect re-runs
+  // on every `n` change, so the pacing follows `wordDelay` word by word.
+  React.useEffect(() => {
+    if (!playing) return;
+    const delay = n < total ? wordDelay(d.tokens[n]) : 2600 /* hold on finished note */;
+    const id = setTimeout(() => {
+      if (n < total) setN(n + 1);
+      else { setIdx((i) => (i + 1) % list.length); setN(0); }
+    }, delay);
+    return () => clearTimeout(id);
+  }, [playing, n, idx, total, d, list.length]);
+
+  // Reset the stream when the language (and therefore the script set) changes.
+  React.useEffect(() => { setIdx(0); setN(0); }, [lang]);
+
+  const go = (i) => { setN(0); setIdx(i); setPlaying(true); };
+  const restart = () => { setN(0); setElapsed(0); setPlaying(true); };
+  const next = () => go((idx + 1) % list.length);
+
+  const done = n >= total;
+  const revealed = done ? d.note.length : Math.floor((n / total) * d.note.length);
+  const showCmd = n > d.cmdAt;
+  const uk = lang === "uk";
+
+  return (
+    <div className="lp-demo">
+      <div className="lp-demo-bar">
+        <span className="lp-demo-dots"><i /><i /><i /></span>
+        <span className="lp-demo-title"><Icon name="waveform" size={13} /> Dictate</span>
+        <span className="lp-demo-tpl">{d.tpl}</span>
+      </div>
+
+      <div className="lp-demo-body">
+        <div className="lp-demo-head">
+          <span className={`lp-demo-rec${done ? " is-done" : ""}`}>
+            <span className="lp-demo-pulse" />
+            {done ? (uk ? "Готово" : "Ready") : (uk ? "Запис" : "Recording")}
+          </span>
+          <span className="lp-demo-time">{fmt(elapsed)}</span>
+          <span className="lp-demo-patient"><Icon name="user" size={12} /> {d.patient}</span>
+        </div>
+
+        <div className={`lp-demo-wave${done || !playing ? " is-idle" : ""}`} aria-hidden="true">
+          {WAVE.map((h, i) => (
+            <span key={i} style={{ height: `${h}%`, animationDelay: `${(i % 8) * 0.08}s` }} />
+          ))}
+        </div>
+
+        <div className="lp-demo-transcript" aria-hidden="true">
+          {d.tokens.slice(0, n).map((tk, i) => {
+            const lc = tk.endsWith("*");
+            return <span className={`lp-demo-word${lc ? " lc" : ""}`} key={i}>{lc ? tk.slice(0, -1) : tk} </span>;
+          })}
+          {!done && playing && <span className="lp-demo-caret" />}
+        </div>
+
+        <div className={`lp-demo-cmd${showCmd ? " in" : ""}`}><Icon name="check" size={12} /> {d.cmd}</div>
+
+        <div className="lp-demo-note">
+          {d.note.map((s, i) => (
+            <div className={`lp-demo-sec${i < revealed ? " in" : ""}`} key={i}>
+              <span className="lp-demo-sec-h">{s.h}</span>
+              <span className="lp-demo-sec-d">{s.d}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Real transport controls + a working Sign CTA */}
+      <div className="lp-demo-foot">
+        <div className="lp-demo-transport">
+          <button className="lp-demo-ctrl" onClick={restart} aria-label={uk ? "Спочатку" : "Restart"}>
+            <Icon name="refresh" size={16} />
+          </button>
+          <button className="lp-demo-ctrl is-play" onClick={() => setPlaying((p) => !p)}
+            aria-label={playing ? (uk ? "Пауза" : "Pause") : (uk ? "Відтворити" : "Play")}>
+            <Icon name={playing ? "pause" : "play"} size={18} />
+          </button>
+          <button className="lp-demo-ctrl" onClick={next} aria-label={uk ? "Наступний запис" : "Next dictation"}>
+            <Icon name="chevRight" size={18} />
+          </button>
+        </div>
+        <button className="lp-demo-btn primary" onClick={() => navigate && navigate("/signup")}>
+          <Icon name="sign" size={13} /> {uk ? "Підписати · Дія" : "Sign · Дія"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
   const c = COPY[lang] || COPY.en;
-  const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  // Shrink/condense the menu once the user scrolls off the hero.
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   const go = (path) => (e) => { e.preventDefault(); navigate(path); };
   const jump = (id) => (e) => {
     e.preventDefault();
-    setMenuOpen(false);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-  const toggleLang = () => setTweak && setTweak("lang", lang === "uk" ? "en" : "uk");
 
   return (
-    <div className="lp">
-      {/* ── Menu ───────────────────────────────────────────── */}
-      <header className={`lp-nav${scrolled ? " is-scrolled" : ""}`}>
-        <div className="lp-nav-inner">
-          <a className="lp-brand" href="#/welcome" onClick={go("/welcome")}>
-            <Logo size={28} />
-            <span className="lp-brand-name">Dictat</span>
-          </a>
-
-          <nav className={`lp-links${menuOpen ? " is-open" : ""}`}>
-            <a href="#product" onClick={jump("product")}>{c.nav.product}</a>
-            <a href="#features" onClick={jump("features")}>{c.nav.features}</a>
-            <a href="#workflow" onClick={jump("workflow")}>{c.nav.workflow}</a>
-            <a href="#security" onClick={jump("security")}>{c.nav.security}</a>
-          </nav>
-
-          <div className="lp-nav-actions">
-            <button className="lp-lang" onClick={toggleLang} title="Language">
-              {lang === "uk" ? "EN" : "UA"}
-            </button>
-            <a className="btn btn-ghost lp-signin" href="#/login" onClick={go("/login")}>{c.nav.signin}</a>
-            <a className="btn btn-primary" href="#/signup" onClick={go("/signup")}>{c.nav.start}</a>
-            <button className="lp-burger" onClick={() => setMenuOpen((o) => !o)} aria-label="Menu">
-              <Icon name={menuOpen ? "x" : "moreH"} size={20} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="lp-main">
-        {/* ── Hero ─────────────────────────────────────────── */}
+    <MarketingShell navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak}>
+      {/* ── Hero ─────────────────────────────────────────── */}
         <section className="lp-hero">
           <div className="lp-hero-text">
             <span className="lp-eyebrow"><Icon name="sparkle" size={13} /> {c.hero.eyebrow}</span>
@@ -229,28 +414,9 @@ export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
             <p className="lp-hero-note"><Icon name="check" size={13} /> {c.hero.note}</p>
           </div>
 
-          {/* Decorative product mock — pure CSS, no asset deps. */}
-          <div className="lp-hero-art" aria-hidden="true">
-            <div className="lp-mock">
-              <div className="lp-mock-bar">
-                <span className="lp-dot" /><span className="lp-dot" /><span className="lp-dot" />
-              </div>
-              <div className="lp-mock-body">
-                <div className="lp-mock-rec"><span className="lp-pulse" /> {lang === "uk" ? "Запис…" : "Recording…"}</div>
-                <div className="lp-wave">
-                  {[10, 18, 28, 16, 34, 22, 40, 26, 14, 30, 20, 36, 12, 24].map((h, i) => (
-                    <span key={i} style={{ height: h }} />
-                  ))}
-                </div>
-                <div className="lp-mock-lines">
-                  <div className="lp-mock-line w90" />
-                  <div className="lp-mock-line w70" />
-                  <div className="lp-mock-line w80" />
-                  <div className="lp-mock-line w50" />
-                </div>
-                <div className="lp-mock-chip"><Icon name="sign" size={13} /> Дія</div>
-              </div>
-            </div>
+          {/* Interactive dictaphone demo — see HeroDemo above. */}
+          <div className="lp-hero-art">
+            <HeroDemo lang={lang} navigate={navigate} />
           </div>
         </section>
 
@@ -370,37 +536,6 @@ export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
             <a className="btn lp-cta-lg" href="#/login" onClick={go("/login")}>{c.ctaSecondary}</a>
           </div>
         </section>
-      </main>
-
-      {/* ── Footer ─────────────────────────────────────────── */}
-      <footer className="lp-footer">
-        <div className="lp-footer-inner">
-          <div className="lp-footer-brand">
-            <a className="lp-brand" href="#/welcome" onClick={go("/welcome")}>
-              <Logo size={26} />
-              <span className="lp-brand-name">Dictat</span>
-            </a>
-            <p className="lp-footer-tag">{c.footer.tag}</p>
-          </div>
-          <div className="lp-footer-cols">
-            {(FOOTER[lang] || FOOTER.en).cols.map((col, i) => (
-              <div className="lp-footer-col" key={i}>
-                <div className="lp-footer-h">{col.h}</div>
-                {col.links.map((l, j) => (
-                  <a href={`#${l.path}`} onClick={go(l.path)} key={j}>{l.label}</a>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="lp-footer-bar">
-          <span>© 2026 Dictat. {c.footer.rights}</span>
-          <div className="lp-footer-bar-links">
-            <a href="#/login" onClick={go("/login")}>{c.nav.signin}</a>
-            <a href="#/signup" onClick={go("/signup")}>{c.nav.start}</a>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </MarketingShell>
   );
 }

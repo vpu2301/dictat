@@ -19,8 +19,8 @@ const T = (uk, en) => ({ uk, en });
 
 /* Reusable closing CTA so every page ends with a clear next step. */
 const CTA = {
-  uk: { type: "cta", title: "Готові спробувати Dictat?", sub: "Запросіть доступ — і поверніть лікарям час для пацієнтів.", primary: { label: "Запросити доступ", path: "/signup" }, secondary: { label: "Зв'язатися з нами", path: "/contact" } },
-  en: { type: "cta", title: "Ready to try Dictat?", sub: "Request access and give clinicians their time back.", primary: { label: "Request access", path: "/signup" }, secondary: { label: "Talk to us", path: "/contact" } },
+  uk: { type: "cta", title: "Готові спробувати Dictat?", sub: "Зареєструйтесь — і поверніть лікарям час для пацієнтів.", primary: { label: "Зареєструватися", path: "/signup" }, secondary: { label: "Зв'язатися з нами", path: "/contact" } },
+  en: { type: "cta", title: "Ready to try Dictat?", sub: "Sign up and give clinicians their time back.", primary: { label: "Sign up", path: "/signup" }, secondary: { label: "Talk to us", path: "/contact" } },
 };
 
 function build(lang) {
@@ -442,7 +442,7 @@ function build(lang) {
         sub: uk
           ? "Веде прийом разом з вами: фіксує розмову з пацієнтом, формує структуровану нотатку та підказує наступні кроки."
           : "Runs the visit with you: captures the patient conversation, builds a structured note and suggests next steps.",
-        cta: { label: uk ? "Запросити доступ" : "Request access", path: "/signup" },
+        cta: { label: uk ? "Зареєструватися" : "Sign up", path: "/signup" },
       },
       blocks: [
         { type: "grid", cols: 3, items: uk
@@ -486,7 +486,7 @@ function build(lang) {
         sub: uk
           ? "Класичне диктування для радіології, патології та виписок із шаблонами, голосовими командами та порівнянням версій."
           : "Classic dictation for radiology, pathology and discharge summaries with templates, voice commands and version diffs.",
-        cta: { label: uk ? "Запросити доступ" : "Request access", path: "/signup" },
+        cta: { label: uk ? "Зареєструватися" : "Sign up", path: "/signup" },
       },
       blocks: [
         { type: "grid", cols: 3, items: uk
@@ -677,7 +677,7 @@ function buildFeatureDetail(slug, lang) {
   const cta = uk ? CTA.uk : CTA.en;
   return {
     hero: { eyebrow: t.eyebrow, title: t.title, sub: t.sub, icon: d.icon, points: t.points,
-      cta: { label: uk ? "Запросити доступ" : "Request access", path: "/signup" } },
+      cta: { label: uk ? "Зареєструватися" : "Sign up", path: "/signup" } },
     blocks: [
       { type: "grid", cols: 3, items: t.cards },
       { type: "backlink", label: uk ? "Усі можливості" : "All features", path: "/features" },

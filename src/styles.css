@@ -4,6 +4,10 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
+/* Marketing-only typeface — Manrope (full Cyrillic — the public site is
+   Ukrainian-first). Applied only under `.lp` for both headings and body;
+   the logged-in platform stays on Geist. */
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
 
 :root {
   /* Type */
