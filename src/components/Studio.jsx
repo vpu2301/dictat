@@ -867,7 +867,7 @@ function PatientGate({ lang, onSelect }) {
 }
 
 // ── Main: DictationStudio ──────────────────────────────────────────────
-export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId, initialTemplateId, reportId }) {
+export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId, initialTemplateId, reportId, templatesLoading = false, templatesError = null, onRetryTemplates }) {
   const { t } = useI18n();
 
   // Reopening an existing draft (/dictate/studio?report=<id>): fetch the report
@@ -1315,19 +1315,36 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   }
 
   if (!template) {
-    const loading = !!templateId && detailReq.loading;
+    // Three distinct states share this gate — keep them apart so a list that is
+    // still loading (or a backend hiccup) never masquerades as "no templates":
+    //   • loading  — the template list (App-level) or the active detail is in flight
+    //   • errored  — the list request failed → offer a retry, not a dead end
+    //   • empty    — the list resolved with zero templates
+    const loading = templatesLoading || (!!templateId && detailReq.loading);
+    const errored = !loading && !!templatesError;
     return (
       <div className="studio">
         <Empty
           icon="fileText"
           title={loading
-            ? (lang === "uk" ? "Завантаження шаблону…" : "Loading template…")
-            : (lang === "uk" ? "Шаблони недоступні" : "No templates available")}
+            ? (lang === "uk" ? "Завантаження шаблонів…" : "Loading templates…")
+            : errored
+              ? (lang === "uk" ? "Не вдалося завантажити шаблони" : "Couldn't load templates")
+              : (lang === "uk" ? "Шаблони недоступні" : "No templates available")}
           body={loading
             ? ""
-            : (lang === "uk"
-              ? "Не вдалося завантажити шаблони звітів."
-              : "Report templates could not be loaded.")}
+            : errored
+              ? (lang === "uk"
+                ? "Сервіс звітів недоступний. Спробуйте ще раз."
+                : "The report service is unavailable. Please try again.")
+              : (lang === "uk"
+                ? "Немає доступних шаблонів звітів."
+                : "No report templates are available.")}
+          action={errored && onRetryTemplates
+            ? <button className="btn accent" onClick={onRetryTemplates}>
+                {lang === "uk" ? "Спробувати ще раз" : "Retry"}
+              </button>
+            : undefined}
         />
       </div>
     );
