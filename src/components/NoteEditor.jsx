@@ -323,10 +323,8 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
 
   const handlePromote = async (templateId) => {
     const r = await createReport({
-      template: templateId,
-      language: lang,
+      template_id: templateId,
       body: structure === "free" ? { note: freeContent } : sectionContents,
-      source_note_id: noteRef.current || undefined,
     });
     setPromoteOpen(false);
     if (r?.id) navigate(`/dictate/reports/${r.id}`);

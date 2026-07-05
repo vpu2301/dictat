@@ -30,6 +30,15 @@ export async function logout() {
   }
 }
 
+// GET /admin/users — UserSummary[] (RLS-scoped to the caller's tenant).
+// Offset-paginated (limit ≤ 200, offset ≥ 0); returns a bare array.
+export async function listUsers({ limit = 50, offset = 0 } = {}) {
+  const qs = new URLSearchParams();
+  qs.set("limit", String(limit));
+  qs.set("offset", String(offset));
+  return api(`/admin/users?${qs.toString()}`, { method: "GET" });
+}
+
 export async function inviteUser({ email, display_name, role, first_name, last_name }) {
   const body = { email, display_name, role };
   if (first_name) body.first_name = first_name;

@@ -1,67 +1,85 @@
-// Sprint 09 — Public signature verification page (/verify/:envelopeId)
-// Anonymous access; no auth required. No PHI — only signer + signature metadata.
+// Sprint 09 — Public signature verification page (/verify/:token).
+// Anonymous access; no auth required. No PHI — only signer + signature
+// metadata, exactly as GET {signing}/verify/{token} returns it.
+//
+// Truthfulness: the badge is <SignedBadge> fed the verify body verbatim —
+// a `dev` envelope (status "dev_not_qualified") renders the grey non-legal
+// badge and never anything resembling КЕП.
 
 import React, { useState, useEffect } from 'react'
 import { Icon } from '../components/UI.jsx'
-import { verifyEnvelope } from '../api/signing.js'
+import { verifyEnvelope, verifiedPdfUrl, verifyPageUrl } from '../api/signing.js'
+import { SignedBadge, providerLabel } from '../components/signing/SignedBadge.jsx'
 
-// ── Verification states ───────────────────────────────────────────────────
-
-function ValidBadge() {
+function ValidBadge({ uk }) {
   return (
     <div className="verify-badge valid" role="status">
       <span className="verify-icon">✓</span>
       <div>
-        <div className="verify-title">Підпис дійсний / Signature valid</div>
-        <div className="verify-sub">Verified against KEP authority chain</div>
+        <div className="verify-title">{uk ? 'Підпис дійсний' : 'Signature valid'}</div>
+        <div className="verify-sub">{uk ? 'Перевірено за реєстром КНЕДП' : 'Verified against the qualified-provider registry'}</div>
       </div>
     </div>
   )
 }
 
-function InvalidBadge({ reason }) {
+function DevBadge({ uk }) {
+  return (
+    <div className="verify-badge warning" role="status" data-testid="verify-dev-badge">
+      <span className="verify-icon">⚠</span>
+      <div>
+        <div className="verify-title">{uk ? 'DEV — не є юридичним підписом' : 'DEV — not a legally binding signature'}</div>
+        <div className="verify-sub">
+          {uk
+            ? 'Тестовий підпис середовища розробки. Документ не має юридичної сили.'
+            : 'A development-environment test signature. The document carries no legal weight.'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InvalidBadge({ uk, reason }) {
   return (
     <div className="verify-badge invalid" role="alert">
       <span className="verify-icon">✗</span>
       <div>
-        <div className="verify-title">Підпис недійсний / Signature invalid</div>
-        <div className="verify-sub">{reason}</div>
+        <div className="verify-title">{uk ? 'Підпис не знайдено або недійсний' : 'Signature not found or invalid'}</div>
+        {reason && <div className="verify-sub">{reason}</div>}
       </div>
     </div>
   )
 }
 
-function WarningBadge({ reason }) {
-  return (
-    <div className="verify-badge warning" role="note">
-      <span className="verify-icon">⚠</span>
-      <div>
-        <div className="verify-title">Попередження / Warning</div>
-        <div className="verify-sub">{reason}</div>
-      </div>
-    </div>
-  )
-}
-
-// ── Main verification page ────────────────────────────────────────────────
-
-export function VerifyPage({ envelopeId, lang }) {
+export function VerifyPage({ envelopeId: token, lang }) {
   const uk = lang === 'uk'
   const [loading, setLoading] = useState(true)
-  const [result,  setResult]  = useState(null)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     let alive = true
     setLoading(true)
-    verifyEnvelope(envelopeId)
+    verifyEnvelope(token)
       .then(r => { if (alive) { setResult(r); setLoading(false) } })
       .catch(e => {
         if (!alive) return
-        setResult({ valid: false, reason: e.message || (uk ? 'Не вдалося перевірити підпис.' : 'Could not verify signature.') })
+        setError(e.message || (uk ? 'Не вдалося перевірити підпис.' : 'Could not verify the signature.'))
         setLoading(false)
       })
     return () => { alive = false }
-  }, [envelopeId])
+  }, [token])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(verifyPageUrl(token))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+
+  const isDev = result && result.signature_level === 'dev'
 
   return (
     <div className="verify-page">
@@ -77,8 +95,8 @@ export function VerifyPage({ envelopeId, lang }) {
 
       <div className="verify-card">
         <div className="verify-envelope-id">
-          <span className="muted" style={{ fontSize: 12 }}>Envelope ID</span>
-          <span className="mono" style={{ fontSize: 12 }}>{envelopeId}</span>
+          <span className="muted" style={{ fontSize: 12 }}>{uk ? 'Токен перевірки' : 'Verification token'}</span>
+          <span className="mono" style={{ fontSize: 12, wordBreak: 'break-all' }}>{token}</span>
         </div>
 
         {loading && (
@@ -88,68 +106,72 @@ export function VerifyPage({ envelopeId, lang }) {
           </div>
         )}
 
+        {!loading && error && <InvalidBadge uk={uk} reason={error} />}
+
         {!loading && result && (
           <>
-            {result.valid
-              ? <ValidBadge />
-              : <InvalidBadge reason={result.reason} />}
+            {isDev ? <DevBadge uk={uk} /> : <ValidBadge uk={uk} />}
 
-            {result.warnings?.length > 0 && result.warnings.map((w, i) => (
-              <WarningBadge key={i} reason={w} />
-            ))}
+            <div style={{ margin: '10px 0' }}>
+              <SignedBadge envelope={result} lang={lang} />
+            </div>
 
-            {result.valid && (
-              <div className="verify-details">
-                <div className="verify-row">
-                  <span>{uk ? 'Підписано' : 'Signed by'}</span>
-                  <strong>{result.signerName}</strong>
-                </div>
+            <div className="verify-details">
+              <div className="verify-row">
+                <span>{uk ? 'Підписант' : 'Signed by'}</span>
+                <strong>{result.signer_full_name || '—'}</strong>
+              </div>
+              <div className="verify-row">
+                <span>{uk ? 'Спосіб підписання' : 'Signing method'}</span>
+                <span>{providerLabel(result.provider, lang) || result.provider}</span>
+              </div>
+              <div className="verify-row">
+                <span>{uk ? 'Час підписання' : 'Signed at'}</span>
+                <span>{result.signed_at ? new Date(result.signed_at).toLocaleString(uk ? 'uk-UA' : 'en-US') : '—'}</span>
+              </div>
+              {result.certificate_issuer_cn && (
                 <div className="verify-row">
                   <span>{uk ? 'Видавець сертифіката' : 'Certificate issuer'}</span>
-                  <span>{result.certIssuer}</span>
+                  <span>{result.certificate_issuer_cn}</span>
                 </div>
+              )}
+              {result.certificate_serial && (
                 <div className="verify-row">
                   <span>{uk ? 'Серійний номер' : 'Serial number'}</span>
-                  <span className="mono" style={{ fontSize: 12 }}>{result.certSerial}</span>
+                  <span className="mono" style={{ fontSize: 12 }}>{result.certificate_serial}</span>
                 </div>
+              )}
+              {result.signature_algorithm && (
                 <div className="verify-row">
-                  <span>{uk ? 'Час підписання' : 'Signed at'}</span>
-                  <span>{new Date(result.timestamp).toLocaleString(uk ? 'uk-UA' : 'en-US')}</span>
+                  <span>{uk ? 'Алгоритм підпису' : 'Signature algorithm'}</span>
+                  <span>{result.signature_algorithm}</span>
                 </div>
-                <div className="verify-row">
-                  <span>{uk ? 'Статус відкликання' : 'Revocation status'}</span>
-                  <span style={{ color: 'var(--ok)', fontWeight: 500 }}>
-                    {result.revocationStatus === 'good' ? (uk ? 'Дійсний' : 'Good') : result.revocationStatus}
-                  </span>
-                </div>
-                <div className="verify-row">
-                  <span>{uk ? 'Хеш документа' : 'Document hash'}</span>
-                  <span className="mono" style={{ fontSize: 11, wordBreak: 'break-all' }}>{result.documentHash}</span>
-                </div>
-                <div className="verify-row">
-                  <span>{uk ? 'Формат підпису' : 'Signature format'}</span>
-                  <span>{result.signatureValue}</span>
-                </div>
-                <div className="verify-row">
-                  <span>LTV</span>
-                  <span style={{ color: result.ltv ? 'var(--ok)' : 'var(--muted)' }}>
-                    {result.ltv ? (uk ? 'Присутній' : 'Present') : '—'}
-                  </span>
-                </div>
+              )}
+              <div className="verify-row">
+                <span>{uk ? 'Хеш документа (SHA-256)' : 'Document hash (SHA-256)'}</span>
+                <span className="mono" style={{ fontSize: 11, wordBreak: 'break-all' }}>{result.document_hash_sha256_hex}</span>
               </div>
-            )}
+            </div>
 
-            <div className="verify-footer">
-              <Icon name="shield" size={12} />
-              <span>
-                {uk
-                  ? 'Верифікацію виконано відносно реєстру КЕП-центрів. Перевірено: '
-                  : 'Verified against the KEP authority registry. Checked at: '}
-                {new Date().toLocaleString(uk ? 'uk-UA' : 'en-US')}
-              </span>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+              <a className="btn" href={verifiedPdfUrl(token)} download data-testid="verify-pdf-download">
+                <Icon name="download" size={13} /> {uk ? 'Завантажити підписаний документ' : 'Download signed document'}
+              </a>
+              <button className="btn ghost" onClick={copy}>
+                {copied ? (uk ? 'Скопійовано ✓' : 'Copied ✓') : (uk ? 'Копіювати посилання' : 'Copy link')}
+              </button>
             </div>
           </>
         )}
+
+        <div className="verify-footer">
+          <Icon name="shield" size={12} />
+          <span>
+            {uk
+              ? 'Ця сторінка є публічною і не містить медичних даних пацієнта.'
+              : 'This page is public and contains no patient medical data.'}
+          </span>
+        </div>
       </div>
     </div>
   )

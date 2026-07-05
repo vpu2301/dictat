@@ -7,6 +7,7 @@ import {
 import { Icon, TopBar, Toast, Empty } from './components/UI.jsx';
 import { Sidebar } from './components/Sidebar.jsx';
 import { DictationStudio } from './components/Studio.jsx';
+import { DictateToday } from './components/DictateHome.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
 import { ScribeToday, ScribePatients, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
 import { EnhancedScribePatient } from './components/PatientProfile.jsx';
@@ -16,13 +17,20 @@ import { ConsentScreen, RecordingIndicator } from './components/ConsentFlow.jsx'
 import { TemplatesPage } from './components/TemplatesPage.jsx';
 import { ScribeNoteStructures } from './components/Scribe.jsx';
 import { useAsync } from './api/useAsync.js';
-import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from './api/templates.js';
+import { listTemplates, createTemplate, toStudioTemplate } from './api/templates.js';
 
+import { LandingPage } from './pages/LandingPage.jsx';
+import { ContentPage } from './pages/marketing/ContentPage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
+import { SignupPage } from './pages/SignupPage.jsx';
 import { VerifyPage } from './pages/VerifyPage.jsx';
 import { MfaPage } from './pages/MfaPage.jsx';
 import { MePage } from './pages/MePage.jsx';
+import { ProfilePage } from './pages/ProfilePage.jsx';
+import { DashboardPage } from './pages/DashboardPage.jsx';
 import { AdminUsersPage } from './pages/AdminUsersPage.jsx';
+import { TenantSettingsPage } from './pages/TenantSettingsPage.jsx';
+import { TenantMembersPage } from './pages/TenantMembersPage.jsx';
 import { AuditEventsPage } from './pages/AuditEventsPage.jsx';
 import { AuditVerifyPage } from './pages/AuditVerifyPage.jsx';
 import { ForbiddenPage } from './pages/ForbiddenPage.jsx';
@@ -31,7 +39,7 @@ import { AsrSubmitPage } from './pages/AsrSubmitPage.jsx';
 import { AsrJobsListPage } from './pages/AsrJobsListPage.jsx';
 import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
 import { RequireAuth, RequireRole } from './auth/RequireRole.jsx';
-import { useAuth } from './auth/AuthContext.jsx';
+import { useAuth, hasAnyRole } from './auth/AuthContext.jsx';
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "theme": "light",
@@ -42,7 +50,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  const [route, setRoute] = useState(() => location.hash.replace(/^#/, "") || "/scribe");
+  const [route, setRoute] = useState(() => location.hash.replace(/^#/, "") || "/");
   const [toast, setToast] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [quickNoteOpen, setQuickNoteOpen] = useState(false);
@@ -55,25 +63,63 @@ function App() {
 
   const fireToast = (msg) => setToast({ msg });
 
-  // Shared template state — loaded from the core service.
-  const templatesReq = useAsync(() => listTemplates(), []);
+  // Shared template summaries — feed the dictation Studio's template picker.
+  // The Templates admin page (/dictate/templates) self-manages its own data.
+  // Summaries carry no schema_jsonb (no sections); the Studio fetches detail
+  // for the active template. Adapt the backend shape to the legacy Studio shape.
+  const templatesReq = useAsync(() => listTemplates({ limit: 200 }), []);
   const templatesMap = useMemo(() => {
     const list = Array.isArray(templatesReq.data)
       ? templatesReq.data
       : (templatesReq.data?.items || []);
-    return Object.fromEntries(list.map((t) => [t.id, t]));
+    return Object.fromEntries(list.map((t) => {
+      const adapted = toStudioTemplate(t);
+      return [adapted.id, adapted];
+    }));
   }, [templatesReq.data]);
-  const handleAddTemplate    = async (tpl) => { await createTemplate(tpl);        templatesReq.reload(); };
-  const handleUpdateTemplate = async (tpl) => { await updateTemplate(tpl.id, tpl); templatesReq.reload(); };
-  const handleDeleteTemplate = async (id)  => { await deleteTemplate(id);          templatesReq.reload(); };
+  // Create-from-scratch (Studio "new template" dialog). Returns the new id so
+  // the Studio can select it; the detail fetch then loads its sections.
+  const handleAddTemplate = async (definition) => {
+    const res = await createTemplate(definition);
+    await templatesReq.reload();
+    return res?.id ?? null;
+  };
 
   // Hash router
   useEffect(() => {
-    const onHash = () => setRoute(location.hash.replace(/^#/, "") || "/scribe");
+    const onHash = () => setRoute(location.hash.replace(/^#/, "") || "/");
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
   const navigate = (p) => { location.hash = p; };
+
+  // ── Auth gate ───────────────────────────────────────────────
+  // Routes reachable without a session: the auth screens and the
+  // public signature-verification deep link. Everything else needs login.
+  const isAuthRoute   = route === "/login" || route === "/signup";
+  // Landing is public: /welcome always, and the bare root only when signed out
+  // (authenticated users at "/" land on their workspace instead).
+  const isLanding     = route === "/welcome" || ((route === "/" || route === "") && !auth);
+  // Public marketing sub-pages (footer + feature/product/security content).
+  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing", "/specialties", "/customers", "/faq"];
+  const isMarketing = MARKETING_EXACT.includes(route)
+    || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/") || route.startsWith("/specialties/");
+  const isPublicRoute = isAuthRoute || isLanding || isMarketing || route.startsWith("/verify/");
+  const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
+  const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
+
+  // Keep the URL hash in sync with the gate decision.
+  useEffect(() => {
+    if (gateToLogin) navigate("/login");
+    else if (gateToHome) navigate("/");
+  }, [gateToLogin, gateToHome]);
+
+  // Tenant admins land on their dashboard. When an authenticated owner hits the
+  // bare root (post-login or "Dictator" brand click), send them to #/dashboard.
+  const isTenantAdmin = hasAnyRole(auth?.claims, ["tenant_admin"]);
+  useEffect(() => {
+    if (auth && isTenantAdmin && (route === "/" || route === "")) navigate("/dashboard");
+  }, [auth, isTenantAdmin, route]);
 
   // Theme + density + accent
   useEffect(() => {
@@ -87,7 +133,7 @@ function App() {
     const onKey = (e) => {
       if (e.target.matches("input, textarea, [contenteditable]")) return;
       if (e.key === "n" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/scribe/consult/new"); }
-      if (e.key === "d" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/dictate"); }
+      if (e.key === "d" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/dictate/studio"); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -102,9 +148,35 @@ function App() {
 
   const r = route;
 
-  // ── auth routes ────────────────────────────────────────────
-  if (r === "/login") {
+  // ── auth gate (render the right view synchronously to avoid a flash) ─
+  if (gateToLogin) {
     view = <LoginPage navigate={navigate} lang={lang} />;
+    fullBleed = true;
+  } else if (gateToHome) {
+    view = <ScribeToday navigate={navigate} lang={lang} />;
+    title = lang === "uk" ? "Сьогодні" : "Today";
+  }
+  // ── auth routes ────────────────────────────────────────────
+  else if (r === "/login") {
+    view = <LoginPage navigate={navigate} lang={lang} />;
+    fullBleed = true;
+  }
+  // ── signup (request-access lead — admin-invite-only, doc 03 §4.1) ──
+  else if (r === "/signup") {
+    view = <SignupPage navigate={navigate} lang={lang} />;
+    fullBleed = true;
+  }
+  // ── public landing (marketing) ─────────────────────────────
+  else if (r === "/welcome" || ((r === "/" || r === "") && !auth)) {
+    view = <LandingPage navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
+  // ── public marketing sub-pages (footer + features/products/security) ─
+  else if (
+    ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing", "/specialties", "/customers", "/faq"].includes(r)
+    || r.startsWith("/legal/") || r.startsWith("/features/") || r.startsWith("/product/") || r.startsWith("/specialties/")
+  ) {
+    view = <ContentPage slug={r.replace(/^\//, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     fullBleed = true;
   }
   // ── mfa scaffold (sprint 16; flag-off path today) ───────────
@@ -156,8 +228,16 @@ function App() {
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Шаблони" : "Templates" }];
   }
   // ── dictate ────────────────────────────────────────────────
+  // /dictate is the product landing (overview); the recording Studio lives at
+  // /dictate/studio so switching products doesn't drop straight into recording.
   else if (r === "/dictate" || r === "/dictate/") {
-    view = <DictationStudio lang={lang}
+    view = <DictateToday lang={lang} navigate={navigate} />;
+    title = lang === "uk" ? "Диктування" : "Dictation";
+  } else if (r === "/dictate/studio" || r.startsWith("/dictate/studio?") || r.startsWith("/dictate?")) {
+    const pm = r.match(/patient=([\w-]+)/);
+    const tm = r.match(/template=([\w-]+)/);
+    const rm = r.match(/report=([\w-]+)/);
+    view = <DictationStudio lang={lang} patientId={pm?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
              templatesMap={templatesMap} onAddTemplate={handleAddTemplate} />;
     showTopbar = false;
   } else if (r === "/dictate/reports") {
@@ -168,9 +248,7 @@ function App() {
     view = <ReportView id={id} lang={lang} navigate={navigate} />;
     crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: lang === "uk" ? "Звіти" : "Reports", path: "/dictate/reports", onClick: () => navigate("/dictate/reports") }, { label: id }];
   } else if (r === "/dictate/templates") {
-    view = <TemplatesPage lang={lang} templates={templatesMap}
-             onAdd={handleAddTemplate} onUpdate={handleUpdateTemplate} onDelete={handleDeleteTemplate}
-             navigate={navigate} />;
+    view = <TemplatesPage lang={lang} navigate={navigate} />;
     crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: lang === "uk" ? "Шаблони" : "Templates" }];
   }
   // ── asr (batch transcription) ──────────────────────────────
@@ -209,10 +287,24 @@ function App() {
     view = <SettingsPage lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     crumbs = [{ label: lang === "uk" ? "Налаштування" : "Settings" }];
   }
-  // ── account / me ───────────────────────────────────────────
+  // ── business-owner dashboard (tenant_admin) ────────────────
+  else if (r === "/dashboard") {
+    view = (
+      <RequireRole any={["tenant_admin"]} navigate={navigate}>
+        <DashboardPage lang={lang} navigate={navigate} />
+      </RequireRole>
+    );
+    crumbs = [{ label: lang === "uk" ? "Панель" : "Dashboard" }];
+  }
+  // ── account / profile ──────────────────────────────────────
+  else if (r === "/profile") {
+    view = <RequireAuth navigate={navigate}><ProfilePage lang={lang} navigate={navigate} /></RequireAuth>;
+    crumbs = [{ label: lang === "uk" ? "Профіль" : "Profile" }];
+  }
+  // ── account / identity (token inspector) ───────────────────
   else if (r === "/me") {
     view = <RequireAuth navigate={navigate}><MePage lang={lang} /></RequireAuth>;
-    crumbs = [{ label: lang === "uk" ? "Профіль" : "Profile" }];
+    crumbs = [{ label: lang === "uk" ? "Ідентичність" : "Identity" }];
   }
   // ── admin ──────────────────────────────────────────────────
   else if (r === "/admin/users") {
@@ -222,6 +314,14 @@ function App() {
       </RequireRole>
     );
     crumbs = [{ label: lang === "uk" ? "Адмін" : "Admin" }, { label: lang === "uk" ? "Користувачі" : "Users" }];
+  }
+  // ── clinic / tenant ────────────────────────────────────────
+  else if (r === "/tenant" || r === "/tenant/settings") {
+    view = <RequireAuth navigate={navigate}><TenantSettingsPage lang={lang} onToast={fireToast} /></RequireAuth>;
+    crumbs = [{ label: lang === "uk" ? "Клініка" : "Clinic" }, { label: lang === "uk" ? "Налаштування" : "Settings" }];
+  } else if (r === "/tenant/members") {
+    view = <RequireAuth navigate={navigate}><TenantMembersPage lang={lang} onToast={fireToast} /></RequireAuth>;
+    crumbs = [{ label: lang === "uk" ? "Клініка" : "Clinic" }, { label: lang === "uk" ? "Учасники" : "Members" }];
   }
   // ── audit ──────────────────────────────────────────────────
   else if (r === "/audit/events") {
@@ -297,7 +397,7 @@ function App() {
           tweaks={tweaks}
           setTweak={setTweak}
           onNewSession={() => navigate("/scribe/consult/new")}
-          onNewDictation={() => navigate("/dictate")}
+          onNewDictation={() => navigate("/dictate/studio")}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(c => !c)}
           onToast={fireToast}

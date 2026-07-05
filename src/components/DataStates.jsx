@@ -17,9 +17,12 @@ export function Loading({ lang = "en" }) {
 }
 
 // Normalize the various shapes a list endpoint can return into an array.
+// The report-service search endpoint returns `{ hits }` (not `{ items }`),
+// so recognise that key too — otherwise report lists silently read as empty.
 export function asList(data) {
   if (Array.isArray(data)) return data;
   if (data && Array.isArray(data.items)) return data.items;
+  if (data && Array.isArray(data.hits)) return data.hits;
   return [];
 }
 
@@ -27,6 +30,7 @@ function isEmpty(data) {
   if (data == null) return true;
   if (Array.isArray(data)) return data.length === 0;
   if (Array.isArray(data.items)) return data.items.length === 0;
+  if (Array.isArray(data.hits)) return data.hits.length === 0;
   return false;
 }
 

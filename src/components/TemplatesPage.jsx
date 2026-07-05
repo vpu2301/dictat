@@ -1,673 +1,1067 @@
-// TemplatesPage.jsx — Template library with create / edit / import modal
-import React, { useState, useRef, useCallback } from 'react';
-import { Icon, Modal } from './UI.jsx';
-import { useI18n } from '../i18n.js';
+// TemplatesPage.jsx — clinic-admin Templates library wired to report-service
+// (Sprint 06; contract: FRONTEND-TASK-templates-page.md).
+//
+// Browse own + system templates (tenant-scoped, RLS-enforced), preview a
+// template's full section structure, clone a system template into the tenant,
+// edit a tenant template (cosmetic-vs-structural aware), and deprecate a tenant
+// template. Templates are NOT PHI but ARE tenant-scoped — we only ever render
+// what the backend returns for the caller's tenant.
+//
+// RBAC: read/list/preview is open to all clinical roles; clone/update/deprecate
+// is tenant_admin only. We hide write controls for non-admins (the backend also
+// 403s the action). See §5.
 
-// Built-in (system) templates are flagged by the backend via `tpl.builtin`.
-const isBuiltinTpl = (tpl) => !!(tpl && tpl.builtin);
+import React, { useMemo, useState, useCallback, useEffect } from "react";
+import { Icon, Empty } from "./UI.jsx";
+import { FilterDropdown } from "./FilterDropdown.jsx";
+import { Loading, asList } from "./DataStates.jsx";
+import { ApiErrorView } from "./ApiErrorView.jsx";
+import { Pagination } from "./Pagination.jsx";
+import { useAsync } from "../api/useAsync.js";
+import { usePermission } from "../auth/permissions.js";
+import { getStarredIds, toggleStar } from "../api/templatePrefs.js";
+import {
+  listTemplates, getTemplate, cloneTemplate, updateTemplate, deleteTemplate, getSectionPrompt,
+  validateDefinition, classifyEdit, isSlug, FIELD_TYPES, ASR_PROMPT_MAX, SYNTHESIS_PROMPT_MAX,
+  MAX_SECTIONS, specialtyIcon,
+} from "../api/templates.js";
 
+const T = (lang, uk, en) => (lang === "uk" ? uk : en);
+
+// Client-side pagination over the fetched list (the list endpoint returns up to
+// `limit` rows in one shot; we page through them locally).
+const TEMPLATE_PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
+
+// Seeded specialties (§7) for the filter dropdown — stable regardless of the
+// active server-side filter. Backend specialty is a free slug; unknown values
+// still render (raw) in the list, this just powers the picker.
 const SPECIALTIES = [
-  { value: "radiology",      label: { uk: "Радіологія",         en: "Radiology"        } },
-  { value: "cardiology",     label: { uk: "Кардіологія",        en: "Cardiology"       } },
-  { value: "cardiacSurgery", label: { uk: "Кардіохірургія",     en: "Cardiac surgery"  } },
-  { value: "orthopaedics",   label: { uk: "Ортопедія",          en: "Orthopaedics"     } },
-  { value: "neurology",      label: { uk: "Неврологія",         en: "Neurology"        } },
-  { value: "general",        label: { uk: "Загальна медицина",  en: "General medicine" } },
+  ["cardiology",          "Кардіологія",      "Cardiology"],
+  ["family_medicine",     "Сімейна медицина", "Family medicine"],
+  ["emergency_medicine",  "Невідкладна",      "Emergency medicine"],
+  ["general",             "Загальна практика","General practice"],
+  ["neurology",           "Неврологія",       "Neurology"],
+  ["internal_medicine",   "Терапія",          "Internal medicine"],
+  ["surgery",             "Хірургія",         "Surgery"],
+  ["pediatrics",          "Педіатрія",        "Pediatrics"],
+  ["obstetrics",          "Акушерство",       "Obstetrics"],
+  ["dermatology",         "Дерматологія",     "Dermatology"],
+  ["psychiatry",          "Психіатрія",       "Psychiatry"],
+  ["endocrinology",       "Ендокринологія",   "Endocrinology"],
+  ["radiology",           "Радіологія",       "Radiology"],
 ];
-
-const ICONS = ["scan","heart","scalpel","bone","fileText","waveform","brain","shield","user","layers"];
-// "brain" and "waveform" map to existing icon paths; add fallbacks below
-const ICON_LABELS = {
-  scan:"CT/MRI", heart:"Cardio", scalpel:"Surgery", bone:"Ortho",
-  fileText:"General", waveform:"Audio", brain:"Neuro", shield:"Other",
-  user:"Clinical", layers:"Multi",
+const FIELD_TYPE_LABELS = {
+  free_text:            ["Вільний текст",       "Free text"],
+  structured_diagnosis: ["Структ. діагноз",     "Structured diagnosis"],
+  date:                 ["Дата",                "Date"],
+  date_with_note:       ["Дата з приміткою",    "Date + note"],
+  numeric_with_unit:    ["Число з одиницею",    "Numeric + unit"],
 };
 
-// ── Main page ──────────────────────────────────────────────────────────────
-export function TemplatesPage({ lang, templates, onAdd, onUpdate, onDelete, navigate }) {
-  const { t } = useI18n();
-  const [search,  setSearch]  = useState("");
-  const [spec,    setSpec]    = useState(null);
-  const [filter,  setFilter]  = useState("all"); // all | builtin | custom
-  const [modal,   setModal]   = useState(null);  // null | { mode:"create" } | { mode:"edit", tpl }
-  const [delConf, setDelConf] = useState(null);  // id to confirm-delete
+// ── Error → message mapping (§6) ─────────────────────────────────────────────
+// Never say "forbidden" on a 404 — RLS returns 404 for another tenant's row to
+// avoid leaking existence.
+function templateErrorMessage(error, lang, context) {
+  const status = error?.status ?? 0;
+  if (status === 404) return T(lang, "Шаблон не знайдено.", "Template not found.");
+  if (status === 409) {
+    if (context === "delete") return T(lang, "Цей шаблон використовується і не може бути депрекований.", "This template is in use and can't be deprecated.");
+    return T(lang, "Системні шаблони не можна редагувати — спочатку клонуйте.", "System templates can't be edited — clone it first.");
+  }
+  if (status === 422) return T(lang, "Помилка валідації — перевірте поля.", "Validation error — check the fields.");
+  return error?.message || T(lang, "Помилка", "Error");
+}
 
-  const list = Object.values(templates).filter((tpl) => {
-    if (filter === "builtin" &&  isBuiltinTpl(tpl)) return true;
-    if (filter === "custom"  && !isBuiltinTpl(tpl)) return true;
-    if (filter === "all")                           return true;
-    return false;
-  }).filter((tpl) => {
-    if (spec && tpl.specialty !== spec) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return ((tpl.name?.uk || "") + (tpl.name?.en || "") + (tpl.code || "")).toLowerCase().includes(q);
-  });
+// Pull field-level messages out of a FastAPI/Pydantic 422 body.
+function pydanticErrors(error) {
+  const d = error?.problem?.detail;
+  if (!Array.isArray(d)) return [];
+  return d.map((e) => ({
+    loc: Array.isArray(e.loc) ? e.loc.filter((x) => x !== "body").join(".") : "",
+    msg: e.msg || String(e),
+  }));
+}
 
-  const specName = (s) => SPECIALTIES.find((x) => x.value === s)?.label[lang] ?? s;
+function ErrorBanner({ error, lang, context }) {
+  if (!error) return null;
+  const fields = error.status === 422 ? pydanticErrors(error) : [];
+  return (
+    <div role="alert" className="tpl-err-banner">
+      <Icon name="flag" size={14} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600 }}>{templateErrorMessage(error, lang, context)}</div>
+        {fields.length > 0 && (
+          <ul className="tpl-err-fields">
+            {fields.map((f, i) => (
+              <li key={i}><code>{f.loc}</code> {f.msg}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
 
-  const handleSave = (tpl) => {
-    const isNew = !templates[tpl.id];
-    isNew ? onAdd(tpl) : onUpdate(tpl);
-    setModal(null);
+// ── Origin / status badges ───────────────────────────────────────────────────
+function OriginBadge({ tpl, lang }) {
+  const system = tpl.is_system || tpl.tenant_id == null;
+  return (
+    <span className={`tpl-badge ${system ? "system" : "custom"}`}>
+      <Icon name={system ? "shield" : "user"} size={10} />
+      {system ? T(lang, "Системний", "System") : T(lang, "Власний", "Custom")}
+    </span>
+  );
+}
+function StatusBadge({ status, lang }) {
+  if (status === "active") return null;
+  const map = {
+    draft:      [T(lang, "Чернетка", "Draft"), "draft"],
+    deprecated: [T(lang, "Депрекований", "Deprecated"), "deprecated"],
   };
+  const row = map[status];
+  if (!row) return null;
+  return <span className={`tpl-badge status ${row[1]}`}>{row[0]}</span>;
+}
 
-  const handleDelete = (id) => {
-    onDelete(id);
-    setDelConf(null);
-  };
+// ── Main page ─────────────────────────────────────────────────────────────────
+export function TemplatesPage({ lang, navigate }) {
+  const canWrite = usePermission("templates.write", "template");
 
-  const customCount  = Object.values(templates).filter((t) => !isBuiltinTpl(t)).length;
-  const builtinCount = Object.values(templates).filter((t) =>  isBuiltinTpl(t)).length;
+  const [specialty, setSpecialty]   = useState("");
+  const [language, setLanguage]     = useState("");
+  const [showDeprecated, setShowDep]= useState(false);
+  const [customOnly, setCustomOnly] = useState(false);
+  const [starredOnly, setStarredOnly] = useState(false);
+  const [search, setSearch]         = useState("");
+
+  // Per-user favorites (interim localStorage-backed — see templatePrefs.js).
+  const [stars, setStars] = useState(() => getStarredIds());
+  const onToggleStar = useCallback((id) => {
+    toggleStar(id);
+    setStars(getStarredIds());
+  }, []);
+
+  const [viewMode, setViewMode]     = useState("grid"); // "grid" | "list"
+  const [page, setPage]             = useState(1);
+  const [pageSize, setPageSize]     = useState(TEMPLATE_PAGE_SIZE_OPTIONS[0]);
+
+  const [openId, setOpenId]   = useState(null);   // detail modal target
+  const [cloneFor, setCloneFor] = useState(null); // summary being cloned
+  const [toast, setToast]     = useState(null);
+
+  const req = useAsync(
+    () => listTemplates({
+      specialty: specialty || undefined,
+      language: language || undefined,
+      tenant_only: customOnly || undefined,
+      include_deprecated: showDeprecated || undefined,
+      limit: 200,
+    }),
+    [specialty, language, customOnly, showDeprecated],
+  );
+
+  const all = asList(req.data);
+  const list = useMemo(() => {
+    let out = all;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      out = out.filter((t) =>
+        `${t.name || ""} ${t.code || ""} ${t.specialty || ""}`.toLowerCase().includes(q));
+    }
+    if (starredOnly) out = out.filter((t) => stars.has(t.id));
+    // Surface starred templates first; otherwise preserve server order.
+    return out.slice().sort((a, b) => (stars.has(b.id) ? 1 : 0) - (stars.has(a.id) ? 1 : 0));
+  }, [all, search, starredOnly, stars]);
+
+  const customCount = all.filter((t) => !(t.is_system || t.tenant_id == null)).length;
+  const starredCount = all.filter((t) => stars.has(t.id)).length;
+
+  // Client-side pagination over the filtered list.
+  const pageCount = Math.max(1, Math.ceil(list.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageItems = useMemo(
+    () => list.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [list, safePage, pageSize],
+  );
+
+  // Reset to page 1 whenever the filtered result set changes.
+  useEffect(() => {
+    setPage(1);
+  }, [search, specialty, language, customOnly, showDeprecated, starredOnly]);
+
+  const fireToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  // After a clone: reload + open the new tenant template's detail.
+  const onCloned = useCallback((newId) => {
+    setCloneFor(null);
+    req.reload();
+    setOpenId(newId);
+    fireToast(T(lang, "Шаблон клоновано", "Template cloned"));
+  }, [req, lang, fireToast]);
+
+  // After an edit: reload; if structural, the id changed → follow it.
+  const onEdited = useCallback((res) => {
+    req.reload();
+    if (res?.kind === "structural" && res.id) {
+      setOpenId(res.id);
+      fireToast(T(lang, "Створено нову версію шаблону", "New template version created"));
+    } else if (res?.kind === "cosmetic") {
+      fireToast(T(lang, "Зміни збережено", "Changes saved"));
+    } else {
+      fireToast(T(lang, "Без змін", "No changes"));
+    }
+  }, [req, lang, fireToast]);
+
+  const onDeprecated = useCallback(() => {
+    setOpenId(null);
+    req.reload();
+    fireToast(T(lang, "Шаблон депрековано", "Template deprecated"));
+  }, [req, lang, fireToast]);
 
   return (
     <div className="page">
-      {/* Header */}
       <div className="page-h">
         <div>
-          <h1>{lang === "uk" ? "Шаблони диктування" : "Dictation templates"}</h1>
+          <h1>{T(lang, "Шаблони звітів", "Report templates")}</h1>
           <p className="sub">
-            {Object.keys(templates).length}{" "}
-            {lang === "uk" ? "шаблонів" : "templates"}
-            {customCount > 0 && ` · ${customCount} ${lang === "uk" ? "власних" : "custom"}`}
+            {all.length} {T(lang, "шаблонів", "templates")}
+            {customCount > 0 && ` · ${customCount} ${T(lang, "власних", "custom")}`}
+            {!canWrite && ` · ${T(lang, "лише перегляд", "read-only")}`}
           </p>
         </div>
-        <button className="btn accent" onClick={() => setModal({ mode: "create" })}>
-          <Icon name="plus" size={14} />
-          {lang === "uk" ? "Новий шаблон" : "New template"}
-        </button>
       </div>
 
       {/* Toolbar */}
-      <div className="ptable-toolbar" style={{ marginBottom: 16 }}>
+      <div className="ptable-toolbar" style={{ marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
         <label className="search-input">
           <Icon name="search" size={14} />
           <input
-            placeholder={lang === "uk" ? "Пошук шаблону…" : "Search templates…"}
+            placeholder={T(lang, "Пошук шаблону…", "Search templates…")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
 
-        <select
-          className="ti"
-          style={{ width: "auto", padding: "5px 10px" }}
-          value={spec || ""}
-          onChange={(e) => setSpec(e.target.value || null)}
-        >
-          <option value="">{lang === "uk" ? "Всі спеціальності" : "All specialties"}</option>
-          {SPECIALTIES.map((s) => (
-            <option key={s.value} value={s.value}>{s.label[lang]}</option>
-          ))}
-        </select>
+        <FilterDropdown
+          value={specialty}
+          onChange={setSpecialty}
+          ariaLabel={T(lang, "Спеціальність", "Specialty")}
+          options={[
+            { value: "", label: T(lang, "Всі спеціальності", "All specialties") },
+            ...SPECIALTIES.map(([v, uk, en]) => ({ value: v, label: T(lang, uk, en) })),
+          ]}
+        />
 
-        <div className="seg">
-          {[
-            { key: "all",     label: lang === "uk" ? "Всі"       : "All",     count: Object.keys(templates).length },
-            { key: "builtin", label: lang === "uk" ? "Вбудовані" : "Built-in", count: builtinCount },
-            { key: "custom",  label: lang === "uk" ? "Власні"    : "Custom",  count: customCount  },
-          ].map(({ key, label, count }) => (
-            <button
-              key={key}
-              className={`seg-btn${filter === key ? " on" : ""}`}
-              onClick={() => setFilter(key)}
-            >
-              {label}
-              <span className="seg-count">{count}</span>
-            </button>
-          ))}
+        <FilterDropdown
+          value={language}
+          onChange={setLanguage}
+          ariaLabel={T(lang, "Мова", "Language")}
+          options={[
+            { value: "", label: T(lang, "Всі мови", "All languages") },
+            { value: "uk", label: T(lang, "Українська", "Ukrainian") },
+            { value: "en", label: T(lang, "Англійська", "English") },
+          ]}
+        />
+
+        <label className="tpl-toggle">
+          <input type="checkbox" checked={customOnly} onChange={(e) => setCustomOnly(e.target.checked)} />
+          {T(lang, "Лише власні", "Custom only")}
+        </label>
+        <label className="tpl-toggle">
+          <input type="checkbox" checked={starredOnly} onChange={(e) => setStarredOnly(e.target.checked)} />
+          <Icon name="star" size={12} fill={starredOnly ? "currentColor" : "none"} />
+          {T(lang, "Лише обрані", "Starred only")}
+          {starredCount > 0 && ` (${starredCount})`}
+        </label>
+        <label className="tpl-toggle">
+          <input type="checkbox" checked={showDeprecated} onChange={(e) => setShowDep(e.target.checked)} />
+          {T(lang, "Показати депрековані", "Show deprecated")}
+        </label>
+
+        <div style={{ flex: 1 }} />
+        <div className="seg" role="group" aria-label={T(lang, "Вигляд", "View")}>
+          <button
+            type="button"
+            className={"seg-btn" + (viewMode === "grid" ? " on" : "")}
+            onClick={() => setViewMode("grid")}
+            aria-pressed={viewMode === "grid"}
+            title={T(lang, "Сітка", "Grid")}
+          >
+            <Icon name="grid" size={14} />
+          </button>
+          <button
+            type="button"
+            className={"seg-btn" + (viewMode === "list" ? " on" : "")}
+            onClick={() => setViewMode("list")}
+            aria-pressed={viewMode === "list"}
+            title={T(lang, "Список", "List")}
+          >
+            <Icon name="list" size={14} />
+          </button>
         </div>
       </div>
 
-      {/* Grid */}
-      {list.length === 0 ? (
-        <div className="tpl-empty">
-          <Icon name="layers" size={36} />
-          <h3>{lang === "uk" ? "Шаблонів не знайдено" : "No templates found"}</h3>
-          <p>{lang === "uk" ? "Спробуйте змінити фільтр або створіть новий шаблон" : "Try changing the filter or create a new template"}</p>
-          <button className="btn accent" style={{ marginTop: 12 }} onClick={() => setModal({ mode: "create" })}>
-            <Icon name="plus" size={13} /> {lang === "uk" ? "Створити шаблон" : "Create template"}
-          </button>
-        </div>
+      {/* Body states */}
+      {req.loading ? (
+        <Loading lang={lang} />
+      ) : req.error ? (
+        <ApiErrorView error={req.error} lang={lang} />
+      ) : list.length === 0 ? (
+        <Empty
+          icon="layers"
+          title={T(lang, "Шаблонів не знайдено", "No templates found")}
+          body={T(lang, "Спробуйте змінити фільтри.", "Try adjusting the filters.")}
+        />
       ) : (
-        <div className="tpl-grid">
-          {list.map((tpl) => (
-            <TemplateCard
-              key={tpl.id}
-              tpl={tpl}
-              lang={lang}
-              isBuiltin={isBuiltinTpl(tpl)}
-              specName={specName(tpl.specialty)}
-              onEdit={() => setModal({ mode: "edit", tpl })}
-              onUse={() => navigate("/dictate")}
-              onDelete={() => setDelConf(tpl.id)}
-            />
-          ))}
-        </div>
+        <>
+          {viewMode === "grid" ? (
+            <div className="tpl-grid">
+              {pageItems.map((tpl) => (
+                <TemplateCard key={tpl.id} tpl={tpl} lang={lang} onOpen={() => setOpenId(tpl.id)}
+                  starred={stars.has(tpl.id)} onToggleStar={onToggleStar} />
+              ))}
+            </div>
+          ) : (
+            <TemplateTable items={pageItems} lang={lang} onOpen={setOpenId}
+              stars={stars} onToggleStar={onToggleStar} />
+          )}
+          <Pagination
+            page={safePage}
+            pageCount={pageCount}
+            onPage={setPage}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(pageCount, p + 1))}
+            total={list.length}
+            pageSize={pageSize}
+            pageSizeOptions={TEMPLATE_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(n) => { setPageSize(n); setPage(1); }}
+            lang={lang}
+          />
+        </>
       )}
 
-      {/* Create / Edit modal */}
-      {modal && (
-        <TemplateModal
+      {/* Detail / preview modal */}
+      {openId && (
+        <TemplateDetailModal
+          id={openId}
           lang={lang}
-          initial={modal.mode === "edit" ? modal.tpl : null}
-          onSave={handleSave}
-          onClose={() => setModal(null)}
+          canWrite={canWrite}
+          onClose={() => setOpenId(null)}
+          onClone={(summary) => setCloneFor(summary)}
+          onEdited={onEdited}
+          onDeprecated={onDeprecated}
         />
       )}
 
-      {/* Delete confirm */}
-      {delConf && (
-        <Modal onClose={() => setDelConf(null)}>
-          <div className="modal-h">
-            <h2>{lang === "uk" ? "Видалити шаблон?" : "Delete template?"}</h2>
-            <p>{lang === "uk" ? "Цю дію не можна скасувати." : "This action cannot be undone."}</p>
-          </div>
-          <div className="modal-foot">
-            <button className="btn" onClick={() => setDelConf(null)}>
-              {lang === "uk" ? "Скасувати" : "Cancel"}
-            </button>
-            <button className="btn danger" onClick={() => handleDelete(delConf)}>
-              <Icon name="x" size={13} /> {lang === "uk" ? "Видалити" : "Delete"}
-            </button>
-          </div>
-        </Modal>
+      {/* Clone modal (can be triggered from detail) */}
+      {cloneFor && (
+        <CloneModal
+          source={cloneFor}
+          lang={lang}
+          onClose={() => setCloneFor(null)}
+          onCloned={onCloned}
+        />
       )}
+
+      {toast && <div className="tpl-toast" role="status">{toast}</div>}
     </div>
   );
 }
 
-// ── Template card ──────────────────────────────────────────────────────────
-function TemplateCard({ tpl, lang, isBuiltin, specName, onEdit, onUse, onDelete }) {
-  const required = tpl.sections.filter((s) => s.required).length;
+// ── Card ─────────────────────────────────────────────────────────────────────
+function TemplateCard({ tpl, lang, onOpen, starred, onToggleStar }) {
+  const specLabel = SPECIALTIES.find((s) => s[0] === tpl.specialty);
   return (
-    <div className="tpl-card">
-      <div className="tpl-card-top">
-        <div className="tpl-card-icon">
-          <Icon name={tpl.icon || "fileText"} size={18} />
-        </div>
-        <div className="tpl-card-meta">
-          <div className="tpl-card-name">{tpl.name[lang] || tpl.name.en}</div>
-          <div className="tpl-card-sub">
-            <span className="chip" style={{ fontSize: 11 }}>{tpl.code}</span>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>{specName}</span>
+    <div className="tpl-card-wrap" style={{ opacity: tpl.status === "deprecated" ? 0.6 : 1 }}>
+      <button className="tpl-card as-button" onClick={onOpen}>
+        <div className="tpl-card-top">
+          <div className="tpl-card-icon"><Icon name={specialtyIcon(tpl.specialty)} size={18} /></div>
+          <div className="tpl-card-meta">
+            <div className="tpl-card-name">{tpl.name}</div>
+            <div className="tpl-card-sub">
+              <span className="chip" style={{ fontSize: 11 }}>{tpl.code}</span>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                {specLabel ? T(lang, specLabel[1], specLabel[2]) : tpl.specialty}
+              </span>
+            </div>
           </div>
         </div>
-        {isBuiltin && (
-          <span className="chip" style={{ fontSize: 10, alignSelf: "flex-start", flexShrink: 0 }}>
-            {lang === "uk" ? "вбудований" : "built-in"}
-          </span>
-        )}
-      </div>
-
-      <div className="tpl-card-sections">
-        {tpl.sections.map((s) => (
-          <span key={s.id} className={`tpl-sec-dot${s.required ? " req" : ""}`} title={s.name[lang] || s.name.en} />
-        ))}
-        <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>
-          {tpl.sections.length}{lang === "uk" ? " секцій" : " sections"}
-          {required > 0 && ` · ${required} ${lang === "uk" ? "обов'язкових" : "required"}`}
-        </span>
-      </div>
-
-      <div className="tpl-card-actions">
-        <button className="btn sm" onClick={onUse}>
-          <Icon name="mic" size={12} /> {lang === "uk" ? "Використати" : "Use"}
-        </button>
-        <button className="btn ghost sm" onClick={onEdit}>
-          <Icon name="edit" size={12} /> {lang === "uk" ? "Редагувати" : "Edit"}
-        </button>
-        {!isBuiltin && (
-          <button className="icon-btn danger" onClick={onDelete} title={lang === "uk" ? "Видалити" : "Delete"}>
-            <Icon name="x" size={13} />
-          </button>
-        )}
-      </div>
+        <div className="tpl-card-badges">
+          <OriginBadge tpl={tpl} lang={lang} />
+          <span className="tpl-badge lang">{(tpl.language || "").toUpperCase()}</span>
+          <span className="tpl-badge version">v{tpl.schema_version}</span>
+          <StatusBadge status={tpl.status} lang={lang} />
+        </div>
+      </button>
+      <StarButton starred={starred} lang={lang} onToggle={() => onToggleStar(tpl.id)} />
     </div>
   );
 }
 
-// ── Create / Edit modal ────────────────────────────────────────────────────
-function TemplateModal({ lang, initial, onSave, onClose }) {
-  const [tab, setTab] = useState("build"); // build | import | preview
-  const isEdit = !!initial;
+// Shared star toggle. Stops propagation so it never triggers the row/card open.
+function StarButton({ starred, lang, onToggle, className = "" }) {
+  return (
+    <button
+      type="button"
+      className={`tpl-star-btn ${className}` + (starred ? " on" : "")}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      aria-pressed={starred}
+      title={starred
+        ? T(lang, "Прибрати з обраних", "Remove from starred")
+        : T(lang, "Додати в обрані", "Add to starred")}
+    >
+      <Icon name="star" size={15} fill={starred ? "currentColor" : "none"} />
+    </button>
+  );
+}
 
-  // Build tab state
-  const [nameUk,    setNameUk]    = useState(initial?.name?.uk   ?? "");
-  const [nameEn,    setNameEn]    = useState(initial?.name?.en   ?? "");
-  const [code,      setCode]      = useState(initial?.code       ?? "");
-  const [specialty, setSpecialty] = useState(initial?.specialty  ?? "radiology");
-  const [icon,      setIcon]      = useState(initial?.icon       ?? "fileText");
-  const [sections,  setSections]  = useState(
-    initial?.sections?.map((s) => ({ ...s })) ??
-    [
-      { id: "indication", nameUk: "Показання",  nameEn: "Indication",  required: true  },
-      { id: "findings",   nameUk: "Результати", nameEn: "Findings",    required: true  },
-      { id: "impression", nameUk: "Висновок",   nameEn: "Impression",  required: true  },
-    ]
+// ── List view ─────────────────────────────────────────────────────────────────
+function TemplateTable({ items, lang, onOpen, stars, onToggleStar }) {
+  return (
+    <div className="ptable">
+      <div className="tpl-thead">
+        <span>{T(lang, "Назва", "Name")}</span>
+        <span>{T(lang, "Код", "Code")}</span>
+        <span>{T(lang, "Спеціальність", "Specialty")}</span>
+        <span>{T(lang, "Походження", "Origin")}</span>
+        <span>{T(lang, "Мова", "Lang")}</span>
+        <span>{T(lang, "Версія", "Ver.")}</span>
+        <span>{T(lang, "Статус", "Status")}</span>
+      </div>
+      {items.map((tpl) => (
+        <TemplateRow key={tpl.id} tpl={tpl} lang={lang} onOpen={() => onOpen(tpl.id)}
+          starred={stars.has(tpl.id)} onToggleStar={onToggleStar} />
+      ))}
+    </div>
+  );
+}
+
+function TemplateRow({ tpl, lang, onOpen, starred, onToggleStar }) {
+  const specLabel = SPECIALTIES.find((s) => s[0] === tpl.specialty);
+  return (
+    <div
+      className="tpl-trow"
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+      style={{ opacity: tpl.status === "deprecated" ? 0.6 : 1 }}
+    >
+      <div className="tpl-trow-name">
+        <StarButton starred={starred} lang={lang} onToggle={() => onToggleStar(tpl.id)} className="sm" />
+        <div className="tpl-card-icon"><Icon name={specialtyIcon(tpl.specialty)} size={16} /></div>
+        <span>{tpl.name}</span>
+      </div>
+      <span className="tpl-cell-mut"><code>{tpl.code}</code></span>
+      <span className="tpl-cell-mut">{specLabel ? T(lang, specLabel[1], specLabel[2]) : tpl.specialty}</span>
+      <span><OriginBadge tpl={tpl} lang={lang} /></span>
+      <span className="tpl-cell-mut">{(tpl.language || "").toUpperCase()}</span>
+      <span className="tpl-cell-mut">v{tpl.schema_version}</span>
+      <span>
+        <StatusBadge status={tpl.status} lang={lang} />
+        {tpl.status === "active" && <span className="tpl-cell-mut">{T(lang, "Активний", "Active")}</span>}
+      </span>
+    </div>
+  );
+}
+
+// ── Detail / preview modal ───────────────────────────────────────────────────
+function TemplateDetailModal({ id, lang, canWrite, onClose, onClone, onEdited, onDeprecated }) {
+  const req = useAsync(() => getTemplate(id), [id]);
+  const [editing, setEditing]   = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  const tpl = req.data;
+  const def = tpl?.schema_jsonb;
+  const system = tpl ? (tpl.is_system || tpl.tenant_id == null) : false;
+  const sections = useMemo(
+    () => (def?.sections || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [def],
   );
 
-  // Import tab state
-  const [importText,   setImportText]   = useState("");
-  const [importError,  setImportError]  = useState("");
-  const [importParsed, setImportParsed] = useState(null);
-  const [dragOver,     setDragOver]     = useState(false);
-  const fileRef = useRef(null);
-
-  // Drag-to-reorder sections
-  const dragIdx = useRef(null);
-  const onDragStart = (i)     => { dragIdx.current = i; };
-  const onDragOver  = (e, i)  => {
-    e.preventDefault();
-    if (dragIdx.current === null || dragIdx.current === i) return;
-    const next = [...sections];
-    const [row] = next.splice(dragIdx.current, 1);
-    next.splice(i, 0, row);
-    setSections(next);
-    dragIdx.current = i;
-  };
-  const onDragEnd = () => { dragIdx.current = null; };
-
-  // Section helpers
-  const setSection = (i, key, val) =>
-    setSections((prev) => prev.map((s, idx) => (idx === i ? { ...s, [key]: val } : s)));
-  const addSection  = () => setSections((prev) => [...prev, { id: `sec-${Date.now()}`, nameUk: "", nameEn: "", required: false }]);
-  const removeSection = (i) => setSections((prev) => prev.filter((_, idx) => idx !== i));
-
-  // Auto-generate code from English name
-  const autoCode = (name) => name.replace(/[^a-zA-Z0-9 ]/g, "").trim().split(/\s+/).slice(0, 3).join("-").toUpperCase();
-
-  // Build validation
-  const buildValid = (nameUk.trim() || nameEn.trim()) &&
-    code.trim().length >= 2 &&
-    sections.length > 0 &&
-    sections.every((s) => s.nameUk?.trim() || s.nameEn?.trim() || s.name?.uk || s.name?.en);
-
-  // Assemble from build tab — always returns a valid object (empty fields get placeholder text)
-  const buildTemplate = () => ({
-    id:       initial?.id ?? `tpl-${Date.now().toString(36)}`,
-    name:     {
-      uk: nameUk.trim() || nameEn.trim() || (lang === "uk" ? "Без назви" : "Untitled"),
-      en: nameEn.trim() || nameUk.trim() || "Untitled",
-    },
-    code:     code.trim().toUpperCase() || "???",
-    specialty,
-    icon,
-    sections: sections.map((s, i) => {
-      const uk = s.nameUk ?? s.name?.uk ?? "";
-      const en = s.nameEn ?? s.name?.en ?? "";
-      return {
-        id:       s.id || `sec-${i}`,
-        required: !!s.required,
-        name:     {
-          uk: uk.trim() || en.trim() || `Секція ${i + 1}`,
-          en: en.trim() || uk.trim() || `Section ${i + 1}`,
-        },
-        anchor:   s.anchor ?? { uk: uk.toLowerCase().trim(), en: en.toLowerCase().trim() },
-      };
-    }),
-  });
-
-  // Import helpers
-  const parseImport = (text) => {
-    setImportError("");
-    setImportParsed(null);
-    try {
-      const raw = JSON.parse(text.trim());
-      const tpl = normaliseImport(raw);
-      if (!tpl.name?.en && !tpl.name?.uk) throw new Error("Missing name");
-      if (!tpl.code) throw new Error("Missing code");
-      if (!Array.isArray(tpl.sections) || tpl.sections.length === 0) throw new Error("No sections");
-      setImportParsed(tpl);
-      setTab("preview");
-    } catch (e) {
-      setImportError(e.message || "Invalid JSON");
-    }
-  };
-
-  const normaliseImport = (raw) => ({
-    id:       `tpl-${Date.now().toString(36)}`,
-    name:     raw.name  ?? { uk: raw.nameUk ?? "", en: raw.nameEn ?? "" },
-    code:     (raw.code ?? "").toUpperCase(),
-    specialty: raw.specialty ?? "radiology",
-    icon:     raw.icon ?? "fileText",
-    sections: (raw.sections ?? []).map((s, i) => ({
-      id:       s.id ?? `sec-${i}`,
-      required: !!s.required,
-      name:     s.name ?? { uk: s.nameUk ?? s.name_uk ?? "", en: s.nameEn ?? s.name_en ?? "" },
-      anchor:   s.anchor ?? {
-        uk: (s.name?.uk ?? s.nameUk ?? "").toLowerCase(),
-        en: (s.name?.en ?? s.nameEn ?? "").toLowerCase(),
-      },
-    })),
-  });
-
-  const handleFileRead = (file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setImportText(e.target.result);
-      parseImport(e.target.result);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleFileDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileRead(file);
-  };
-
-  // Final save
-  const handleSave = () => {
-    if (tab === "import" || tab === "preview") {
-      if (importParsed) onSave(importParsed);
-    } else {
-      if (buildValid) onSave(buildTemplate());
-    }
-  };
-
-  const canSave = (tab === "build" && buildValid) ||
-                  ((tab === "import" || tab === "preview") && !!importParsed);
-
-  // importParsed wins if present, otherwise always show the live builder state
-  const previewTpl = importParsed ?? buildTemplate();
+  // Hand off to the full editor once we have the detail in hand.
+  if (editing && tpl) {
+    return (
+      <EditTemplateModal
+        detail={tpl}
+        lang={lang}
+        onClose={() => setEditing(false)}
+        onSaved={(res) => { setEditing(false); onClose(); onEdited(res); }}
+      />
+    );
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="tpl-modal" onClick={(e) => e.stopPropagation()}>
-
-        {/* Modal header */}
         <div className="tpl-modal-head">
           <div>
-            <h2>{isEdit
-              ? (lang === "uk" ? "Редагувати шаблон" : "Edit template")
-              : (lang === "uk" ? "Новий шаблон"      : "New template")
-            }</h2>
-            <p>{lang === "uk" ? "Визначте структуру та секції звіту" : "Define the report structure and sections"}</p>
+            <h2>{tpl?.name || T(lang, "Шаблон", "Template")}</h2>
+            <p>{T(lang, "Структура звіту та налаштування ASR", "Report structure and ASR configuration")}</p>
           </div>
           <button className="icon-btn" onClick={onClose}><Icon name="x" size={16} /></button>
         </div>
 
-        {/* Tabs */}
-        <div className="tpl-modal-tabs">
-          {[
-            { key: "build",   icon: "edit",      label: lang === "uk" ? "Конструктор" : "Builder"  },
-            { key: "import",  icon: "download",  label: lang === "uk" ? "Імпорт"     : "Import"   },
-            { key: "preview", icon: "eye",       label: lang === "uk" ? "Перегляд"   : "Preview"  },
-          ].map(({ key, icon, label }) => (
-            <button
-              key={key}
-              className={`tpl-modal-tab${tab === key ? " on" : ""}`}
-              onClick={() => setTab(key)}
-            >
-              <Icon name={icon} size={13} /> {label}
-              {key === "preview" && previewTpl && <span className="tpl-modal-tab-dot" />}
-            </button>
-          ))}
-        </div>
-
-        {/* Body */}
         <div className="tpl-modal-body">
-
-          {/* ── Build tab ── */}
-          {tab === "build" && (
-            <div className="tpl-build">
-              {/* Icon + name row */}
-              <div className="tpl-build-row">
-                <div className="tpl-build-label">{lang === "uk" ? "Іконка" : "Icon"}</div>
-                <div className="icon-pick">
-                  {ICONS.map((ic) => (
-                    <button
-                      key={ic}
-                      type="button"
-                      className={`icon-opt${icon === ic ? " on" : ""}`}
-                      onClick={() => setIcon(ic)}
-                      title={ICON_LABELS[ic]}
-                    >
-                      <Icon name={ic} size={16} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="tpl-build-row two">
-                <div>
-                  <div className="tpl-build-label">{lang === "uk" ? "Назва (UA)" : "Name (UA)"}</div>
-                  <input className="ti" value={nameUk} placeholder="КТ органів грудної клітки"
-                    onChange={(e) => setNameUk(e.target.value)} />
-                </div>
-                <div>
-                  <div className="tpl-build-label">{lang === "uk" ? "Назва (EN)" : "Name (EN)"}</div>
-                  <input className="ti" value={nameEn} placeholder="CT Chest"
-                    onChange={(e) => {
-                      setNameEn(e.target.value);
-                      if (!code) setCode(autoCode(e.target.value));
-                    }} />
-                </div>
-              </div>
-
-              <div className="tpl-build-row two">
-                <div>
-                  <div className="tpl-build-label">{lang === "uk" ? "Код шаблону" : "Template code"}</div>
-                  <input className="ti mono" value={code} placeholder="CT-CHEST"
-                    onChange={(e) => setCode(e.target.value.toUpperCase())} />
-                </div>
-                <div>
-                  <div className="tpl-build-label">{lang === "uk" ? "Спеціальність" : "Specialty"}</div>
-                  <select className="ti" value={specialty} onChange={(e) => setSpecialty(e.target.value)}>
-                    {SPECIALTIES.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label[lang]}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Sections */}
-              <div className="tpl-build-sections-head">
-                <span className="tpl-build-label" style={{ margin: 0 }}>
-                  {lang === "uk" ? "Секції" : "Sections"}
-                  <span className="psub" style={{ marginLeft: 6 }}>
-                    {lang === "uk" ? "перетягніть для зміни порядку" : "drag to reorder"}
-                  </span>
-                </span>
-                <button className="btn ghost sm" type="button" onClick={addSection}>
-                  <Icon name="plus" size={12} /> {lang === "uk" ? "Додати секцію" : "Add section"}
-                </button>
-              </div>
-
-              <div className="tpl-sections-list">
-                {sections.map((s, i) => {
-                  const nameUkV = s.nameUk ?? s.name?.uk ?? "";
-                  const nameEnV = s.nameEn ?? s.name?.en ?? "";
-                  return (
-                    <div
-                      key={s.id || i}
-                      className="tpl-sec-row"
-                      draggable
-                      onDragStart={() => onDragStart(i)}
-                      onDragOver={(e)  => onDragOver(e, i)}
-                      onDragEnd={onDragEnd}
-                    >
-                      <div className="tpl-sec-drag" title="Drag to reorder">
-                        <Icon name="moreV" size={14} />
-                      </div>
-                      <div className="tpl-sec-num">{i + 1}</div>
-                      <input className="ti" placeholder={lang === "uk" ? "Назва UA" : "Name UA"}
-                        value={nameUkV}
-                        onChange={(e) => setSection(i, "nameUk", e.target.value)} />
-                      <input className="ti" placeholder={lang === "uk" ? "Назва EN" : "Name EN"}
-                        value={nameEnV}
-                        onChange={(e) => setSection(i, "nameEn", e.target.value)} />
-                      <label className="tpl-sec-req" title={lang === "uk" ? "Обов'язкова секція" : "Required section"}>
-                        <input type="checkbox" checked={!!s.required}
-                          onChange={(e) => setSection(i, "required", e.target.checked)} />
-                        <span>{lang === "uk" ? "Обов'язк." : "Required"}</span>
-                      </label>
-                      <button type="button" className="iconbtn danger"
-                        disabled={sections.length <= 1}
-                        onClick={() => removeSection(i)}>
-                        <Icon name="x" size={13} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ── Import tab ── */}
-          {tab === "import" && (
-            <div className="tpl-import">
-              {/* Drop zone */}
-              <div
-                className={`tpl-dropzone${dragOver ? " over" : ""}`}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleFileDrop}
-                onClick={() => fileRef.current?.click()}
-              >
-                <input ref={fileRef} type="file" accept=".json,application/json"
-                  style={{ display: "none" }}
-                  onChange={(e) => e.target.files[0] && handleFileRead(e.target.files[0])} />
-                <Icon name="download" size={28} />
-                <strong>{lang === "uk" ? "Перетягніть .json файл сюди" : "Drop a .json file here"}</strong>
-                <span>{lang === "uk" ? "або натисніть для вибору" : "or click to browse"}</span>
-              </div>
-
-              <div className="tpl-import-or">
-                <span>{lang === "uk" ? "або вставте JSON" : "or paste JSON"}</span>
-              </div>
-
-              <textarea
-                className="tpl-import-area"
-                placeholder={`{\n  "name": { "uk": "...", "en": "CT Chest" },\n  "code": "CT-CHEST",\n  "specialty": "radiology",\n  "sections": [\n    { "id": "indication", "required": true, "name": { "uk": "Показання", "en": "Indication" } }\n  ]\n}`}
-                value={importText}
-                onChange={(e) => { setImportText(e.target.value); setImportError(""); setImportParsed(null); }}
-                spellCheck={false}
-              />
-
-              <div className="tpl-import-actions">
-                {importError && (
-                  <span className="tpl-import-error">
-                    <Icon name="flag" size={13} /> {importError}
+          {req.loading ? (
+            <Loading lang={lang} />
+          ) : req.error ? (
+            <ErrorBanner error={req.error} lang={lang} context="detail" />
+          ) : (
+            <>
+              <div className="tpl-detail-meta">
+                <span className="chip">{tpl.code}</span>
+                <OriginBadge tpl={tpl} lang={lang} />
+                <span className="tpl-badge lang">{(tpl.language || "").toUpperCase()}</span>
+                <span className="tpl-badge version">v{tpl.schema_version}</span>
+                <StatusBadge status={tpl.status} lang={lang} />
+                {tpl.parent_template_id && (
+                  <span className="tpl-badge" title={tpl.parent_template_id}>
+                    {T(lang, "клон", "cloned")}
                   </span>
                 )}
-                {importParsed && (
-                  <span className="tpl-import-ok">
-                    <Icon name="check" size={13} />
-                    {lang === "uk" ? `Розпізнано: ${importParsed.name[lang] || importParsed.name.en}` : `Parsed: ${importParsed.name.en || importParsed.name.uk}`}
-                  </span>
-                )}
-                <button
-                  className="btn primary sm"
-                  style={{ marginLeft: "auto" }}
-                  disabled={!importText.trim()}
-                  onClick={() => parseImport(importText)}
-                >
-                  <Icon name="check" size={13} /> {lang === "uk" ? "Розпізнати та переглянути" : "Parse & preview"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Preview tab ── */}
-          {tab === "preview" && (
-            <div className="tpl-preview">
-              {/* Missing fields warning */}
-              {!buildValid && !importParsed && (
-                <div className="tpl-preview-warn">
-                  <Icon name="flag" size={13} />
-                  <span>
-                    {lang === "uk"
-                      ? "Деякі поля не заповнені — заповніть їх у Конструкторі перед збереженням."
-                      : "Some fields are incomplete — finish them in Builder before saving."}
-                  </span>
-                </div>
-              )}
-
-              <div className="tpl-preview-header">
-                <div className="tpl-icon" style={{ width: 44, height: 44, borderRadius: 12 }}>
-                  <Icon name={previewTpl.icon || "fileText"} size={22} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text-1)" }}>
-                    {previewTpl.name[lang] || previewTpl.name.en}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 5, alignItems: "center" }}>
-                    <span className="chip">{previewTpl.code}</span>
-                    <span className="psub">
-                      {SPECIALTIES.find((s) => s.value === previewTpl.specialty)?.label[lang] ?? previewTpl.specialty}
-                    </span>
-                    <span className="psub">·</span>
-                    <span className="psub">
-                      {previewTpl.sections.length}{" "}
-                      {lang === "uk" ? "секцій" : "sections"}
-                      {" · "}
-                      {previewTpl.sections.filter(s => s.required).length}{" "}
-                      {lang === "uk" ? "обов'язкових" : "required"}
-                    </span>
-                  </div>
-                </div>
               </div>
 
-              <div className="tpl-preview-sections">
-                <div className="rail-h" style={{ padding: "0 0 10px", fontSize: 11 }}>
-                  {lang === "uk" ? "СТРУКТУРА ЗВІТУ" : "REPORT STRUCTURE"}
-                </div>
-                {previewTpl.sections.map((s, i) => (
-                  <div key={s.id || i} className="tpl-preview-row">
-                    <div className="tpl-sec-num" style={{ width: 24, height: 24, lineHeight: "24px" }}>{i + 1}</div>
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontWeight: 500, color: "var(--text-1)" }}>{s.name[lang] || s.name.en}</span>
-                      {s.name.uk && s.name.en && s.name.uk !== s.name.en && (
-                        <span className="psub" style={{ marginLeft: 8 }}>
-                          {s.name[lang === "uk" ? "en" : "uk"]}
-                        </span>
-                      )}
-                    </div>
-                    {s.required && <span className="req-tag">{lang === "uk" ? "Обов'язк." : "Required"}</span>}
-                    {(s.anchor?.uk || s.anchor?.en) && (
-                      <div className="psub" style={{ fontSize: 11, fontFamily: "var(--mono)" }}>
-                        «{s.anchor[lang] || s.anchor.en}»
-                      </div>
-                    )}
-                  </div>
+              <div className="rail-h" style={{ padding: "12px 0 8px", fontSize: 11 }}>
+                {T(lang, "СЕКЦІЇ", "SECTIONS")} · {sections.length}
+              </div>
+              <div className="tpl-detail-sections">
+                {sections.map((s, i) => (
+                  <SectionRow key={s.id || i} s={s} idx={i} lang={lang} templateId={tpl.id} />
                 ))}
               </div>
 
-              <div className="tpl-preview-hint">
-                <Icon name="mic" size={12} />
-                <span>
-                  {lang === "uk"
-                    ? "Голосова команда «перейти до [секції]» переміщує курсор між секціями під час диктування."
-                    : "Say \"go to [section name]\" while dictating to jump between sections hands-free."}
-                </span>
-              </div>
-            </div>
+              {def?.metadata && Object.keys(def.metadata).length > 0 && (
+                <div className="tpl-detail-metadata">
+                  <div className="rail-h" style={{ padding: "12px 0 8px", fontSize: 11 }}>
+                    {T(lang, "МЕТАДАНІ", "METADATA")}
+                  </div>
+                  {Object.entries(def.metadata).map(([k, v]) => (
+                    <div key={k} className="tpl-meta-row"><code>{k}</code><span>{String(v)}</span></div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* Footer */}
         <div className="tpl-modal-foot">
-          <button className="btn" onClick={onClose}>
-            {lang === "uk" ? "Скасувати" : "Cancel"}
-          </button>
-          {tab !== "preview" && tab !== "import" && (
-            <button className="btn ghost sm" onClick={() => setTab("preview")} disabled={!buildValid}>
-              <Icon name="eye" size={13} /> {lang === "uk" ? "Переглянути" : "Preview"}
+          <button className="btn" onClick={onClose}>{T(lang, "Закрити", "Close")}</button>
+          <div style={{ flex: 1 }} />
+          {canWrite && tpl && system && (
+            <button className="btn accent" onClick={() => onClone(tpl)}>
+              <Icon name="layers" size={13} /> {T(lang, "Клонувати", "Clone")}
             </button>
           )}
-          <div style={{ flex: 1 }} />
-          <button className="btn accent" disabled={!canSave} onClick={handleSave}>
-            <Icon name={isEdit ? "save" : "plus"} size={13} />
-            {isEdit
-              ? (lang === "uk" ? "Зберегти зміни" : "Save changes")
-              : (lang === "uk" ? "Створити шаблон" : "Create template")
-            }
+          {canWrite && tpl && !system && tpl.status !== "deprecated" && (
+            <>
+              <button className="btn danger" onClick={() => setConfirmDel(true)}>
+                <Icon name="x" size={13} /> {T(lang, "Депрекувати", "Deprecate")}
+              </button>
+              <button className="btn accent" onClick={() => setEditing(true)}>
+                <Icon name="edit" size={13} /> {T(lang, "Редагувати", "Edit")}
+              </button>
+            </>
+          )}
+        </div>
+
+        {confirmDel && (
+          <DeprecateConfirm
+            tpl={tpl}
+            lang={lang}
+            onClose={() => setConfirmDel(false)}
+            onDone={() => { setConfirmDel(false); onDeprecated(); }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// One section row in the preview, with an on-demand "ASR prompt" peek (§2.6).
+function SectionRow({ s, idx, lang, templateId }) {
+  const [showPrompt, setShowPrompt] = useState(false);
+  const promptReq = useAsync(
+    () => getSectionPrompt(templateId, s.id),
+    [templateId, s.id],
+    { enabled: showPrompt },
+  );
+  const ft = FIELD_TYPE_LABELS[s.field_type];
+  return (
+    <div className="tpl-detail-row">
+      <div className="tpl-sec-num">{idx + 1}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="tpl-detail-row-head">
+          <span style={{ fontWeight: 600 }}>{s.name}</span>
+          <code className="tpl-sec-id">{s.id}</code>
+          {s.required && <span className="req-tag">{T(lang, "Обов'язк.", "Required")}</span>}
+          <span className="tpl-badge fieldtype">{ft ? T(lang, ft[0], ft[1]) : s.field_type}</span>
+          {typeof s.min_chars === "number" && s.min_chars > 0 && (
+            <span className="psub" style={{ fontSize: 11 }}>min {s.min_chars}</span>
+          )}
+        </div>
+        {s.voice_aliases?.length > 0 && (
+          <div className="tpl-aliases">
+            {s.voice_aliases.map((a) => <span key={a} className="tpl-alias">«{a}»</span>)}
+          </div>
+        )}
+        {s.asr_prompt && (
+          <button className="tpl-prompt-toggle" onClick={() => setShowPrompt((v) => !v)}>
+            <Icon name="mic" size={11} /> {showPrompt
+              ? T(lang, "Сховати ASR-підказку", "Hide ASR prompt")
+              : T(lang, "ASR-підказка", "ASR prompt")}
+          </button>
+        )}
+        {showPrompt && (
+          <div className="tpl-prompt-box">
+            {promptReq.loading
+              ? <span className="psub">{T(lang, "Завантаження…", "Loading…")}</span>
+              : promptReq.error
+                ? <span className="psub">{s.asr_prompt}</span>
+                : (promptReq.data?.prompt || s.asr_prompt)}
+          </div>
+        )}
+        {s.synthesis_prompt && (
+          <div className="psub" style={{ fontSize: 11, marginTop: 4 }}>
+            {T(lang, "Synthesis:", "Synthesis:")} {s.synthesis_prompt}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Clone modal (§2.3) ────────────────────────────────────────────────────────
+function CloneModal({ source, lang, onClose, onCloned }) {
+  const [newName, setNewName] = useState("");
+  const [newCode, setNewCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const codeBad = newCode.trim() !== "" && !isSlug(newCode.trim());
+
+  const submit = async () => {
+    if (codeBad || busy) return;
+    setBusy(true); setError(null);
+    try {
+      const res = await cloneTemplate({
+        system_template_id: source.id,
+        new_name: newName.trim() || undefined,
+        new_code: newCode.trim() || undefined,
+      });
+      onCloned(res?.id);
+    } catch (e) {
+      setError(e);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-h">
+          <h2>{T(lang, "Клонувати шаблон", "Clone template")}</h2>
+          <p>{T(lang,
+            "Створює власну копію у вашій клініці (статус «чернетка»), яку можна редагувати.",
+            "Creates an editable copy in your tenant (status “draft”).")}</p>
+        </div>
+        <div className="modal-body" style={{ display: "grid", gap: 12 }}>
+          <div className="tpl-clone-source">
+            <Icon name={specialtyIcon(source.specialty)} size={16} />
+            <div>
+              <div style={{ fontWeight: 600 }}>{source.name}</div>
+              <span className="chip" style={{ fontSize: 11 }}>{source.code}</span>
+            </div>
+          </div>
+          <label className="tpl-field">
+            <span>{T(lang, "Нова назва (необов'язково)", "New name (optional)")}</span>
+            <input className="ti" value={newName} onChange={(e) => setNewName(e.target.value)}
+              placeholder={source.name} />
+          </label>
+          <label className="tpl-field">
+            <span>{T(lang, "Новий код (необов'язково)", "New code (optional)")}</span>
+            <input className="ti mono" value={newCode} onChange={(e) => setNewCode(e.target.value)}
+              placeholder={`${source.code}_custom`} />
+            {codeBad && <span className="tpl-inline-err">{T(lang, "Код має бути slug (a-z, 0-9, _)", "Code must be a slug (a-z, 0-9, _)")}</span>}
+          </label>
+          <ErrorBanner error={error} lang={lang} context="clone" />
+        </div>
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose} disabled={busy}>{T(lang, "Скасувати", "Cancel")}</button>
+          <button className="btn accent" onClick={submit} disabled={codeBad || busy}>
+            <Icon name="layers" size={13} /> {busy ? T(lang, "Клонування…", "Cloning…") : T(lang, "Клонувати", "Clone")}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Deprecate confirm (§2.5) ──────────────────────────────────────────────────
+function DeprecateConfirm({ tpl, lang, onClose, onDone }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const submit = async () => {
+    setBusy(true); setError(null);
+    try {
+      await deleteTemplate(tpl.id);
+      onDone();
+    } catch (e) {
+      setError(e);
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-h">
+          <h2>{T(lang, "Депрекувати шаблон?", "Deprecate template?")}</h2>
+          <p>{T(lang,
+            "Шаблон зникне зі списку за замовчуванням, але залишиться доступним за прямим посиланням. Наявні звіти продовжать його використовувати.",
+            "It disappears from the default list but stays reachable by direct link. Existing reports keep using it.")}</p>
+        </div>
+        <div className="modal-body"><ErrorBanner error={error} lang={lang} context="delete" /></div>
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose} disabled={busy}>{T(lang, "Скасувати", "Cancel")}</button>
+          <button className="btn danger" onClick={submit} disabled={busy}>
+            <Icon name="x" size={13} /> {busy ? "…" : T(lang, "Депрекувати", "Deprecate")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Full editor (§2.4 + §3) ──────────────────────────────────────────────────
+const blankSection = () => ({
+  _origId: null, id: "", name: "", field_type: "free_text", required: false,
+  min_chars: 0, asr_prompt: "", synthesis_prompt: "", default_content: "",
+  voice_aliases: "",
+});
+
+function fromSection(s) {
+  return {
+    _origId: s.id,
+    id: s.id || "",
+    name: s.name || "",
+    field_type: s.field_type || "free_text",
+    required: !!s.required,
+    min_chars: s.min_chars ?? 0,
+    asr_prompt: s.asr_prompt || "",
+    synthesis_prompt: s.synthesis_prompt || "",
+    default_content: s.default_content || "",
+    voice_aliases: (s.voice_aliases || []).join(", "),
+  };
+}
+
+const parseAliases = (raw) =>
+  String(raw || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+
+function EditTemplateModal({ detail, lang, onClose, onSaved }) {
+  const originalDef = detail.schema_jsonb || {};
+  const [code, setCode]           = useState(originalDef.code || detail.code || "");
+  const [name, setName]           = useState(originalDef.name || detail.name || "");
+  const [language, setLanguage]   = useState(originalDef.language || detail.language || "uk");
+  const [specialty, setSpecialty] = useState(originalDef.specialty || detail.specialty || "");
+  const [meta, setMeta] = useState({
+    moh_order_ref: originalDef.metadata?.moh_order_ref || "",
+    billing_code:  originalDef.metadata?.billing_code || "",
+    fhir_template: originalDef.metadata?.fhir_template || "",
+  });
+  const [sections, setSections] = useState(
+    () => (originalDef.sections || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(fromSection),
+  );
+
+  const [confirmStructural, setConfirmStructural] = useState(null); // built def awaiting confirm
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const setSection = (i, key, val) =>
+    setSections((prev) => prev.map((s, idx) => (idx === i ? { ...s, [key]: val } : s)));
+  const addSection = () => setSections((prev) => [...prev, blankSection()]);
+  const removeSection = (i) => setSections((prev) => prev.filter((_, idx) => idx !== i));
+  const move = (i, dir) => setSections((prev) => {
+    const j = i + dir;
+    if (j < 0 || j >= prev.length) return prev;
+    const next = [...prev];
+    [next[i], next[j]] = [next[j], next[i]];
+    return next;
+  });
+
+  // Build a strict TemplateDefinition, round-tripping the original section
+  // objects (mutate only what changed — §9) so backend-added fields survive.
+  const buildDefinition = () => {
+    const byId = new Map((originalDef.sections || []).map((s) => [s.id, s]));
+    const builtSections = sections.map((s, i) => {
+      const base = s._origId && byId.has(s._origId) ? { ...byId.get(s._origId) } : {};
+      const out = {
+        ...base,
+        id: s.id.trim(),
+        name: s.name.trim(),
+        voice_aliases: parseAliases(s.voice_aliases),
+        required: !!s.required,
+        field_type: s.field_type,
+        asr_prompt: s.asr_prompt || "",
+        min_chars: Number(s.min_chars) || 0,
+        order: i,
+      };
+      if (s.synthesis_prompt.trim()) out.synthesis_prompt = s.synthesis_prompt.trim();
+      else delete out.synthesis_prompt;
+      if (s.default_content.trim()) out.default_content = s.default_content.trim();
+      else delete out.default_content;
+      return out;
+    });
+    const def = {
+      ...originalDef,
+      code: code.trim(),
+      name: name.trim(),
+      language,
+      specialty: specialty.trim(),
+      schema_version: originalDef.schema_version ?? 1,
+      sections: builtSections,
+    };
+    const metaOut = {};
+    if (meta.moh_order_ref.trim()) metaOut.moh_order_ref = meta.moh_order_ref.trim();
+    if (meta.billing_code.trim())  metaOut.billing_code  = meta.billing_code.trim();
+    if (meta.fhir_template.trim()) metaOut.fhir_template = meta.fhir_template.trim();
+    if (Object.keys(metaOut).length) def.metadata = metaOut;
+    else delete def.metadata;
+    return def;
+  };
+
+  const validation = useMemo(() => {
+    // Validate against a lightweight projection (name strings etc.).
+    const projected = {
+      code: code.trim(),
+      sections: sections.map((s) => ({
+        id: s.id.trim(), name: s.name, field_type: s.field_type,
+        asr_prompt: s.asr_prompt, synthesis_prompt: s.synthesis_prompt,
+        voice_aliases: parseAliases(s.voice_aliases),
+      })),
+    };
+    return validateDefinition(projected, lang);
+  }, [code, sections, lang]);
+
+  const doSave = async (def) => {
+    setBusy(true); setError(null);
+    try {
+      const res = await updateTemplate(detail.id, def);
+      onSaved(res);
+    } catch (e) {
+      setError(e);
+      setBusy(false);
+      setConfirmStructural(null);
+    }
+  };
+
+  const onSaveClick = () => {
+    if (!validation.ok) return;
+    const def = buildDefinition();
+    const kind = classifyEdit(originalDef, def);
+    if (kind === "structural") {
+      setConfirmStructural(def);   // gate behind the new-version warning
+    } else {
+      doSave(def);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="tpl-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="tpl-modal-head">
+          <div>
+            <h2>{T(lang, "Редагувати шаблон", "Edit template")}</h2>
+            <p>{T(lang, "Зміни структури створюють нову версію", "Structural changes create a new version")}</p>
+          </div>
+          <button className="icon-btn" onClick={onClose}><Icon name="x" size={16} /></button>
+        </div>
+
+        <div className="tpl-modal-body">
+          <div className="tpl-build-row two">
+            <label className="tpl-field">
+              <span>{T(lang, "Назва", "Name")}</span>
+              <input className="ti" value={name} onChange={(e) => setName(e.target.value)} />
+            </label>
+            <label className="tpl-field">
+              <span>{T(lang, "Код", "Code")}</span>
+              <input className="ti mono" value={code} onChange={(e) => setCode(e.target.value)} />
+              {validation.errors.code && <span className="tpl-inline-err">{validation.errors.code}</span>}
+            </label>
+          </div>
+          <div className="tpl-build-row two">
+            <label className="tpl-field">
+              <span>{T(lang, "Мова", "Language")}</span>
+              <select className="ti" value={language} onChange={(e) => setLanguage(e.target.value)}>
+                <option value="uk">{T(lang, "Українська", "Ukrainian")}</option>
+                <option value="en">{T(lang, "Англійська", "English")}</option>
+              </select>
+            </label>
+            <label className="tpl-field">
+              <span>{T(lang, "Спеціальність", "Specialty")}</span>
+              <input className="ti mono" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+            </label>
+          </div>
+
+          {/* Sections */}
+          <div className="tpl-build-sections-head">
+            <span className="tpl-build-label" style={{ margin: 0 }}>
+              {T(lang, "Секції", "Sections")} <span className="psub">{sections.length}/{MAX_SECTIONS}</span>
+            </span>
+            <button className="btn ghost sm" type="button" onClick={addSection}
+              disabled={sections.length >= MAX_SECTIONS}>
+              <Icon name="plus" size={12} /> {T(lang, "Додати секцію", "Add section")}
+            </button>
+          </div>
+          {validation.errors.sections && <span className="tpl-inline-err">{validation.errors.sections}</span>}
+
+          <div className="tpl-edit-sections">
+            {sections.map((s, i) => (
+              <SectionEditor
+                key={i} s={s} idx={i} lang={lang} errors={validation.errors}
+                count={sections.length}
+                onChange={(k, v) => setSection(i, k, v)}
+                onRemove={() => removeSection(i)}
+                onUp={() => move(i, -1)} onDown={() => move(i, 1)}
+              />
+            ))}
+          </div>
+
+          {/* Metadata */}
+          <div className="rail-h" style={{ padding: "14px 0 6px", fontSize: 11 }}>
+            {T(lang, "МЕТАДАНІ (необов'язково)", "METADATA (optional)")}
+          </div>
+          <div className="tpl-build-row" style={{ display: "grid", gap: 8 }}>
+            {[["moh_order_ref", "MoH order ref"], ["billing_code", "Billing code"], ["fhir_template", "FHIR template"]].map(([k, label]) => (
+              <label key={k} className="tpl-field">
+                <span>{label}</span>
+                <input className="ti mono" value={meta[k]}
+                  onChange={(e) => setMeta((m) => ({ ...m, [k]: e.target.value }))} />
+              </label>
+            ))}
+          </div>
+
+          <ErrorBanner error={error} lang={lang} context="edit" />
+        </div>
+
+        <div className="tpl-modal-foot">
+          <button className="btn" onClick={onClose} disabled={busy}>{T(lang, "Скасувати", "Cancel")}</button>
+          <div style={{ flex: 1 }} />
+          <button className="btn accent" onClick={onSaveClick} disabled={!validation.ok || busy}>
+            <Icon name="save" size={13} /> {busy ? T(lang, "Збереження…", "Saving…") : T(lang, "Зберегти", "Save")}
+          </button>
+        </div>
+
+        {/* Structural-change warning (§2.4) */}
+        {confirmStructural && (
+          <div className="modal-overlay" onClick={() => setConfirmStructural(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-h">
+                <h2>{T(lang, "Структурна зміна", "Structural change")}</h2>
+                <p>{T(lang,
+                  "Це структурна зміна — вона створює нову версію шаблону. Наявні звіти продовжать використовувати стару версію.",
+                  "This is a structural change — it creates a new template version. Existing reports keep using the old version.")}</p>
+              </div>
+              <div className="modal-foot">
+                <button className="btn" onClick={() => setConfirmStructural(null)} disabled={busy}>
+                  {T(lang, "Скасувати", "Cancel")}
+                </button>
+                <button className="btn accent" onClick={() => doSave(confirmStructural)} disabled={busy}>
+                  {busy ? T(lang, "Збереження…", "Saving…") : T(lang, "Створити нову версію", "Create new version")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SectionEditor({ s, idx, lang, errors, count, onChange, onRemove, onUp, onDown }) {
+  const e = (k) => errors[`sec.${idx}.${k}`];
+  const asrLen = s.asr_prompt.length;
+  const synLen = s.synthesis_prompt.length;
+  return (
+    <div className="tpl-edit-section">
+      <div className="tpl-edit-section-head">
+        <div className="tpl-sec-num">{idx + 1}</div>
+        <input className="ti" style={{ flex: 1 }} placeholder={T(lang, "Назва секції", "Section name")}
+          value={s.name} onChange={(ev) => onChange("name", ev.target.value)} />
+        <div className="tpl-sec-move">
+          <button className="iconbtn" type="button" onClick={onUp} disabled={idx === 0} aria-label="Up"><Icon name="moreV" size={13} /></button>
+          <button className="iconbtn" type="button" onClick={onDown} disabled={idx === count - 1} aria-label="Down"><Icon name="moreV" size={13} /></button>
+        </div>
+        <button className="iconbtn danger" type="button" onClick={onRemove} disabled={count <= 1} aria-label="Remove">
+          <Icon name="x" size={13} />
+        </button>
+      </div>
+      {e("name") && <span className="tpl-inline-err">{e("name")}</span>}
+
+      <div className="tpl-build-row two">
+        <label className="tpl-field">
+          <span>{T(lang, "ID (slug)", "ID (slug)")}</span>
+          <input className="ti mono" value={s.id} onChange={(ev) => onChange("id", ev.target.value)} />
+          {e("id") && <span className="tpl-inline-err">{e("id")}</span>}
+        </label>
+        <label className="tpl-field">
+          <span>{T(lang, "Тип поля", "Field type")}</span>
+          <select className="ti" value={s.field_type} onChange={(ev) => onChange("field_type", ev.target.value)}>
+            {FIELD_TYPES.map((ft) => (
+              <option key={ft} value={ft}>
+                {FIELD_TYPE_LABELS[ft] ? T(lang, FIELD_TYPE_LABELS[ft][0], FIELD_TYPE_LABELS[ft][1]) : ft}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="tpl-build-row two" style={{ alignItems: "center" }}>
+        <label className="tpl-sec-req">
+          <input type="checkbox" checked={s.required} onChange={(ev) => onChange("required", ev.target.checked)} />
+          <span>{T(lang, "Обов'язкова", "Required")}</span>
+        </label>
+        <label className="tpl-field">
+          <span>{T(lang, "Мін. символів", "Min chars")}</span>
+          <input className="ti" type="number" min={0} value={s.min_chars}
+            onChange={(ev) => onChange("min_chars", ev.target.value)} />
+        </label>
+      </div>
+
+      <label className="tpl-field">
+        <span>{T(lang, "Голосові псевдоніми (через кому)", "Voice aliases (comma-separated)")}</span>
+        <input className="ti" value={s.voice_aliases} onChange={(ev) => onChange("voice_aliases", ev.target.value)}
+          placeholder={T(lang, "скарги, розділ скарги", "complaints, section complaints")} />
+        {e("voice_aliases") && <span className="tpl-inline-err">{e("voice_aliases")}</span>}
+      </label>
+
+      <label className="tpl-field">
+        <span className="tpl-field-head">
+          {T(lang, "ASR-підказка", "ASR prompt")}
+          <span className={`tpl-meter${asrLen > ASR_PROMPT_MAX ? " over" : ""}`}>{asrLen}/{ASR_PROMPT_MAX}</span>
+        </span>
+        <textarea className="ti" rows={2} value={s.asr_prompt}
+          onChange={(ev) => onChange("asr_prompt", ev.target.value)} />
+        {e("asr_prompt") && <span className="tpl-inline-err">{e("asr_prompt")}</span>}
+      </label>
+
+      <label className="tpl-field">
+        <span className="tpl-field-head">
+          {T(lang, "Synthesis-підказка (необов'язково)", "Synthesis prompt (optional)")}
+          <span className={`tpl-meter${synLen > SYNTHESIS_PROMPT_MAX ? " over" : ""}`}>{synLen}/{SYNTHESIS_PROMPT_MAX}</span>
+        </span>
+        <textarea className="ti" rows={2} value={s.synthesis_prompt}
+          onChange={(ev) => onChange("synthesis_prompt", ev.target.value)} />
+        {e("synthesis_prompt") && <span className="tpl-inline-err">{e("synthesis_prompt")}</span>}
+      </label>
+
+      <label className="tpl-field">
+        <span>{T(lang, "Типовий вміст (необов'язково)", "Default content (optional)")}</span>
+        <textarea className="ti" rows={2} value={s.default_content}
+          onChange={(ev) => onChange("default_content", ev.target.value)} />
+      </label>
     </div>
   );
 }

@@ -48,12 +48,5 @@ export async function deleteAbbreviation(id) {
   return a(`/nlp/abbreviations/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-// Autocomplete suggestions for the report editor (sprint 10). The backend
-// ranks personal / specialty / template / general snippets for the current
-// section and leading text. Returns an array of
-// { id, source, text, confidence }.
-export async function suggest({ template_id, section_id, prefix = "", language = "uk", limit = 3 }) {
-  const body = { section_id, prefix, language, limit };
-  if (template_id) body.template_id = template_id;
-  return a("/nlp/suggest", { method: "POST", body: JSON.stringify(body) });
-}
+// Autocomplete suggestions moved to their own service — see api/autocomplete.js
+// (POST /autocomplete/suggest on :8007). nlp-service no longer serves /suggest.

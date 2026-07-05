@@ -30,12 +30,13 @@ export const Icon = ({ name, size = 16, ...rest }) => {
     fileText: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" /></>,
     folder: <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
     clock: <><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>,
-    waveform: <path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 11v2M22 12h-2" />,
+    waveform: <path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4" />,
     sparkle: <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" />,
     keyboard: <><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h.01M14 14h.01M18 14h.01M7 14h10" /></>,
     heart: <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />,
-    scalpel: <path d="M3 21h6l11-11-3-3L3 21zM14 7l3 3" />,
-    bone: <path d="M17 10a3 3 0 0 0 0-6 3 3 0 0 0-3 3l-3 3-3-3a3 3 0 0 0-3-3 3 3 0 0 0 0 6 3 3 0 0 0 0 6 3 3 0 0 0 3 3l3-3 3 3a3 3 0 0 0 3 3 3 3 0 0 0 0-6 3 3 0 0 0 0-6z" />,
+    scalpel: <><path d="M4 20h4L19 9a1.6 1.6 0 0 0 0-2.3l-1.7-1.7a1.6 1.6 0 0 0-2.3 0L4 16z" /><path d="m14 8 2 2" /></>,
+    bone: <><path d="m9.5 14.5 5-5" /><circle cx="7.9" cy="16.1" r="1.7" /><circle cx="9.9" cy="15.5" r="1.7" /><circle cx="16.1" cy="7.9" r="1.7" /><circle cx="14.1" cy="8.5" r="1.7" /></>,
+    brain: <><path d="M12 6.5a2.3 2.3 0 0 0-3.9-1.6A2.3 2.3 0 0 0 5.3 7.4 2.4 2.4 0 0 0 4.4 11.4a2.3 2.3 0 0 0 .7 3.6A2.3 2.3 0 0 0 8.6 18 2.2 2.2 0 0 0 12 17.3z" /><path d="M12 6.5a2.3 2.3 0 0 1 3.9-1.6A2.3 2.3 0 0 1 18.7 7.4 2.4 2.4 0 0 1 19.6 11.4a2.3 2.3 0 0 1-.7 3.6A2.3 2.3 0 0 1 15.4 18 2.2 2.2 0 0 1 12 17.3z" /></>,
     scan: <><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" /><path d="M7 12h10" /></>,
     arrowLeft: <path d="m12 19-7-7 7-7M19 12H5" />,
     arrowRight: <path d="m12 5 7 7-7 7M5 12h14" />,
@@ -63,7 +64,9 @@ export const Icon = ({ name, size = 16, ...rest }) => {
     italic: <path d="M19 4h-9M14 20H5M15 4 9 20" />,
     underline: <><path d="M6 4v6a6 6 0 0 0 12 0V4M4 20h16" /></>,
     list: <><path d="M8 6h13M8 12h13M8 18h13" /><circle cx="3" cy="6" r="1" /><circle cx="3" cy="12" r="1" /><circle cx="3" cy="18" r="1" /></>,
-    diff: <><path d="M12 5v14M5 12h14M3 3l18 18M3 21 21 3" stroke="none" /><path d="M17 7H7v4h10V7zM7 13h10v4H7z" /></>,
+    grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />,
+    star: <path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.3l-5.8 3.05 1.11-6.46-4.7-4.58 6.49-.94z" />,
+    diff: <><rect x="4" y="4" width="16" height="7" rx="1.5" /><rect x="4" y="13" width="16" height="7" rx="1.5" /><path d="M7 7.5h4M9 5.5v4M7 16.5h4" /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

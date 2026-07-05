@@ -1,10 +1,12 @@
 // Scribe.jsx — Scribe product (Today, Patients, Notes, Consultation)
 // All data is fetched from the core / scribe services; there is no mock layer.
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useI18n } from '../i18n.js';
 import { Icon, Empty, Modal } from './UI.jsx';
 import { LoadGate, asList } from './DataStates.jsx';
+import { Pagination } from './Pagination.jsx';
 import { useAsync } from '../api/useAsync.js';
+import { useClaims } from '../auth/AuthContext.jsx';
 import { listPatients, createPatient } from '../api/patients.js';
 import { listSchedule } from '../api/encounters.js';
 import { listNotes, listNoteStructures } from '../api/notes.js';
@@ -223,9 +225,14 @@ export function ScribeToday({ navigate, lang }) {
 }
 
 // ─── Notes feed (cross-patient inbox) ────────────────────────────────────
+const SCRIBE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const SCRIBE_DEFAULT_PAGE_SIZE = 20;
+
 export function ScribeNotes({ navigate, lang }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(SCRIBE_DEFAULT_PAGE_SIZE);
   const req = useAsync(() => listNotes({}), []);
   const all = asList(req.data);
 
@@ -235,6 +242,12 @@ export function ScribeNotes({ navigate, lang }) {
     const s = (patientName(n.patient, lang) + " " + (n.template || n.structure || "") + " " + n.id).toLowerCase();
     return s.includes(q.toLowerCase());
   });
+
+  // Reset to the first page whenever the search / status filter changes.
+  useEffect(() => { setPage(1); }, [q, filter]);
+  const pageCount = Math.max(1, Math.ceil(list.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageList = list.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const counts = {
     all: all.length,
@@ -300,7 +313,7 @@ export function ScribeNotes({ navigate, lang }) {
               <div style={{ padding: 36, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
                 {lang === "uk" ? "Нічого не знайдено" : "No notes match your filter"}
               </div>
-            ) : list.map((n) => {
+            ) : pageList.map((n) => {
               const pid = n.patient?.id || n.patientId || n.patient_id;
               return (
                 <div key={n.id} className="ptable-row" style={{ gridTemplateColumns: "2fr 1.2fr 1fr 1fr 30px" }}
@@ -322,6 +335,21 @@ export function ScribeNotes({ navigate, lang }) {
           )}
         </LoadGate>
       </div>
+
+      {!req.loading && !req.error && list.length > 0 && (
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          onPage={setPage}
+          onPrev={() => setPage(p => Math.max(1, p - 1))}
+          onNext={() => setPage(p => Math.min(pageCount, p + 1))}
+          total={list.length}
+          pageSize={pageSize}
+          pageSizeOptions={SCRIBE_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(n) => { setPageSize(n); setPage(1); }}
+          lang={lang}
+        />
+      )}
     </div>
   );
 }
@@ -475,8 +503,20 @@ function NewPatientModal({ lang, onClose, onSave }) {
 export function ScribePatients({ navigate, lang }) {
   const [q, setQ] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const req = useAsync(() => listPatients({ query: q || undefined }), [q]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(SCRIBE_DEFAULT_PAGE_SIZE);
+  // Patients are tenant-scoped server-side (RLS on the active tenant). Re-key on
+  // claims.tid so the roster refetches when the active clinic changes (after a
+  // switch + re-auth). TENANT.md §2.5.
+  const activeTid = useClaims()?.tid;
+  const req = useAsync(() => listPatients({ query: q || undefined }), [q, activeTid]);
   const list = asList(req.data);
+
+  // Server re-queries on `q`; reset to the first page when results change.
+  useEffect(() => { setPage(1); }, [q]);
+  const pageCount = Math.max(1, Math.ceil(list.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageList = list.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const handleAdd = async (payload) => {
     await createPatient(payload);
@@ -516,7 +556,7 @@ export function ScribePatients({ navigate, lang }) {
               <Empty icon="users" title={lang === "uk" ? "Пацієнтів не знайдено" : "No patients found"} />
             </div>
           )}>
-          {() => list.map((p) => (
+          {() => pageList.map((p) => (
             <div key={p.id} className="ptable-row" onClick={() => navigate(`/scribe/patients/${p.id}`)}>
               <div className="pcell-name">
                 <PatientAvatar patient={p} lang={lang} size={34} />
@@ -536,6 +576,21 @@ export function ScribePatients({ navigate, lang }) {
           ))}
         </LoadGate>
       </div>
+
+      {!req.loading && !req.error && list.length > 0 && (
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          onPage={setPage}
+          onPrev={() => setPage(p => Math.max(1, p - 1))}
+          onNext={() => setPage(p => Math.min(pageCount, p + 1))}
+          total={list.length}
+          pageSize={pageSize}
+          pageSizeOptions={SCRIBE_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(n) => { setPageSize(n); setPage(1); }}
+          lang={lang}
+        />
+      )}
 
       {addOpen && <NewPatientModal lang={lang} onClose={() => setAddOpen(false)} onSave={handleAdd} />}
     </div>

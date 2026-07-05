@@ -8,6 +8,7 @@ import './scribe.css'
 import './app-extra.css'
 import './sprints-06-10.css'
 import './sprints-11-15.css'
+import './dashboard.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

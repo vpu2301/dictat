@@ -97,6 +97,17 @@ export const STRINGS = {
     "spec.cardiology": "Кардіологія",
     "spec.cardiacSurgery": "Кардіохірургія",
     "spec.orthopaedics": "Ортопедія",
+    "spec.surgery": "Хірургія",
+    "spec.internal_medicine": "Терапія",
+    "spec.psychiatry": "Психіатрія",
+    "spec.pediatrics": "Педіатрія",
+    "spec.obstetrics": "Акушерство",
+    "spec.neurology": "Неврологія",
+    "spec.family_medicine": "Сімейна медицина",
+    "spec.endocrinology": "Ендокринологія",
+    "spec.emergency_medicine": "Невідкладна допомога",
+    "spec.dermatology": "Дерматологія",
+    "spec.general": "Загальна практика",
 
     // Templates picker
     "tpl.switch": "Переключити шаблон",
@@ -231,6 +242,17 @@ export const STRINGS = {
     "spec.cardiology": "Cardiology",
     "spec.cardiacSurgery": "Cardiac surgery",
     "spec.orthopaedics": "Orthopaedics",
+    "spec.surgery": "Surgery",
+    "spec.internal_medicine": "Internal medicine",
+    "spec.psychiatry": "Psychiatry",
+    "spec.pediatrics": "Pediatrics",
+    "spec.obstetrics": "Obstetrics",
+    "spec.neurology": "Neurology",
+    "spec.family_medicine": "Family medicine",
+    "spec.endocrinology": "Endocrinology",
+    "spec.emergency_medicine": "Emergency medicine",
+    "spec.dermatology": "Dermatology",
+    "spec.general": "General practice",
 
     "tpl.switch": "Switch template",
     "tpl.add": "Add template",
@@ -292,3 +314,14 @@ export function I18nProvider({ lang, children }) {
 }
 
 export function useI18n() { return React.useContext(I18nContext); }
+
+// Translate a specialty slug, falling back to a humanized slug for backend
+// specialties (e.g. "sports_medicine") that have no i18n entry — never show
+// the raw "spec.*" key in the UI.
+export function specLabel(t, specialty) {
+  if (!specialty) return "";
+  const key = `spec.${specialty}`;
+  const translated = t(key);
+  if (translated !== key) return translated;
+  return String(specialty).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}

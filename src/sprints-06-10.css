@@ -33,9 +33,29 @@
   transition: border-color .15s, box-shadow .15s;
 }
 
+/* Visible section label (the title lives on data-section-title) so the user
+   always sees which section they're dictating into. */
+.tiptap-content section.tiptap-section::before {
+  content: attr(data-section-title);
+  display: block;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+
 .tiptap-content section.tiptap-section:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Active dictation target — highlighted even when the editor isn't focused. */
+.tiptap-content section.tiptap-section.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.tiptap-content section.tiptap-section.is-active::before {
+  color: var(--accent);
 }
 
 /* Placeholder text inside empty paragraphs */
@@ -605,3 +625,345 @@ del.diff-delete {
 .rep-status-final   { background: var(--dictate-soft); color: var(--dictate); }
 .rep-status-signed  { background: var(--accent-soft); color: var(--accent-text); }
 .rep-status-amended { background: var(--warn-soft); color: var(--warn); }
+
+/* ── Active-section status bar (Studio center) ────────────────────────── */
+.dictation-status-bar {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 18px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.dictation-status-bar .dsb-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--line); flex: none;
+}
+.dictation-status-bar.live .dsb-dot {
+  background: var(--rec);
+  box-shadow: 0 0 0 0 rgba(220,38,38,0.5);
+  animation: dsb-pulse 1.4s infinite;
+}
+@keyframes dsb-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(220,38,38,0.45); }
+  70%  { box-shadow: 0 0 0 7px rgba(220,38,38,0); }
+  100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+}
+.dictation-status-bar .dsb-label { color: var(--muted); }
+.dictation-status-bar .dsb-section { font-weight: 600; color: var(--text-1); }
+.dictation-status-bar .dsb-pos { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ── Studio footer action bar ─────────────────────────────────────────── */
+.studio-footer {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+.studio-footer-info { flex: 1; min-width: 0; }
+.studio-footer .sf-progress { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ── Patient gate (select a patient before dictating) ─────────────────── */
+.patient-gate {
+  grid-column: 1 / -1;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 64px 24px; overflow-y: auto; min-height: 0;
+  background: var(--bg);
+}
+.patient-gate-card {
+  width: 100%; max-width: 440px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line); border-radius: 14px;
+  padding: 28px 24px;
+  box-shadow: 0 8px 30px rgba(15,23,42,0.06);
+  text-align: center;
+}
+.patient-gate-icon {
+  width: 48px; height: 48px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent); margin-bottom: 4px;
+}
+.patient-gate-card h2 { margin: 0; font-size: 18px; }
+.patient-gate-card > p { margin: 0 0 4px; font-size: 13px; line-height: 1.45; }
+.patient-gate-list {
+  width: 100%; margin-top: 8px;
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 340px; overflow-y: auto;
+}
+.patient-gate-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 8px 10px;
+  background: transparent; border: 1px solid transparent; border-radius: 10px;
+  cursor: pointer; text-align: left; transition: background .12s, border-color .12s;
+}
+.patient-gate-row:hover, .patient-gate-row:focus-visible {
+  background: var(--bg); border-color: var(--line); outline: none;
+}
+.patient-gate-row-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.patient-gate-row-name { font-size: 13.5px; font-weight: 500; }
+.patient-gate-row-sub { font-size: 11.5px; }
+
+/* ── Written-report preview modal ─────────────────────────────────────── */
+.report-preview-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(15,23,42,0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  animation: rp-fade .14s ease;
+}
+@keyframes rp-fade { from { opacity: 0; } to { opacity: 1; } }
+.report-preview-modal {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  width: 100%; max-width: 760px; max-height: 92vh;
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+}
+.report-preview-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.report-preview-head-l { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; }
+.report-preview-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.report-preview-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 24px; background: var(--bg);
+}
+.report-preview-doc {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 30px 34px;
+  max-width: 640px; margin: 0 auto;
+}
+.rp-draft-ribbon {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 6px;
+  background: var(--warn-soft); color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  font-size: 11.5px; font-weight: 600;
+  margin-bottom: 18px;
+}
+.rp-title { font-size: 22px; font-weight: 600; margin: 0 0 6px; color: var(--text-1); }
+.rp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--muted); font-size: 12.5px; margin-bottom: 20px; }
+.rp-warn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; margin-bottom: 18px;
+  border-radius: 8px;
+  background: var(--warn-soft); color: var(--warn);
+  font-size: 12.5px;
+}
+.rp-sec { margin: 0 0 16px; }
+.rp-sec h3 {
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 5px;
+}
+.rp-req { color: var(--rec); margin-left: 3px; }
+.rp-sec-body { font-size: 14px; line-height: 1.6; color: var(--text-1); white-space: pre-wrap; }
+.rp-sec-empty { font-size: 13px; color: var(--text-3); font-style: italic; }
+.rp-disclaimer {
+  margin-top: 24px; padding-top: 14px;
+  border-top: 1px dashed var(--line);
+  font-size: 11.5px; line-height: 1.5; color: var(--muted);
+}
+.report-preview-foot {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.report-preview-foot-r {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; justify-content: flex-end;
+  margin-left: auto;
+}
+.rp-foot-err { flex-basis: 100%; font-size: 12px; color: var(--rec); }
+@media (max-width: 640px) {
+  .report-preview-overlay { padding: 10px; }
+  .report-preview-foot > .btn { width: 100%; order: 2; }
+  .report-preview-foot-r { width: 100%; margin-left: 0; flex-direction: column-reverse; align-items: stretch; order: 1; }
+}
+
+/* ── AI synthesis (frontend guide §1) ─────────────────────────────────── */
+.rp-synth-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; margin-bottom: 16px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.rp-synth-l { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; color: var(--text-1); font-size: 12.5px; font-weight: 600; }
+.rp-synth-l .muted { font-weight: 400; }
+.rp-lowconf {
+  background: var(--warn-soft); color: var(--warn);
+  border-radius: 4px; padding: 0 3px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+}
+.rp-applied {
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-left: 8px; padding: 1px 6px; border-radius: 999px;
+  background: var(--ok-soft, color-mix(in srgb, var(--ok) 14%, transparent));
+  color: var(--ok); font-size: 9.5px; letter-spacing: .04em;
+}
+.rp-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rp-diff-col {
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  background: var(--surface-2, var(--bg-1));
+}
+.rp-diff-original { opacity: .85; }
+.rp-diff-synth { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.rp-diff-tag {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 6px;
+}
+.rp-diff-synth .rp-diff-tag { color: var(--accent); }
+.rp-diff-actions { display: flex; gap: 6px; margin-top: 10px; }
+.rp-sec.has-problem h3 { color: var(--rec); }
+.rp-sec-problem {
+  margin-top: 6px; padding: 7px 10px; border-radius: 6px;
+  background: color-mix(in srgb, var(--rec) 10%, transparent);
+  color: var(--rec); font-size: 12px;
+}
+.rp-sec-problem > div { display: flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) {
+  .rp-diff { grid-template-columns: 1fr; }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Reports list — row "…" menu (versions / compare / cancel)
+   ────────────────────────────────────────────────────────────────────────── */
+
+.row-actions-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 45;
+  min-width: 220px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-2, 0 12px 32px rgba(0, 0, 0, .18));
+  display: flex; flex-direction: column; gap: 2px;
+}
+.row-action {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 8px 10px;
+  background: none; border: 0; border-radius: 8px;
+  font-size: 13px; color: var(--text-1, inherit); text-align: left;
+  cursor: pointer;
+}
+.row-action:hover { background: var(--surface-hover, rgba(0,0,0,.05)); }
+.row-action.danger { color: #c13b3b; }
+.row-action.danger:hover { background: rgba(193, 59, 59, 0.08); }
+
+/* Versions & compare modal */
+.versions-modal { width: min(560px, 92vw); display: flex; flex-direction: column; max-height: 82vh; }
+.vm-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid var(--line);
+}
+.vm-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.vm-head p  { margin: 3px 0 0; font-size: 12.5px; }
+.vm-body { padding: 16px 20px; overflow-y: auto; }
+.vm-divider { height: 1px; background: var(--line); margin: 16px 0; }
+.vm-sub { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+
+/* Cancel confirmation modal */
+.cancel-modal { width: min(440px, 92vw); }
+.cancel-summary {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; padding: 10px 12px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+}
+
+/* ── S09 revision: signature-level badge + file-key / dev signing ───────── */
+
+.sig-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 6px 12px; border-radius: 8px; font-size: 12.5px;
+  max-width: 100%;
+}
+.sig-badge.qualified {
+  background: rgba(4, 120, 87, 0.1); border: 1px solid rgba(4, 120, 87, 0.25);
+}
+.sig-badge.qualified .sig-badge-mark {
+  font-weight: 800; letter-spacing: 0.04em; color: var(--ok);
+}
+.sig-badge.dev {
+  background: var(--surface-2); border: 1px dashed var(--muted);
+  color: var(--muted);
+}
+.sig-badge.dev .sig-badge-mark {
+  font-weight: 800; letter-spacing: 0.08em; color: var(--muted);
+}
+.sig-badge-detail {
+  display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  min-width: 0;
+}
+.sig-badge-detail > span + span::before { content: "·"; margin-right: 8px; opacity: .5; }
+
+.sig-error {
+  color: var(--rec); font-size: 12.5px; line-height: 1.5;
+  padding: 8px 12px; background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.2); border-radius: 8px;
+}
+
+.sig-dev-notice {
+  font-size: 12.5px; line-height: 1.6;
+  padding: 10px 12px; border-radius: 8px;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(180, 83, 9, 0.08), rgba(180, 83, 9, 0.08) 12px,
+    rgba(180, 83, 9, 0.16) 12px, rgba(180, 83, 9, 0.16) 24px
+  );
+  border: 1px solid rgba(180, 83, 9, 0.35);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Shared FilterDropdown (Templates/Reports toolbars, diff version pickers) —
+   platform-styled <select> replacement; menu follows tpl-dropdown /
+   row-actions-menu
+   ────────────────────────────────────────────────────────────────────────── */
+
+.filter-dd { position: relative; }
+.filter-dd-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px; color: var(--text-1);
+  cursor: pointer;
+}
+.filter-dd-btn:hover { border-color: var(--muted); }
+.filter-dd-btn.open, .filter-dd-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.filter-dd-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 45;
+  min-width: 100%; width: max-content; max-width: 280px;
+  max-height: 320px; overflow-y: auto;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-3);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.filter-dd-opt {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 7px 10px;
+  background: none; border: 0; border-radius: 8px;
+  font-size: 13px; color: var(--text-1); text-align: left;
+  cursor: pointer;
+}
+.filter-dd-opt:hover { background: var(--surface-hover); }
+.filter-dd-opt.active { background: var(--accent-soft); color: var(--accent-text, var(--accent)); font-weight: 500; }

@@ -21,12 +21,12 @@ import { useI18n } from '../i18n.js'
 
 // ── Convert body object ↔ TipTap JSON doc ─────────────────────────────────
 
-export function bodyToDoc(template, body) {
+export function bodyToDoc(template, body, lang) {
   return {
     type: 'doc',
     content: template.sections.map(s => ({
       type: 'section',
-      attrs: { id: s.id, title: s.name?.en || s.id, kind: 'free_text', required: !!s.required },
+      attrs: { id: s.id, title: s.name?.[lang] || s.name?.en || s.id, kind: 'free_text', required: !!s.required },
       content: [{
         type: 'paragraph',
         content: body[s.id]
@@ -301,7 +301,7 @@ export function TipTapEditor({
         },
       }),
     ],
-    content: bodyToDoc(template, body),
+    content: bodyToDoc(template, body, lang),
     editable: !readOnly,
     onUpdate: ({ editor: e }) => {
       const next = docToBody(e.state.doc)
@@ -361,10 +361,46 @@ export function TipTapEditor({
   // Reset editor content when template changes
   useEffect(() => {
     if (!editor) return
-    const newDoc = bodyToDoc(template, body)
+    const newDoc = bodyToDoc(template, body, lang)
     editor.commands.setContent(newDoc, false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template?.id])
+
+  // Mark the active section in the DOM so the user always sees which section
+  // dictation lands in — independent of editor focus (the mic may have focus).
+  useEffect(() => {
+    if (!editor?.view?.dom) return
+    const nodes = editor.view.dom.querySelectorAll('section.tiptap-section')
+    nodes.forEach(el => {
+      el.classList.toggle('is-active', el.getAttribute('data-section-id') === activeId)
+    })
+  }, [editor, activeId, body, template])
+
+  // Sync external `body` mutations (e.g. dictation appends) into the editor.
+  // Without this, the ProseMirror document only ever reflected its own edits,
+  // so dictated text never appeared on screen even though `body` (and the word
+  // count derived from it) updated. Guard against the onUpdate round-trip by
+  // comparing the editor's current serialized body to the incoming body and
+  // only re-rendering on a real divergence — otherwise this loops.
+  useEffect(() => {
+    if (!editor) return
+    const tmpl = templateRef.current
+    if (!tmpl?.sections) return
+    const editorBody = docToBody(editor.state.doc)
+    const same = tmpl.sections.every(
+      s => (editorBody[s.id] || '') === (body[s.id] || '')
+    )
+    if (same) return
+    const prevTo = editor.state.selection.to
+    const newDoc = bodyToDoc(tmpl, body, lang)
+    editor.commands.setContent(newDoc, false) // false = don't re-emit onUpdate
+    // Restore the caret roughly where it was, clamped to the new doc size.
+    try {
+      const size = editor.state.doc.content.size
+      editor.commands.setTextSelection(Math.min(prevTo, Math.max(1, size - 1)))
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [body, editor])
 
   // Navigate to a section by title (voice nav)
   const navigateToSection = useCallback((titleQuery) => {

@@ -278,6 +278,18 @@ export class DictationWsClient {
     return this._send({ type: "retransmit_range", from_seq, to_seq });
   }
 
+  // Section-aware ASR (templates §4). Additive client message — no protocol
+  // version bump. The backend validates `section_id` against the template
+  // loaded into the session at start (we don't re-send the template), swaps the
+  // ASR prompt for the next audio window, and audits it. An invalid id comes
+  // back as a RECOVERABLE `error` frame (code:"bad_message") routed through
+  // _onMessage → onError, which keeps the session alive (we only hard-close on
+  // !recoverable). reason ∈ "voice_command" | "user_click" | "programmatic".
+  switchSection(sectionId, reason = "user_click") {
+    if (!sectionId) return false;
+    return this._send({ type: "switch_section", section_id: sectionId, reason });
+  }
+
   // Send one 20 ms PCM frame through the encoder onto the wire. Returns the
   // seq number used so the caller can persist into the FrameQueue.
   // Caller responsibility: do not call while paused (backend will reject
