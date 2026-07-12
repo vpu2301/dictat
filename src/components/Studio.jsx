@@ -16,15 +16,16 @@ import { getStarredIds, toggleStar as toggleStarPref, getUsage, recordUse } from
 import { createReport, updateReport, finalizeReport, downloadReportPdf, getReport } from '../api/reports.js';
 import { getPatient, listPatients } from '../api/patients.js';
 import { asList } from './DataStates.jsx';
-import { matchVoiceCommand, insertionFor } from '../dictation/voiceCommands.js';
+import { ApiErrorView } from './ApiErrorView.jsx';
+import { COMMANDS, segmentUtterance, appendUtterance, actionsOf, findBestSection, INSERT_OPS } from '../dictation/voiceCommands.js';
 import {
   AutocompletePills,
   AutocompletePauseToast,
   AutocompleteSettings,
-  usePillSuggestions,
-  useGhostText,
+  useSuggestions,
   useBackoff,
 } from './AutocompletePanel.jsx';
+import { telemetry } from '../autocomplete/telemetry.js';
 
 // Coerce arbitrary text into a backend slug: ^[a-z][a-z0-9_]*$.
 function slugify(input, fallback = "item") {
@@ -35,6 +36,26 @@ function slugify(input, fallback = "item") {
   s = s.replace(/[^a-z0-9_]/g, "");
   if (!/^[a-z]/.test(s)) s = `t_${s}`;
   return s;
+}
+
+// Sensitivity (settings slider) → min typed chars before a phrase query.
+const AC_MIN_PREFIX_BY_SENSITIVITY = { 1: 5, 2: 3, 3: 2 };
+
+// Per-user autocomplete prefs (step 05). Persisted in localStorage keyed by
+// the user's sub — the repo's interim pattern for per-user prefs
+// (api/templatePrefs.js precedent; the tweaks store is in-memory by
+// design). Server-side preferences endpoint is a named follow-up in
+// docs/sprint-10/EXPLORE.md. `enabled` is the master switch: false ⇒ no
+// queries, no decorations, no telemetry, no keyboard interception.
+const AC_PREFS_DEFAULTS = { enabled: true, ghostEnabled: true, pillsEnabled: true, sensitivity: 2 };
+const acPrefsKey = (sub) => `mdx.ac.prefs.v1.${sub || "anon"}`;
+function loadAcPrefs(sub) {
+  try {
+    const raw = localStorage.getItem(acPrefsKey(sub));
+    return raw ? { ...AC_PREFS_DEFAULTS, ...JSON.parse(raw) } : AC_PREFS_DEFAULTS;
+  } catch {
+    return AC_PREFS_DEFAULTS;
+  }
 }
 
 // ── Autosave pacing ────────────────────────────────────────────────────
@@ -97,6 +118,15 @@ function conflictCurrentVersion(e) {
 export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
   const [state, setState] = useState("idle");
   const [level, setLevel] = useState(0);
+  // The running recognizer instance is built once per start() — route its
+  // events through refs so it always sees the LATEST callbacks. onFinal
+  // closes over the active section; a closure frozen at start() kept
+  // dictating into whichever section was active when the mic was turned on,
+  // ignoring any section switch made mid-session.
+  const onPartialRef = useRef(onPartial);
+  const onFinalRef = useRef(onFinal);
+  onPartialRef.current = onPartial;
+  onFinalRef.current = onFinal;
   const recogRef = useRef(null);
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
@@ -168,10 +198,10 @@ export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
         if (res.isFinal) final += txt;
         else interim += txt;
       }
-      if (interim) onPartial?.(interim);
+      if (interim) onPartialRef.current?.(interim);
       if (final) {
-        onFinal?.(final, ev.results[ev.resultIndex]?.[0]?.confidence ?? 0.85);
-        onPartial?.("");
+        onFinalRef.current?.(final, ev.results[ev.resultIndex]?.[0]?.confidence ?? 0.85);
+        onPartialRef.current?.("");
       }
     };
     r.onerror = (ev) => {
@@ -191,7 +221,7 @@ export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
     };
     r.onstart = () => setState("listening");
     return r;
-  }, [SR, lang, onPartial, onFinal]);
+  }, [SR, lang]);
 
   const start = useCallback(async () => {
     if (!supported) { setState("error_unsupported"); return; }
@@ -317,7 +347,9 @@ function SuggestionsPanel({ suggestions, onAccept }) {
         </span>
       </div>
       {suggestions.map((s, i) => (
-        <div key={s.id} className="suggestion" onClick={() => onAccept(s, i)}>
+        // mousedown + preventDefault: a click would blur the editor first,
+        // clearing the suggestions before the click event ever fires.
+        <div key={s.id} className="suggestion" onMouseDown={(e) => { e.preventDefault(); onAccept(s, i); }}>
           <span className="sug-rank">{i === 0 ? "Tab" : `Alt+${i + 1}`}</span>
           <div className="sug-text" dangerouslySetInnerHTML={{ __html: s.text.replace(/\{(\w+)\}/g, '<mark>$1</mark>') }} />
           <div className="sug-meta">
@@ -331,12 +363,74 @@ function SuggestionsPanel({ suggestions, onAccept }) {
 }
 
 // ── Voice command ref ──────────────────────────────────────────────────
+// Full vocabulary modal — generated from the matcher's own COMMANDS so it
+// can never drift from what actually works.
+function VoiceCommandModal({ onClose }) {
+  const { t, lang } = useI18n();
+  const L = lang === "uk" ? "uk" : "en";
+  const chipOf = (c) => {
+    switch (c.op) {
+      case "insert_paragraph_break": return "¶";
+      case "insert_line_break":      return "↵";
+      case "insert_quote_marker":    return c.arg.value === "open" ? "«" : "»";
+      case "insert_punctuation":     return c.arg.value;
+      case "navigate_section":       return "→";
+      case "insert_template":        return "→";
+      case "save_draft":             return "⌘S";
+      case "undo_last":              return "⌘Z";
+      case "stop_dictation":         return "Esc";
+      default:                       return "";
+    }
+  };
+  const groups = [
+    { key: "structure", ops: ["insert_paragraph_break", "insert_line_break"] },
+    { key: "punct",     ops: ["insert_punctuation", "insert_quote_marker"] },
+    { key: "nav",       ops: ["navigate_section", "insert_template"] },
+    { key: "actions",   ops: ["save_draft", "undo_last", "stop_dictation"] },
+  ].map(g => ({ ...g, rows: COMMANDS.filter(c => g.ops.includes(c.op)) }));
+  return (
+    <Modal onClose={onClose}>
+      <div className="modal-h cmd-modal-h">
+        <div>
+          <h2>{t("cmd.ref")}</h2>
+          <p>{t("cmd.modal.sub")}</p>
+        </div>
+        <button className="icon-btn" onClick={onClose} aria-label={t("cmd.close")}>
+          <Icon name="x" size={14} />
+        </button>
+      </div>
+      <div className="modal-body cmd-modal-body">
+        {groups.map(g => (
+          <section key={g.key} className="cmd-group">
+            <h3>{t(`cmd.group.${g.key}`)}</h3>
+            <div className="cmd-grid">
+              {g.rows.map(c => {
+                const [main, ...alts] = c[L] || c.uk;
+                return (
+                  <div className="cmd-item" key={c.intent}>
+                    <span className="cmd-chip">{chipOf(c)}</span>
+                    <span className="cmd-phrases">
+                      <span className="main">{main}</span>
+                      {alts.length > 0 && <span className="alts">{alts.join(" · ")}</span>}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
 function VoiceCommandRef() {
   const { t } = useI18n();
-  const cmds = [
+  const [allOpen, setAllOpen] = useState(false);
+  const core = [
     ["cmd.newPara","↵"],["cmd.newLine","⇧↵"],["cmd.comma",","],["cmd.period","."],
-    ["cmd.question","?"],["cmd.dash","—"],["cmd.goTo","→"],["cmd.undo","⌘Z"],
-    ["cmd.save","⌘S"],["cmd.stop","Esc"],
+    ["cmd.question","?"],["cmd.dash","—"],["cmd.colon",":"],["cmd.goTo","→"],
+    ["cmd.undo","⌘Z"],["cmd.save","⌘S"],["cmd.stop","Esc"],
   ];
   return (
     <details className="cmd-ref" open>
@@ -345,13 +439,21 @@ function VoiceCommandRef() {
         {t("cmd.ref")}
       </summary>
       <div className="cmd-list">
-        {cmds.map(([key, eq]) => (
+        {core.map(([key, eq]) => (
           <div className="cmd-row" key={key}>
             <span className="phrase">"{t(key)}"</span>
             <span className="action mono">{eq}</span>
           </div>
         ))}
+        <button type="button" className="btn ghost sm cmd-all" onClick={() => setAllOpen(true)}>
+          {t("cmd.showAll")}
+        </button>
+        {/* Step 05: the Tab-precedence note promised in step 03. */}
+        <div className="muted" style={{ fontSize: 11, lineHeight: 1.45, padding: '6px 4px 2px' }}>
+          {t("ac.help.tabNote")}
+        </div>
       </div>
+      {allOpen && <VoiceCommandModal onClose={() => setAllOpen(false)} />}
     </details>
   );
 }
@@ -947,7 +1049,10 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     seededReportRef.current = rep.id;
     const content = rep.content || {};
     reportIdRef.current = rep.id;
-    reportVersionRef.current = rep.version_number ?? 1;
+    // The envelope names it current_version_number (GET /v1/reports/{id});
+    // seeding 1 for a v2+ draft would 409 every autosave until the conflict
+    // handler re-adopts the server version.
+    reportVersionRef.current = rep.current_version_number ?? rep.version_number ?? 1;
     if (content.template_id) setTemplateId(content.template_id);
     const nextBody = {};
     for (const s of content.sections || []) {
@@ -985,6 +1090,11 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   useEffect(() => {
     if (templateId || !templatesList.length) return;
     if (reportId && !reportReq.data) return;
+    // Reopened draft with its own template: the rehydrate effect above sets it
+    // in this same commit, but `templateId` in this closure is still null —
+    // check the envelope directly or this pick would overwrite it (and the
+    // next autosave would rewrite the draft's template_id).
+    if (reportId && reportReq.data?.content?.template_id) return;
     setTemplateId(templatesList[0].id);
   }, [templatesList, templateId, reportId, reportReq.data]);
 
@@ -1005,27 +1115,17 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     }
   }, [externalAddTemplate]);
 
-  // Sprint 10 — autocomplete state
-  const [acPrefs, setAcPrefs] = useState({ ghostEnabled: true, pillsEnabled: true, sensitivity: 2 });
-  const [showPills, setShowPills] = useState(false);
+  // Sprint 10 — autocomplete state. The suggest hook itself lives further
+  // down (after `speech` is declared — querying is off while dictating).
+  const [acPrefs, setAcPrefs] = useState(() => loadAcPrefs(auth?.claims?.sub));
+  useEffect(() => {
+    try { localStorage.setItem(acPrefsKey(auth?.claims?.sub), JSON.stringify(acPrefs)); } catch {}
+  }, [acPrefs, auth?.claims?.sub]);
   const backoff = useBackoff();
-  const pillSugs = usePillSuggestions({
-    templateId,
-    sectionId: activeId,
-    bodyText: body[activeId] || '',
-    enabled: acPrefs.pillsEnabled && !backoff.paused,
-    language: dictLang,
-  });
-
-  const ghostText = useGhostText({
-    templateId,
-    sectionId: activeId,
-    bodyText: body[activeId] || '',
-    enabled: acPrefs.ghostEnabled && !backoff.paused,
-    dismissCount: backoff.dismissCount,
-    lastDismissTime: backoff.lastDismissTime,
-    language: dictLang,
-  });
+  const [acCaretText, setAcCaretText] = useState(null); // text before caret (from the editor)
+  const [acActiveIdx, setAcActiveIdx] = useState(0);
+  const [acExplicit, setAcExplicit] = useState(false);  // ArrowDown armed explicit selection
+  const acApiRef = useRef(null);                        // { accept } exposed by TipTapEditor
 
   useEffect(() => { setDictLang(lang); }, [lang]);
 
@@ -1113,52 +1213,65 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
 
   const triggerSave = useCallback(() => { saveDraft(); }, [saveDraft]);
 
-  const onAcceptSuggestion = useCallback((s) => {
-    setBody(prev => {
-      const cur = prev[activeId] || "";
-      const sep = cur && !cur.endsWith(" ") && !cur.endsWith("\n") ? " " : "";
-      return { ...prev, [activeId]: cur + sep + s.text.replace(/\{(\w+)\}/g, "___") };
-    });
-    setSaveState("unsaved");
-    pushToast({ message: t("sug.undo") + " · " + (s.text.length > 40 ? s.text.slice(0, 40) + "…" : s.text) });
-  }, [activeId, t]);
+  // (Sprint 10) Right-rail suggestion accepts route through the editor's
+  // single-transaction accept (acApiRef) — see the TipTapEditor wiring.
 
   // ── Speech recognition ────────────────────────────────────────────
   const onPartialCb = useCallback(s => setPartial(s), []);
+  // Resolve a spoken phrase/keyword to a template section. Fuzzy on
+  // purpose: tolerates ASR mishears ("хіт операції" → "Хід операції")
+  // and Ukrainian case endings ("до ходу операції"). Used by both the
+  // fixed section commands ("розділ діагноз") and the generic
+  // "перейти до <розділ>" form.
+  const findSectionByPhrase = useCallback(
+    (phrase, keyword) => findBestSection(template?.sections, phrase, keyword),
+    [template],
+  );
+
   const onFinalCb   = useCallback((s, conf) => {
-    const trimmed = s.trim();
+    let trimmed = s.trim();
     if (!trimmed || !activeId) return;
+
     // Voice commands: detection is client-side on the Web Speech path.
-    const cmd = matchVoiceCommand(trimmed, dictLang);
-    if (cmd) {
-      const ins = insertionFor(cmd);
-      if (ins != null) setBody(prev => ({ ...prev, [activeId]: (prev[activeId] || "") + ins }));
-      else if (cmd.op === "save_draft") triggerSave();
-      else if (cmd.op === "stop_dictation") speech.stop();
-      else if (cmd.op === "navigate_section") {
-        // "розділ діагноз" → jump to the matching section and tell the ASR
-        // (reason: voice_command). Match the spoken phrase against the
-        // template's voice_aliases / section id / intent keyword.
-        const norm = trimmed.toLowerCase().replace(/[.,!?]+$/, "").trim();
-        const keyword = (cmd.intent.split(".")[1] || "").toLowerCase();
-        const target = template?.sections?.find(s =>
-          (s.voice_aliases || []).includes(norm) ||
-          s.id === keyword ||
-          s.id.includes(keyword) ||
-          (s.name?.en || "").toLowerCase().includes(keyword),
-        );
+    // Generic section jump first — "перейти до <розділ>" / "go to <section>"
+    // with an arbitrary section name the fixed vocabulary can't cover.
+    // Also matches at the END of a longer utterance; the content before
+    // the command still gets inserted below.
+    const goTo = trimmed.toLowerCase().replace(/[.,!?]+$/, "").trim()
+      .match(dictLang === "uk" ? /^(.*?)\s*перейти до (.+)$/ : /^(.*?)\s*go to (.+)$/);
+    if (goTo) {
+      const target = findSectionByPhrase(goTo[2], goTo[2]);
+      if (target) {
+        pickSection(target.id, "voice_command");
+        if (!goTo[1]) return;       // pure navigation — nothing to insert
+        trimmed = trimmed.slice(0, goTo[1].length).trim(); // keep the content prefix
+        if (!trimmed) return;
+      }
+    }
+
+    // Commands may be embedded in a longer utterance ("болить голова кома") —
+    // segment the tokens instead of matching the whole string.
+    const parts = segmentUtterance(trimmed, dictLang);
+    const mutates = parts.some(p =>
+      p.type === "text" || INSERT_OPS.has(p.row.op) || p.row.op === "undo_last");
+    if (mutates) {
+      const wrap = (t) => (conf > 0 && conf < 0.55 ? `[[${t}]]` : t);
+      setBody(prev => ({
+        ...prev,
+        [activeId]: appendUtterance(prev[activeId] || "", parts, { wrapText: wrap }),
+      }));
+      setSaveState("unsaved");
+    }
+
+    for (const a of actionsOf(parts)) {
+      if (a.op === "save_draft") triggerSave();
+      else if (a.op === "stop_dictation") speech.stop();
+      else if (a.op === "navigate_section") {
+        const target = findSectionByPhrase(a.phrase, (a.intent.split(".")[1] || ""));
         if (target) pickSection(target.id, "voice_command");
       }
-      return;
     }
-    setBody(prev => {
-      const cur = prev[activeId] || "";
-      const sep = cur && !cur.endsWith(" ") && !cur.endsWith("\n") ? " " : "";
-      const text = conf > 0 && conf < 0.55 ? `[[${trimmed}]]` : trimmed;
-      return { ...prev, [activeId]: cur + sep + text };
-    });
-    setSaveState("unsaved");
-  }, [activeId, dictLang, triggerSave, template, pickSection]);
+  }, [activeId, dictLang, triggerSave, findSectionByPhrase, pickSection]);
 
   const speech = useSpeechRecognition({ lang: dictLang, enabled: true, onPartial: onPartialCb, onFinal: onFinalCb });
 
@@ -1255,55 +1368,142 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     else if (speech.state === "idle" || speech.state.startsWith("error_")) speech.start();
   };
 
-  // ── Autocomplete handlers (Sprint 10) ──────────────────────────────
-  const handleGhostAccept = useCallback(() => {
-    if (!ghostText) return;
-    setBody(prev => {
-      const cur = prev[activeId] || '';
-      const sep = cur && !cur.endsWith(' ') ? ' ' : '';
-      return { ...prev, [activeId]: cur + sep + ghostText };
+  // ── Autocomplete (Sprint 10) ───────────────────────────────────────
+  // Single suggestions source for ghost (Layer A) + pills (Layer B).
+  // Off while dictating — the transcript stream owns insertion; re-enabled
+  // automatically on pause/stop. Insertion itself happens inside
+  // TipTapEditor as one ProseMirror transaction (single undo step); these
+  // handlers own telemetry + backoff + state.
+  const acEnabled =
+    acPrefs.enabled !== false && // master switch (step 05) — OFF ⇒ zero work
+    (acPrefs.ghostEnabled !== false || acPrefs.pillsEnabled !== false) &&
+    !backoff.paused &&
+    speech.state !== 'listening';
+
+  // Degraded case (>SUGGEST_TIMEOUT_MS): the answer was never rendered —
+  // report it so tomorrow's ranking can join it by request_id.
+  const handleAcDegraded = useCallback(({ requestId, prefix }) => {
+    telemetry.track({
+      request_id: requestId,
+      event: 'timeout',
+      prefix: prefix || '',
+      context: { field: activeId },
     });
-    backoff.accept();
-    setSaveState('unsaved');
-  }, [ghostText, activeId, backoff]);
+  }, [activeId]);
 
-  const handleGhostDismiss = useCallback(() => {
-    backoff.dismiss();
-  }, [backoff]);
+  const ac = useSuggestions({
+    textBeforeCaret: acCaretText,
+    enabled: acEnabled,
+    language: dictLang,
+    sectionId: activeId,
+    templateId,
+    // Sensitivity slider: how much typed evidence a phrase query needs
+    // (1 = low → 5 chars, 2 = medium → 3, 3 = high → 2). Snippet "/"
+    // triggers always fire.
+    minPrefixLen: AC_MIN_PREFIX_BY_SENSITIVITY[acPrefs.sensitivity] ?? 3,
+    onDegraded: handleAcDegraded,
+  });
 
-  const handlePillAccept = useCallback(sug => {
-    setBody(prev => {
-      const cur = prev[activeId] || '';
-      const sep = cur && !cur.endsWith(' ') ? ' ' : '';
-      return { ...prev, [activeId]: cur + sep + sug.text };
-    });
-    backoff.accept();
-    setShowPills(false);
-    setSaveState('unsaved');
-    pushToast({ message: lang === 'uk' ? `Вставлено: ${sug.text.slice(0, 40)}…` : `Inserted: ${sug.text.slice(0, 40)}…` });
-  }, [activeId, backoff, lang, pushToast]);
-
-  const handlePillDismiss = useCallback(() => {
-    backoff.dismiss();
-    setShowPills(false);
-  }, [backoff]);
-
-  // Show pills when we have suggestions and cursor is in editor
+  // Per-source visibility (settings panel): applied on top of the hook
+  // state so ghost, pills, right rail and the keyboard protocol all see
+  // the same filtered list.
+  const acVisible = useMemo(
+    () => ac.suggestions.filter(s => acPrefs.sources?.[s.source] !== false),
+    [ac.suggestions, acPrefs.sources],
+  );
   useEffect(() => {
-    if (acPrefs.pillsEnabled && pillSugs.length > 0 && !backoff.paused) {
-      setShowPills(true);
-    } else {
-      setShowPills(false);
+    if (acActiveIdx !== 0 && acActiveIdx >= acVisible.length) setAcActiveIdx(0);
+  }, [acVisible.length, acActiveIdx]);
+  const acPillsOpen = acPrefs.pillsEnabled !== false && acVisible.length > 1;
+
+  // New response → reset selection state + record the impression. The sink
+  // (src/autocomplete/telemetry.js) dedups shown_only per request_id,
+  // batches sequential POSTs, and survives page close via keepalive fetch —
+  // track() is synchronous and can never affect typing.
+  useEffect(() => {
+    setAcActiveIdx(0);
+    setAcExplicit(false);
+    if (ac.requestId && acVisible.length) {
+      const first = acVisible[0];
+      telemetry.track({
+        request_id: ac.requestId,
+        event: 'shown_only',
+        prefix: ac.prefix || '',
+        ...(first.kind === 'snippet' ? { snippet_id: first.id } : { phrase_id: first.id }),
+        context: { field: activeId },
+      });
     }
-  }, [pillSugs, acPrefs.pillsEnabled, backoff.paused]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ac.requestId]);
+
+  const handleAcAccept = useCallback((s, i) => {
+    if (ac.requestId) {
+      telemetry.track({
+        request_id: ac.requestId,
+        event: 'accepted',
+        prefix: ac.prefix || '',
+        ...(s.kind === 'snippet' ? { snippet_id: s.id } : { phrase_id: s.id }),
+        context: { field: activeId, index: Number.isInteger(i) ? i : 0 },
+      });
+    }
+    backoff.accept();
+    ac.clear();
+    setAcActiveIdx(0);
+    setAcExplicit(false);
+  }, [ac, backoff, activeId]);
+
+  const handleAcDismiss = useCallback(() => {
+    if (ac.requestId) {
+      telemetry.track({
+        request_id: ac.requestId,
+        event: 'rejected',
+        prefix: ac.prefix || '',
+        context: { field: activeId },
+      });
+    }
+    backoff.dismiss();
+    ac.clear();
+    setAcActiveIdx(0);
+    setAcExplicit(false);
+  }, [ac, backoff, activeId]);
+
+  const handleAcCycle = useCallback((idx, explicit) => {
+    setAcActiveIdx(idx);
+    if (explicit) setAcExplicit(true);
+  }, []);
+
+  // A reopened draft that failed to load must surface the failure. Falling
+  // through would render the patient gate and then an empty template state —
+  // which reads as "pick a patient / no templates" instead of the real error
+  // (and an autosave from that state could even fork a new report).
+  if (reportId && reportReq.error) {
+    return (
+      <div className="studio">
+        <div style={{ maxWidth: 560, margin: "48px auto", display: "grid", gap: 12 }}>
+          <ApiErrorView error={reportReq.error} lang={lang} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn accent" onClick={reportReq.reload}>
+              {lang === "uk" ? "Спробувати ще раз" : "Retry"}
+            </button>
+            <button className="btn" onClick={() => { location.hash = "/dictate/reports"; }}>
+              {lang === "uk" ? "← До звітів" : "← Back to reports"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Patient gate: a report is never dictated without a patient. Until one is
   // resolved (from a prop, the ?patient= URL, a reopened draft, or the gate
   // picker) we render the picker instead of the recording surface. While a known
   // patient or a reopened report is still loading, show a spinner rather than
-  // flashing the picker.
+  // flashing the picker. `!patientReq.data` (not `.loading`) covers the commit
+  // where the envelope just supplied patient_id but the fetch effect hasn't
+  // flipped `loading` yet; a failed patient fetch still falls back to the gate.
   if (!patient) {
-    const resolving = (effectivePatientId && patientReq.loading) || (reportId && reportReq.loading);
+    const resolving = (reportId && reportReq.loading) ||
+      (effectivePatientId && !patientReq.error && !patientReq.data);
     if (resolving) {
       return (
         <div className="studio">
@@ -1390,19 +1590,31 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           activeId={activeId}
           onActiveSectionChange={(id) => pickSection(id, "user_click")}
           partial={partial}
+          dictating={speech.state === "listening"}
           readOnly={false}
           lang={lang}
-          autocompleteGhost={ghostText}
-          onAutocompleteAccept={handleGhostAccept}
-          onAutocompleteDismiss={handleGhostDismiss}
+          acSuggestions={acVisible}
+          acActiveIndex={acActiveIdx}
+          acExplicit={acExplicit}
+          acPrefix={ac.prefix}
+          acShowGhost={acPrefs.ghostEnabled !== false}
+          onAcAccept={handleAcAccept}
+          onAcDismiss={handleAcDismiss}
+          onAcCycle={handleAcCycle}
+          onAcCaretContext={setAcCaretText}
+          acApiRef={acApiRef}
+          acListboxOpen={acPillsOpen}
         />
 
-        {/* Sprint 10: Layer B pills */}
-        {showPills && (
+        {/* Sprint 10: Layer B pills (popup only when there is a choice),
+            anchored under the caret (viewport coords from the editor). */}
+        {acPillsOpen && (
           <AutocompletePills
-            suggestions={pillSugs}
-            onAccept={handlePillAccept}
-            onDismiss={handlePillDismiss}
+            suggestions={acVisible}
+            activeIndex={acActiveIdx}
+            anchor={acApiRef.current?.caretCoords?.() || null}
+            onAccept={(s, i) => acApiRef.current?.accept(s, i)}
+            onDismiss={handleAcDismiss}
             lang={lang}
           />
         )}
@@ -1433,7 +1645,10 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
             onClick={toggleMic}
             hotkey="Space"
           />
-          <SuggestionsPanel suggestions={pillSugs} onAccept={onAcceptSuggestion} />
+          <SuggestionsPanel
+            suggestions={acVisible}
+            onAccept={(s, i) => acApiRef.current?.accept(s, i)}
+          />
           <VoiceCommandRef />
           {/* Sprint 10: Autocomplete settings */}
           <AutocompleteSettings prefs={acPrefs} onChange={setAcPrefs} lang={lang} />

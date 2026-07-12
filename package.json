@@ -10,7 +10,11 @@
     "verify:batch-a": "node scripts/integration/batch-a-verify.mjs",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:unit": "node --test src/autocomplete/prefix.test.js src/autocomplete/telemetry.test.js",
+    "verify:autocomplete-contract": "RUN_BACKEND_INTEGRATION=1 node --test src/autocomplete/contract.int.test.js",
+    "e2e:live": "RUN_BACKEND_INTEGRATION=1 playwright test e2e/autocomplete-live.spec.js",
+    "e2e:live:chaos": "RUN_BACKEND_INTEGRATION=1 E2E_CHAOS=1 playwright test e2e/autocomplete-live.spec.js"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",

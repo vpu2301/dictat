@@ -61,9 +61,29 @@ export async function countReports(params = {}) {
 // carries `content.sections` and a resolved, localized `section_labels`
 // ([{ section_key, name: { uk, en } }] | null) so the read view/PDF can title
 // sections without re-fetching the template (frontend guide §3).
-export async function getReport(id, { includeContent = true } = {}) {
-  const tail = includeContent ? "?include_content=true" : "";
-  return a(`/v1/reports/${encodeURIComponent(id)}${tail}`, { method: "GET" });
+//
+// Read-purpose: the backend 422s a non-author read without ?purpose= (allowed:
+// clinical_continuity | audit | legal | qa_review | consultation; the value is
+// audit-logged). Author reads must NOT send one (logged as "author"), and we
+// can't know authorship before the response — so try bare first and retry once
+// with purpose=clinical_continuity (opening a colleague's report inside the
+// clinical workflow IS care continuity; audit/legal readers pass their own).
+export async function getReport(id, { includeContent = true, purpose } = {}) {
+  const qs = new URLSearchParams();
+  if (includeContent) qs.set("include_content", "true");
+  if (purpose) qs.set("purpose", purpose);
+  const path = () => `/v1/reports/${encodeURIComponent(id)}?${qs}`;
+  try {
+    return await a(path(), { method: "GET" });
+  } catch (err) {
+    const missingPurpose = err?.status === 422 &&
+      /missing-read-purpose/.test(String(err?.problem?.detail ?? err?.message ?? ""));
+    if (!purpose && missingPurpose) {
+      qs.set("purpose", "clinical_continuity");
+      return a(path(), { method: "GET" });
+    }
+    throw err;
+  }
 }
 
 // Adapt the editor's flat shape to the backend's nested `content` contract.

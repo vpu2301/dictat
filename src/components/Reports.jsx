@@ -14,6 +14,7 @@ import { listTemplates, getTemplate, toStudioTemplate } from '../api/templates.j
 import { AmendmentModal, ReportDiffView } from './ReportDiff.jsx';
 import { SigningFlow } from './SigningFlow.jsx';
 import { useSpeechRecognition, LevelMeter } from './Studio.jsx';
+import { segmentUtterance, appendUtterance } from '../dictation/voiceCommands.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -692,13 +693,16 @@ function ReportDictatePanel({ contentSections, sectionLabel, lang, onAmend, disa
   const onFinal = useCallback((s) => {
     const trimmed = s.trim();
     if (!trimmed || !activeKey) return;
-    setDraft(prev => {
-      const cur = prev[activeKey] || "";
-      const sep = cur && !cur.endsWith(" ") && !cur.endsWith("\n") ? " " : "";
-      return { ...prev, [activeKey]: cur + sep + trimmed };
-    });
+    // Segment out embedded voice commands (punctuation, breaks) so "кома"
+    // inserts "," instead of the literal word. Action commands (save/stop/…)
+    // are dropped here — the amendment editor has its own explicit buttons.
+    const parts = segmentUtterance(trimmed, dictLang);
+    setDraft(prev => ({
+      ...prev,
+      [activeKey]: appendUtterance(prev[activeKey] || "", parts),
+    }));
     setPartial("");
-  }, [activeKey]);
+  }, [activeKey, dictLang]);
 
   const speech = useSpeechRecognition({ lang: dictLang, enabled: true, onPartial: setPartial, onFinal });
 
