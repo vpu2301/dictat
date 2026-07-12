@@ -13,8 +13,11 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Extension } from '@tiptap/core'
+import { TextSelection } from '@tiptap/pm/state'
+import { closeHistory } from '@tiptap/pm/history'
 import { SectionExtension } from '../extensions/SectionExtension.js'
 import { LowConfidenceMark } from '../extensions/LowConfidenceMark.js'
+import { AutocompleteGhost, autocompleteGhostKey } from '../extensions/AutocompleteGhost.js'
 import { sanitizePastedHTML } from '../paste/sanitizingPaste.js'
 import { Icon } from './UI.jsx'
 import { useI18n } from '../i18n.js'
@@ -260,11 +263,23 @@ export function TipTapEditor({
   activeId,
   onActiveSectionChange,
   partial,
+  dictating,
   readOnly,
   lang,
-  autocompleteGhost,      // Sprint 10 ghost text string | null
-  onAutocompleteAccept,   // Sprint 10 callback
-  onAutocompleteDismiss,  // Sprint 10 callback
+  // Sprint 10 — autocomplete (single source of truth lives in Studio's
+  // useSuggestions hook; the editor renders the ghost, owns the keyboard
+  // protocol and performs the accept as ONE ProseMirror transaction).
+  acSuggestions,          // suggestions array (may be empty)
+  acActiveIndex,          // index the keyboard protocol acts on (default 0)
+  acExplicit,             // true once ArrowDown armed explicit-selection mode
+  acPrefix,               // the typed prefix the suggestions answer
+  onAcAccept,             // (suggestion, index) → telemetry + state clear
+  onAcDismiss,            // () → telemetry rejected + backoff
+  onAcCycle,              // (nextIndex, explicit) → move activeIndex
+  onAcCaretContext,       // (textBeforeCaret|null) → feeds the suggest hook
+  acApiRef,               // ref → { accept, caretCoords } for pills (mousedown insert + anchor)
+  acShowGhost = true,     // Layer A toggle (keyboard protocol stays active)
+  acListboxOpen = false,  // pills popup rendered → manage aria-activedescendant
   patientRef,             // optional patient identifier shown in the report meta
 }) {
   const { t } = useI18n()
@@ -274,6 +289,126 @@ export function TipTapEditor({
 
   bodyRef.current     = body
   templateRef.current = template
+
+  // Autocomplete state snapshot for editorProps callbacks (they close over
+  // the first render otherwise).
+  const acRef = useRef({})
+  acRef.current = {
+    suggestions: acSuggestions || [],
+    activeIndex: acActiveIndex || 0,
+    explicit: !!acExplicit,
+    prefix: acPrefix || '',
+    onAccept: onAcAccept,
+    onDismiss: onAcDismiss,
+    onCycle: onAcCycle,
+  }
+  const composingRef = useRef(false)
+  const caretCbRef = useRef(onAcCaretContext)
+  caretCbRef.current = onAcCaretContext
+
+  // Report the text between the start of the current block and the caret —
+  // the ONLY thing the suggest hook needs. Null when composing, selecting a
+  // range, or outside a text block.
+  const reportCaretContext = useCallback((e) => {
+    const cb = caretCbRef.current
+    if (!cb) return
+    if (composingRef.current) { cb(null); return }
+    try {
+      const sel = e.state.selection
+      if (!sel.empty || !sel.$anchor.parent.isTextblock) { cb(null); return }
+      const $a = sel.$anchor
+      cb($a.parent.textBetween(0, $a.parentOffset, '\n', '￼'))
+    } catch {
+      cb(null)
+    }
+  }, [])
+
+  // Editor ref for callbacks defined before useEditor returns.
+  const editorRef = useRef(null)
+
+  // Accept = ONE ProseMirror transaction (insert + caret) → one undo step.
+  // Phrase: insert `completion` at the caret (typed prefix stays).
+  // Snippet: replace the typed "/trigger" token with `text`, caret lands at
+  // cursor_offset (or the end of the insert).
+  const acceptSuggestion = useCallback((s, index) => {
+    const e = editorRef.current
+    if (!e || !s) return
+    const sel = e.state.selection
+    if (!sel.empty) return
+    const caret = sel.from
+    const ac = acRef.current
+    e.chain()
+      .focus()
+      .command(({ tr, state: st }) => {
+        // One transaction in its OWN undo group: a single undo reverts the
+        // whole accept and nothing else (typing just before would otherwise
+        // merge into the same history event within newGroupDelay).
+        closeHistory(tr)
+        if (s.kind === 'snippet') {
+          const trigLen = Math.min(ac.prefix.length, caret - 1)
+          const from = Math.max(1, caret - trigLen)
+          tr.insertText(s.text, from, caret)
+          const target = Math.min(
+            from + (s.cursor_offset ?? s.text.length),
+            tr.doc.content.size - 1,
+          )
+          tr.setSelection(TextSelection.create(tr.doc, target))
+        } else {
+          const completion = s.completion || ''
+          if (!completion) return false
+          tr.insertText(completion, caret, caret)
+        }
+        return true
+      })
+      .run()
+    ac.onAccept?.(s, index)
+  }, [])
+
+  // Keyboard protocol (§4.3) — registered at the EDITOR level, consuming a
+  // key (return true) ONLY when suggestions are visible and the key acts on
+  // them. Tab precedence: suggestions visible → accept; otherwise the
+  // editor's default behavior (there is no section-Tab binding — see
+  // SectionExtension, which only guards Backspace).
+  const handleAcKeyDown = useCallback((view, event) => {
+    const ac = acRef.current
+    const n = ac.suggestions.length
+    if (!n) return false
+    if (event.key === 'Tab' && !event.shiftKey) {
+      event.preventDefault()
+      acceptSuggestion(ac.suggestions[ac.activeIndex] || ac.suggestions[0], ac.activeIndex)
+      return true
+    }
+    if (event.key === 'Escape') {
+      ac.onDismiss?.()
+      return true
+    }
+    if (event.key === 'ArrowDown') {
+      ac.onCycle?.((ac.activeIndex + 1) % n, true)
+      return true
+    }
+    if (event.key === 'ArrowUp') {
+      if (!ac.explicit) return false // don't hijack caret movement unarmed
+      ac.onCycle?.((ac.activeIndex - 1 + n) % n, true)
+      return true
+    }
+    if (event.key === 'Enter') {
+      // Enter accepts ONLY in explicit-selection mode (ArrowDown armed it);
+      // plain ghost state → Enter stays a newline. Typing flow first.
+      if (ac.explicit) {
+        acceptSuggestion(ac.suggestions[ac.activeIndex], ac.activeIndex)
+        return true
+      }
+      return false
+    }
+    if (event.altKey && ['1', '2', '3'].includes(event.key)) {
+      const idx = parseInt(event.key, 10) - 1
+      if (ac.suggestions[idx]) {
+        acceptSuggestion(ac.suggestions[idx], idx)
+        return true
+      }
+    }
+    return false
+  }, [acceptSuggestion])
 
   const editor = useEditor({
     extensions: [
@@ -289,6 +424,7 @@ export function TipTapEditor({
       Underline,
       SectionExtension,
       LowConfidenceMark,
+      AutocompleteGhost,
       SanitizingPaste,
       Placeholder.configure({
         placeholder: ({ node }) => {
@@ -303,9 +439,13 @@ export function TipTapEditor({
     ],
     content: bodyToDoc(template, body, lang),
     editable: !readOnly,
+    editorProps: {
+      handleKeyDown: (view, event) => handleAcKeyDown(view, event),
+    },
     onUpdate: ({ editor: e }) => {
       const next = docToBody(e.state.doc)
       onBodyChange?.(next)
+      reportCaretContext(e)
     },
     onSelectionUpdate: ({ editor: e }) => {
       const { $anchor } = e.state.selection
@@ -317,28 +457,93 @@ export function TipTapEditor({
           break
         }
       }
+      reportCaretContext(e)
+    },
+    onBlur: () => {
+      caretCbRef.current?.(null)
     },
   })
 
-  // Keyboard shortcuts: Ctrl+F for find
+  editorRef.current = editor
+
+  // Expose the accept mechanic + caret viewport coords to the pills
+  // (mousedown accept path; popup anchored under the caret).
+  const caretCoords = useCallback(() => {
+    const e = editorRef.current
+    try {
+      if (!e || e.isDestroyed || !e.state.selection.empty) return null
+      return e.view.coordsAtPos(e.state.selection.from)
+    } catch {
+      return null
+    }
+  }, [])
+  useEffect(() => {
+    if (acApiRef) acApiRef.current = { accept: acceptSuggestion, caretCoords }
+  }, [acApiRef, acceptSuggestion, caretCoords])
+
+  // Arm / clear the inline ghost decoration. The plugin clears itself on
+  // ANY doc/selection change (stale ghosts never survive a keystroke);
+  // this effect re-arms once the suggestion hook settles. Meta-only
+  // transactions: no doc change, no history entry, no onUpdate loop.
+  useEffect(() => {
+    const e = editorRef.current
+    if (!e || e.isDestroyed) return
+    const s = acShowGhost && acSuggestions?.length
+      ? (acSuggestions[acActiveIndex || 0] || acSuggestions[0])
+      : null
+    const text = s ? (s.kind === 'snippet' ? s.text : s.completion) : null
+    const prev = autocompleteGhostKey.getState(e.state)
+    if (!text && !prev) return // feature off / nothing armed → zero work
+    if (text && prev && prev.text === text) return
+    const tr = e.state.tr.setMeta(autocompleteGhostKey, text ? { text } : null)
+    tr.setMeta('addToHistory', false)
+    e.view.dispatch(tr)
+  }, [acSuggestions, acActiveIndex, acShowGhost, editor])
+
+  // §7 accessibility: the ghost is aria-hidden; screen readers follow the
+  // popup listbox via aria-activedescendant on the editor's element.
+  useEffect(() => {
+    const dom = editor?.view?.dom
+    if (!dom) return
+    if (acListboxOpen) {
+      dom.setAttribute('aria-controls', 'autocomplete-listbox')
+      dom.setAttribute('aria-activedescendant', `autocomplete-option-${acActiveIndex || 0}`)
+    } else {
+      dom.removeAttribute('aria-controls')
+      dom.removeAttribute('aria-activedescendant')
+    }
+  }, [editor, acListboxOpen, acActiveIndex])
+
+  // IME composition guard: never query mid-composition (uk keyboards are
+  // fine, but dead-key/IME input must not see half-composed tokens).
+  useEffect(() => {
+    const dom = editor?.view?.dom
+    if (!dom) return
+    const start = () => { composingRef.current = true; caretCbRef.current?.(null) }
+    const end = () => {
+      composingRef.current = false
+      if (editorRef.current) reportCaretContext(editorRef.current)
+    }
+    dom.addEventListener('compositionstart', start)
+    dom.addEventListener('compositionend', end)
+    return () => {
+      dom.removeEventListener('compositionstart', start)
+      dom.removeEventListener('compositionend', end)
+    }
+  }, [editor, reportCaretContext])
+
+  // Keyboard shortcuts: Ctrl+F for find. (Autocomplete keys are handled at
+  // the editor level in handleAcKeyDown — never globally.)
   useEffect(() => {
     const onKey = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault()
         setShowFR(s => !s)
       }
-      // Sprint 10: Tab accepts ghost, Esc dismisses
-      if (autocompleteGhost && e.key === 'Tab') {
-        e.preventDefault()
-        onAutocompleteAccept?.()
-      }
-      if (autocompleteGhost && e.key === 'Escape') {
-        onAutocompleteDismiss?.()
-      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [autocompleteGhost, onAutocompleteAccept, onAutocompleteDismiss])
+  }, [])
 
   // Navigate to active section when activeId changes externally
   useEffect(() => {
@@ -394,8 +599,23 @@ export function TipTapEditor({
     const prevTo = editor.state.selection.to
     const newDoc = bodyToDoc(tmpl, body, lang)
     editor.commands.setContent(newDoc, false) // false = don't re-emit onUpdate
-    // Restore the caret roughly where it was, clamped to the new doc size.
     try {
+      if (dictating && activeId) {
+        // Dictation append: park the caret at the insertion point (end of the
+        // active section's text) and keep it in view, so the user always sees
+        // where the next utterance lands.
+        let target = null
+        editor.state.doc.forEach((node, pos) => {
+          if (node.type.name === 'section' && node.attrs.id === activeId) {
+            target = pos + node.nodeSize - 2 // end of the section's last block
+          }
+        })
+        if (target != null) {
+          editor.chain().setTextSelection(Math.max(1, target)).scrollIntoView().run()
+          return
+        }
+      }
+      // Otherwise restore the caret roughly where it was, clamped to the new doc.
       const size = editor.state.doc.content.size
       editor.commands.setTextSelection(Math.min(prevTo, Math.max(1, size - 1)))
     } catch {}
@@ -429,7 +649,7 @@ export function TipTapEditor({
   const sectionHeaders = template?.sections || []
 
   return (
-    <div className="tiptap-wrapper">
+    <div className={"tiptap-wrapper" + (dictating ? " dictating" : "")}>
       {showFR && (
         <FindReplace editor={editor} onClose={() => setShowFR(false)} lang={lang} />
       )}
@@ -453,14 +673,8 @@ export function TipTapEditor({
           </div>
 
           <EditorContent editor={editor} className="tiptap-content" />
-
-          {/* Ghost text overlay for autocomplete (Layer A) */}
-          {autocompleteGhost && (
-            <div className="autocomplete-ghost-hint" aria-live="polite">
-              <span className="autocomplete-ghost-text">{autocompleteGhost}</span>
-              <span className="autocomplete-ghost-key">Tab</span>
-            </div>
-          )}
+          {/* Ghost text (Layer A) renders INSIDE the document as a widget
+              decoration at the caret — see extensions/AutocompleteGhost.js. */}
         </div>
       </div>
     </div>

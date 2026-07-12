@@ -40,7 +40,8 @@ Base URLs are configured in `.env` (see `.env.example`) and resolved in
 | `asr`       | `VITE_ASR_SERVICE_URL`        | `http://localhost:8001`  | Batch transcription jobs, prompts                          |
 | `dictation` | `VITE_DICTATION_SERVICE_URL`  | `http://localhost:8002`  | Live dictation WS, sessions, finalize                     |
 | `core`      | `VITE_CORE_SERVICE_URL`       | `http://localhost:8003`  | Clinical/EHR: patients, encounters, consents, anamnesis, notes, reports, templates, signing |
-| `nlp`       | `VITE_NLP_SERVICE_URL`        | `http://localhost:8005`  | Text processing, abbreviations, autocomplete suggestions  |
+| `nlp`       | `VITE_NLP_SERVICE_URL`        | `http://localhost:8005`  | Text processing, abbreviations                             |
+| `autocomplete` | `VITE_AUTOCOMPLETE_SERVICE_URL` | `http://localhost:8007` | Phrase/snippet suggestions, phrase CRUD, usage telemetry |
 
 Keycloak (`VITE_KEYCLOAK_*`) backs the auth realm and the "forgot password"
 deep-link only.
@@ -153,7 +154,40 @@ wiring:
   + scripted polling, `MOCK_CERTS`, `MOCK_SNIPPETS`, `FALLBACK_PROMPTS`, the
   simulated report audio playhead, the hardcoded `2026-05-14` "now", and
   hardcoded patient/signer identities.
-- Autocomplete (ghost text + pills) now calls `POST /nlp/suggest`; voice
-  commands resolve against `src/dictation/voiceCommands.js`; signing and
-  verification call the real signing service.
+- Autocomplete (ghost text + pills, sprint 10) calls the autocomplete-service
+  (`POST /autocomplete/suggest` on :8007) with the token being typed
+  (`src/autocomplete/prefix.js`) — the wire model is `extra="forbid"` with an
+  80-char prefix cap. Accepts insert the returned `completion` (phrases) or
+  replace the typed `/trigger` with the expansion at `cursor_offset`
+  (snippets) as ONE undo step inside the TipTap editor. Voice commands
+  resolve against `src/dictation/voiceCommands.js`; signing and verification
+  call the real signing service.
+
+  Rendering (step 03): ghost text is a ProseMirror widget decoration at
+  the caret (`src/extensions/AutocompleteGhost.js`) — in the text flow,
+  document font metrics, `aria-hidden`, cleared by any doc/selection
+  change; nothing ever enters the document until accept. The pills popup
+  is anchored under the caret (`view.coordsAtPos`, viewport-clamped,
+  flips near the bottom edge) and `aria-activedescendant` on the editor
+  element tracks the active option.
+
+  Editor keyboard protocol (suggestions visible → key consumed, otherwise
+  the editor default wins — Tab has no other binding in the editor):
+  `Tab` accept active · `Alt+1/2/3` accept by index · `Esc` dismiss ·
+  `ArrowDown` cycle + arm explicit selection · `Enter` accepts ONLY after
+  ArrowDown armed it (plain Enter stays a newline). Suggestions are off
+  while dictation is listening; the transcript stream owns insertion.
+
+  Latency budget: recently answered prefixes are served from an LRU memo
+  (synchronous, original `request_id` kept so telemetry stays joinable);
+  a response slower than 300 ms is never rendered — it lands in the memo
+  and is reported as a `timeout` telemetry event. Failures are silent
+  (no toast, no ghost, typing untouched) and 3 consecutive failures open
+  a 15 s query backoff so a dead service is never hammered per keystroke.
+  The right-rail settings are live and persist per user
+  (localStorage `mdx.ac.prefs.v1.<sub>`): a master "Підказки під час
+  набору" switch (OFF ⇒ no queries, no rendering, no telemetry, no Tab
+  interception), ghost/pills toggles, per-source visibility (system /
+  clinic / my phrases), and a sensitivity slider (min typed chars before
+  a phrase query: 5 / 3 / 2).
 # dictat
