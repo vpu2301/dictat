@@ -1144,6 +1144,15 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     // tick is what desyncs the optimistic-lock version (→ 409). The autosave
     // effect reschedules once this one finishes if the doc is still dirty.
     if (savingRef.current) return;
+    // Never CREATE a report for an empty document. Save triggers with nothing
+    // dictated yet (Cmd+S, the footer button, "зберегти" as a voice command,
+    // an abandoned session) would otherwise strand an empty orphan draft —
+    // each one its own row in the reports list, so a finalized document
+    // appeared to coexist with draft twins of itself.
+    if (!reportIdRef.current && !Object.values(body).some(v => (v || "").trim())) {
+      setSaveState("saved");
+      return;
+    }
     // No report yet and no patient id: nothing to persist safely. Keep the doc
     // dirty so autosave retries once the patient resolves (the backend
     // hard-requires patient_id — a create without it 422s).
