@@ -2159,3 +2159,72 @@ kbd {
   padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 500;
   box-shadow: var(--shadow-3); z-index: 200;
 }
+
+/* ── Dictate home: quick-start template tiles ─────────────────────────── */
+/* Same language as the Templates page cards (.tpl-card): surface tile,
+   soft-tinted specialty icon, name + code/specialty sub-line, accent hover.
+   The mic affordance reveals on hover — the tile starts a dictation. */
+.qs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.qs-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-lg);
+  padding: 13px 15px;
+  text-align: left; cursor: pointer;
+  transition: background .15s;
+}
+.qs-card:hover { background: var(--dictate-soft); }
+.qs-card:hover .tpl-card-icon { background: var(--surface); }
+.qs-card-meta { flex: 1; min-width: 0; }
+.qs-card .tpl-card-name { margin-bottom: 3px; }
+.qs-card-sub {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted);
+  white-space: nowrap; overflow: hidden;
+}
+.qs-card-sub .chip { font-size: 11px; flex: none; }
+.qs-card-go {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 8px; flex: none;
+  color: var(--muted);
+  opacity: 0; transition: opacity .12s;
+}
+.qs-card:hover .qs-card-go { opacity: 1; color: var(--dictate); background: var(--surface); }
+@media (max-width: 1100px) { .qs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px)  { .qs-grid { grid-template-columns: 1fr; } }
+
+/* Quick-start palette modal: search on top, grouped tile list below. */
+.qs-search {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line-2);
+}
+.qs-search-icon { color: var(--muted); flex: none; }
+.qs-search input {
+  flex: 1; min-width: 0;
+  border: 0; outline: none; background: transparent;
+  font-size: 15px; color: var(--text-1);
+}
+.qs-search input::placeholder { color: var(--muted); }
+.qs-modal-body {
+  max-height: 56vh; overflow-y: auto;
+  padding: 6px 8px 10px;
+}
+.qs-group { padding-top: 6px; }
+.qs-group-label {
+  padding: 6px 10px 4px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted);
+}
+.qs-modal-body .qs-card { width: 100%; margin-bottom: 4px; background: transparent; }
+.qs-modal-body .qs-card:hover,
+.qs-modal-body .qs-card.active { background: var(--dictate-soft); }
+.qs-card.active .tpl-card-icon { background: var(--surface); }
+.qs-card.active .qs-card-go { opacity: 1; color: var(--dictate); background: var(--surface); }
+.qs-hint { font-size: 11.5px; font-family: var(--mono); }

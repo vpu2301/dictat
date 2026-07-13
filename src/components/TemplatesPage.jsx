@@ -34,7 +34,8 @@ const TEMPLATE_PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
 // Seeded specialties (§7) for the filter dropdown — stable regardless of the
 // active server-side filter. Backend specialty is a free slug; unknown values
 // still render (raw) in the list, this just powers the picker.
-const SPECIALTIES = [
+// Exported for the Dictate home quick-start tiles (same label vocabulary).
+export const SPECIALTIES = [
   ["cardiology",          "Кардіологія",      "Cardiology"],
   ["family_medicine",     "Сімейна медицина", "Family medicine"],
   ["emergency_department","Невідкладна",      "Emergency dept."],
