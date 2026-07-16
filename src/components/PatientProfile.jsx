@@ -1,10 +1,14 @@
-// PatientProfile.jsx — Sprint 11: Enhanced patient profile (live data)
-import React, { useState } from 'react';
+// PatientProfile.jsx — Sprint 11: Enhanced patient profile (live data).
+// Step 03: identity header (full DOB is appropriate HERE — the year-only
+// rule is for lists) + the merged clinical feed via src/patients/feed.js.
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon, Modal, Empty } from './UI.jsx';
 import { Loading, asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { useAsync } from '../api/useAsync.js';
-import { getPatient, getPatientTimeline } from '../api/patients.js';
+import { getPatient, getPatientTimeline, updatePatient } from '../api/patients.js';
+import { mergeFeed } from '../patients/feed.js';
+import { PatientFormModal } from '../patients/PatientDirectory.jsx';
 import { listEncounters, createEncounter } from '../api/encounters.js';
 import { listConsents, withdrawConsent } from '../api/consents.js';
 import { listNotes } from '../api/notes.js';
@@ -271,18 +275,20 @@ export function EraseModal({ lang, patientName: pName, onClose, onConfirm }) {
 // ─── EncounterModal ───────────────────────────────────────────────────────────
 
 export function EncounterModal({ lang, onClose, onSave }) {
-  const [kind, setKind] = useState("follow-up");
+  const [kind, setKind] = useState("visit");
   const [datetime, setDatetime] = useState(new Date().toISOString().slice(0, 16));
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
+  // The as-built EncounterKind enum — anything else 422s (extra="forbid"
+  // service; the old free-form values like "follow-up" never saved).
   const kindOptions = [
-    { value: "follow-up", uk: "Повторний прийом", en: "Follow-up" },
-    { value: "initial",   uk: "Первинний прийом", en: "Initial visit" },
-    { value: "urgent",    uk: "Невідкладний прийом", en: "Urgent" },
-    { value: "procedure", uk: "Процедура", en: "Procedure" },
-    { value: "phone",     uk: "Телефонна консультація", en: "Phone consultation" },
+    { value: "visit",    uk: "Візит",                  en: "Visit" },
+    { value: "followup", uk: "Повторний прийом",       en: "Follow-up" },
+    { value: "phone",    uk: "Телефонна консультація", en: "Phone consultation" },
+    { value: "video",    uk: "Відеоконсультація",      en: "Video consultation" },
+    { value: "other",    uk: "Інше",                   en: "Other" },
   ];
 
   const save = async () => {
@@ -329,7 +335,9 @@ export function EncounterModal({ lang, onClose, onSave }) {
 // ─── Anamnesis summary tab ──────────────────────────────────────────────────────
 
 function AnamnesisTab({ data, lang }) {
-  if (!data) {
+  // As-built AnamnesisOut is { patient_id, record, updated_at } — callers
+  // pass `record`; an empty {} record means "not filled in yet".
+  if (!data || !Object.keys(data).length) {
     return <div style={{ padding: 24 }}><Empty icon="user" title={lang === "uk" ? "Анамнез не заповнено" : "No anamnesis data"} /></div>;
   }
   const medCount = data.medications?.length || 0;
@@ -366,6 +374,34 @@ function AnamnesisTab({ data, lang }) {
 
 // ─── EnhancedScribePatient ────────────────────────────────────────────────────
 
+// In-memory page-state cache (tab / scroll / feed window) so browser-back
+// within a session lands where the clinician left off. Deliberately a module
+// Map, NEVER storage — hygiene: patient-adjacent state must not persist.
+const pageStateCache = new Map();
+
+const TAB_IDS = ["timeline", "encounters", "notes", "reports", "recordings", "anamnesis", "conversations", "consents"];
+const FEED_PAGE = 30;
+
+// ?tab= is the ONE allowed query param on this route: a closed enum, never
+// free text (deep links stay non-identifying — the id is an opaque UUID).
+function initialTabFromHash() {
+  const m = (typeof location !== "undefined" ? location.hash : "").match(/[?&]tab=([a-z]+)/);
+  return m && TAB_IDS.includes(m[1]) ? m[1] : null;
+}
+
+function fmtDur(s) {
+  if (s == null) return "";
+  const total = Math.round(s);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+const CONSENT_METHOD_LABEL = {
+  verbal:  { uk: "Вербально", en: "Verbal" },
+  digital: { uk: "Цифровий підпис", en: "Digital signature" },
+  written: { uk: "Письмово", en: "Written" },
+  kiosk:   { uk: "Кіоск", en: "Kiosk" },
+};
+
 export function EnhancedScribePatient({ id, navigate, lang }) {
   const patientReq = useAsync(() => getPatient(id), [id]);
   const tlReq      = useAsync(() => getPatientTimeline(id), [id]);
@@ -374,11 +410,30 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   const notesReq   = useAsync(() => listNotes({ patient_id: id }), [id]);
   const anamReq    = useAsync(() => getAnamnesis(id), [id]);
 
-  const [tab, setTab] = useState("timeline");
+  const cached = pageStateCache.get(id);
+  const [tab, setTab] = useState(() => initialTabFromHash() || cached?.tab || "timeline");
+  const [feedLimit, setFeedLimit] = useState(cached?.feedLimit || FEED_PAGE);
   const [dsarOpen, setDsarOpen] = useState(false);
   const [eraseOpen, setEraseOpen] = useState(false);
   const [encounterOpen, setEncounterOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [groupCollapsed, setGroupCollapsed] = useState({});
+
+  // Save page state on unmount (refs so the cleanup sees current values).
+  const stateRef = useRef({ tab, feedLimit });
+  stateRef.current = { tab, feedLimit };
+  useEffect(() => () => {
+    pageStateCache.set(id, { ...stateRef.current, scrollY: window.scrollY });
+  }, [id]);
+  // Restore scroll once, after the first data lands.
+  const restoredRef = useRef(false);
+  const feedReady = !tlReq.loading || !encReq.loading;
+  useEffect(() => {
+    if (restoredRef.current || !feedReady) return;
+    restoredRef.current = true;
+    if (cached?.scrollY) requestAnimationFrame(() => window.scrollTo(0, cached.scrollY));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedReady]);
 
   if (patientReq.loading) return <div className="page wide"><Loading lang={lang} /></div>;
   if (patientReq.error)   return <div className="page wide"><ApiErrorView error={patientReq.error} lang={lang} /></div>;
@@ -389,25 +444,32 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   const encounters = asList(encReq.data);
   const consents   = asList(conReq.data);
   const notes      = asList(notesReq.data);
-  const anamnesis  = anamReq.data;
+  const anamnesis  = anamReq.data?.record;
   const allergies  = anamnesis?.allergies || [];
 
-  const reportItems = timeline.filter(t => t.kind === "dictate");
-  const scribeItems = timeline.filter(t => t.kind === "scribe");
+  const reportItems    = timeline.filter(t => t.kind === "dictate");
+  const scribeItems    = timeline.filter(t => t.kind === "scribe");
+  const recordingItems = timeline.filter(t => t.kind === "recording");
 
-  // Unified, date-sorted timeline.
-  const tlItems = [
-    ...encounters.map(e => ({ ...e, _type: "encounter", _date: e.date })),
-    ...timeline.map(t => ({ id: t.id, date: t.date, kind: t.kind, title: t.title, by: t.by, status: t.status,
-      _type: t.kind === "scribe" ? "conversation" : "report", _date: t.date })),
-    ...notes.map(n => ({ ...n, _type: "note", _date: n.date || n.created_at })),
-    ...consents.map(c => ({ ...c, _type: "consent", _date: c.date })),
-  ].sort((a, b) => new Date(b._date) - new Date(a._date));
+  // The SPA-owned merge (src/patients/feed.js — pure, unit-tested). A source
+  // that failed or is still loading contributes nothing; its rows appear
+  // when it settles. One failing source degrades its tab, never the page.
+  const feed = mergeFeed({ timeline, encounters, notes, consents });
+  const visibleFeed = feed.slice(0, feedLimit);
+
+  const feedSources = [
+    { req: tlReq,    uk: "звіти й записи", en: "reports & recordings" },
+    { req: encReq,   uk: "прийоми",        en: "encounters" },
+    { req: notesReq, uk: "нотатки",        en: "notes" },
+    { req: conReq,   uk: "згоди",          en: "consents" },
+  ];
+  const failedSources = feedSources.filter(s => s.req.error);
+  const allFeedLoading = feedSources.every(s => s.req.loading);
 
   const groupOrder = [];
   const groups = {};
-  tlItems.forEach(item => {
-    const gk = getGroupKey(item._date);
+  visibleFeed.forEach(item => {
+    const gk = getGroupKey(item.date || 0);
     if (!groups[gk]) { groups[gk] = []; groupOrder.push(gk); }
     groups[gk].push(item);
   });
@@ -417,21 +479,25 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   const toggleGroup = (gk) => setGroupCollapsed(prev => ({ ...prev, [gk]: !isCollapsed(gk) }));
 
   const tabCounts = {
-    timeline: tlItems.length,
+    timeline: feed.length,
+    encounters: encounters.length,
     notes: notes.length,
     reports: reportItems.length,
+    recordings: recordingItems.length,
     anamnesis: null,
     conversations: scribeItems.length,
     consents: consents.length,
   };
 
   const tabDefs = [
-    { id: "timeline",      icon: "clock",    uk: "Часова шкала", en: "Timeline" },
-    { id: "notes",         icon: "fileText", uk: "Нотатки",      en: "Notes" },
+    { id: "timeline",      icon: "clock",    uk: "Усе",          en: "All" },
+    { id: "encounters",    icon: "calendar", uk: "Прийоми",      en: "Encounters" },
     { id: "reports",       icon: "scan",     uk: "Звіти",        en: "Reports" },
-    { id: "anamnesis",     icon: "heart",    uk: "Анамнез",      en: "Anamnesis" },
+    { id: "recordings",    icon: "audio",    uk: "Записи",       en: "Recordings" },
+    { id: "notes",         icon: "fileText", uk: "Нотатки",      en: "Notes" },
     { id: "conversations", icon: "mic",      uk: "Розмови",      en: "Conversations" },
     { id: "consents",      icon: "shield",   uk: "Згоди",        en: "Consents" },
+    { id: "anamnesis",     icon: "heart",    uk: "Анамнез",      en: "Anamnesis" },
   ];
 
   const handleDsar = async ({ reason }) => { await requestDsar(id, { reason }); setDsarOpen(false); };
@@ -442,46 +508,68 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
     encReq.reload(); tlReq.reload();
   };
   const handleWithdraw = async (c) => { await withdrawConsent(id, c.id); conReq.reload(); };
+  const handleEditSave = async (body) => {
+    await updatePatient(id, body);
+    setEditOpen(false);
+    patientReq.reload();
+  };
 
-  function renderTimelineItem(item) {
+  const deceased = patient.status === "deceased";
+
+  function renderFeedItem(item) {
     const typeMap = {
-      encounter:    { icon: "mic",      chipClass: "scribe",   label: lang === "uk" ? "Прийом"  : "Encounter" },
-      report:       { icon: "scan",     chipClass: "dictate",  label: lang === "uk" ? "Звіт"    : "Report" },
-      note:         { icon: "fileText", chipClass: "",         label: lang === "uk" ? "Нотатка" : "Note" },
-      conversation: { icon: "mic",      chipClass: "scribe",   label: lang === "uk" ? "Розмова" : "Conversation" },
-      consent:      { icon: "shield",   chipClass: "",         label: lang === "uk" ? "Згода"   : "Consent" },
+      encounter:    { icon: "calendar", chipClass: "scribe",  label: lang === "uk" ? "Прийом"  : "Encounter" },
+      report:       { icon: "scan",     chipClass: "dictate", label: lang === "uk" ? "Звіт"    : "Report" },
+      recording:    { icon: "audio",    chipClass: "scribe",  label: lang === "uk" ? "Запис"   : "Recording" },
+      note:         { icon: "fileText", chipClass: "",        label: lang === "uk" ? "Нотатка" : "Note" },
+      conversation: { icon: "mic",      chipClass: "scribe",  label: lang === "uk" ? "Розмова" : "Conversation" },
+      consent:      { icon: "shield",   chipClass: "",        label: lang === "uk" ? "Згода"   : "Consent" },
     };
-    const t = typeMap[item._type] || { icon: "clock", chipClass: "", label: item._type };
+    const t = typeMap[item.type];
 
-    const handleClick = () => {
-      if (item._type === "conversation") navigate(`/scribe/consult/${item.id}`);
-      else if (item._type === "report")  navigate(`/dictate/reports/${item.id}`);
-      else if (item._type === "note")    navigate(`/scribe/notes/${item.id}`);
-      else if (item._type === "encounter") setEncounterOpen(true);
+    // Deep links: every artifact opens its existing screen; encounter /
+    // recording / consent context lives in this page's own tabs (recordings
+    // carry metadata only — there is deliberately no media URL to open).
+    const links = {
+      conversation: () => navigate(`/scribe/consult/${item.id}`),
+      report:       () => navigate(`/dictate/reports/${item.id}`),
+      note:         () => navigate(`/scribe/notes/${item.id}`),
+      consent:      () => setTab("consents"),
+      recording:    () => setTab("recordings"),
+      encounter:    () => setTab("encounters"),
     };
 
-    const displayTitle = loc(item.title, lang) || loc(item.reason, lang) || `${t.label} — ${fmtDate(item._date, lang)}`;
+    const displayTitle =
+      item.type === "recording" ? `${t.label}${item.duration_s != null ? ` · ${fmtDur(item.duration_s)}` : ""}`
+      : item.type === "consent" ? consentLine(item.raw, lang)
+      : loc(item.title, lang) || `${t.label} — ${fmtDate(item.date, lang)}`;
     const statusLabel = item.status
-      ? ({ live: lang === "uk" ? "наживо" : "live", draft: lang === "uk" ? "чернетка" : "draft", signed: lang === "uk" ? "підписано" : "signed", granted: lang === "uk" ? "надано" : "granted", declined: lang === "uk" ? "відхилено" : "declined", withdrawn: lang === "uk" ? "відкликано" : "withdrawn" })[item.status] || item.status
+      ? ({ live: lang === "uk" ? "наживо" : "live", draft: lang === "uk" ? "чернетка" : "draft",
+           signed: lang === "uk" ? "підписано" : "signed", granted: lang === "uk" ? "надано" : "granted",
+           withdrawn: lang === "uk" ? "відкликано" : "withdrawn",
+           completed: lang === "uk" ? "завершено" : "completed",
+           in_progress: lang === "uk" ? "триває" : "in progress",
+           scheduled: lang === "uk" ? "заплановано" : "scheduled",
+           cancelled: lang === "uk" ? "скасовано" : "cancelled" })[item.status] || item.status
       : null;
 
     return (
-      <div key={item.id} className={`tl-row tl-type-${item._type}`} onClick={handleClick}
+      <div key={item.key} className={`tl-row tl-type-${item.type}`} onClick={links[item.type]}
         style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", cursor: "pointer", borderBottom: "1px solid var(--line-2)" }}>
-        <div className={`tl-dot tl-type-${item._type}`}><Icon name={t.icon} size={12} /></div>
+        <div className={`tl-dot tl-type-${item.type}`}><Icon name={t.icon} size={12} /></div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {t.chipClass && <span className={`chip ${t.chipClass}`}>{t.label}</span>}
             <strong style={{ fontSize: 13.5, color: "var(--text-1)" }}>{displayTitle}</strong>
             {statusLabel && (
-              <span className={`chip ${item.status === "live" ? "live" : item.status === "signed" || item.status === "granted" ? "signed" : item.status === "draft" || item.status === "declined" ? "draft" : ""}`}>
+              <span className={`chip ${item.status === "live" ? "live" : ["signed", "granted", "completed"].includes(item.status) ? "signed" : ["draft", "in_progress"].includes(item.status) ? "draft" : ""}`}>
                 {statusLabel}
               </span>
             )}
           </div>
           <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
             {item.by && <>{item.by} · </>}
-            {fmtDate(item._date, lang)}, {fmtTime(item._date, lang)}
+            {fmtDate(item.date, lang)}{item.date ? `, ${fmtTime(item.date, lang)}` : ""}
           </div>
         </div>
         <Icon name="chevRight" size={14} />
@@ -489,15 +577,26 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
     );
   }
 
+  const listShell = (children) => (
+    <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--radius)", overflow: "hidden" }}>{children}</div>
+  );
+
   return (
     <div className="page wide">
-      {/* Profile header */}
+      {/* Profile header — full identity is appropriate on the record itself */}
       <div className="ph-card">
         <PatientAvatar patient={patient} lang={lang} size={56} />
         <div className="ph-meta">
           <div className="ph-name">
             {patientName(patient, lang)}
-            <span className="chip">{(patient.age ?? calcAge(patient.dob)) ?? "—"} {lang === "uk" ? "р." : "y"} · {patient.sex}</span>
+            <span className="chip">{(calcAge(patient.dob)) ?? "—"} {lang === "uk" ? "р." : "y"} · {patient.sex}</span>
+            {patient.status === "inactive" && <span className="pdir-badge inactive">{lang === "uk" ? "архів" : "archived"}</span>}
+            {deceased && <span className="pdir-badge deceased">{lang === "uk" ? "помер(ла)" : "deceased"}</span>}
+            {patient.has_ipn && (
+              <span className="pdir-ipn-chip" title={lang === "uk" ? "ІПН збережено (номер не відображається)" : "ІПН on file (number never shown)"}>
+                <Icon name="shield" size={11} /> ІПН
+              </span>
+            )}
             {allergies.length > 0 && (
               <span className="allergy-chip">
                 <Icon name="flag" size={11} />
@@ -508,21 +607,28 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
           <div className="ph-sub">
             <span className="pmono">{patient.mrn}</span>
             {patient.dob && <><span>·</span><span>{lang === "uk" ? "Народж." : "DOB"}: {patient.dob}</span></>}
-            {patient.summary && <><span>·</span><span>{loc(patient.summary, lang)}</span></>}
+            {patient.summary && loc(patient.summary, lang) && <><span>·</span><span>{loc(patient.summary, lang)}</span></>}
           </div>
           <div className="ph-tags">
             {(patient.tags || []).map((t, i) => <span key={i} className="chip">{t}</span>)}
           </div>
         </div>
         <div className="ph-actions">
+          <button className="btn ghost sm" onClick={() => setEditOpen(true)}>
+            <Icon name="edit" size={13} /> {lang === "uk" ? "Редагувати" : "Edit"}
+          </button>
           <button className="btn ghost sm" onClick={() => setDsarOpen(true)}><Icon name="download" size={13} /> DSAR</button>
           <button className="btn ghost sm" style={{ color: "var(--rec)", borderColor: "color-mix(in srgb, var(--rec) 30%, transparent)" }} onClick={() => setEraseOpen(true)}>
             <Icon name="flag" size={13} /> {lang === "uk" ? "Видалити дані" : "Schedule erasure"}
           </button>
-          <button className="btn ghost sm" onClick={() => navigate(`/dictate/studio?patient=${id}`)}>
+          <button className="btn ghost sm" disabled={deceased}
+            title={deceased ? (lang === "uk" ? "Пацієнт позначений як померлий" : "Patient is marked deceased") : undefined}
+            onClick={() => navigate(`/dictate/studio?patient=${id}`)}>
             <Icon name="fileText" size={13} /> {lang === "uk" ? "Диктувати звіт" : "Dictate report"}
           </button>
-          <button className="btn accent" onClick={() => navigate(`/scribe/consult/new?patient=${id}`)}>
+          <button className="btn accent" disabled={deceased}
+            title={deceased ? (lang === "uk" ? "Пацієнт позначений як померлий" : "Patient is marked deceased") : undefined}
+            onClick={() => navigate(`/scribe/consult/new?patient=${id}`)}>
             <Icon name="mic" size={13} /> {lang === "uk" ? "Розпочати запис" : "Start recording"}
           </button>
         </div>
@@ -539,12 +645,19 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
         ))}
       </div>
 
-      {/* Timeline tab */}
+      {/* Merged feed ("Усе") */}
       {tab === "timeline" && (
         <div style={{ marginTop: 16 }}>
-          {(tlReq.loading || encReq.loading || conReq.loading || notesReq.loading) && <Loading lang={lang} />}
-          {tlReq.error && <ApiErrorView error={tlReq.error} lang={lang} />}
-          {!tlReq.loading && groupOrder.length === 0 && (
+          {failedSources.length > 0 && (
+            <div className="tl-source-warn" role="alert">
+              <Icon name="flag" size={13} />
+              {lang === "uk"
+                ? `Не вдалося завантажити: ${failedSources.map(s => s.uk).join(", ")} — решта стрічки актуальна.`
+                : `Failed to load: ${failedSources.map(s => s.en).join(", ")} — the rest of the feed is current.`}
+            </div>
+          )}
+          {allFeedLoading && <Loading lang={lang} />}
+          {!allFeedLoading && feed.length === 0 && failedSources.length === 0 && (
             <Empty icon="clock" title={lang === "uk" ? "Немає записів" : "No history yet"} />
           )}
           {groupOrder.map(gk => (
@@ -557,10 +670,54 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                 <Icon name="chevDown" size={13} className="tl-group-chevron" style={{ marginLeft: "auto", transform: isCollapsed(gk) ? "rotate(-90deg)" : undefined }} />
               </div>
               <div className={`tl-group-body ${isCollapsed(gk) ? "collapsed" : ""}`}>
-                {groups[gk].map(item => renderTimelineItem(item))}
+                {groups[gk].map(item => renderFeedItem(item))}
               </div>
             </div>
           ))}
+          {feed.length > feedLimit && (
+            <div className="pdir-more">
+              <button type="button" className="btn" onClick={() => setFeedLimit(l => l + FEED_PAGE)}>
+                {lang === "uk" ? "Показати ще" : "Show more"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Encounters tab */}
+      {tab === "encounters" && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+            <button className="btn accent sm" onClick={() => setEncounterOpen(true)}>
+              <Icon name="plus" size={13} /> {lang === "uk" ? "Новий прийом" : "New encounter"}
+            </button>
+          </div>
+          {encReq.error ? <ApiErrorView error={encReq.error} lang={lang} />
+            : encReq.loading ? <Loading lang={lang} />
+            : encounters.length === 0 ? (
+              <Empty icon="calendar" title={lang === "uk" ? "Ще немає прийомів" : "No encounters yet"}
+                body={lang === "uk" ? "Почніть перший прийом кнопкою вище" : "Start the first one with the button above"} />
+            ) : listShell(
+              encounters.map((e, i, arr) => (
+                <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-2)" : "none" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon name="calendar" size={13} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>
+                      {e.reason || (lang === "uk" ? "Без причини" : "No reason recorded")}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                      {e.kind} · {fmtDate(e.occurred_at, lang)}, {fmtTime(e.occurred_at, lang)}
+                    </div>
+                  </div>
+                  <span className={`chip ${e.status === "completed" ? "signed" : e.status === "in_progress" ? "live" : "draft"}`}>
+                    {({ completed: lang === "uk" ? "завершено" : "completed", in_progress: lang === "uk" ? "триває" : "in progress",
+                        scheduled: lang === "uk" ? "заплановано" : "scheduled", cancelled: lang === "uk" ? "скасовано" : "cancelled" })[e.status] || e.status}
+                  </span>
+                </div>
+              ))
+            )}
         </div>
       )}
 
@@ -572,11 +729,12 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
               <Icon name="plus" size={13} /> {lang === "uk" ? "Нова нотатка" : "New note"}
             </button>
           </div>
-          {notesReq.loading ? <Loading lang={lang} /> : notes.length === 0 ? (
-            <Empty icon="fileText" title={lang === "uk" ? "Нотаток немає" : "No notes yet"} />
-          ) : (
-            <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-              {notes.map((n, i) => (
+          {notesReq.error ? <ApiErrorView error={notesReq.error} lang={lang} />
+            : notesReq.loading ? <Loading lang={lang} />
+            : notes.length === 0 ? (
+              <Empty icon="fileText" title={lang === "uk" ? "Нотаток немає" : "No notes yet"} />
+            ) : listShell(
+              notes.map((n, i) => (
                 <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < notes.length - 1 ? "1px solid var(--line-2)" : "none", cursor: "pointer" }}
                   onClick={() => navigate(`/scribe/notes/${n.id}`)}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -584,27 +742,27 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>{loc(n.title, lang)}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{n.structure || n.template} · {fmtDate(n.date || n.created_at, lang)}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{n.structure} · {fmtDate(n.created_at, lang)}</div>
                   </div>
                   <span className={`chip ${n.status === "signed" ? "signed" : n.status === "draft" ? "draft" : ""}`}>
                     {n.status === "signed" ? (lang === "uk" ? "підписано" : "signed") : n.status === "draft" ? (lang === "uk" ? "чернетка" : "draft") : n.status}
                   </span>
                   <Icon name="chevRight" size={14} />
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
         </div>
       )}
 
       {/* Reports tab */}
       {tab === "reports" && (
         <div style={{ marginTop: 16 }}>
-          {tlReq.loading ? <Loading lang={lang} /> : reportItems.length === 0 ? (
-            <Empty icon="scan" title={lang === "uk" ? "Звітів немає" : "No reports yet"} />
-          ) : (
-            <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-              {reportItems.map((rep, i, arr) => (
+          {tlReq.error ? <ApiErrorView error={tlReq.error} lang={lang} />
+            : tlReq.loading ? <Loading lang={lang} />
+            : reportItems.length === 0 ? (
+              <Empty icon="scan" title={lang === "uk" ? "Звітів немає" : "No reports yet"} />
+            ) : listShell(
+              reportItems.map((rep, i, arr) => (
                 <div key={rep.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-2)" : "none", cursor: "pointer" }}
                   onClick={() => navigate(`/dictate/reports/${rep.id}`)}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--dictate-soft,#ecebfb)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--dictate,#4338ca)" }}>
@@ -619,27 +777,63 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                   </span>
                   <Icon name="chevRight" size={14} />
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+        </div>
+      )}
+
+      {/* Recordings tab — metadata only; the backend deliberately exposes no
+          media URL here (audio access stays on the ASR surface) */}
+      {tab === "recordings" && (
+        <div style={{ marginTop: 16 }}>
+          {tlReq.error ? <ApiErrorView error={tlReq.error} lang={lang} />
+            : tlReq.loading ? <Loading lang={lang} />
+            : recordingItems.length === 0 ? (
+              <Empty icon="audio" title={lang === "uk" ? "Записів немає" : "No recordings yet"}
+                body={lang === "uk" ? "Записи з'являються після прийомів із диктуванням" : "Recordings appear after encounters with dictation"} />
+            ) : listShell(
+              recordingItems.map((rec, i, arr) => (
+                <div key={rec.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-2)" : "none" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--scribe-soft,#e6f4f1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--scribe,#0a8a7a)" }}>
+                    <Icon name="audio" size={13} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>
+                      {lang === "uk" ? "Запис" : "Recording"}{rec.duration_s != null ? ` · ${fmtDur(rec.duration_s)}` : ""}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                      {fmtDate(rec.date, lang)}, {fmtTime(rec.date, lang)}
+                      {rec.encounter_id && (
+                        <> · <button className="tl-enc-link" onClick={() => setTab("encounters")}>
+                          {lang === "uk" ? "до прийому" : "view encounter"}
+                        </button></>
+                      )}
+                    </div>
+                  </div>
+                  {rec.status && <span className="chip">{rec.status}</span>}
+                </div>
+              ))
+            )}
         </div>
       )}
 
       {/* Anamnesis tab */}
       {tab === "anamnesis" && (
         <div style={{ marginTop: 16 }}>
-          {anamReq.loading ? <Loading lang={lang} /> : <AnamnesisTab data={anamnesis} lang={lang} />}
+          {anamReq.error ? <ApiErrorView error={anamReq.error} lang={lang} />
+            : anamReq.loading ? <Loading lang={lang} /> : <AnamnesisTab data={anamnesis} lang={lang} />}
         </div>
       )}
 
       {/* Conversations tab */}
       {tab === "conversations" && (
         <div style={{ marginTop: 16 }}>
-          {tlReq.loading ? <Loading lang={lang} /> : scribeItems.length === 0 ? (
-            <Empty icon="mic" title={lang === "uk" ? "Розмов немає" : "No conversations yet"} />
-          ) : (
-            <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-              {scribeItems.map((conv, i, arr) => (
+          {tlReq.error ? <ApiErrorView error={tlReq.error} lang={lang} />
+            : tlReq.loading ? <Loading lang={lang} />
+            : scribeItems.length === 0 ? (
+              <Empty icon="mic" title={lang === "uk" ? "Розмов немає" : "No conversations yet"} />
+            ) : listShell(
+              scribeItems.map((conv, i, arr) => (
                 <div key={conv.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-2)" : "none", cursor: "pointer" }}
                   onClick={() => navigate(`/scribe/consult/${conv.id}`)}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--scribe-soft,#e6f4f1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--scribe,#0a8a7a)" }}>
@@ -654,9 +848,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                   </span>
                   <Icon name="chevRight" size={14} />
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
         </div>
       )}
 
@@ -668,22 +861,24 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
               <Icon name="plus" size={13} /> {lang === "uk" ? "Запит згоди" : "Request consent"}
             </button>
           </div>
-          {conReq.loading ? <Loading lang={lang} /> : consents.length === 0 ? (
-            <Empty icon="shield" title={lang === "uk" ? "Записів про згоду немає" : "No consent records"} />
-          ) : (
-            <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-              {consents.map((c) => (
+          {conReq.error ? <ApiErrorView error={conReq.error} lang={lang} />
+            : conReq.loading ? <Loading lang={lang} />
+            : consents.length === 0 ? (
+              <Empty icon="shield" title={lang === "uk" ? "Записів про згоду немає" : "No consent records"} />
+            ) : listShell(
+              consents.map((c) => (
                 <div key={c.id} className="consent-row">
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Icon name="shield" size={13} />
                   </div>
                   <div className="cr-meta">
-                    <div className="cr-type">
-                      {c.type === "ai_scribe" ? (lang === "uk" ? "AI-скрайб" : "AI Scribe") : c.type}
-                      {" · "}{c.method === "verbal" ? (lang === "uk" ? "Вербально" : "Verbal") : (lang === "uk" ? "Кіоск" : "Kiosk")}
-                      {" · v"}{c.version}
+                    <div className="cr-type">{consentLine(c, lang)}</div>
+                    <div className="cr-detail">
+                      {fmtDate(c.granted_at, lang)}
+                      {c.status === "withdrawn" && c.withdrawn_at && (
+                        <> · {lang === "uk" ? "відкликано" : "withdrawn"} {fmtDate(c.withdrawn_at, lang)}</>
+                      )}
                     </div>
-                    <div className="cr-detail">{fmtDate(c.date, lang)}</div>
                   </div>
                   <span className={`status-badge ${c.status}`}>
                     {({ granted: lang === "uk" ? "Надано" : "Granted", declined: lang === "uk" ? "Відхилено" : "Declined", withdrawn: lang === "uk" ? "Відкликано" : "Withdrawn" })[c.status] || c.status}
@@ -694,13 +889,16 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                     </button>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
         </div>
       )}
 
       {/* Modals */}
+      {editOpen && (
+        <PatientFormModal lang={lang} patient={patient} onClose={() => setEditOpen(false)}
+          onSave={handleEditSave} onOpenExisting={(pid) => { setEditOpen(false); navigate(`/scribe/patients/${pid}`); }} />
+      )}
       {dsarOpen && (
         <DsarModal lang={lang} patientName={patientName(patient, lang)} onClose={() => setDsarOpen(false)} onSubmit={handleDsar} />
       )}
@@ -712,4 +910,13 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
       )}
     </div>
   );
+}
+
+// One consistent "type · method · version" line for consent rows everywhere.
+function consentLine(c, lang) {
+  const type = c.type === "ai_scribe" ? (lang === "uk" ? "AI-скрайб" : "AI Scribe")
+    : c.type === "data_processing" ? (lang === "uk" ? "Обробка даних" : "Data processing")
+    : c.type;
+  const method = (CONSENT_METHOD_LABEL[c.method] || {})[lang] || c.method;
+  return `${type} · ${method}${c.version ? ` · v${c.version}` : ""}`;
 }

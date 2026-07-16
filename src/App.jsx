@@ -218,7 +218,8 @@ function App() {
     view = <PatientDirectory navigate={navigate} lang={lang} />;
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Пацієнти" : "Patients" }];
   } else if (r.startsWith("/scribe/patients/") || r.startsWith("/patients/")) {
-    const id = r.split("/")[r.startsWith("/scribe/") ? 3 : 2];
+    // ?tab= is the one allowed (enum) param on this route — strip it from the id
+    const id = r.split("/")[r.startsWith("/scribe/") ? 3 : 2]?.split("?")[0];
     view = <EnhancedScribePatient id={id} navigate={navigate} lang={lang} />;
     crumbs = [
       { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },

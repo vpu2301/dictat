@@ -1577,3 +1577,18 @@
   font-size: 13px;
 }
 .pdir-status-toggle button { text-transform: none; }
+
+/* ── Sprint 11 step 03 — patient page feed extras ───────────────────── */
+.tl-source-warn {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px; padding: 9px 12px;
+  border-radius: var(--radius, 8px);
+  background: var(--warn-soft, #fef3c7); color: var(--warn, #92400e);
+  font-size: 12.5px;
+}
+.tl-dot.tl-type-recording { background: var(--scribe-soft, #e6f4f1); color: var(--scribe, #0a8a7a); }
+.tl-dot.tl-type-encounter { background: var(--surface-2); color: var(--text-2); }
+.tl-enc-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--accent); font-size: 12px; text-decoration: underline;
+}
