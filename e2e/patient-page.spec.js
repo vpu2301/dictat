@@ -197,7 +197,7 @@ test("new encounter sends only as-built enum kinds", async ({ page }) => {
   await openPatient(page);
 
   await page.locator(".tabs .tab", { hasText: /Прийоми|Encounters/ }).click();
-  await page.getByRole("button", { name: /Новий прийом|New encounter/ }).click();
+  await page.getByRole("button", { name: /Додати без диктування|Log without dictation/ }).click();
   const modal = page.locator(".modal");
 
   const values = await modal.locator("select option").evaluateAll((os) => os.map((o) => o.value));

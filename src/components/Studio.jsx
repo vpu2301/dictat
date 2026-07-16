@@ -14,7 +14,8 @@ import { useAsync } from '../api/useAsync.js';
 import { getTemplate, toStudioTemplate } from '../api/templates.js';
 import { getStarredIds, toggleStar as toggleStarPref, getUsage, recordUse } from '../api/templatePrefs.js';
 import { createReport, updateReport, finalizeReport, downloadReportPdf, getReport } from '../api/reports.js';
-import { getPatient, listPatients } from '../api/patients.js';
+import { getPatient, listPatients, yearOfBirth } from '../api/patients.js';
+import { getEncounter, createEncounter } from '../api/encounters.js';
 import { asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { COMMANDS, segmentUtterance, appendUtterance, actionsOf, findBestSection, INSERT_OPS } from '../dictation/voiceCommands.js';
@@ -779,22 +780,51 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
 }
 
 // ── Editor toolbar (above editor) ──────────────────────────────────────
-function EditorToolbar({ saveState, lastSavedAt, patient }) {
-  const { t } = useI18n();
+// Patient identity moved to StudioContextBar (S11 step 04) — the toolbar
+// keeps only save state. The studio screen may be visible to the patient, so
+// the visible identity budget is name + year of birth, nothing more.
+function EditorToolbar({ saveState, lastSavedAt }) {
   return (
     <div className="editor-toolbar">
-      <div className="meta">
-        {patient ? (
-          <>
-            <span className="patient-id">{patient.ref || patient.mrn}</span>
-            {patient.label && <span className="patient-sub">· {patient.label}</span>}
-          </>
-        ) : (
-          <span className="patient-sub">{t("studio.noPatient") || (t("nav.dictation"))}</span>
-        )}
-      </div>
+      <div className="meta" />
       <div className="spacer" />
       <SaveStatus state={saveState} lastSavedAt={lastSavedAt} />
+    </div>
+  );
+}
+
+// ── Patient/encounter context bar (S11 step 04) ─────────────────────────
+// Compact, always-visible context while dictating: displayName + year of
+// birth + encounter reason. Deliberately NEVER the full DOB or MRN — the
+// screen may face the patient; the full record is one click away.
+// The "wrong patient?" escape shows until anything has been dictated —
+// mis-selection is the top real-world error and undoing it must be one
+// click BEFORE recording starts.
+function StudioContextBar({ patient, encounter, canEscape, lang }) {
+  const yob = yearOfBirth(patient);
+  return (
+    <div className="studio-context-bar" data-testid="studio-context-bar">
+      <Icon name="user" size={13} />
+      <strong className="scb-name">{patient.label}</strong>
+      <span className="scb-sub">
+        {yob != null ? (lang === "uk" ? `нар. ${yob}` : `b. ${yob}`) : null}
+      </span>
+      {encounter && (
+        <span className="scb-enc">
+          <Icon name="calendar" size={12} />
+          {encounter.reason || (lang === "uk" ? "Прийом" : "Encounter")}
+          {encounter.status === "in_progress" && (
+            <em>{lang === "uk" ? " · триває" : " · in progress"}</em>
+          )}
+        </span>
+      )}
+      <span className="spacer" />
+      {canEscape && (
+        <button type="button" className="scb-escape"
+          onClick={() => { location.hash = "/patients"; }}>
+          {lang === "uk" ? "Неправильний пацієнт?" : "Wrong patient?"}
+        </button>
+      )}
     </div>
   );
 }
@@ -868,6 +898,7 @@ function normalizePatient(p, lang) {
     name: p.name,
     age: p.age,
     sex: p.sex,
+    dob: p.dob, // context bar derives year-of-birth (never renders the date)
   };
 }
 
@@ -969,7 +1000,7 @@ function PatientGate({ lang, onSelect }) {
 }
 
 // ── Main: DictationStudio ──────────────────────────────────────────────
-export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId, initialTemplateId, reportId, templatesLoading = false, templatesError = null, onRetryTemplates }) {
+export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId, encounterId: encounterIdProp, initialTemplateId, reportId, templatesLoading = false, templatesError = null, onRetryTemplates }) {
   const { t } = useI18n();
 
   // Reopening an existing draft (/dictate/studio?report=<id>): fetch the report
@@ -992,6 +1023,25 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     [effectivePatientId],
     { enabled: !!effectivePatientId },
   );
+  // Encounter context (S11 step 04): dictation launched via "Почати прийом"
+  // arrives with ?encounter=<uuid>. The encounter is fetched to render the
+  // context bar AND validated client-side before recording: a 404 mirrors
+  // the dictation-WS `encounter_invalid` protocol error, a completed/
+  // cancelled one mirrors `encounter_closed` — same recovery UX for both
+  // layers. State (not just the prop) so "створити новий прийом" can swap
+  // the context in place.
+  const [encounterId, setEncounterId] = useState(encounterIdProp || null);
+  useEffect(() => { setEncounterId(encounterIdProp || null); }, [encounterIdProp]);
+  const encounterReq = useAsync(
+    () => (encounterId ? getEncounter(encounterId) : Promise.resolve(null)),
+    [encounterId],
+    { enabled: !!encounterId },
+  );
+  const encounter = encounterReq.data || null;
+  const encounterInvalid = !!encounterId && encounterReq.error?.status === 404;
+  const encounterClosed = !!encounter && ["completed", "cancelled"].includes(encounter.status);
+  const [creatingEncounter, setCreatingEncounter] = useState(false);
+
   // A patient chosen in the gate (when the Studio is opened without one).
   const [pickedPatient, setPickedPatient] = useState(null);
   const patient = useMemo(() => {
@@ -1371,6 +1421,9 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   }, []);
 
   // ── Mic actions ────────────────────────────────────────────────────
+  // S11 step 05 mounts the consent gate HERE: the transition into
+  // `speech.start()` is the single "before recording starts" moment for
+  // both the hotkey and the mic button — gate this, not the UI around it.
   const toggleMic = () => {
     if (speech.state === "listening") speech.pause();
     else if (speech.state === "paused") speech.start();
@@ -1523,6 +1576,64 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     return <PatientGate lang={lang} onSelect={setPickedPatient} />;
   }
 
+  // Encounter validation screens (mirror the BE protocol error codes; see
+  // the encounter block above). Rendered before the recording surface so a
+  // bad context can never produce an orphaned or mislinked recording.
+  if (encounterInvalid) {
+    return (
+      <div className="studio">
+        <Empty icon="calendar"
+          title={lang === "uk" ? "Прийом не знайдено" : "Encounter not found"}
+          body={lang === "uk"
+            ? "Посилання застаріле або прийом було видалено. Поверніться до картки пацієнта та почніть прийом заново."
+            : "The link is stale or the encounter was removed. Return to the patient record and start the encounter again."}
+          action={
+            <button className="btn accent" onClick={() => { location.hash = `/patients/${patient.id}`; }}>
+              {lang === "uk" ? "Повернутися до пацієнта" : "Back to the patient"}
+            </button>
+          } />
+      </div>
+    );
+  }
+  if (encounterClosed) {
+    const startFresh = async () => {
+      if (creatingEncounter) return;
+      setCreatingEncounter(true);
+      try {
+        const fresh = await createEncounter(patient.id, {
+          kind: encounter.kind || "visit",
+          reason: encounter.reason || "",
+          status: "in_progress",
+        });
+        setEncounterId(fresh.id);
+        location.hash = `/dictate/studio?patient=${patient.id}&encounter=${fresh.id}`;
+      } finally {
+        setCreatingEncounter(false);
+      }
+    };
+    return (
+      <div className="studio">
+        <Empty icon="calendar"
+          title={lang === "uk" ? "Прийом уже завершено" : "This encounter is closed"}
+          body={lang === "uk"
+            ? "До завершеного прийому не можна додати новий запис. Створіть новий прийом, щоб продовжити диктування."
+            : "A closed encounter can't take a new recording. Start a fresh encounter to continue dictating."}
+          action={
+            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+              <button className="btn accent" disabled={creatingEncounter} onClick={startFresh}>
+                {creatingEncounter
+                  ? (lang === "uk" ? "Створення…" : "Creating…")
+                  : (lang === "uk" ? "Створити новий прийом" : "Start a new encounter")}
+              </button>
+              <button className="btn" onClick={() => { location.hash = `/patients/${patient.id}`; }}>
+                {lang === "uk" ? "До пацієнта" : "Back to the patient"}
+              </button>
+            </div>
+          } />
+      </div>
+    );
+  }
+
   if (!template) {
     // Three distinct states share this gate — keep them apart so a list that is
     // still loading (or a backend hiccup) never masquerades as "no templates":
@@ -1579,8 +1690,13 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       </aside>
 
       <section className="center">
-        <EditorToolbar
+        <StudioContextBar
           patient={patient}
+          encounter={encounter}
+          canEscape={Object.values(body).every(v => !String(v || "").trim()) && speech.state !== "listening"}
+          lang={lang}
+        />
+        <EditorToolbar
           saveState={saveState}
           lastSavedAt={lastSavedAt}
         />

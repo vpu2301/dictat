@@ -272,7 +272,69 @@ export function EraseModal({ lang, patientName: pName, onClose, onConfirm }) {
   );
 }
 
+// ─── StartEncounterSheet (S11 step 04) ────────────────────────────────────────
+// The golden path: Почати прийом → encounter created `in_progress` (datetime
+// omitted → now) → straight into the dictation studio with the patient +
+// encounter context. Retro-logging lives in EncounterModal, never here.
+
+export function StartEncounterSheet({ lang, onClose, onStart }) {
+  const [kind, setKind] = useState("visit");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const kindOptions = [
+    { value: "visit",    uk: "Візит",                  en: "Visit" },
+    { value: "followup", uk: "Повторний прийом",       en: "Follow-up" },
+    { value: "phone",    uk: "Телефонна консультація", en: "Phone consultation" },
+    { value: "video",    uk: "Відеоконсультація",      en: "Video consultation" },
+    { value: "other",    uk: "Інше",                   en: "Other" },
+  ];
+
+  const start = async () => {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try { await onStart({ kind, reason: reason.trim() }); }
+    catch (e) { setError(e); setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="modal-h">
+        <h2>{lang === "uk" ? "Почати прийом" : "Start encounter"}</h2>
+        <p>{lang === "uk"
+          ? "Прийом розпочнеться зараз; диктування буде звʼязане з ним."
+          : "The encounter starts now; the dictation will be linked to it."}</p>
+      </div>
+      <div className="encounter-form">
+        <label>
+          {lang === "uk" ? "Тип прийому" : "Visit kind"}
+          <select value={kind} onChange={e => setKind(e.target.value)}>
+            {kindOptions.map(o => <option key={o.value} value={o.value}>{o[lang] || o.en}</option>)}
+          </select>
+        </label>
+        <label>
+          {lang === "uk" ? "Причина звернення (необовʼязково)" : "Reason for visit (optional)"}
+          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2}
+            placeholder={lang === "uk" ? "Напр., плановий огляд…" : "e.g. routine check-up…"} />
+        </label>
+        {error && <div style={{ color: "var(--rec,#dc2626)", fontSize: 13 }}>{error.message || (lang === "uk" ? "Не вдалося створити прийом" : "Could not start the encounter")}</div>}
+      </div>
+      <div className="modal-foot">
+        <button className="btn" onClick={onClose}>{lang === "uk" ? "Скасувати" : "Cancel"}</button>
+        <button className="btn accent" disabled={busy} onClick={start}>
+          <Icon name="mic" size={13} />
+          {busy ? (lang === "uk" ? "Створення…" : "Starting…") : (lang === "uk" ? "Почати диктування" : "Start dictating")}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── EncounterModal ───────────────────────────────────────────────────────────
+// Retro-logging ("Додати прийом без диктування"): a paper visit backfilled
+// with an explicit datetime, created directly as `completed`. Never routes
+// into the studio.
 
 export function EncounterModal({ lang, onClose, onSave }) {
   const [kind, setKind] = useState("visit");
@@ -293,15 +355,17 @@ export function EncounterModal({ lang, onClose, onSave }) {
 
   const save = async () => {
     setBusy(true); setError(null);
-    try { await onSave({ kind, datetime, reason }); }
+    // Retro-logged visits are already over: explicit `completed` (the
+    // as-built default, sent explicitly so the intent is on the wire).
+    try { await onSave({ kind, datetime, reason, status: "completed" }); }
     catch (e) { setError(e); setBusy(false); }
   };
 
   return (
     <Modal onClose={onClose}>
       <div className="modal-h">
-        <h2>{lang === "uk" ? "Новий прийом" : "New encounter"}</h2>
-        <p>{lang === "uk" ? "Зафіксуйте деталі прийому" : "Record encounter details"}</p>
+        <h2>{lang === "uk" ? "Додати прийом (без диктування)" : "Log an encounter (no dictation)"}</h2>
+        <p>{lang === "uk" ? "Зафіксуйте минулий прийом заднім числом" : "Backfill a visit that already happened"}</p>
       </div>
       <div className="encounter-form">
         <label>
@@ -416,6 +480,7 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   const [dsarOpen, setDsarOpen] = useState(false);
   const [eraseOpen, setEraseOpen] = useState(false);
   const [encounterOpen, setEncounterOpen] = useState(false);
+  const [startOpen, setStartOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [groupCollapsed, setGroupCollapsed] = useState({});
 
@@ -508,6 +573,14 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
     encReq.reload(); tlReq.reload();
   };
   const handleWithdraw = async (c) => { await withdrawConsent(id, c.id); conReq.reload(); };
+  // Golden path: create the encounter live (`in_progress`, datetime = now)
+  // and route into the studio with BOTH uuids — the WS start message and the
+  // recording linkage hang off ?encounter=.
+  const handleStartEncounter = async ({ kind, reason }) => {
+    const enc = await createEncounter(id, { kind, reason, status: "in_progress" });
+    setStartOpen(false);
+    navigate(`/dictate/studio?patient=${id}&encounter=${enc.id}`);
+  };
   const handleEditSave = async (body) => {
     await updatePatient(id, body);
     setEditOpen(false);
@@ -628,8 +701,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
           </button>
           <button className="btn accent" disabled={deceased}
             title={deceased ? (lang === "uk" ? "Пацієнт позначений як померлий" : "Patient is marked deceased") : undefined}
-            onClick={() => navigate(`/scribe/consult/new?patient=${id}`)}>
-            <Icon name="mic" size={13} /> {lang === "uk" ? "Розпочати запис" : "Start recording"}
+            onClick={() => setStartOpen(true)}>
+            <Icon name="mic" size={13} /> {lang === "uk" ? "Почати прийом" : "Start encounter"}
           </button>
         </div>
       </div>
@@ -688,8 +761,11 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
       {tab === "encounters" && (
         <div style={{ marginTop: 16 }}>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-            <button className="btn accent sm" onClick={() => setEncounterOpen(true)}>
-              <Icon name="plus" size={13} /> {lang === "uk" ? "Новий прийом" : "New encounter"}
+            <button className="btn accent sm" onClick={() => setStartOpen(true)} disabled={deceased}>
+              <Icon name="mic" size={13} /> {lang === "uk" ? "Почати прийом" : "Start encounter"}
+            </button>
+            <button className="btn sm" onClick={() => setEncounterOpen(true)}>
+              <Icon name="plus" size={13} /> {lang === "uk" ? "Додати без диктування" : "Log without dictation"}
             </button>
           </div>
           {encReq.error ? <ApiErrorView error={encReq.error} lang={lang} />
@@ -907,6 +983,9 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
       )}
       {encounterOpen && (
         <EncounterModal lang={lang} onClose={() => setEncounterOpen(false)} onSave={handleEncounter} />
+      )}
+      {startOpen && (
+        <StartEncounterSheet lang={lang} onClose={() => setStartOpen(false)} onStart={handleStartEncounter} />
       )}
     </div>
   );

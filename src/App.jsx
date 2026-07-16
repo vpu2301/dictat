@@ -264,7 +264,8 @@ function App() {
     const pm = r.match(/patient=([\w-]+)/);
     const tm = r.match(/template=([\w-]+)/);
     const rm = r.match(/report=([\w-]+)/);
-    view = <DictationStudio lang={lang} patientId={pm?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
+    const em = r.match(/encounter=([\w-]+)/);
+    view = <DictationStudio lang={lang} patientId={pm?.[1]} encounterId={em?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
              templatesMap={templatesMap} onAddTemplate={handleAddTemplate}
              templatesLoading={templatesReq.loading} templatesError={templatesReq.error}
              onRetryTemplates={templatesReq.reload} />;
