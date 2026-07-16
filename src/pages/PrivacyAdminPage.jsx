@@ -57,7 +57,13 @@ function GraceCountdown({ until, lang }) {
     return () => clearInterval(t);
   }, []);
   const ms = new Date(until) - Date.now();
-  if (ms <= 0) return <span>{lang === "uk" ? "пільговий період завершено" : "grace period over"}</span>;
+  if (ms <= 0) {
+    return (
+      <span className="privacy-grace" data-testid="grace-countdown">
+        {lang === "uk" ? "пільговий період завершено — очікує виконання" : "grace period over — awaiting execution"}
+      </span>
+    );
+  }
   const days = Math.floor(ms / 86400e3);
   const hours = Math.floor((ms % 86400e3) / 3600e3);
   return (

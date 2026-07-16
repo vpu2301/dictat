@@ -1,5 +1,5 @@
 {
-  "name": "dictator",
+  "name": "klarnote",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,11 +11,13 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "test:e2e": "playwright test",
-    "test:unit": "node --test src/autocomplete/prefix.test.js src/autocomplete/telemetry.test.js src/api/patients.test.js src/patients/ipn.test.js src/patients/noTelemetryImport.test.js src/patients/feed.test.js src/dictation/messages.test.js src/patients/consentGate.test.js src/patients/legalBasis.test.js",
+    "test:unit": "node --test src/autocomplete/prefix.test.js src/autocomplete/telemetry.test.js src/api/patients.test.js src/patients/ipn.test.js src/patients/noTelemetryImport.test.js src/patients/feed.test.js src/dictation/messages.test.js src/patients/consentGate.test.js src/patients/legalBasis.test.js e2e/helpers/pii.test.js",
     "verify:autocomplete-contract": "RUN_BACKEND_INTEGRATION=1 node --test src/autocomplete/contract.int.test.js",
     "verify:patients-contract": "RUN_BACKEND_INTEGRATION=1 node --test src/api/patients.contract.int.test.js",
     "e2e:live": "RUN_BACKEND_INTEGRATION=1 playwright test e2e/autocomplete-live.spec.js",
-    "e2e:live:chaos": "RUN_BACKEND_INTEGRATION=1 E2E_CHAOS=1 playwright test e2e/autocomplete-live.spec.js"
+    "e2e:live:chaos": "RUN_BACKEND_INTEGRATION=1 E2E_CHAOS=1 playwright test e2e/autocomplete-live.spec.js",
+    "e2e:person": "RUN_BACKEND_INTEGRATION=1 playwright test e2e/patients.spec.js",
+    "e2e:privacy": "RUN_BACKEND_INTEGRATION=1 E2E_PRIVACY=1 playwright test e2e/privacy.spec.js"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",
