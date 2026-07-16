@@ -11,6 +11,8 @@ import { DictateToday } from './components/DictateHome.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
 import { ScribeToday, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
 import { PatientDirectory } from './patients/PatientDirectory.jsx';
+import { PrivacyAdminPage } from './pages/PrivacyAdminPage.jsx';
+import { ErasureRequestPage } from './pages/ErasureRequestPage.jsx';
 import { EnhancedScribePatient } from './components/PatientProfile.jsx';
 import { NoteEditorPage, QuickNoteModal, useQuickNoteHotkey } from './components/NoteEditor.jsx';
 import { NoteReviewPage } from './components/NoteReview.jsx';
@@ -217,6 +219,16 @@ function App() {
     // /patients is the sprint-11 canonical alias; both render the directory.
     view = <PatientDirectory navigate={navigate} lang={lang} />;
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Пацієнти" : "Patients" }];
+  } else if (r.startsWith("/patients/") && r.endsWith("/erasure-request")) {
+    // S11 step 06 — the weighty full-screen erasure request (admin-only,
+    // deep-link-safe: RequireRole renders the standard forbidden state)
+    const pid = r.split("/")[2];
+    view = (
+      <RequireRole any={["tenant_admin", "super_admin"]} navigate={navigate}>
+        <ErasureRequestPage patientId={pid} lang={lang} navigate={navigate} />
+      </RequireRole>
+    );
+    crumbs = [{ label: lang === "uk" ? "Приватність" : "Privacy" }, { label: lang === "uk" ? "Запит на видалення" : "Erasure request" }];
   } else if (r.startsWith("/scribe/patients/") || r.startsWith("/patients/")) {
     // ?tab= is the one allowed (enum) param on this route — strip it from the id
     const id = r.split("/")[r.startsWith("/scribe/") ? 3 : 2]?.split("?")[0];
@@ -337,6 +349,14 @@ function App() {
     crumbs = [{ label: lang === "uk" ? "Ідентичність" : "Identity" }];
   }
   // ── admin ──────────────────────────────────────────────────
+  else if (r === "/admin/privacy") {
+    view = (
+      <RequireRole any={["tenant_admin", "super_admin"]} navigate={navigate}>
+        <PrivacyAdminPage lang={lang} navigate={navigate} />
+      </RequireRole>
+    );
+    crumbs = [{ label: lang === "uk" ? "Адмін" : "Admin" }, { label: lang === "uk" ? "Приватність" : "Privacy" }];
+  }
   else if (r === "/admin/users") {
     view = (
       <RequireRole any={["tenant_admin"]} navigate={navigate}>

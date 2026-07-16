@@ -6,6 +6,7 @@ import { Icon, Modal, Empty } from './UI.jsx';
 import { Loading, asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { useAsync } from '../api/useAsync.js';
+import { useClaims, hasAnyRole } from '../auth/AuthContext.jsx';
 import { getPatient, getPatientTimeline, updatePatient } from '../api/patients.js';
 import { mergeFeed } from '../patients/feed.js';
 import { PatientFormModal } from '../patients/PatientDirectory.jsx';
@@ -14,7 +15,7 @@ import { listEncounters, createEncounter } from '../api/encounters.js';
 import { listConsents, withdrawConsent } from '../api/consents.js';
 import { listNotes } from '../api/notes.js';
 import { getAnamnesis } from '../api/anamnesis.js';
-import { requestDsar, scheduleErasure } from '../api/privacy.js';
+import { requestDsar } from '../api/privacy.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -96,9 +97,31 @@ export function DsarModal({ lang, patientName: pName, onClose, onSubmit }) {
       </div>
       <div className="dsar-modal-body">
         <div className="dsar-info">
-          {lang === "uk"
-            ? "Відповідно до GDPR та Закону України про захист персональних даних, суб'єкт даних має право запросити копію всіх персональних даних, які обробляє установа. Відповідь надається протягом 30 днів."
-            : "Under GDPR, the data subject has the right to request a copy of all personal data held by this organisation. A response must be provided within 30 days."}
+          {lang === "uk" ? (
+            <>
+              <p style={{ margin: 0 }}>Пакет експорту міститиме:</p>
+              <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                <li>дані картки пацієнта та анамнез;</li>
+                <li>записи про згоди (включно з відкликаними);</li>
+                <li>прийоми;</li>
+                <li>звіти з історією версій і транскрипти;</li>
+                <li>метадані аудіозаписів (сире аудіо — згідно з налаштуваннями клініки).</li>
+              </ul>
+              <p style={{ margin: "6px 0 0" }}>Не включається: службові журнали (зберігаються у знеособленій формі). Відповідь суб'єкту даних надається протягом 30 днів.</p>
+            </>
+          ) : (
+            <>
+              <p style={{ margin: 0 }}>The export package will contain:</p>
+              <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                <li>the patient record and anamnesis;</li>
+                <li>consent records (incl. withdrawn);</li>
+                <li>encounters;</li>
+                <li>reports with version history and transcripts;</li>
+                <li>recording metadata (raw audio per clinic configuration).</li>
+              </ul>
+              <p style={{ margin: "6px 0 0" }}>Not included: service logs (kept in de-identified form). The data subject must receive a response within 30 days.</p>
+            </>
+          )}
         </div>
         <label>
           {lang === "uk" ? "Причина запиту (необов'язково)" : "Reason for request (optional)"}
@@ -117,157 +140,6 @@ export function DsarModal({ lang, patientName: pName, onClose, onSubmit }) {
           <Icon name="download" size={13} />
           {busy ? (lang === "uk" ? "Надсилання…" : "Submitting…") : (lang === "uk" ? "Надіслати запит" : "Submit request")}
         </button>
-      </div>
-    </Modal>
-  );
-}
-
-// ─── EraseModal ───────────────────────────────────────────────────────────────
-
-export function EraseModal({ lang, patientName: pName, onClose, onConfirm }) {
-  const [step, setStep] = useState(1);
-  const [reason, setReason] = useState("");
-  const [confirmText, setConfirmText] = useState("");
-  const [scheduled, setScheduled] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  const reasonValid = reason.trim().length >= 50 && reason.trim().length <= 500;
-  const confirmValid = confirmText.trim().toLowerCase() === "erase";
-  const done = !!scheduled;
-
-  const erasureLabel = scheduled?.scheduled_at
-    ? new Date(scheduled.scheduled_at).toLocaleString(lang === "uk" ? "uk-UA" : "en-GB", {
-        day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-    : null;
-
-  const confirm = async () => {
-    setBusy(true); setError(null);
-    try { const r = await onConfirm({ reason }); setScheduled(r || {}); }
-    catch (e) { setError(e); }
-    finally { setBusy(false); }
-  };
-
-  const stepLabels = lang === "uk" ? ["Попередження", "Причина", "Підтвердження"] : ["Warning", "Reason", "Confirm"];
-
-  return (
-    <Modal onClose={onClose}>
-      <div className="modal-h">
-        <h2 style={{ color: "var(--rec)" }}>{lang === "uk" ? "Запланувати видалення" : "Schedule erasure"}</h2>
-        <p>{pName}</p>
-      </div>
-
-      {!done && (
-        <div style={{ padding: "12px 24px 0" }}>
-          <div className="erase-step">
-            {[1, 2, 3].map((n, i) => (
-              <React.Fragment key={n}>
-                <div className={`erase-step-dot ${step > n ? "done" : step === n ? "active" : ""}`}>
-                  {step > n ? <Icon name="check" size={12} /> : n}
-                </div>
-                {i < 2 && <div className="erase-step-line" />}
-              </React.Fragment>
-            ))}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-            {stepLabels.map((l, i) => <span key={i}>{l}</span>)}
-          </div>
-        </div>
-      )}
-
-      <div className="erase-modal-body">
-        {done && (
-          <div className="erase-success">
-            <div className="erase-success-icon"><Icon name="check" size={24} /></div>
-            <div style={{ fontWeight: 600, fontSize: 16, color: "var(--text-1)", marginBottom: 8 }}>
-              {lang === "uk" ? "Видалення заплановано" : "Erasure scheduled"}
-            </div>
-            <div style={{ fontSize: 13.5, color: "var(--text-2)", marginBottom: 16 }}>
-              {lang === "uk"
-                ? `Дані пацієнта ${pName} будуть безповоротно видалені${erasureLabel ? " о:" : "."}`
-                : `Patient data for ${pName} will be permanently erased${erasureLabel ? " at:" : "."}`}
-            </div>
-            {erasureLabel && (
-              <div style={{ fontFamily: "var(--mono)", fontSize: 14, color: "var(--text-1)", fontWeight: 600 }}>{erasureLabel}</div>
-            )}
-            {scheduled?.cancel_until && (
-              <div className="countdown-banner">
-                <Icon name="clock" size={14} />
-                {lang === "uk"
-                  ? `Скасувати можна до ${new Date(scheduled.cancel_until).toLocaleString("uk-UA")}.`
-                  : `You can cancel until ${new Date(scheduled.cancel_until).toLocaleString("en-GB")}.`}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!done && step === 1 && (
-          <div className="erase-warn">
-            <div className="erase-warn-icon"><Icon name="flag" size={18} /></div>
-            <div className="erase-warn-text">
-              {lang === "uk"
-                ? <><strong>Ця дія незворотна.</strong> Видалення даних пацієнта <strong>{pName}</strong> призведе до:
-                    <ul style={{ margin: "8px 0 0 0", paddingLeft: 18 }}>
-                      <li>Видалення всіх медичних записів, нотаток і транскриптів</li>
-                      <li>Анонімізації всіх аудит-логів</li>
-                      <li>Неможливості відновлення даних</li>
-                    </ul></>
-                : <><strong>This action is irreversible.</strong> Erasing data for <strong>{pName}</strong> will:
-                    <ul style={{ margin: "8px 0 0 0", paddingLeft: 18 }}>
-                      <li>Delete all medical records, notes and transcripts</li>
-                      <li>Anonymise all audit logs</li>
-                      <li>Make data unrecoverable</li>
-                    </ul></>}
-            </div>
-          </div>
-        )}
-
-        {!done && step === 2 && (
-          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "var(--text-2)" }}>
-            {lang === "uk" ? `Вкажіть причину видалення (50–500 символів)` : `Provide reason for erasure (50–500 characters)`}
-            <textarea value={reason} onChange={e => setReason(e.target.value)} rows={5}
-              placeholder={lang === "uk" ? "Детально поясніть підставу для видалення…" : "Provide detailed justification for erasure…"}
-              style={{ padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "var(--radius)", fontFamily: "var(--sans)", fontSize: 13, resize: "vertical", background: "var(--surface)", color: "var(--text-1)" }} />
-            <span style={{ fontSize: 11, color: reason.trim().length < 50 || reason.trim().length > 500 ? "var(--rec)" : "var(--ok,#047857)" }}>
-              {reason.trim().length} / 500
-            </span>
-          </label>
-        )}
-
-        {!done && step === 3 && (
-          <div>
-            <div style={{ fontSize: 13.5, color: "var(--text-2)", marginBottom: 14 }}>
-              {lang === "uk" ? `Для підтвердження введіть слово ERASE нижче:` : `To confirm, type ERASE below:`}
-            </div>
-            <input className="erase-confirm-input" value={confirmText} onChange={e => setConfirmText(e.target.value)} placeholder="ERASE" autoFocus />
-            {error && <div style={{ marginTop: 10, fontSize: 12, color: "var(--rec,#dc2626)", textAlign: "center" }}>{error.message || (lang === "uk" ? "Помилка" : "Error")}</div>}
-          </div>
-        )}
-      </div>
-
-      <div className="modal-foot">
-        {done ? (
-          <button className="btn accent" onClick={onClose}>{lang === "uk" ? "Закрити" : "Close"}</button>
-        ) : (
-          <>
-            <button className="btn" onClick={step === 1 ? onClose : () => setStep(s => s - 1)}>
-              {step === 1 ? (lang === "uk" ? "Скасувати" : "Cancel") : (lang === "uk" ? "Назад" : "Back")}
-            </button>
-            {step < 3 && (
-              <button className="btn" style={{ color: "var(--rec)", borderColor: "var(--rec)" }}
-                disabled={step === 2 && !reasonValid} onClick={() => setStep(s => s + 1)}>
-                {lang === "uk" ? "Далі" : "Next"}
-              </button>
-            )}
-            {step === 3 && (
-              <button className="btn" style={{ background: "var(--rec)", color: "white", borderColor: "var(--rec)" }}
-                disabled={!confirmValid || busy} onClick={confirm}>
-                <Icon name="flag" size={13} />
-                {busy ? (lang === "uk" ? "Планування…" : "Scheduling…") : (lang === "uk" ? "Запланувати видалення" : "Schedule erasure")}
-              </button>
-            )}
-          </>
-        )}
       </div>
     </Modal>
   );
@@ -511,11 +383,15 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   const notesReq   = useAsync(() => listNotes({ patient_id: id }), [id]);
   const anamReq    = useAsync(() => getAnamnesis(id), [id]);
 
+  const claims = useClaims();
+  // Privacy surfaces are admin-only in the UI (menu entries role-gated at
+  // render); the backend additionally enforces its scopes on every call.
+  const isPrivacyAdmin = hasAnyRole(claims, ["tenant_admin", "super_admin"]);
+
   const cached = pageStateCache.get(id);
   const [tab, setTab] = useState(() => initialTabFromHash() || cached?.tab || "timeline");
   const [feedLimit, setFeedLimit] = useState(cached?.feedLimit || FEED_PAGE);
   const [dsarOpen, setDsarOpen] = useState(false);
-  const [eraseOpen, setEraseOpen] = useState(false);
   const [encounterOpen, setEncounterOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -604,8 +480,22 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
     { id: "anamnesis",     icon: "heart",    uk: "Анамнез",      en: "Anamnesis" },
   ];
 
-  const handleDsar = async ({ reason }) => { await requestDsar(id, { reason }); setDsarOpen(false); };
-  const handleErase = ({ reason }) => scheduleErasure(id, { reason });
+  // DSAR: 202 → the request is already executing; progress lives in the
+  // admin queue. 409 dsar_already_running → go to the existing request.
+  const handleDsar = async ({ reason }) => {
+    try {
+      await requestDsar(id, { reason });
+    } catch (e) {
+      if (e?.problem?.code === "dsar_already_running") {
+        setDsarOpen(false);
+        navigate("/admin/privacy");
+        return;
+      }
+      throw e;
+    }
+    setDsarOpen(false);
+    navigate("/admin/privacy");
+  };
   const handleEncounter = async (payload) => {
     await createEncounter(id, payload);
     setEncounterOpen(false);
@@ -733,10 +623,16 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
           <button className="btn ghost sm" onClick={() => setEditOpen(true)}>
             <Icon name="edit" size={13} /> {lang === "uk" ? "Редагувати" : "Edit"}
           </button>
-          <button className="btn ghost sm" onClick={() => setDsarOpen(true)}><Icon name="download" size={13} /> DSAR</button>
-          <button className="btn ghost sm" style={{ color: "var(--rec)", borderColor: "color-mix(in srgb, var(--rec) 30%, transparent)" }} onClick={() => setEraseOpen(true)}>
-            <Icon name="flag" size={13} /> {lang === "uk" ? "Видалити дані" : "Schedule erasure"}
-          </button>
+          {isPrivacyAdmin && (
+            <>
+              <button className="btn ghost sm" onClick={() => setDsarOpen(true)}>
+                <Icon name="download" size={13} /> {lang === "uk" ? "Експорт даних (DSAR)" : "Data export (DSAR)"}
+              </button>
+              <button className="btn ghost sm" onClick={() => navigate(`/patients/${id}/erasure-request`)}>
+                <Icon name="flag" size={13} /> {lang === "uk" ? "Запит на видалення" : "Request erasure"}
+              </button>
+            </>
+          )}
           <button className="btn ghost sm" disabled={deceased}
             title={deceased ? (lang === "uk" ? "Пацієнт позначений як померлий" : "Patient is marked deceased") : undefined}
             onClick={() => navigate(`/dictate/studio?patient=${id}`)}>
@@ -1035,9 +931,6 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
       )}
       {dsarOpen && (
         <DsarModal lang={lang} patientName={patientName(patient, lang)} onClose={() => setDsarOpen(false)} onSubmit={handleDsar} />
-      )}
-      {eraseOpen && (
-        <EraseModal lang={lang} patientName={patientName(patient, lang)} onClose={() => setEraseOpen(false)} onConfirm={handleErase} />
       )}
       {encounterOpen && (
         <EncounterModal lang={lang} onClose={() => setEncounterOpen(false)} onSave={handleEncounter} />

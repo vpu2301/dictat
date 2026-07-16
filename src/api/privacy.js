@@ -10,10 +10,7 @@
 //   requested_by, requested_at, scheduled_for, reviewed_by, reviewed_at,
 //   rejection_reason, completed_at }.
 //
-// The admin queue / review / approve / reject / status+download client fns
-// land with the admin surfaces in S11 step 06.
-
-import { apiAt } from "./client.js";
+import { apiAt, getAccessToken } from "./client.js";
 import { SERVICES } from "./services.js";
 
 const a = (p, init) => apiAt(SERVICES.core, p, init);
@@ -38,4 +35,63 @@ export async function scheduleErasure(patientId, { reason } = {}) {
     method: "POST",
     body: JSON.stringify({ reason }),
   });
+}
+
+// ── S11 step 06: the admin queue + two-person workflow ──────────────────
+
+// GET /privacy-requests?status=&kind= → PrivacyRequestOut[] (admin queue).
+export async function listPrivacyRequests({ status, kind } = {}) {
+  const qs = new URLSearchParams();
+  if (status) qs.set("status", status);
+  if (kind) qs.set("kind", kind);
+  const tail = qs.toString() ? `?${qs}` : "";
+  return a(`/privacy-requests${tail}`, { method: "GET" });
+}
+
+// GET /privacy-requests/{id} → PrivacyRequestStatus (scope patient.dsar).
+// Completed DSAR adds { download: {url, expires_at}, package_expired,
+// manifest_summary }. Every call that mints a download pointer is audited
+// server-side — that is WHY the UI re-fetches per click (fresh mint).
+export async function getPrivacyRequest(id) {
+  return a(`/privacy-requests/${encodeURIComponent(id)}`, { method: "GET" });
+}
+
+// POST /privacy-requests/{id}/review — 'requested' → 'review'.
+export async function reviewPrivacyRequest(id) {
+  return a(`/privacy-requests/${encodeURIComponent(id)}/review`, { method: "POST" });
+}
+
+// POST /privacy-requests/{id}/approve — 'requested'|'review' → 'approved';
+// sets scheduled_for = now + grace. Scope privacy.approve; the backend
+// 403s code=two_person_rule when approver == requester.
+export async function approvePrivacyRequest(id) {
+  return a(`/privacy-requests/${encodeURIComponent(id)}/approve`, { method: "POST" });
+}
+
+// POST /privacy-requests/{id}/reject — also the cancel-during-grace path
+// ('approved' → 'rejected'). rejection_reason is REQUIRED (422 otherwise).
+export async function rejectPrivacyRequest(id, { rejection_reason }) {
+  return a(`/privacy-requests/${encodeURIComponent(id)}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ rejection_reason }),
+  });
+}
+
+// GET /privacy-requests/{id}/download — the authenticated DSAR zip.
+// Raw fetch (not the JSON wrapper): the body is binary. 410 = package
+// past TTL and deleted. Returns a Blob for an object-URL download.
+export async function downloadDsarPackage(id) {
+  const token = getAccessToken();
+  const r = await fetch(`${SERVICES.core}/privacy-requests/${encodeURIComponent(id)}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
+  });
+  if (!r.ok) {
+    const problem = await r.json().catch(() => ({ title: `HTTP ${r.status}` }));
+    const err = new Error(problem.detail || problem.title || `HTTP ${r.status}`);
+    err.status = r.status;
+    err.problem = problem;
+    throw err;
+  }
+  return r.blob();
 }

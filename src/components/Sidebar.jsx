@@ -228,6 +228,7 @@ export function Sidebar({
         items: [
           { icon: "grid", label: lang === "uk" ? "Панель" : "Dashboard", path: "/dashboard", exact: true },
           { icon: "users", label: lang === "uk" ? "Користувачі" : "Users", path: "/admin/users", exact: true },
+          { icon: "shield", label: lang === "uk" ? "Приватність" : "Privacy", path: "/admin/privacy", exact: true },
         ],
       });
     }

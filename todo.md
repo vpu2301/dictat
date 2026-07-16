@@ -18,6 +18,20 @@ clinic lead (Volodymyr to route); FE owner: this repo.
   (infra/seeds/consents/*.md) — versioning is v1; any wording change
   is a NEW version there, never an edit.
 
+### Step 06 additions (privacy admin)
+
+- `src/pages/ErasureRequestPage.jsx` — the consequences enumeration
+  (destroyed classes / retained-by-law list, two-person + grace copy)
+  and the «ВИДАЛЕННЯ» confirmation wording.
+- `src/pages/PrivacyAdminPage.jsx` — approve dialog consequences,
+  reject/cancel-during-grace copy, DSAR expiry/expired copy.
+- `src/components/PatientProfile.jsx` — DSAR package-contents
+  enumeration (must track the backend's actual export manifest).
+- `src/patients/legalBasis.js` — the basis→text map (lockstep with
+  backend `erasure/fanout.py BASIS_*`; unit-enforced).
+- `src/patients/ExecutionReport.jsx` — destroyed/retained kind labels
+  (this document is handed to patients).
+
 ## S11 carry-overs
 
 - Backend consent enforcement: dictation-service does not yet reject a
