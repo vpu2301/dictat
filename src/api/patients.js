@@ -107,15 +107,16 @@ export function yearOfBirth(patient) {
 // GET /patients?query=&limit=&cursor= → { items, next_cursor }
 // `query` matches name/MRN; a query that IS a valid ІПН auto-dispatches to
 // exact HMAC lookup server-side (no separate search endpoint).
-// `includeErased` is tenant_admin-only.
-export async function listPatients({ query, limit = 50, cursor, includeErased } = {}) {
+// `includeErased` is tenant_admin-only. `init` lets the roster search pass
+// { signal } for AbortController cancellation of stale requests.
+export async function listPatients({ query, limit = 50, cursor, includeErased } = {}, init = {}) {
   const qs = new URLSearchParams();
   if (query)  qs.set("query", query);
   if (limit)  qs.set("limit", String(limit));
   if (cursor) qs.set("cursor", cursor);
   if (includeErased) qs.set("include_erased", "true");
   const tail = qs.toString() ? `?${qs}` : "";
-  return a(`/patients${tail}`, { method: "GET" });
+  return a(`/patients${tail}`, { method: "GET", ...init });
 }
 
 // Wire page → the shape useCursorPages() consumes.

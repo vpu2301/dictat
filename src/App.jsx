@@ -9,7 +9,8 @@ import { Sidebar } from './components/Sidebar.jsx';
 import { DictationStudio } from './components/Studio.jsx';
 import { DictateToday } from './components/DictateHome.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
-import { ScribeToday, ScribePatients, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
+import { ScribeToday, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
+import { PatientDirectory } from './patients/PatientDirectory.jsx';
 import { EnhancedScribePatient } from './components/PatientProfile.jsx';
 import { NoteEditorPage, QuickNoteModal, useQuickNoteHotkey } from './components/NoteEditor.jsx';
 import { NoteReviewPage } from './components/NoteReview.jsx';
@@ -212,11 +213,12 @@ function App() {
   else if (r === "/scribe" || r === "/" || r === "") {
     view = <ScribeToday navigate={navigate} lang={lang} />;
     title = lang === "uk" ? "Сьогодні" : "Today";
-  } else if (r === "/scribe/patients") {
-    view = <ScribePatients navigate={navigate} lang={lang} />;
+  } else if (r === "/scribe/patients" || r === "/patients") {
+    // /patients is the sprint-11 canonical alias; both render the directory.
+    view = <PatientDirectory navigate={navigate} lang={lang} />;
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Пацієнти" : "Patients" }];
-  } else if (r.startsWith("/scribe/patients/")) {
-    const id = r.split("/")[3];
+  } else if (r.startsWith("/scribe/patients/") || r.startsWith("/patients/")) {
+    const id = r.split("/")[r.startsWith("/scribe/") ? 3 : 2];
     view = <EnhancedScribePatient id={id} navigate={navigate} lang={lang} />;
     crumbs = [
       { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
