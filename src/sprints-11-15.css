@@ -1615,3 +1615,52 @@
   background: none; border: none; padding: 0; cursor: pointer;
   color: var(--accent); font-size: 12px; text-decoration: underline;
 }
+
+/* ── Sprint 11 step 05 — consent gate + capture sheet ───────────────── */
+.consent-gate-banner {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 12px; padding: 10px 12px;
+  border-radius: var(--radius, 8px);
+  background: var(--warn-soft, #fef3c7); color: var(--warn, #92400e);
+  font-size: 12.5px;
+}
+.consent-gate-banner.error { background: var(--rec-soft, #fee2e2); color: var(--rec, #b91c1c); }
+.consent-gate-banner .btn { margin-left: auto; }
+
+.consent-sheet-body { display: flex; flex-direction: column; gap: 14px; }
+.consent-scope {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; border-radius: var(--radius, 8px);
+  background: var(--surface-2); border: 1px solid var(--line);
+  font-size: 13px; color: var(--text-1);
+}
+.consent-scope-k { color: var(--muted); }
+.consent-methods { display: flex; flex-direction: column; gap: 6px; }
+.consent-method {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border: 1px solid var(--line);
+  border-radius: var(--radius, 8px); cursor: pointer;
+  font-size: 13.5px; color: var(--text-1);
+}
+.consent-method.on { border-color: var(--accent); background: var(--accent-soft); }
+.consent-version { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-2); }
+.consent-version select {
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius, 8px);
+  background: var(--surface); color: var(--text-1); font-size: 13px;
+}
+.consent-sign-error {
+  padding: 9px 12px; border-radius: var(--radius, 8px);
+  background: var(--rec-soft, #fee2e2); color: var(--rec, #b91c1c); font-size: 13px;
+}
+.consent-sign-body { display: flex; flex-direction: column; gap: 12px; }
+.consent-sign-body label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-2); }
+.consent-key-file input[type="file"] { font-size: 12.5px; }
+.consent-signed-ok { display: flex; align-items: center; gap: 12px; padding: 12px; color: var(--ok, #059669); }
+.consent-withdraw-consequences {
+  padding: 12px; border-radius: var(--radius, 8px);
+  background: var(--warn-soft, #fef3c7); color: var(--warn, #92400e);
+  font-size: 13px; line-height: 1.55;
+}
+.consent-row.withdrawn .cr-type { text-decoration: line-through; color: var(--muted); }
+.consent-row.withdrawn { opacity: .75; }
+.cr-type .chip { margin-left: 6px; }

@@ -33,6 +33,27 @@ export async function recordConsent(patientId, { type = "ai_scribe", method, ver
   });
 }
 
+// POST /patients/{pid}/consents/{cid}/sign → sign a method="digital"
+// consent via the S09 signing stack (core-service proxies to
+// signing-service with resource_type="consent").
+//   provider "file_key"     → { key_container_b64, key_password } → 200
+//   provider "dev_password" → { password } (dev-only scaffold)   → 200
+//   provider "diia"         → 202 signing-session JSON (QR flow)
+// 200 = ConsentSignedResponse { consent, envelope_id, signature_level,
+// verification_token, signed_at, signer_full_name, is_qualified }.
+// Errors: 422 consent_not_digital, 409 consent_already_signed,
+// 409 consent_canonical_changed (re-capture), 400 missing_credentials.
+export async function signConsent(patientId, consentId, { provider, key_container_b64, key_password, password }) {
+  const b = { provider };
+  if (key_container_b64 !== undefined) b.key_container_b64 = key_container_b64;
+  if (key_password !== undefined) b.key_password = key_password;
+  if (password !== undefined) b.password = password;
+  return a(
+    `/patients/${encodeURIComponent(patientId)}/consents/${encodeURIComponent(consentId)}/sign`,
+    { method: "POST", body: JSON.stringify(b) }
+  );
+}
+
 // POST /patients/{pid}/consents/{cid}/withdraw → 200 ConsentOut (status
 // "withdrawn", withdrawn_at stamped). The nested path is the as-built one —
 // there is no top-level /consents/{id}/withdraw. Withdrawing a signed

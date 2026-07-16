@@ -9,6 +9,7 @@ import { useAsync } from '../api/useAsync.js';
 import { getPatient, getPatientTimeline, updatePatient } from '../api/patients.js';
 import { mergeFeed } from '../patients/feed.js';
 import { PatientFormModal } from '../patients/PatientDirectory.jsx';
+import { ConsentSignDialog } from '../patients/ConsentSheet.jsx';
 import { listEncounters, createEncounter } from '../api/encounters.js';
 import { listConsents, withdrawConsent } from '../api/consents.js';
 import { listNotes } from '../api/notes.js';
@@ -272,6 +273,42 @@ export function EraseModal({ lang, patientName: pName, onClose, onConfirm }) {
   );
 }
 
+// ─── WithdrawConsentDialog (S11 step 05) ──────────────────────────────────────
+// Deliberately weightier than capture (consequences spelled out) but not
+// obstructive: one confirmation, no typing. Legal copy flagged in todo.md.
+
+function WithdrawConsentDialog({ lang, consent, onClose, onConfirm }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const confirm = async () => {
+    setBusy(true); setError(null);
+    try { await onConfirm(consent); }
+    catch (e) { setError(e); setBusy(false); }
+  };
+  return (
+    <Modal onClose={onClose}>
+      <div className="modal-h">
+        <h2>{lang === "uk" ? "Відкликати згоду?" : "Withdraw this consent?"}</h2>
+        <p>{lang === "uk" ? "Дія набуває чинності одразу" : "Takes effect immediately"}</p>
+      </div>
+      <div className="modal-body">
+        <div className="consent-withdraw-consequences">
+          {lang === "uk"
+            ? "Нові записи для цього пацієнта буде заблоковано до нової згоди; вже створені записи та звіти зберігаються. Відкликання не скасовує обробку, здійснену до цього моменту."
+            : "New recordings for this patient will be blocked until a new consent is captured; recordings and reports already created are retained. Withdrawal does not undo processing that already happened."}
+        </div>
+        {error && <div className="consent-sign-error" role="alert">{error.message || (lang === "uk" ? "Помилка" : "Error")}</div>}
+      </div>
+      <div className="modal-foot">
+        <button className="btn" onClick={onClose}>{lang === "uk" ? "Скасувати" : "Cancel"}</button>
+        <button className="btn" style={{ color: "var(--rec)", borderColor: "var(--rec)" }} disabled={busy} onClick={confirm}>
+          {busy ? (lang === "uk" ? "Відкликання…" : "Withdrawing…") : (lang === "uk" ? "Відкликати згоду" : "Withdraw consent")}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── StartEncounterSheet (S11 step 04) ────────────────────────────────────────
 // The golden path: Почати прийом → encounter created `in_progress` (datetime
 // omitted → now) → straight into the dictation studio with the patient +
@@ -482,6 +519,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   const [encounterOpen, setEncounterOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [withdrawTarget, setWithdrawTarget] = useState(null);
+  const [signTarget, setSignTarget] = useState(null);
   const [groupCollapsed, setGroupCollapsed] = useState({});
 
   // Save page state on unmount (refs so the cleanup sees current values).
@@ -572,7 +611,11 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
     setEncounterOpen(false);
     encReq.reload(); tlReq.reload();
   };
-  const handleWithdraw = async (c) => { await withdrawConsent(id, c.id); conReq.reload(); };
+  const handleWithdraw = async (c) => {
+    await withdrawConsent(id, c.id);
+    setWithdrawTarget(null);
+    conReq.reload();
+  };
   // Golden path: create the encounter live (`in_progress`, datetime = now)
   // and route into the studio with BOTH uuids — the WS start message and the
   // recording linkage hang off ?encounter=.
@@ -943,12 +986,22 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
               <Empty icon="shield" title={lang === "uk" ? "Записів про згоду немає" : "No consent records"} />
             ) : listShell(
               consents.map((c) => (
-                <div key={c.id} className="consent-row">
+                <div key={c.id} className={"consent-row" + (c.status === "withdrawn" ? " withdrawn" : "")}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Icon name="shield" size={13} />
                   </div>
                   <div className="cr-meta">
-                    <div className="cr-type">{consentLine(c, lang)}</div>
+                    <div className="cr-type">
+                      {consentLine(c, lang)}
+                      {c.signed_envelope_id && (
+                        <span className="chip signed" title={`envelope ${c.signed_envelope_id}`}>
+                          <Icon name="sign" size={11} /> {lang === "uk" ? "КЕП" : "Signed"}
+                        </span>
+                      )}
+                      {c.method === "digital" && !c.signed_envelope_id && (
+                        <span className="chip draft">{lang === "uk" ? "не підписано" : "unsigned"}</span>
+                      )}
+                    </div>
                     <div className="cr-detail">
                       {fmtDate(c.granted_at, lang)}
                       {c.status === "withdrawn" && c.withdrawn_at && (
@@ -959,8 +1012,13 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                   <span className={`status-badge ${c.status}`}>
                     {({ granted: lang === "uk" ? "Надано" : "Granted", declined: lang === "uk" ? "Відхилено" : "Declined", withdrawn: lang === "uk" ? "Відкликано" : "Withdrawn" })[c.status] || c.status}
                   </span>
+                  {c.method === "digital" && !c.signed_envelope_id && c.status === "granted" && (
+                    <button className="btn ghost sm" style={{ fontSize: 12 }} onClick={() => setSignTarget(c)}>
+                      {lang === "uk" ? "Підписати" : "Sign"}
+                    </button>
+                  )}
                   {c.status === "granted" && (
-                    <button className="btn ghost sm" style={{ fontSize: 12 }} onClick={() => handleWithdraw(c)}>
+                    <button className="btn ghost sm" style={{ fontSize: 12 }} onClick={() => setWithdrawTarget(c)}>
                       {lang === "uk" ? "Відкликати" : "Withdraw"}
                     </button>
                   )}
@@ -986,6 +1044,15 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
       )}
       {startOpen && (
         <StartEncounterSheet lang={lang} onClose={() => setStartOpen(false)} onStart={handleStartEncounter} />
+      )}
+      {withdrawTarget && (
+        <WithdrawConsentDialog lang={lang} consent={withdrawTarget}
+          onClose={() => setWithdrawTarget(null)} onConfirm={handleWithdraw} />
+      )}
+      {signTarget && (
+        <ConsentSignDialog lang={lang} patientId={id} consent={signTarget}
+          onClose={() => { setSignTarget(null); conReq.reload(); }}
+          onSigned={() => conReq.reload()} />
       )}
     </div>
   );

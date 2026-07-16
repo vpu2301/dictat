@@ -16,6 +16,8 @@ import { getStarredIds, toggleStar as toggleStarPref, getUsage, recordUse } from
 import { createReport, updateReport, finalizeReport, downloadReportPdf, getReport } from '../api/reports.js';
 import { getPatient, listPatients, yearOfBirth } from '../api/patients.js';
 import { getEncounter, createEncounter } from '../api/encounters.js';
+import { useConsentGate } from '../patients/consentGate.js';
+import { ConsentSheet } from '../patients/ConsentSheet.jsx';
 import { asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { COMMANDS, segmentUtterance, appendUtterance, actionsOf, findBestSection, INSERT_OPS } from '../dictation/voiceCommands.js';
@@ -1410,7 +1412,9 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       const isEditing = e.target?.isContentEditable || e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA";
       // Space = toggle mic (when not editing)
       if (e.code === "Space" && !isEditing && e.target === document.body) {
-        e.preventDefault(); toggleMic();
+        // via ref: this effect mounts once, but the gate check inside
+        // toggleMic must see the CURRENT patient/consent state
+        e.preventDefault(); toggleMicRef.current();
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
         e.preventDefault(); triggerSave();
@@ -1420,15 +1424,28 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // ── Mic actions ────────────────────────────────────────────────────
-  // S11 step 05 mounts the consent gate HERE: the transition into
-  // `speech.start()` is the single "before recording starts" moment for
-  // both the hotkey and the mic button — gate this, not the UI around it.
-  const toggleMic = () => {
-    if (speech.state === "listening") speech.pause();
-    else if (speech.state === "paused") speech.start();
-    else if (speech.state === "idle" || speech.state.startsWith("error_")) speech.start();
+  // ── Mic actions + the consent gate (S11 step 05) ───────────────────
+  // The transition into `speech.start()` is the single "before recording
+  // starts" moment for the hotkey, the mic button AND resume-from-pause —
+  // the gate lives here, not in the UI around it. It re-checks the server
+  // on EVERY start so a consent withdrawn elsewhere blocks the next
+  // segment. Fail CLOSED on errors: this is a legal gate — the deliberate
+  // inverse of S10's fail-open autocomplete (see consentGate.js).
+  const [consentSheetOpen, setConsentSheetOpen] = useState(false);
+  const consentGate = useConsentGate(patient?.id, { encounterId });
+
+  const startRecording = async () => {
+    const { active, error } = await consentGate.check();
+    if (error) return;                          // banner shows the retry
+    if (!active) { setConsentSheetOpen(true); return; }
+    speech.start();
   };
+  const toggleMic = () => {
+    if (speech.state === "listening") { speech.pause(); return; }
+    startRecording();
+  };
+  const toggleMicRef = useRef(toggleMic);
+  toggleMicRef.current = toggleMic;
 
   // ── Autocomplete (Sprint 10) ───────────────────────────────────────
   // Single suggestions source for ghost (Layer A) + pills (Layer B).
@@ -1762,6 +1779,26 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
 
       <aside className="right">
         <div className="right-pad">
+          {consentGate.status === "required" && (
+            <div className="consent-gate-banner" data-testid="consent-gate-banner" role="status">
+              <Icon name="shield" size={14} />
+              <span>{lang === "uk" ? "Потрібна згода пацієнта на AI-запис" : "Patient consent to AI recording is required"}</span>
+              <button type="button" className="btn accent sm" onClick={() => setConsentSheetOpen(true)}>
+                {lang === "uk" ? "Отримати згоду" : "Capture consent"}
+              </button>
+            </div>
+          )}
+          {consentGate.status === "error" && (
+            <div className="consent-gate-banner error" data-testid="consent-gate-error" role="alert">
+              <Icon name="micOff" size={14} />
+              <span>{lang === "uk"
+                ? "Не вдалося перевірити згоду — запис заблоковано"
+                : "Couldn't verify consent — recording is blocked"}</span>
+              <button type="button" className="btn sm" onClick={consentGate.refresh}>
+                {lang === "uk" ? "Повторити" : "Retry"}
+              </button>
+            </div>
+          )}
           <MicCard
             state={speech.state}
             level={speech.level}
@@ -1796,6 +1833,20 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       />
 
       {/* Sprint 09: Full signing flow */}
+      {consentSheetOpen && (
+        <ConsentSheet
+          lang={lang}
+          patient={patient}
+          encounterId={encounterId}
+          onClose={() => setConsentSheetOpen(false)}
+          onGranted={(_c, { autoStart }) => {
+            consentGate.refresh();
+            // verbal/written: the clinician asked to record — proceed
+            // straight into it; digital keeps the sign dialog open instead
+            if (autoStart) speech.start();
+          }}
+        />
+      )}
       {signOpen && (
         <SigningFlow
           lang={lang}
