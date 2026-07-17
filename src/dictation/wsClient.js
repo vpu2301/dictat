@@ -54,7 +54,11 @@ export function explainCloseCode(code, lang = "en") {
 
 // ── client → server messages ──────────────────────────────────────────
 //   start_session, refresh_token, end_session, pause, resume, retransmit_range
-function msgStartSession({ promptId, language, targetKind, encounterId, templateId, resumeSessionId }) {
+// Exported for the S11 step-04 contract test: a session started from an
+// encounter context MUST carry encounter_id (the backend persists it to
+// audio_files and validates it — protocol errors `encounter_invalid` /
+// `encounter_closed` come back on a bad one).
+export function msgStartSession({ promptId, language, targetKind, encounterId, templateId, resumeSessionId }) {
   const m = {
     type: "start_session",
     protocol_version: 1,

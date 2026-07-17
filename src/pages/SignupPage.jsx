@@ -74,7 +74,7 @@ export function SignupPage({ navigate, lang = "en" }) {
           <div className="login-brand">
             <Logo size={32} />
             <div>
-              <div className="login-brand-name">Dictator</div>
+              <div className="login-brand-name">Klarnote</div>
               <div className="login-brand-tag">
                 {uk ? "Медичне диктування" : "Medical dictation"}
               </div>
@@ -128,7 +128,7 @@ export function SignupPage({ navigate, lang = "en" }) {
         <div className="login-brand">
           <Logo size={32} />
           <div>
-            <div className="login-brand-name">Dictator</div>
+            <div className="login-brand-name">Klarnote</div>
             <div className="login-brand-tag">
               {uk ? "Медичне диктування" : "Medical dictation"}
             </div>

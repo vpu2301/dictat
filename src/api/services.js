@@ -20,7 +20,7 @@ export const SERVICES = {
   signing:      env.VITE_SIGNING_SERVICE_URL      || env.VITE_SIGNING_URL      || "http://localhost:8008",
   // Clinical / EHR endpoints not yet covered by the integration guide
   // (patients, encounters, consents, anamnesis, clinical notes, scribe).
-  core:      env.VITE_CORE_SERVICE_URL      || "http://localhost:8003",
+  core:      env.VITE_CORE_SERVICE_URL      || env.VITE_CORE_URL || "http://localhost:8003",
 };
 
 // Derive the WS base from the dictation HTTP base. Always upgrade scheme.

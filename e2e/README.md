@@ -42,3 +42,51 @@ Known dev-stack noise (filtered in the live spec, see comment there): the
 Studio probes each service's `/readyz` on mount; dictation-service (:8002)
 has no CORS headers in the dev stack, which Chromium logs as console
 errors unrelated to autocomplete.
+
+## Live — sprint 11 (`npm run e2e:person` / `e2e:privacy`)
+
+| Script | Spec | Gate |
+|---|---|---|
+| `npm run e2e:person` | `patients.spec.js` — person→report golden path, consent gate block/unblock/re-block, ІПН search, PII sweep, nurse role | `RUN_BACKEND_INTEGRATION=1` |
+| `npm run e2e:privacy` | `privacy.spec.js` — two-person erasure incl. REAL execution, DSAR download, role forbidden | + `E2E_PRIVACY=1` |
+
+Stack (host-run services; infra via `make dev-up && make migrate-up && make seed`):
+
+```bash
+# auth :8000
+make run-auth-service
+# core :8003 — BOTH env vars matter:
+#  * dev master key (mode 0400) — DSAR export/envelope crypto fails without it
+#  * ERASURE_GRACE_DAYS=0 — the privacy spec's execution case; approve stamps
+#    scheduled_for=now, otherwise the manual runner refuses (by design)
+MDX_MASTER_KEY_PATH=$PWD/infra/dev/master.key ERASURE_GRACE_DAYS=0 \
+  uv run --project services/core-service uvicorn core_service.main:app --port 8003
+# report :8006
+uv run --project services/report-service uvicorn report_service.main:app --port 8006
+# signing :8008 (consent КЕП dev provider; only needed for consent-sign flows)
+SIGNING_DEV_PASSWORD_ENABLED=true \
+  uv run --project services/signing-service uvicorn signing_service.main:app --port 8008
+```
+
+Conventions the S11 suites add:
+
+- **Two-person without a second admin:** the seed ships ONE tenant_admin
+  per tenant, so the CLINICIAN files erasure requests (`patient.write`)
+  and the admin approves as the second person; the "own request has no
+  approve controls" mirror uses the admin's own request.
+- **Recording substitution:** no dictation-/ASR-service in this stack, so
+  "record" = the studio's real dictation-editing affordance (typing) →
+  real report autosave. The consent gate guards the same `speech.start()`
+  transition; WS `encounter_id` is unit-tested
+  (`src/dictation/messages.test.js`); `audio_files.encounter_id` linkage
+  was SQL-proven in step 04.
+- **Erasure execution** runs the backend's documented manual runner
+  (`python -m core_service.erasure.run`) — the scheduler's engine and
+  advisory lock; nothing bypasses approval.
+- **PII sweep:** `helpers/pii.js` taps every URL/telemetry request in
+  observe mode and scans storage; the scanner itself is mutation-checked
+  (`helpers/pii.test.js` — it must catch planted leaks). Fixture names
+  carry a per-run marker (`Тест-<runid>`) so SQL asserts scope cleanly.
+- **Zero console errors** is asserted in every case (uncaught JS +
+  `console.error`; browser network-log lines and the :8002 CORS gap are
+  the two documented exclusions).

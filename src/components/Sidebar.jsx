@@ -228,6 +228,7 @@ export function Sidebar({
         items: [
           { icon: "grid", label: lang === "uk" ? "Панель" : "Dashboard", path: "/dashboard", exact: true },
           { icon: "users", label: lang === "uk" ? "Користувачі" : "Users", path: "/admin/users", exact: true },
+          { icon: "shield", label: lang === "uk" ? "Приватність" : "Privacy", path: "/admin/privacy", exact: true },
         ],
       });
     }
@@ -250,7 +251,7 @@ export function Sidebar({
       <div className="sb-brand">
         <div className="sb-brand-inner" onClick={() => navigate(product === "scribe" ? "/scribe" : "/dictate")}>
           <Logo size={26} />
-          {!collapsed && <span>Dictator</span>}
+          {!collapsed && <span>Klarnote</span>}
         </div>
         <button className="sb-toggle" onClick={onToggleCollapse} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
           <Icon name={collapsed ? "chevRight" : "chevLeft"} size={13} />

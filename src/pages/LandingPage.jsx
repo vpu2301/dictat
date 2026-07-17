@@ -1,4 +1,4 @@
-// LandingPage.jsx — Public marketing landing for Dictat.
+// LandingPage.jsx — Public marketing landing for Klarnote.
 // Sticky menu, hero, products, features, workflow, security, CTA, footer.
 // Bilingual (uk/en) via the shared `lang` tweak; no auth required.
 import React from "react";
@@ -14,7 +14,7 @@ const COPY = {
     hero: {
       eyebrow: "Медичне диктування нового покоління",
       title: "Клінічна документація голосом — швидко, точно, безпечно",
-      sub: "Dictat перетворює мову лікаря на структуровані медичні нотатки в реальному часі. Менше друку, більше часу для пацієнта.",
+      sub: "Klarnote перетворює мову лікаря на структуровані медичні нотатки в реальному часі. Менше друку, більше часу для пацієнта.",
       ctaPrimary: "Почати безкоштовно",
       ctaSecondary: "Подивитися можливості",
       note: "Self-hosted моделі • Дані не залишають вашого розгортання",
@@ -61,7 +61,7 @@ const COPY = {
     ],
     workflowTitle: "Від голосу до підписаного документа",
     workflow: [
-      { n: "01", t: "Говоріть", d: "Почніть прийом або диктування — Dictat розпізнає мову в реальному часі." },
+      { n: "01", t: "Говоріть", d: "Почніть прийом або диктування — Klarnote розпізнає мову в реальному часі." },
       { n: "02", t: "Перевірте", d: "Структурована нотатка з підсвіченими сумнівними місцями для швидкої правки." },
       { n: "03", t: "Підпишіть", d: "Підпишіть через Дія та поділіться посиланням для перевірки." },
     ],
@@ -73,7 +73,7 @@ const COPY = {
       { icon: "check", t: "Згода пацієнта", d: "Явна згода перед записом і прозорий індикатор стану." },
     ],
     ctaTitle: "Готові повернути час лікарям?",
-    ctaSub: "Спробуйте Dictat у вашій клініці вже сьогодні.",
+    ctaSub: "Спробуйте Klarnote у вашій клініці вже сьогодні.",
     ctaPrimary: "Зареєструватися",
     ctaSecondary: "Увійти",
     footer: {
@@ -91,7 +91,7 @@ const COPY = {
     hero: {
       eyebrow: "Next-generation medical dictation",
       title: "Clinical documentation by voice — fast, accurate, secure",
-      sub: "Dictat turns a clinician's speech into structured medical notes in real time. Less typing, more time for the patient.",
+      sub: "Klarnote turns a clinician's speech into structured medical notes in real time. Less typing, more time for the patient.",
       ctaPrimary: "Get started free",
       ctaSecondary: "See features",
       note: "Self-hosted models • Data never leaves your deployment",
@@ -138,7 +138,7 @@ const COPY = {
     ],
     workflowTitle: "From voice to a signed document",
     workflow: [
-      { n: "01", t: "Speak", d: "Start an encounter or dictation — Dictat recognizes speech in real time." },
+      { n: "01", t: "Speak", d: "Start an encounter or dictation — Klarnote recognizes speech in real time." },
       { n: "02", t: "Review", d: "A structured note with uncertain spots highlighted for fast edits." },
       { n: "03", t: "Sign", d: "Sign via Дія and share a verification link." },
     ],
@@ -150,7 +150,7 @@ const COPY = {
       { icon: "check", t: "Patient consent", d: "Explicit consent before recording with a clear status indicator." },
     ],
     ctaTitle: "Ready to give clinicians their time back?",
-    ctaSub: "Try Dictat in your clinic today.",
+    ctaSub: "Try Klarnote in your clinic today.",
     ctaPrimary: "Sign up",
     ctaSecondary: "Sign in",
     footer: {

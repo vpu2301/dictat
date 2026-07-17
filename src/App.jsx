@@ -9,7 +9,10 @@ import { Sidebar } from './components/Sidebar.jsx';
 import { DictationStudio } from './components/Studio.jsx';
 import { DictateToday } from './components/DictateHome.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
-import { ScribeToday, ScribePatients, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
+import { ScribeToday, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
+import { PatientDirectory } from './patients/PatientDirectory.jsx';
+import { PrivacyAdminPage } from './pages/PrivacyAdminPage.jsx';
+import { ErasureRequestPage } from './pages/ErasureRequestPage.jsx';
 import { EnhancedScribePatient } from './components/PatientProfile.jsx';
 import { NoteEditorPage, QuickNoteModal, useQuickNoteHotkey } from './components/NoteEditor.jsx';
 import { NoteReviewPage } from './components/NoteReview.jsx';
@@ -21,6 +24,7 @@ import { listTemplates, createTemplate, toStudioTemplate } from './api/templates
 
 import { LandingPage } from './pages/LandingPage.jsx';
 import { ContentPage } from './pages/marketing/ContentPage.jsx';
+import { ApiDocsPage } from './pages/marketing/ApiDocsPage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 import { SignupFlow } from './pages/SignupFlow.jsx';
 import { PricingPage } from './pages/PricingPage.jsx';
@@ -115,7 +119,7 @@ function App() {
   const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing"];
   const isMarketing = MARKETING_EXACT.includes(route)
     || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/")
-    || route.startsWith("/blog/");
+    || route.startsWith("/blog/") || route === "/developers/api" || route.startsWith("/developers/api/");
   const isPublicRoute = isAuthRoute || isLanding || isMarketing || route.startsWith("/verify/");
   const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
   const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
@@ -127,7 +131,7 @@ function App() {
   }, [gateToLogin, gateToHome]);
 
   // Tenant admins land on their dashboard. When an authenticated owner hits the
-  // bare root (post-login or "Dictator" brand click), send them to #/dashboard.
+  // bare root (post-login or "Klarnote" brand click), send them to #/dashboard.
   const isTenantAdmin = hasAnyRole(auth?.claims, ["tenant_admin"]);
   useEffect(() => {
     if (auth && isTenantAdmin && (route === "/" || route === "")) navigate("/dashboard");
@@ -196,6 +200,10 @@ function App() {
     view = <BlogPostPage slug={r.replace(/^\/blog\//, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     fullBleed = true;
   }
+  else if (r === "/developers/api" || r.startsWith("/developers/api/")) {
+    view = <ApiDocsPage svc={r.replace(/^\/developers\/api\/?/, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
   else if (
     ["/about", "/contact", "/careers", "/features", "/security"].includes(r)
     || r.startsWith("/legal/") || r.startsWith("/features/") || r.startsWith("/product/")
@@ -212,11 +220,23 @@ function App() {
   else if (r === "/scribe" || r === "/" || r === "") {
     view = <ScribeToday navigate={navigate} lang={lang} />;
     title = lang === "uk" ? "Сьогодні" : "Today";
-  } else if (r === "/scribe/patients") {
-    view = <ScribePatients navigate={navigate} lang={lang} />;
+  } else if (r === "/scribe/patients" || r === "/patients") {
+    // /patients is the sprint-11 canonical alias; both render the directory.
+    view = <PatientDirectory navigate={navigate} lang={lang} />;
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Пацієнти" : "Patients" }];
-  } else if (r.startsWith("/scribe/patients/")) {
-    const id = r.split("/")[3];
+  } else if (r.startsWith("/patients/") && r.endsWith("/erasure-request")) {
+    // S11 step 06 — the weighty full-screen erasure request (admin-only,
+    // deep-link-safe: RequireRole renders the standard forbidden state)
+    const pid = r.split("/")[2];
+    view = (
+      <RequireRole any={["tenant_admin", "super_admin"]} navigate={navigate}>
+        <ErasureRequestPage patientId={pid} lang={lang} navigate={navigate} />
+      </RequireRole>
+    );
+    crumbs = [{ label: lang === "uk" ? "Приватність" : "Privacy" }, { label: lang === "uk" ? "Запит на видалення" : "Erasure request" }];
+  } else if (r.startsWith("/scribe/patients/") || r.startsWith("/patients/")) {
+    // ?tab= is the one allowed (enum) param on this route — strip it from the id
+    const id = r.split("/")[r.startsWith("/scribe/") ? 3 : 2]?.split("?")[0];
     view = <EnhancedScribePatient id={id} navigate={navigate} lang={lang} />;
     crumbs = [
       { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
@@ -261,7 +281,8 @@ function App() {
     const pm = r.match(/patient=([\w-]+)/);
     const tm = r.match(/template=([\w-]+)/);
     const rm = r.match(/report=([\w-]+)/);
-    view = <DictationStudio lang={lang} patientId={pm?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
+    const em = r.match(/encounter=([\w-]+)/);
+    view = <DictationStudio lang={lang} patientId={pm?.[1]} encounterId={em?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
              templatesMap={templatesMap} onAddTemplate={handleAddTemplate}
              templatesLoading={templatesReq.loading} templatesError={templatesReq.error}
              onRetryTemplates={templatesReq.reload} />;
@@ -333,6 +354,14 @@ function App() {
     crumbs = [{ label: lang === "uk" ? "Ідентичність" : "Identity" }];
   }
   // ── admin ──────────────────────────────────────────────────
+  else if (r === "/admin/privacy") {
+    view = (
+      <RequireRole any={["tenant_admin", "super_admin"]} navigate={navigate}>
+        <PrivacyAdminPage lang={lang} navigate={navigate} />
+      </RequireRole>
+    );
+    crumbs = [{ label: lang === "uk" ? "Адмін" : "Admin" }, { label: lang === "uk" ? "Приватність" : "Privacy" }];
+  }
   else if (r === "/admin/users") {
     view = (
       <RequireRole any={["tenant_admin"]} navigate={navigate}>

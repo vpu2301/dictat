@@ -47,6 +47,13 @@ const MATRIX = {
   "reports.create":   { report:  ["clinician", "tenant_admin"] },
   "reports.read":     { report:  ["clinician", "tenant_admin", "auditor"] },
   "patients.read":    { patient: ["clinician", "tenant_admin"] },
+
+  // ── privacy (S11 step 06 — server scopes patient.dsar / privacy.approve) ─
+  // DSAR + erasure surfaces are tenant-admin-only in the UI; the backend
+  // additionally enforces the two-person rule on approve/reject.
+  "privacy.dsar":    { patient: ["tenant_admin", "super_admin"] },
+  "privacy.request": { patient: ["tenant_admin", "super_admin"] },
+  "privacy.approve": { patient: ["tenant_admin", "super_admin"] },
 };
 
 export function isAllowed(claims, action, target_kind) {

@@ -14,11 +14,18 @@ export async function getEncounter(id) {
   return a(`/encounters/${encodeURIComponent(id)}`, { method: "GET" });
 }
 
-// POST /patients/{id}/encounters — body: { kind, datetime, reason }
-export async function createEncounter(patientId, { kind, datetime, reason }) {
+// POST /patients/{id}/encounters — body: { kind, datetime?, reason, status? }.
+// kind: visit|phone|video|scribe|followup|other; status: scheduled|
+// in_progress|completed|cancelled (server default "completed"; anything but
+// "scheduled" bumps the patient's last_visit). extra="forbid" — send only
+// what the caller set.
+export async function createEncounter(patientId, { kind, datetime, reason, status } = {}) {
+  const b = { kind, reason };
+  if (datetime !== undefined) b.datetime = datetime;
+  if (status !== undefined) b.status = status;
   return a(`/patients/${encodeURIComponent(patientId)}/encounters`, {
     method: "POST",
-    body: JSON.stringify({ kind, datetime, reason }),
+    body: JSON.stringify(b),
   });
 }
 
