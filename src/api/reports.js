@@ -68,22 +68,31 @@ export async function countReports(params = {}) {
 // can't know authorship before the response — so try bare first and retry once
 // with purpose=clinical_continuity (opening a colleague's report inside the
 // clinical workflow IS care continuity; audit/legal readers pass their own).
-export async function getReport(id, { includeContent = true, purpose } = {}) {
-  const qs = new URLSearchParams();
-  if (includeContent) qs.set("include_content", "true");
-  if (purpose) qs.set("purpose", purpose);
-  const path = () => `/v1/reports/${encodeURIComponent(id)}?${qs}`;
+export function isMissingPurposeError(err) {
+  return err?.status === 422 &&
+    /missing-read-purpose/.test(String(err?.problem?.detail ?? err?.message ?? ""));
+}
+
+// Bare-then-retry GET for purpose-gated endpoints: try without ?purpose= (author
+// reads must not send one), and on the 422 retry once as clinical_continuity.
+async function getWithPurposeRetry(pathFor, purpose) {
   try {
-    return await a(path(), { method: "GET" });
+    return await a(pathFor(purpose), { method: "GET" });
   } catch (err) {
-    const missingPurpose = err?.status === 422 &&
-      /missing-read-purpose/.test(String(err?.problem?.detail ?? err?.message ?? ""));
-    if (!purpose && missingPurpose) {
-      qs.set("purpose", "clinical_continuity");
-      return a(path(), { method: "GET" });
+    if (!purpose && isMissingPurposeError(err)) {
+      return a(pathFor("clinical_continuity"), { method: "GET" });
     }
     throw err;
   }
+}
+
+export async function getReport(id, { includeContent = true, purpose } = {}) {
+  return getWithPurposeRetry((p) => {
+    const qs = new URLSearchParams();
+    if (includeContent) qs.set("include_content", "true");
+    if (p) qs.set("purpose", p);
+    return `/v1/reports/${encodeURIComponent(id)}?${qs}`;
+  }, purpose);
 }
 
 // Adapt the editor's flat shape to the backend's nested `content` contract.
@@ -164,12 +173,19 @@ export async function reportDiff(id, { from, to } = {}) {
 
 // Version history helpers. The diff view fetches two snapshots and renders the
 // delta client-side; these read individual versions under the report resource.
-export async function listReportVersions(id) {
-  return a(`/v1/reports/${encodeURIComponent(id)}/versions`, { method: "GET" });
+// Both enforce the same non-author ?purpose= gate as getReport.
+export async function listReportVersions(id, { purpose } = {}) {
+  return getWithPurposeRetry((p) => {
+    const qs = p ? `?${new URLSearchParams({ purpose: p })}` : "";
+    return `/v1/reports/${encodeURIComponent(id)}/versions${qs}`;
+  }, purpose);
 }
 
-export async function getReportVersion(id, version) {
-  return a(`/v1/reports/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}`, { method: "GET" });
+export async function getReportVersion(id, version, { purpose } = {}) {
+  return getWithPurposeRetry((p) => {
+    const qs = p ? `?${new URLSearchParams({ purpose: p })}` : "";
+    return `/v1/reports/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}${qs}`;
+  }, purpose);
 }
 
 // POST /v1/reports/{id}/amend (AmendRequest, extra="forbid"). An amendment is a
@@ -209,10 +225,11 @@ export async function getSynthesis(id, jobId) {
 // GET /v1/reports/{id}/pdf?variant=draft|clean&lang=uk|en. variant=draft stamps
 // a "DRAFT/ЧЕРНЕТКА" watermark + "not signed" banner; variant=clean is honored
 // ONLY for signed reports (non-signed is forced to draft). 409 only for cancelled.
-export function reportPdfUrl(id, { variant = "draft", lang } = {}) {
+export function reportPdfUrl(id, { variant = "draft", lang, purpose } = {}) {
   const qs = new URLSearchParams();
   if (variant) qs.set("variant", variant);
   if (lang)    qs.set("lang", lang);
+  if (purpose) qs.set("purpose", purpose);
   const tail = qs.toString() ? `?${qs}` : "";
   return `${SERVICES.report}/v1/reports/${encodeURIComponent(id)}/pdf${tail}`;
 }
@@ -220,17 +237,31 @@ export function reportPdfUrl(id, { variant = "draft", lang } = {}) {
 // Authed binary download: the PDF endpoint needs the bearer token, so a plain
 // <a href> won't do. Fetch as a blob and trigger a save. Replaces the old
 // client-side window.print() draft hack. Returns true on success; throws ApiError.
-export async function downloadReportPdf(id, { variant = "draft", lang, filename } = {}) {
+export async function downloadReportPdf(id, { variant = "draft", lang, filename, purpose } = {}) {
   const token = getAccessToken();
-  const res = await fetch(reportPdfUrl(id, { variant, lang }), {
+  const fetchPdf = (p) => fetch(reportPdfUrl(id, { variant, lang, purpose: p }), {
     method: "GET",
     credentials: "include",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
+  let res = await fetchPdf(purpose);
   if (!res.ok) {
     let problem = null;
     try { problem = await res.json(); } catch {}
-    throw new ApiError(res.status, problem || { title: `pdf_failed_${res.status}` });
+    let err = new ApiError(res.status, problem || { title: `pdf_failed_${res.status}` });
+    // The PDF endpoint enforces the same non-author ?purpose= gate as getReport;
+    // retry once as clinical_continuity (see the read-purpose note above).
+    if (!purpose && isMissingPurposeError(err)) {
+      res = await fetchPdf("clinical_continuity");
+      if (!res.ok) {
+        problem = null;
+        try { problem = await res.json(); } catch {}
+        err = new ApiError(res.status, problem || { title: `pdf_failed_${res.status}` });
+        throw err;
+      }
+    } else {
+      throw err;
+    }
   }
   const blob = await res.blob();
   // Prefer the server's Content-Disposition filename when present.

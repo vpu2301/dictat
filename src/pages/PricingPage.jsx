@@ -202,7 +202,7 @@ export function PricingPage({ navigate, lang = "en", tweaks, setTweak }) {
       </section>
 
       <section className="lp-cta">
-        <h2 className="lp-cta-title">{t("Готові спробувати Dictat?", "Ready to try Dictat?")}</h2>
+        <h2 className="lp-cta-title">{t("Готові спробувати Klarnote?", "Ready to try Klarnote?")}</h2>
         <p className="lp-cta-sub">{t("Зареєструйтесь — і поверніть лікарям час для пацієнтів.", "Sign up and give clinicians their time back.")}</p>
         <div className="lp-cta-actions">
           <a className="btn btn-primary lp-cta-lg" href="#/signup" onClick={go("/signup")}>{t("Зареєструватися", "Sign up")}</a>

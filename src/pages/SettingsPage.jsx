@@ -238,10 +238,10 @@ export function SettingsPage({ lang = "en", tweaks, setTweak }) {
 
           <Section id="about" icon="help" title={T("Про застосунок", "About")}>
             <Row label={T("Версія", "Version")}>
-              <span className="settings-row-hint" style={{ margin: 0 }}>Dictat · {__APP_VERSION__}</span>
+              <span className="settings-row-hint" style={{ margin: 0 }}>Klarnote · {__APP_VERSION__}</span>
             </Row>
             <Row label={T("Підтримка", "Support")}>
-              <a className="btn ghost sm" href="mailto:support@dictat.health">support@dictat.health</a>
+              <a className="btn ghost sm" href="mailto:support@klarnote.health">support@klarnote.health</a>
             </Row>
           </Section>
         </div>

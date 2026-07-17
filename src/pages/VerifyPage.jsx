@@ -68,7 +68,7 @@ export function VerifyPage({ envelopeId, lang }) {
       <div className="verify-header">
         <div className="sb-brand-mark" style={{ width: 32, height: 32, fontSize: 16 }}>D</div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>Dictat</div>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>Klarnote</div>
           <div className="muted" style={{ fontSize: 12 }}>
             {uk ? 'Верифікація цифрового підпису' : 'Digital signature verification'}
           </div>

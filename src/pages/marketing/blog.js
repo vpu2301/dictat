@@ -24,10 +24,10 @@ export const BLOG_POSTS = [
       uk: [
         { p: "Для більшості лікарів прийом і документація відбуваються в різний час: спершу розмова з пацієнтом, потім — вечір за клавіатурою, коли деталі вже стерлися з пам'яті. Амбулаторний скрайб прибирає цей розрив: нотатка формується під час візиту, а не після нього." },
         { h2: "Що чує скрайб" },
-        { p: "Від моменту, коли ви починаєте прийом, Dictat слухає розмову. Він відділяє мову лікаря від мови пацієнта, розпізнає її в реальному часі й ніколи не надсилає аудіо до сторонніх сервісів — уся обробка відбувається у вашому розгортанні." },
+        { p: "Від моменту, коли ви починаєте прийом, Klarnote слухає розмову. Він відділяє мову лікаря від мови пацієнта, розпізнає її в реальному часі й ніколи не надсилає аудіо до сторонніх сервісів — уся обробка відбувається у вашому розгортанні." },
         { p: "Перш ніж записати бодай слово, система показує явний індикатор запису та фіксує згоду пацієнта. Прозорість тут не опція, а вимога." },
         { h2: "Від розмови до структури" },
-        { p: "Сирий транскрипт — це ще не нотатка. Dictat розкладає розмову на структуру, яку очікує ваша спеціальність: скарги, анамнез, об'єктивний огляд, висновок, план. Ви редагуєте готовий каркас, а не порожню сторінку." },
+        { p: "Сирий транскрипт — це ще не нотатка. Klarnote розкладає розмову на структуру, яку очікує ваша спеціальність: скарги, анамнез, об'єктивний огляд, висновок, план. Ви редагуєте готовий каркас, а не порожню сторінку." },
         { ul: [
           "Згода та видимий індикатор запису перед стартом",
           "Розпізнавання з розділенням мовців",
@@ -40,10 +40,10 @@ export const BLOG_POSTS = [
       en: [
         { p: "For most clinicians, the visit and the paperwork happen at different times: first the conversation, then an evening at the keyboard once the details have already faded. An ambient scribe collapses that gap — the note takes shape during the encounter, not after it." },
         { h2: "What the scribe hears" },
-        { p: "From the moment you start an encounter, Dictat listens to the conversation. It separates clinician speech from patient speech, recognizes it in real time, and never sends audio to a third party — all processing runs inside your own deployment." },
+        { p: "From the moment you start an encounter, Klarnote listens to the conversation. It separates clinician speech from patient speech, recognizes it in real time, and never sends audio to a third party — all processing runs inside your own deployment." },
         { p: "Before a single word is captured, the system shows a clear recording indicator and records the patient's consent. Transparency here isn't optional; it's a requirement." },
         { h2: "From conversation to structure" },
-        { p: "A raw transcript is not a note. Dictat maps the conversation onto the structure your specialty expects — history, examination, assessment, plan. You edit a finished scaffold instead of a blank page." },
+        { p: "A raw transcript is not a note. Klarnote maps the conversation onto the structure your specialty expects — history, examination, assessment, plan. You edit a finished scaffold instead of a blank page." },
         { ul: [
           "Consent and a visible recording indicator before anything is captured",
           "Speaker-aware transcription",
@@ -158,9 +158,9 @@ export const BLOG_POSTS = [
     },
     body: {
       uk: [
-        { p: "Диктування відчувається природним лише тоді, коли слова з'являються синхронно з мовленням. Затримка навіть у секунду розриває потік думки. Тому Dictat розпізнає мову потоково, а не пакетно." },
+        { p: "Диктування відчувається природним лише тоді, коли слова з'являються синхронно з мовленням. Затримка навіть у секунду розриває потік думки. Тому Klarnote розпізнає мову потоково, а не пакетно." },
         { h2: "Потік, а не пакет" },
-        { p: "Замість того щоб чекати, доки ви закінчите речення, Dictat обробляє аудіо невеликими перекривними вікнами. Проміжний результат з'являється майже миттєво й уточнюється, коли надходить більше контексту." },
+        { p: "Замість того щоб чекати, доки ви закінчите речення, Klarnote обробляє аудіо невеликими перекривними вікнами. Проміжний результат з'являється майже миттєво й уточнюється, коли надходить більше контексту." },
         { h2: "Компроміс із точністю" },
         { p: "Потокова обробка ризикує нижчою точністю, бо модель бачить менше контексту. Ми компенсуємо це двопрохідним підходом: швидкий проміжний результат для відгуку, а потім виправлений фінальний, коли речення завершене." },
         { ul: [
@@ -172,9 +172,9 @@ export const BLOG_POSTS = [
         { p: "Низька затримка — це не про технічну елегантність. Коли лікар бачить слова одразу, він ловить помилки на льоту, а не через годину. Швидкість тут напряму працює на точність документа." },
       ],
       en: [
-        { p: "Dictation only feels natural when the words appear in step with your speech. Even a second of lag breaks the train of thought. That's why Dictat recognizes speech as a stream, not in batches." },
+        { p: "Dictation only feels natural when the words appear in step with your speech. Even a second of lag breaks the train of thought. That's why Klarnote recognizes speech as a stream, not in batches." },
         { h2: "Streaming, not batch" },
-        { p: "Instead of waiting for you to finish a sentence, Dictat processes audio in small overlapping windows. An interim result appears almost instantly and is refined as more context arrives." },
+        { p: "Instead of waiting for you to finish a sentence, Klarnote processes audio in small overlapping windows. An interim result appears almost instantly and is refined as more context arrives." },
         { h2: "The accuracy tradeoff" },
         { p: "Streaming risks lower accuracy because the model sees less context at once. We recover it with a two-pass approach: a fast interim result for responsiveness, then a corrected final result once the sentence is complete." },
         { ul: [
@@ -204,7 +204,7 @@ export const BLOG_POSTS = [
       uk: [
         { p: "Порожня сторінка — ворог швидкої документації. Найбільше часу з'їдає не набір тексту, а рішення, з чого почати й що куди вписати. Шаблони знімають саме це навантаження." },
         { h2: "Структура під вашу спеціальність" },
-        { p: "Радіологічний опис, виписка, амбулаторна нотатка й консультація мають різну логіку. Dictat пропонує готові структури під кожен сценарій — з правильними секціями в правильному порядку, які ви можете адаптувати під заклад." },
+        { p: "Радіологічний опис, виписка, амбулаторна нотатка й консультація мають різну логіку. Klarnote пропонує готові структури під кожен сценарій — з правильними секціями в правильному порядку, які ви можете адаптувати під заклад." },
         { h2: "Голосові команди, що ведуть вас далі" },
         { p: "Не потрібно торкатися клавіатури, щоб перейти між секціями. Голосові команди переміщують курсор, вставляють стандартні фрази й ставлять пунктуацію — понад 30 інтентів, які тримають руки вільними." },
         { ul: [
@@ -217,7 +217,7 @@ export const BLOG_POSTS = [
       en: [
         { p: "A blank page is the enemy of fast documentation. The biggest time sink isn't typing — it's deciding where to start and what goes where. Templates take exactly that load off." },
         { h2: "Structure that matches your specialty" },
-        { p: "A radiology report, a discharge summary, an outpatient note and a consult all follow different logic. Dictat offers ready-made structures for each scenario — the right sections in the right order, which you can adapt to your organisation." },
+        { p: "A radiology report, a discharge summary, an outpatient note and a consult all follow different logic. Klarnote offers ready-made structures for each scenario — the right sections in the right order, which you can adapt to your organisation." },
         { h2: "Voice commands that move you through" },
         { p: "You don't need to touch the keyboard to jump between sections. Voice commands move the cursor, insert standard phrases and add punctuation — over 30 intents that keep your hands free." },
         { ul: [
@@ -239,8 +239,8 @@ export const BLOG_POSTS = [
       en: "Why we started with radiology",
     },
     excerpt: {
-      uk: "Історія першого прототипу Dictat і чому він спрацював.",
-      en: "The story of Dictat's first prototype and why it worked.",
+      uk: "Історія першого прототипу Klarnote і чому він спрацював.",
+      en: "The story of Klarnote's first prototype and why it worked.",
     },
     body: {
       uk: [

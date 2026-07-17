@@ -158,7 +158,7 @@ export function SignupFlow({ navigate, lang = "en" }) {
             <span className="mk-auth-opt-ic"><Icon name="user" size={20} /></span>
             <span className="mk-auth-opt-txt">
               <span className="mk-auth-opt-t">{t("Створити акаунт", "Create account")}</span>
-              <span className="mk-auth-opt-d">{t("Налаштуйте акаунт Dictat для вашої практики.", "Set up your Dictat account.")}</span>
+              <span className="mk-auth-opt-d">{t("Налаштуйте акаунт Klarnote для вашої практики.", "Set up your Klarnote account.")}</span>
             </span>
             <Icon name="arrowRight" size={17} />
           </button>
@@ -166,7 +166,7 @@ export function SignupFlow({ navigate, lang = "en" }) {
             <span className="mk-auth-opt-ic"><Icon name="calendar" size={20} /></span>
             <span className="mk-auth-opt-txt">
               <span className="mk-auth-opt-t">{t("Замовити демо", "Book a demo")}</span>
-              <span className="mk-auth-opt-d">{t("Подивіться Dictat разом із нашою командою.", "See Dictat with our team.")}</span>
+              <span className="mk-auth-opt-d">{t("Подивіться Klarnote разом із нашою командою.", "See Klarnote with our team.")}</span>
             </span>
             <Icon name="arrowRight" size={17} />
           </button>

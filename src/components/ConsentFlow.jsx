@@ -204,10 +204,10 @@ export function ConsentScreen({ patientId, lang, navigate }) {
   };
 
   const consentText = lang === "uk"
-    ? `Ваш лікар використовує систему Dictator для допомоги в документуванні консультації. Під час розмови буде створено автоматичний транскрипт. На його основі AI сформує проект медичної нотатки, яку лікар перевірить і підпише.
+    ? `Ваш лікар використовує систему Klarnote для допомоги в документуванні консультації. Під час розмови буде створено автоматичний транскрипт. На його основі AI сформує проект медичної нотатки, яку лікар перевірить і підпише.
 
 Ваші дані захищені відповідно до GDPR. Ви можете відкликати згоду в будь-який момент, звернувшись до адміністратора.`
-    : `Your doctor uses the Dictator system to help document this consultation. An automated transcript will be created during the conversation. Based on this, AI will generate a draft medical note which your doctor will review and sign.
+    : `Your doctor uses the Klarnote system to help document this consultation. An automated transcript will be created during the conversation. Based on this, AI will generate a draft medical note which your doctor will review and sign.
 
 Your data is protected in accordance with GDPR. You may withdraw this consent at any time by contacting the administrator.`;
 

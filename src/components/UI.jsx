@@ -108,7 +108,7 @@ export function Sidebar({ route, navigate, lang, setLang, theme, setTheme, onNew
       <div className="sb-brand">
         <div className="sb-brand-inner" onClick={() => navigate(product === "scribe" ? "/scribe" : "/dictate")}>
           <Logo size={26} />
-          {!collapsed && <span>Dictator</span>}
+          {!collapsed && <span>Klarnote</span>}
         </div>
         <button className="sb-toggle" onClick={onToggleCollapse}
                 title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
@@ -212,7 +212,7 @@ export function DictateTopBar({ route, navigate, lang, setLang, theme, setTheme 
     <header className="dtb">
       <div className="dtb-brand" onClick={() => navigate("/dictate")}>
         <Logo size={26} />
-        <span>Dictator</span>
+        <span>Klarnote</span>
       </div>
       <nav className="dtb-nav">
         {tabs.map((tab) => {

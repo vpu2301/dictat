@@ -19,8 +19,8 @@ const T = (uk, en) => ({ uk, en });
 
 /* Reusable closing CTA so every page ends with a clear next step. */
 const CTA = {
-  uk: { type: "cta", title: "Готові спробувати Dictat?", sub: "Зареєструйтесь — і поверніть лікарям час для пацієнтів.", primary: { label: "Зареєструватися", path: "/signup" }, secondary: { label: "Зв'язатися з нами", path: "/contact" } },
-  en: { type: "cta", title: "Ready to try Dictat?", sub: "Sign up and give clinicians their time back.", primary: { label: "Sign up", path: "/signup" }, secondary: { label: "Talk to us", path: "/contact" } },
+  uk: { type: "cta", title: "Готові спробувати Klarnote?", sub: "Зареєструйтесь — і поверніть лікарям час для пацієнтів.", primary: { label: "Зареєструватися", path: "/signup" }, secondary: { label: "Зв'язатися з нами", path: "/contact" } },
+  en: { type: "cta", title: "Ready to try Klarnote?", sub: "Sign up and give clinicians their time back.", primary: { label: "Sign up", path: "/signup" }, secondary: { label: "Talk to us", path: "/contact" } },
 };
 
 function build(lang) {
@@ -31,11 +31,11 @@ function build(lang) {
     /* ───────────────────────── Company ───────────────────────── */
     about: {
       hero: {
-        eyebrow: uk ? "Про Dictat" : "About Dictat",
+        eyebrow: uk ? "Про Klarnote" : "About Klarnote",
         title: uk ? "Ми повертаємо лікарям час для пацієнтів" : "We give clinicians their time back",
         sub: uk
-          ? "Dictat народився з простого спостереження: лікарі витрачають години на документацію замість того, щоб лікувати. Ми будуємо голосову платформу, яка пише нотатки за них."
-          : "Dictat began with a simple observation: clinicians spend hours on paperwork instead of care. We build the voice platform that writes the notes for them.",
+          ? "Klarnote народився з простого спостереження: лікарі витрачають години на документацію замість того, щоб лікувати. Ми будуємо голосову платформу, яка пише нотатки за них."
+          : "Klarnote began with a simple observation: clinicians spend hours on paperwork instead of care. We build the voice platform that writes the notes for them.",
       },
       blocks: [
         { type: "stats", items: uk
@@ -44,10 +44,10 @@ function build(lang) {
         { type: "prose", heading: uk ? "Наша місія" : "Our mission",
           paragraphs: uk
             ? ["Кожна хвилина, яку лікар витрачає на друк, — це хвилина, відібрана у пацієнта. Ми хочемо, щоб документація відбувалася сама собою — точно, безпечно та зрозумілою мовою.",
-               "Dictat поєднує потокове розпізнавання медичної мови, структуровані шаблони та електронний підпис в одному робочому процесі, створеному разом із лікарями.",
+               "Klarnote поєднує потокове розпізнавання медичної мови, структуровані шаблони та електронний підпис в одному робочому процесі, створеному разом із лікарями.",
                "Наш головний принцип незмінний: система готує чернетку, але не ставить діагноз. Жоден документ не фіналізується без лікаря — а всі моделі розпізнавання та генерації працюють на власному, self-hosted обладнанні, тож дані пацієнтів не залишають вашого розгортання."]
             : ["Every minute a clinician spends typing is a minute taken from the patient. We want documentation to happen on its own — accurately, securely, and in plain language.",
-               "Dictat combines streaming medical speech recognition, structured templates and e-signature into one workflow, built together with clinicians.",
+               "Klarnote combines streaming medical speech recognition, structured templates and e-signature into one workflow, built together with clinicians.",
                "Our core principle never changes: the system drafts, it does not diagnose. Nothing is finalized without a clinician — and every recognition and generation model runs on self-hosted hardware, so patient data never leaves your deployment."] },
         { type: "grid", heading: uk ? "Наші цінності" : "Our values", cols: 3, items: uk
           ? [
@@ -68,10 +68,10 @@ function build(lang) {
             ] },
         { type: "prose", heading: uk ? "Наша історія" : "Our story",
           paragraphs: uk
-            ? ["Команда Dictat складається з інженерів та лікарів, які втомилися від нескінченної паперової роботи. Ми почали з прототипу для радіологів і швидко зрозуміли, що проблема — універсальна.",
-               "Сьогодні Dictat обслуговує амбулаторні прийоми та класичне диктування звітів, підтримує українську та англійську мови й інтегрується з електронним підписом Дія."]
-            : ["The Dictat team is engineers and clinicians tired of endless paperwork. We started with a prototype for radiologists and quickly saw the problem was universal.",
-               "Today Dictat powers ambient encounters and classic report dictation, supports Ukrainian and English, and integrates with the Дія e-signature."] },
+            ? ["Команда Klarnote складається з інженерів та лікарів, які втомилися від нескінченної паперової роботи. Ми почали з прототипу для радіологів і швидко зрозуміли, що проблема — універсальна.",
+               "Сьогодні Klarnote обслуговує амбулаторні прийоми та класичне диктування звітів, підтримує українську та англійську мови й інтегрується з електронним підписом Дія."]
+            : ["The Klarnote team is engineers and clinicians tired of endless paperwork. We started with a prototype for radiologists and quickly saw the problem was universal.",
+               "Today Klarnote powers ambient encounters and classic report dictation, supports Ukrainian and English, and integrates with the Дія e-signature."] },
         cta,
       ],
     },
@@ -87,16 +87,16 @@ function build(lang) {
       blocks: [
         { type: "contact", items: uk
           ? [
-              { icon: "inbox", title: "Загальні питання", value: "hello@dictat.example", note: "Відповідаємо протягом робочого дня." },
-              { icon: "users", title: "Продажі та демо", value: "sales@dictat.example", note: "Демо для клінік і лікарень." },
-              { icon: "shield", title: "Безпека та приватність", value: "security@dictat.example", note: "Питання щодо обробки даних." },
-              { icon: "help", title: "Підтримка", value: "support@dictat.example", note: "Для наявних користувачів." },
+              { icon: "inbox", title: "Загальні питання", value: "hello@klarnote.example", note: "Відповідаємо протягом робочого дня." },
+              { icon: "users", title: "Продажі та демо", value: "sales@klarnote.example", note: "Демо для клінік і лікарень." },
+              { icon: "shield", title: "Безпека та приватність", value: "security@klarnote.example", note: "Питання щодо обробки даних." },
+              { icon: "help", title: "Підтримка", value: "support@klarnote.example", note: "Для наявних користувачів." },
             ]
           : [
-              { icon: "inbox", title: "General", value: "hello@dictat.example", note: "We reply within a business day." },
-              { icon: "users", title: "Sales & demos", value: "sales@dictat.example", note: "Demos for clinics and hospitals." },
-              { icon: "shield", title: "Security & privacy", value: "security@dictat.example", note: "Data-processing questions." },
-              { icon: "help", title: "Support", value: "support@dictat.example", note: "For existing customers." },
+              { icon: "inbox", title: "General", value: "hello@klarnote.example", note: "We reply within a business day." },
+              { icon: "users", title: "Sales & demos", value: "sales@klarnote.example", note: "Demos for clinics and hospitals." },
+              { icon: "shield", title: "Security & privacy", value: "security@klarnote.example", note: "Data-processing questions." },
+              { icon: "help", title: "Support", value: "support@klarnote.example", note: "For existing customers." },
             ] },
         { type: "form" },
         { type: "grid", heading: uk ? "Офіси" : "Offices", cols: 2, items: uk
@@ -120,7 +120,7 @@ function build(lang) {
           : "We're a small team with a big mission. If giving clinicians their time back resonates with you — join us.",
       },
       blocks: [
-        { type: "grid", heading: uk ? "Чому Dictat" : "Why Dictat", cols: 3, items: uk
+        { type: "grid", heading: uk ? "Чому Klarnote" : "Why Klarnote", cols: 3, items: uk
           ? [
               { icon: "heart", title: "Реальний вплив", desc: "Ваша робота щодня економить години лікарям." },
               { icon: "home", title: "Віддалено", desc: "Гнучкий графік і робота з будь-якої точки." },
@@ -152,8 +152,8 @@ function build(lang) {
             ] },
         { type: "prose", heading: uk ? "Не бачите своєї ролі?" : "Don't see your role?",
           paragraphs: uk
-            ? ["Ми завжди раді талановитим людям. Напишіть нам на careers@dictat.example — розкажіть, чим хочете займатися."]
-            : ["We're always glad to meet talented people. Write to careers@dictat.example and tell us what you'd love to work on."] },
+            ? ["Ми завжди раді талановитим людям. Напишіть нам на careers@klarnote.example — розкажіть, чим хочете займатися."]
+            : ["We're always glad to meet talented people. Write to careers@klarnote.example and tell us what you'd love to work on."] },
         cta,
       ],
     },
@@ -174,7 +174,7 @@ function build(lang) {
               { tag: "Безпека", title: "Незмінний аудит на практиці", excerpt: "Як ми гарантуємо цілісність кожного запису в журналі подій.", date: "9 квіт. 2026", read: "5 хв" },
               { tag: "Інженерія", title: "Потокове ASR із низькою затримкою", excerpt: "Архітектура, що дає розпізнавання в реальному часі без втрати точності.", date: "21 бер. 2026", read: "10 хв" },
               { tag: "Продукт", title: "Шаблони, які економлять години", excerpt: "Як структури нотаток адаптуються під спеціальність.", date: "3 бер. 2026", read: "4 хв" },
-              { tag: "Компанія", title: "Чому ми починали з радіології", excerpt: "Історія першого прототипу Dictat і чому він спрацював.", date: "15 лют. 2026", read: "7 хв" },
+              { tag: "Компанія", title: "Чому ми починали з радіології", excerpt: "Історія першого прототипу Klarnote і чому він спрацював.", date: "15 лют. 2026", read: "7 хв" },
             ]
           : [
               { tag: "Product", title: "How the ambient scribe changes a visit", excerpt: "What happens from the patient's first word to a structured note.", date: "May 12, 2026", read: "6 min" },
@@ -182,7 +182,7 @@ function build(lang) {
               { tag: "Security", title: "Immutable audit in practice", excerpt: "How we guarantee the integrity of every entry in the event log.", date: "Apr 9, 2026", read: "5 min" },
               { tag: "Engineering", title: "Low-latency streaming ASR", excerpt: "The architecture behind real-time recognition without losing accuracy.", date: "Mar 21, 2026", read: "10 min" },
               { tag: "Product", title: "Templates that save hours", excerpt: "How note structures adapt to your specialty.", date: "Mar 3, 2026", read: "4 min" },
-              { tag: "Company", title: "Why we started with radiology", excerpt: "The story of Dictat's first prototype and why it worked.", date: "Feb 15, 2026", read: "7 min" },
+              { tag: "Company", title: "Why we started with radiology", excerpt: "The story of Klarnote's first prototype and why it worked.", date: "Feb 15, 2026", read: "7 min" },
             ] },
       ],
     },
@@ -192,14 +192,14 @@ function build(lang) {
       hero: {
         eyebrow: uk ? "Правове" : "Legal",
         title: uk ? "Політика конфіденційності" : "Privacy Policy",
-        sub: uk ? "Як Dictat збирає, використовує та захищає дані." : "How Dictat collects, uses and protects data.",
+        sub: uk ? "Як Klarnote збирає, використовує та захищає дані." : "How Klarnote collects, uses and protects data.",
         updated: uk ? "Оновлено: 1 червня 2026" : "Last updated: June 1, 2026",
       },
       blocks: [
         { type: "prose", heading: uk ? "1. Які дані ми обробляємо" : "1. Data we process",
           paragraphs: uk
-            ? ["Dictat обробляє аудіозаписи прийомів, транскрипти, структуровані медичні нотатки та облікові дані користувачів. Дані пацієнтів обробляються виключно за дорученням медичного закладу."]
-            : ["Dictat processes encounter audio, transcripts, structured medical notes and user account data. Patient data is processed solely on behalf of the healthcare organization."] },
+            ? ["Klarnote обробляє аудіозаписи прийомів, транскрипти, структуровані медичні нотатки та облікові дані користувачів. Дані пацієнтів обробляються виключно за дорученням медичного закладу."]
+            : ["Klarnote processes encounter audio, transcripts, structured medical notes and user account data. Patient data is processed solely on behalf of the healthcare organization."] },
         { type: "prose", heading: uk ? "2. Мета обробки" : "2. Purpose",
           bullets: uk
             ? ["Перетворення мови на структуровані нотатки", "Зберігання та пошук документів", "Аудит дій та забезпечення безпеки", "Покращення якості розпізнавання у знеособленому вигляді"]
@@ -218,8 +218,8 @@ function build(lang) {
             : ["Access your data", "Correct inaccurate data", "Deletion where permitted", "Data portability", "Complaint to a supervisory authority"] },
         { type: "prose", heading: uk ? "6. Контакт" : "6. Contact",
           paragraphs: uk
-            ? ["З питань конфіденційності пишіть на privacy@dictat.example."]
-            : ["For privacy questions write to privacy@dictat.example."] },
+            ? ["З питань конфіденційності пишіть на privacy@klarnote.example."]
+            : ["For privacy questions write to privacy@klarnote.example."] },
       ],
     },
 
@@ -227,14 +227,14 @@ function build(lang) {
       hero: {
         eyebrow: uk ? "Правове" : "Legal",
         title: uk ? "Умови використання" : "Terms of Service",
-        sub: uk ? "Правила користування платформою Dictat." : "The rules for using the Dictat platform.",
+        sub: uk ? "Правила користування платформою Klarnote." : "The rules for using the Klarnote platform.",
         updated: uk ? "Оновлено: 1 червня 2026" : "Last updated: June 1, 2026",
       },
       blocks: [
         { type: "prose", heading: uk ? "1. Прийняття умов" : "1. Acceptance",
           paragraphs: uk
-            ? ["Користуючись Dictat, ви погоджуєтеся з цими умовами. Якщо ви не згодні — не використовуйте сервіс."]
-            : ["By using Dictat you agree to these terms. If you do not agree, do not use the service."] },
+            ? ["Користуючись Klarnote, ви погоджуєтеся з цими умовами. Якщо ви не згодні — не використовуйте сервіс."]
+            : ["By using Klarnote you agree to these terms. If you do not agree, do not use the service."] },
         { type: "prose", heading: uk ? "2. Обліковий запис" : "2. Accounts",
           paragraphs: uk
             ? ["Доступ надається через запрошення адміністратора закладу. Ви відповідаєте за збереження своїх облікових даних."]
@@ -249,8 +249,8 @@ function build(lang) {
             : ["We aim for high availability but do not guarantee uninterrupted operation. Planned maintenance is announced in advance."] },
         { type: "prose", heading: uk ? "5. Відповідальність" : "5. Liability",
           paragraphs: uk
-            ? ["Dictat — інструмент підтримки документації. Остаточна відповідальність за зміст медичних записів лежить на лікарі."]
-            : ["Dictat is a documentation support tool. Final responsibility for the content of medical records rests with the clinician."] },
+            ? ["Klarnote — інструмент підтримки документації. Остаточна відповідальність за зміст медичних записів лежить на лікарі."]
+            : ["Klarnote is a documentation support tool. Final responsibility for the content of medical records rests with the clinician."] },
         { type: "prose", heading: uk ? "6. Зміни умов" : "6. Changes",
           paragraphs: uk
             ? ["Ми можемо оновлювати ці умови; про суттєві зміни повідомимо заздалегідь."]
@@ -268,8 +268,8 @@ function build(lang) {
       blocks: [
         { type: "prose", heading: uk ? "Ролі сторін" : "Roles",
           paragraphs: uk
-            ? ["Медичний заклад є контролером даних. Dictat діє як обробник і обробляє дані виключно за документованими інструкціями закладу."]
-            : ["The healthcare organization is the data controller. Dictat acts as a processor and processes data only on the organization's documented instructions."] },
+            ? ["Медичний заклад є контролером даних. Klarnote діє як обробник і обробляє дані виключно за документованими інструкціями закладу."]
+            : ["The healthcare organization is the data controller. Klarnote acts as a processor and processes data only on the organization's documented instructions."] },
         { type: "grid", heading: uk ? "Заходи захисту" : "Safeguards", cols: 3, items: uk
           ? [
               { icon: "shield", title: "Шифрування", desc: "Дані шифруються під час передачі та зберігання." },
@@ -302,7 +302,7 @@ function build(lang) {
       hero: {
         eyebrow: uk ? "Правове" : "Legal",
         title: uk ? "Згода пацієнта" : "Patient Consent",
-        sub: uk ? "Як Dictat фіксує та поважає згоду перед записом." : "How Dictat captures and respects consent before recording.",
+        sub: uk ? "Як Klarnote фіксує та поважає згоду перед записом." : "How Klarnote captures and respects consent before recording.",
         updated: uk ? "Оновлено: 1 червня 2026" : "Last updated: June 1, 2026",
       },
       blocks: [
@@ -465,13 +465,13 @@ function build(lang) {
         { type: "steps", heading: uk ? "Як проходить прийом" : "How a visit flows", items: uk
           ? [
               { n: "01", title: "Згода", desc: "Зафіксуйте згоду пацієнта на екрані згоди." },
-              { n: "02", title: "Розмова", desc: "Ведіть прийом — Dictat слухає й розпізнає мову." },
+              { n: "02", title: "Розмова", desc: "Ведіть прийом — Klarnote слухає й розпізнає мову." },
               { n: "03", title: "Нотатка", desc: "Отримайте структуровану нотатку для перевірки." },
               { n: "04", title: "Підпис", desc: "Перевірте, підпишіть і збережіть у картці пацієнта." },
             ]
           : [
               { n: "01", title: "Consent", desc: "Capture patient consent on the consent screen." },
-              { n: "02", title: "Conversation", desc: "Run the visit — Dictat listens and recognizes speech." },
+              { n: "02", title: "Conversation", desc: "Run the visit — Klarnote listens and recognizes speech." },
               { n: "03", title: "Note", desc: "Get a structured note ready for review." },
               { n: "04", title: "Sign", desc: "Review, sign and save to the patient record." },
             ] },

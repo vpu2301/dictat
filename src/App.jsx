@@ -24,6 +24,7 @@ import { listTemplates, createTemplate, toStudioTemplate } from './api/templates
 
 import { LandingPage } from './pages/LandingPage.jsx';
 import { ContentPage } from './pages/marketing/ContentPage.jsx';
+import { ApiDocsPage } from './pages/marketing/ApiDocsPage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 import { SignupFlow } from './pages/SignupFlow.jsx';
 import { PricingPage } from './pages/PricingPage.jsx';
@@ -118,7 +119,7 @@ function App() {
   const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing"];
   const isMarketing = MARKETING_EXACT.includes(route)
     || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/")
-    || route.startsWith("/blog/");
+    || route.startsWith("/blog/") || route === "/developers/api" || route.startsWith("/developers/api/");
   const isPublicRoute = isAuthRoute || isLanding || isMarketing || route.startsWith("/verify/");
   const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
   const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
@@ -130,7 +131,7 @@ function App() {
   }, [gateToLogin, gateToHome]);
 
   // Tenant admins land on their dashboard. When an authenticated owner hits the
-  // bare root (post-login or "Dictator" brand click), send them to #/dashboard.
+  // bare root (post-login or "Klarnote" brand click), send them to #/dashboard.
   const isTenantAdmin = hasAnyRole(auth?.claims, ["tenant_admin"]);
   useEffect(() => {
     if (auth && isTenantAdmin && (route === "/" || route === "")) navigate("/dashboard");
@@ -197,6 +198,10 @@ function App() {
   }
   else if (r.startsWith("/blog/")) {
     view = <BlogPostPage slug={r.replace(/^\/blog\//, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
+  else if (r === "/developers/api" || r.startsWith("/developers/api/")) {
+    view = <ApiDocsPage svc={r.replace(/^\/developers\/api\/?/, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     fullBleed = true;
   }
   else if (

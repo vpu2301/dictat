@@ -57,6 +57,20 @@ export const NAV = {
   },
 };
 
+/* Footer "API Docs" column — deep-links into the in-site FastAPI docs browser
+   (/developers/api/:svc, ApiDocsPage.jsx), which embeds each service's live
+   Swagger UI. Slugs must match API_DOC_SERVICES keys there. */
+const API_DOCS_LINKS = [
+  { label: "Auth API",         path: "/developers/api/auth" },
+  { label: "ASR API",          path: "/developers/api/asr" },
+  { label: "Dictation API",    path: "/developers/api/dictation" },
+  { label: "NLP API",          path: "/developers/api/nlp" },
+  { label: "Reports API",      path: "/developers/api/reports" },
+  { label: "Autocomplete API", path: "/developers/api/autocomplete" },
+  { label: "Signing API",      path: "/developers/api/signing" },
+  { label: "Core API",         path: "/developers/api/core" },
+];
+
 /* The footer map is shared with the landing page so the columns stay in sync.
    Each link carries a real route (no jump-to-section stubs). */
 export const FOOTER = {
@@ -82,6 +96,7 @@ export const FOOTER = {
         { label: "Обробка даних", path: "/legal/data" },
         { label: "Згода", path: "/legal/consent" },
       ] },
+      { h: "API документація", links: API_DOCS_LINKS },
     ],
     rights: "Усі права захищено.",
     signin: "Увійти",
@@ -110,6 +125,7 @@ export const FOOTER = {
         { label: "Data processing", path: "/legal/data" },
         { label: "Consent", path: "/legal/consent" },
       ] },
+      { h: "API Docs", links: API_DOCS_LINKS },
     ],
     rights: "All rights reserved.",
     signin: "Sign in",
@@ -187,7 +203,7 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
         <div className="lp-nav-inner">
           <a className="lp-brand" href="#/welcome" onClick={go("/welcome")}>
             <Logo size={28} />
-            <span className="lp-brand-name">Dictat</span>
+            <span className="lp-brand-name">Klarnote</span>
           </a>
 
           <nav className={`lp-links${menuOpen ? " is-open" : ""}`}>
@@ -221,7 +237,7 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
           <div className="lp-footer-brand">
             <a className="lp-brand" href="#/welcome" onClick={go("/welcome")}>
               <Logo size={26} />
-              <span className="lp-brand-name">Dictat</span>
+              <span className="lp-brand-name">Klarnote</span>
             </a>
             <p className="lp-footer-tag">{f.tag}</p>
           </div>
@@ -229,7 +245,9 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
             {f.cols.map((col, i) => (
               <div className="lp-footer-col" key={i}>
                 <div className="lp-footer-h">{col.h}</div>
-                {col.links.map((l, j) => (
+                {col.links.map((l, j) => l.href ? (
+                  <a href={l.href} target="_blank" rel="noreferrer" key={j}>{l.label}</a>
+                ) : (
                   <a href={`#${l.path}`} onClick={go(l.path)} key={j}>{l.label}</a>
                 ))}
               </div>
@@ -237,7 +255,7 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
           </div>
         </div>
         <div className="lp-footer-bar">
-          <span>© 2026 Dictat. {f.rights}</span>
+          <span>© 2026 Klarnote. {f.rights}</span>
           <div className="lp-footer-bar-links">
             <a href="#/login" onClick={go("/login")}>{f.signin}</a>
             <a href="#/signup" onClick={go("/signup")}>{f.start}</a>
