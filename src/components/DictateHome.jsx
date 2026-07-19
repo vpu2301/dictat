@@ -12,6 +12,7 @@ import { listReports, countReports } from '../api/reports.js';
 import { openReportPath } from './Reports.jsx';
 import { listTemplates, specialtyIcon } from '../api/templates.js';
 import { SPECIALTIES } from './TemplatesPage.jsx';
+import { tr } from "../i18n.js";
 
 // ── Helpers (mirrors Scribe.jsx / Reports.jsx conventions) ────────────────
 function loc(v, lang) {
@@ -21,13 +22,13 @@ function loc(v, lang) {
 }
 function fmtDate(iso, lang) {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString(lang === "uk" ? "uk-UA" : "en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString(tr(lang, "uk-UA", "en-GB"), { day: "2-digit", month: "short", year: "numeric" });
 }
 function fmtRel(iso, lang) {
   if (!iso) return "";
   const d = new Date(iso);
   const diffMin = Math.floor((Date.now() - d) / 60000);
-  if (diffMin < 1) return lang === "uk" ? "щойно" : "just now";
+  if (diffMin < 1) return tr(lang, "щойно", "just now");
   if (diffMin < 60) return lang === "uk" ? `${diffMin} хв тому` : `${diffMin} min ago`;
   const h = Math.floor(diffMin / 60);
   if (h < 24) return lang === "uk" ? `${h} год тому` : `${h} h ago`;
@@ -62,7 +63,7 @@ function ReportRow({ r, tpl, lang, onClick }) {
       <div className="tpl-icon sm"><Icon name={tpl?.icon || "fileText"} size={14} /></div>
       <div className="note-row-body">
         <div className="note-row-1">
-          <span className="note-row-name">{loc(r.patient?.name, lang) || r.patient?.ref || (lang === "uk" ? "Без пацієнта" : "No patient")}</span>
+          <span className="note-row-name">{loc(r.patient?.name, lang) || r.patient?.ref || (tr(lang, "Без пацієнта", "No patient"))}</span>
           <span className="chip">{loc(tpl?.name, lang) || r.template}</span>
           <StatusChip status={r.status} lang={lang} />
         </div>
@@ -116,9 +117,9 @@ export function DictateToday({ navigate, lang }) {
     .slice(0, 5);
 
   const stats = [
-    { label: lang === "uk" ? "Усього звітів" : "Total reports", value: totalCount ?? reports.length },
-    { label: lang === "uk" ? "Чернеток" : "Drafts", value: draftCount ?? drafts.length },
-    { label: lang === "uk" ? "Підписаних" : "Signed", value: signedCount ?? reports.filter(isSigned).length },
+    { label: tr(lang, "Усього звітів", "Total reports"), value: totalCount ?? reports.length },
+    { label: tr(lang, "Чернеток", "Drafts"), value: draftCount ?? drafts.length },
+    { label: tr(lang, "Підписаних", "Signed"), value: signedCount ?? reports.filter(isSigned).length },
   ];
 
   const openStudio = (tid) => navigate(tid ? `/dictate/studio?template=${tid}` : "/dictate/studio");
@@ -128,18 +129,18 @@ export function DictateToday({ navigate, lang }) {
     <div className="page">
       <div className="page-h">
         <div style={{ flex: 1 }}>
-          <h1>{lang === "uk" ? "Диктування" : "Dictation"}</h1>
+          <h1>{tr(lang, "Диктування", "Dictation")}</h1>
           <p className="sub">
             {lang === "uk"
               ? `${drafts.length} чернеток очікують · ${new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" })}`
               : `${drafts.length} drafts waiting · ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}`}
           </p>
         </div>
-        <button className="btn" onClick={() => setQsOpen(true)}>
-          <Icon name="layers" size={14} /> {lang === "uk" ? "Швидкий старт" : "Quick start"}
+        <button className="btn" style={{ minWidth: 172 }} onClick={() => setQsOpen(true)}>
+          <Icon name="layers" size={14} /> {tr(lang, "Швидкий старт", "Quick start")}
         </button>
-        <button className="btn accent" onClick={() => openStudio()}>
-          <Icon name="mic" size={14} /> {lang === "uk" ? "Нове диктування" : "New dictation"}
+        <button className="btn accent" style={{ minWidth: 172 }} onClick={() => openStudio()}>
+          <Icon name="mic" size={14} /> {tr(lang, "Нове диктування", "New dictation")}
         </button>
       </div>
 
@@ -155,20 +156,20 @@ export function DictateToday({ navigate, lang }) {
       <div className="grid-2">
         <section className="panel">
           <div className="panel-h">
-            <h3>{lang === "uk" ? "Чернетки до завершення" : "Drafts to finish"}</h3>
+            <h3>{tr(lang, "Чернетки до завершення", "Drafts to finish")}</h3>
             <div style={{ flex: 1 }} />
-            <a className="btn ghost sm" onClick={() => navigate("/dictate/reports?tab=draft")}>{lang === "uk" ? "Усі" : "All"}</a>
+            <a className="btn ghost sm" onClick={() => navigate("/dictate/reports?tab=draft")}>{tr(lang, "Усі", "All")}</a>
           </div>
           <LoadGate req={reportsReq} lang={lang}
             empty={() => (
-              <Empty icon="fileText" title={lang === "uk" ? "Немає чернеток" : "No drafts"}
-                body={lang === "uk" ? "Розпочніть диктування, щоб створити звіт." : "Start a dictation to create a report."}
-                action={<button className="btn accent" onClick={() => openStudio()}><Icon name="mic" size={13} /> {lang === "uk" ? "Диктувати" : "Dictate"}</button>} />
+              <Empty icon="fileText" title={tr(lang, "Немає чернеток", "No drafts")}
+                body={tr(lang, "Розпочніть диктування, щоб створити звіт.", "Start a dictation to create a report.")}
+                action={<button className="btn accent" onClick={() => openStudio()}><Icon name="mic" size={13} /> {tr(lang, "Диктувати", "Dictate")}</button>} />
             )}>
             {() => (
               drafts.length === 0 ? (
-                <Empty icon="check" title={lang === "uk" ? "Усі звіти завершено" : "All caught up"}
-                  body={lang === "uk" ? "Немає незавершених чернеток." : "No pending drafts."} />
+                <Empty icon="check" title={tr(lang, "Усі звіти завершено", "All caught up")}
+                  body={tr(lang, "Немає незавершених чернеток.", "No pending drafts.")} />
               ) : (
                 <div className="note-feed">
                   {drafts.slice(0, 5).map((r) => (
@@ -183,12 +184,12 @@ export function DictateToday({ navigate, lang }) {
 
         <section className="panel">
           <div className="panel-h">
-            <h3>{lang === "uk" ? "Останні звіти" : "Recent reports"}</h3>
+            <h3>{tr(lang, "Останні звіти", "Recent reports")}</h3>
             <div style={{ flex: 1 }} />
-            <a className="btn ghost sm" onClick={() => navigate("/dictate/reports")}>{lang === "uk" ? "Усі" : "All"}</a>
+            <a className="btn ghost sm" onClick={() => navigate("/dictate/reports")}>{tr(lang, "Усі", "All")}</a>
           </div>
           <LoadGate req={reportsReq} lang={lang}
-            empty={() => <Empty icon="fileText" title={lang === "uk" ? "Ще немає звітів" : "No reports yet"} />}>
+            empty={() => <Empty icon="fileText" title={tr(lang, "Ще немає звітів", "No reports yet")} />}>
             {() => (
               <div className="note-feed">
                 {recent.map((r) => (
@@ -243,11 +244,11 @@ function QuickStartModal({ templates, req, lang, onPick, onManage, onClose }) {
     const topIds = new Set(top.map((t) => t.id));
     const rest = templates.filter((t) => !topIds.has(t.id));
     groups = [
-      ...(top.length ? [{ label: lang === "uk" ? "Найчастіше використовувані" : "Most used", items: top }] : []),
-      ...(rest.length ? [{ label: lang === "uk" ? "Усі шаблони" : "All templates", items: rest }] : []),
+      ...(top.length ? [{ label: tr(lang, "Найчастіше використовувані", "Most used"), items: top }] : []),
+      ...(rest.length ? [{ label: tr(lang, "Усі шаблони", "All templates"), items: rest }] : []),
     ];
   } else {
-    groups = [{ label: lang === "uk" ? "Результати" : "Results", items: filtered }];
+    groups = [{ label: tr(lang, "Результати", "Results"), items: filtered }];
   }
   const flat = groups.flatMap((g) => g.items);
 
@@ -271,20 +272,20 @@ function QuickStartModal({ templates, req, lang, onPick, onManage, onClose }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={lang === "uk" ? "Пошук шаблону…" : "Search templates…"}
-          aria-label={lang === "uk" ? "Пошук шаблону" : "Search templates"}
+          placeholder={tr(lang, "Пошук шаблону…", "Search templates…")}
+          aria-label={tr(lang, "Пошук шаблону", "Search templates")}
         />
-        <button className="icon-btn" onClick={onClose} aria-label={lang === "uk" ? "Закрити" : "Close"}>
+        <button className="icon-btn" onClick={onClose} aria-label={tr(lang, "Закрити", "Close")}>
           <Icon name="x" size={14} />
         </button>
       </div>
       <div className="qs-modal-body">
         <LoadGate req={req} lang={lang}
-          empty={() => <Empty icon="layers" title={lang === "uk" ? "Немає шаблонів" : "No templates"} />}>
+          empty={() => <Empty icon="layers" title={tr(lang, "Немає шаблонів", "No templates")} />}>
           {() => (
             flat.length === 0 ? (
-              <Empty icon="search" title={lang === "uk" ? "Нічого не знайдено" : "No matches"}
-                body={lang === "uk" ? "Спробуйте іншу назву або код шаблону." : "Try a different name or template code."} />
+              <Empty icon="search" title={tr(lang, "Нічого не знайдено", "No matches")}
+                body={tr(lang, "Спробуйте іншу назву або код шаблону.", "Try a different name or template code.")} />
             ) : (
               groups.map((g) => (
                 <div key={g.label} className="qs-group">
@@ -318,7 +319,7 @@ function QuickStartModal({ templates, req, lang, onPick, onManage, onClose }) {
         <span className="qs-hint muted">↑↓ · Enter</span>
         <div style={{ flex: 1 }} />
         <a className="btn ghost sm" onClick={onManage}>
-          {lang === "uk" ? "Керувати шаблонами" : "Manage templates"}
+          {tr(lang, "Керувати шаблонами", "Manage templates")}
         </a>
       </div>
     </Modal>

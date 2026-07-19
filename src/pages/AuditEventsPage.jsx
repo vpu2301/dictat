@@ -7,6 +7,7 @@ import { JsonViewer } from "../components/JsonViewer.jsx";
 import { Pagination } from "../components/Pagination.jsx";
 import { useCursorPages } from "../api/useCursorPages.js";
 import { listAuditEvents } from "../api/endpoints.js";
+import { tr } from "../i18n.js";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 const DEFAULT_PAGE_SIZE = 100;
@@ -58,8 +59,8 @@ export function AuditEventsPage({ lang = "en" }) {
     <div className="page audit-events">
       <div className="page-h">
         <div>
-          <h1>{lang === "uk" ? "Аудит — події" : "Audit events"}</h1>
-          <p className="muted">{lang === "uk" ? "Перегляд журналу аудиту тенанта." : "Browse this tenant's audit log."}</p>
+          <h1>{tr(lang, "Аудит — події", "Audit events")}</h1>
+          <p className="muted">{tr(lang, "Перегляд журналу аудиту тенанта.", "Browse this tenant's audit log.")}</p>
         </div>
       </div>
 
@@ -105,8 +106,8 @@ export function AuditEventsPage({ lang = "en" }) {
             <input type="number" value={draft.to_seq} onChange={(e) => setDraft({ ...draft, to_seq: e.target.value })} />
           </label>
           <div className="audit-filter-actions">
-            <button className="btn" type="button" onClick={resetFilters}>{lang === "uk" ? "Скинути" : "Reset"}</button>
-            <button className="btn btn-primary" type="submit">{lang === "uk" ? "Застосувати" : "Apply"}</button>
+            <button className="btn" type="button" onClick={resetFilters}>{tr(lang, "Скинути", "Reset")}</button>
+            <button className="btn btn-primary" type="submit">{tr(lang, "Застосувати", "Apply")}</button>
           </div>
         </div>
       </form>
@@ -129,7 +130,7 @@ export function AuditEventsPage({ lang = "en" }) {
           </thead>
           <tbody>
             {events.length === 0 && !loading && (
-              <tr><td colSpan={8} className="audit-empty">{lang === "uk" ? "Подій немає." : "No events."}</td></tr>
+              <tr><td colSpan={8} className="audit-empty">{tr(lang, "Подій немає.", "No events.")}</td></tr>
             )}
             {events.map((ev) => {
               const open = !!expanded[ev.seq];

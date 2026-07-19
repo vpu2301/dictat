@@ -9,6 +9,7 @@
 import React from "react";
 import { Icon } from "./UI.jsx";
 import { useClaims } from "../auth/AuthContext.jsx";
+import { tr } from "../i18n.js";
 
 // "00000000-0000-0000-0000-00000000000a" → "····000a"
 function shortTid(tid) {
@@ -28,7 +29,7 @@ export function TenantBadge({ lang = "en", collapsed = false }) {
 
   const named = claims.tenant_name || claims.tname;
   const label = tenantLabel(claims);
-  const caption = lang === "uk" ? "Клініка" : "Clinic";
+  const caption = tr(lang, "Клініка", "Clinic");
   const title = `${caption}: ${named || ""}${named ? " · " : ""}${claims.tid || ""}`.trim();
 
   if (collapsed) {

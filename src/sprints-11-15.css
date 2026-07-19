@@ -223,6 +223,33 @@
   margin-top: 8px;
 }
 
+/* Consent-granted confirmation (replaces the old dead-end consult/new landing) */
+.consent-screen .consent-granted-mark {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+  background: rgba(16, 185, 129, .12);
+  color: #059669;
+}
+.consent-screen .consent-granted-note {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-2);
+  text-align: center;
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+.consent-screen .consent-granted-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.consent-screen .consent-granted-actions .btn {
+  justify-content: center;
+}
+
 .consent-action-card {
   display: flex;
   flex-direction: column;

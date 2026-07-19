@@ -347,6 +347,21 @@ export function stripLastSentence(text) {
   return idx >= 0 ? s.slice(0, idx + 1) : "";
 }
 
+// Insert the missing space after punctuation the recognizer glued to the next
+// word inside a single result (e.g. "базальна.Також" → "базальна. Також").
+// `sep()` only spaces token boundaries, not punctuation buried mid-token.
+// Deliberately narrow so real usages survive:
+//   · sentence enders . ! ? get a space only before an UPPERCASE letter, so
+//     decimals ("3.5"), abbreviations ("т.д."), ellipses ("...") are untouched;
+//   · clause separators , ; : get a space before any letter but not a digit,
+//     so the Ukrainian decimal comma ("1,5") and times ("10:30") survive.
+export function fixPunctuationSpacing(text) {
+  if (!text) return text;
+  return String(text)
+    .replace(/([.!?])(\p{Lu})/gu, "$1 $2")
+    .replace(/([,;:])(\p{L})/gu, "$1 $2");
+}
+
 // Append a segmented utterance to the current editor text. Punctuation
 // attaches to the preceding word ("голова" + comma → "голова,"), breaks
 // collapse trailing spaces, quotes glue to their side. `wrapText` lets the
@@ -361,7 +376,8 @@ export function appendUtterance(current, parts, { wrapText } = {}) {
     !glueNext && cur && !cur.endsWith(" ") && !cur.endsWith("\n") ? " " : "";
   for (const part of parts) {
     if (part.type === "text") {
-      const t = wrapText ? wrapText(part.text) : part.text;
+      const fixed = fixPunctuationSpacing(part.text);
+      const t = wrapText ? wrapText(fixed) : fixed;
       cur += sep() + t;
       glueNext = false;
       continue;

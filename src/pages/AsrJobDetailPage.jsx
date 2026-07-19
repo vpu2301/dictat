@@ -11,6 +11,9 @@ import { AsrStatusPill } from "../components/AsrStatusPill.jsx";
 import { TranscriptView } from "../components/TranscriptView.jsx";
 import { JsonViewer } from "../components/JsonViewer.jsx";
 import { getJob, cancelJob, getJobResult, ASR_ACTIVE, ASR_TERMINAL } from "../api/asr.js";
+import { reportsBySourceJobs } from "../api/reports.js";
+import { AssignTranscriptModal } from "../components/AssignTranscriptModal.jsx";
+import { tr } from "../i18n.js";
 
 const POLL_MS = 2000;
 
@@ -47,6 +50,10 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
   const [resultMissing, setResultMissing] = useState(false);
   const [resultLoading, setResultLoading] = useState(false);
   const [resultError, setResultError] = useState(null);
+
+  // Assign-to-patient: is this job already saved as a draft report?
+  const [assignment, setAssignment] = useState(null); // {report_id, code, status, patient_id} | null
+  const [assignOpen, setAssignOpen] = useState(false);
 
   const pollRef = useRef(null);
   const cancelledRef = useRef(false);
@@ -91,9 +98,13 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
   }, [id, refresh]);
 
   // Fetch the transcript once the job reaches "complete".
+  // NOTE: resultLoading must stay OUT of this effect's guard and deps —
+  // setResultLoading(true) inside the fetch re-ran the effect, whose
+  // cleanup flipped `cancelled` before the response landed, so neither
+  // setResult nor setResultLoading(false) ever ran (permanent spinner).
   useEffect(() => {
     if (!job || job.status !== "complete") return;
-    if (result || resultMissing || resultLoading) return;
+    if (result || resultMissing) return;
     let cancelled = false;
     (async () => {
       setResultLoading(true);
@@ -110,13 +121,29 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [job, id, result, resultMissing, resultLoading]);
+  }, [job, id, result, resultMissing]);
+
+  // Once complete, look up whether this job is already assigned to a patient
+  // (saved as a draft report). Drives the assigned banner vs the assign button.
+  useEffect(() => {
+    if (!job || job.status !== "complete") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const map = await reportsBySourceJobs([id]);
+        if (!cancelled) setAssignment(map.get(id) || null);
+      } catch {
+        /* non-fatal: leave the assign button available */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [job, id]);
 
   const doCancel = async () => {
     setCancelling(true);
     try {
       await cancelJob(id);
-      if (onToast) onToast(lang === "uk" ? "Скасовано" : "Cancelled");
+      if (onToast) onToast(tr(lang, "Скасовано", "Cancelled"));
       setConfirmCancel(false);
       refresh();
     } catch (e) {
@@ -130,7 +157,7 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
   if (loading && !job) {
     return (
       <div className="page">
-        <Empty icon="clock" title={lang === "uk" ? "Завантаження…" : "Loading…"} />
+        <Empty icon="clock" title={tr(lang, "Завантаження…", "Loading…")} />
       </div>
     );
   }
@@ -142,7 +169,7 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
         <div style={{ marginTop: 12 }}>
           <button className="btn" onClick={() => navigate("/asr/jobs")}>
             <Icon name="arrowLeft" size={13} />
-            <span>{lang === "uk" ? "До списку" : "Back to list"}</span>
+            <span>{tr(lang, "До списку", "Back to list")}</span>
           </button>
         </div>
       </div>
@@ -158,57 +185,77 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
       <div className="page-h">
         <div>
           <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {lang === "uk" ? "Завдання" : "Job"}{" "}
+            {tr(lang, "Завдання", "Job")}{" "}
             <code className="mono" style={{ fontSize: 14, color: "var(--muted)" }}>{String(id).slice(0, 8)}…</code>
             <AsrStatusPill status={job?.status || "queued"} lang={lang} />
           </h1>
           <p className="muted">
-            {lang === "uk" ? "Поставлено: " : "Queued: "}{fmtRelative(job?.queued_at, lang)}
+            {tr(lang, "Поставлено: ", "Queued: ")}{fmtRelative(job?.queued_at, lang)}
             {active && (
-              <> · <span title="auto-refresh">{lang === "uk" ? "оновлюється кожні 2 с" : "auto-refreshing every 2s"}</span></>
+              <> · <span title="auto-refresh">{tr(lang, "оновлюється кожні 2 с", "auto-refreshing every 2s")}</span></>
             )}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={() => navigate("/asr/jobs")}>
             <Icon name="arrowLeft" size={13} />
-            <span>{lang === "uk" ? "До списку" : "Back"}</span>
+            <span>{tr(lang, "До списку", "Back")}</span>
           </button>
           <button className="btn" onClick={refresh} disabled={loading}>
             <Icon name="refresh" size={13} />
-            <span>{lang === "uk" ? "Оновити" : "Refresh"}</span>
+            <span>{tr(lang, "Оновити", "Refresh")}</span>
           </button>
+          {done && !assignment && (
+            <button className="btn accent" onClick={() => setAssignOpen(true)}>
+              <Icon name="user" size={13} />
+              <span>{tr(lang, "Призначити пацієнту", "Assign to patient")}</span>
+            </button>
+          )}
           {active && (
             <button className="btn btn-danger" onClick={() => setConfirmCancel(true)} disabled={cancelling}>
               <Icon name="x" size={13} />
-              <span>{lang === "uk" ? "Скасувати" : "Cancel"}</span>
+              <span>{tr(lang, "Скасувати", "Cancel")}</span>
             </button>
           )}
         </div>
       </div>
+
+      {assignment && (
+        <div className="asr-banner asr-banner-ok assign-banner" role="status">
+          <Icon name="check" size={14} />
+          <span>
+            {tr(lang, "Призначено пацієнту — ", "Assigned to patient — ")}
+            <a href={`#/dictate/reports/${assignment.report_id}`}
+              onClick={(e) => { e.preventDefault(); navigate(`/dictate/reports/${assignment.report_id}`); }}>
+              {assignment.code || tr(lang, "звіт", "report")}
+            </a>
+            {assignment.status ? ` (${assignment.status})` : ""}
+          </span>
+        </div>
+      )}
 
       {error && <ApiErrorView error={error} lang={lang} />}
 
       <section className="card me-section">
         <header className="me-section-h">
           <Icon name="fileText" size={14} />
-          <h2>{lang === "uk" ? "Деталі" : "Details"}</h2>
+          <h2>{tr(lang, "Деталі", "Details")}</h2>
         </header>
         <div className="me-grid">
           <Field label="id" mono>{job?.id ? <code>{job.id}</code> : null}</Field>
-          <Field label={lang === "uk" ? "Мова" : "Language"}>{job?.language?.toUpperCase()}</Field>
-          <Field label={lang === "uk" ? "Промпт" : "Prompt"} mono>{job?.prompt_id ? <code>{job.prompt_id}</code> : null}</Field>
+          <Field label={tr(lang, "Мова", "Language")}>{job?.language?.toUpperCase()}</Field>
+          <Field label={tr(lang, "Промпт", "Prompt")} mono>{job?.prompt_id ? <code>{job.prompt_id}</code> : null}</Field>
           <Field label="encounter_id" mono>{job?.encounter_id ? <code>{job.encounter_id}</code> : null}</Field>
-          <Field label={lang === "uk" ? "Стартовано" : "Started"} mono>{job?.started_at}</Field>
-          <Field label={lang === "uk" ? "Завершено" : "Finished"} mono>{job?.finished_at}</Field>
+          <Field label={tr(lang, "Стартовано", "Started")} mono>{job?.started_at}</Field>
+          <Field label={tr(lang, "Завершено", "Finished")} mono>{job?.finished_at}</Field>
         </div>
       </section>
 
       {failed && (
-        <section className="card asr-fail" role="alert">
+        <section className="card me-section asr-fail" role="alert">
           <header className="me-section-h">
             <Icon name="x" size={14} />
-            <h2>{lang === "uk" ? "Помилка обробки" : "Processing failed"}</h2>
+            <h2>{tr(lang, "Помилка обробки", "Processing failed")}</h2>
           </header>
           <div className="me-grid">
             <Field label="error_kind" mono>{job.error_kind ? <code>{job.error_kind}</code> : null}</Field>
@@ -221,8 +268,8 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
         <section className="card me-section">
           <header className="me-section-h">
             <Icon name="bot" size={14} />
-            <h2>{lang === "uk" ? "Транскрипція" : "Transcript"}</h2>
-            {resultLoading && <span className="muted">{lang === "uk" ? "Завантаження…" : "Loading…"}</span>}
+            <h2>{tr(lang, "Транскрипція", "Transcript")}</h2>
+            {resultLoading && <span className="muted">{tr(lang, "Завантаження…", "Loading…")}</span>}
           </header>
 
           {resultError && <ApiErrorView error={resultError} lang={lang} />}
@@ -231,9 +278,7 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
             <div className="asr-banner asr-banner-warn" role="status" style={{ margin: 12 }}>
               <Icon name="help" size={13} />
               <span>
-                {lang === "uk"
-                  ? "Бекенд ще не має GET /asr/jobs/{id}/result. Потрібно додати ендпоінт, що проксує EncryptedObjectStore.get() і повертає plaintext TranscriptionOutput (ADR-0011 забороняє клієнтський розшифр)."
-                  : "Backend GET /asr/jobs/{id}/result isn't deployed. Ask: add an endpoint that proxies EncryptedObjectStore.get() and returns the plaintext TranscriptionOutput (ADR-0011 forbids client-side decrypt)."}
+                {tr(lang, "Транскрипція готова, але бекенд віддає лише pre-signed URL на зашифрований об'єкт (.json.enc), який браузер не може розшифрувати (ADR-0011). Потрібно, щоб GET /asr/jobs/{id}/result проксував EncryptedObjectStore.get() і повертав plaintext TranscriptionOutput.", "The transcript exists, but the backend only returns a pre-signed URL to the encrypted object (.json.enc), which the browser cannot decrypt (ADR-0011). GET /asr/jobs/{id}/result needs to proxy EncryptedObjectStore.get() and return the plaintext TranscriptionOutput.")}
               </span>
             </div>
           )}
@@ -243,31 +288,43 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
       )}
 
       <details className="card me-section">
-        <summary style={{ cursor: "pointer", padding: "12px 16px", fontWeight: 500 }}>
-          {lang === "uk" ? "Сирий JSON" : "Raw JSON"}
+        <summary style={{ cursor: "pointer", fontWeight: 500 }}>
+          {tr(lang, "Сирий JSON", "Raw JSON")}
         </summary>
-        <div style={{ padding: "0 16px 16px" }}>
+        <div style={{ marginTop: 12 }}>
           <JsonViewer value={{ job, result }} />
         </div>
       </details>
 
       {confirmCancel && (
         <Modal onClose={() => setConfirmCancel(false)}>
-          <h3 style={{ margin: 0 }}>{lang === "uk" ? "Скасувати завдання?" : "Cancel this job?"}</h3>
+          <h3 style={{ margin: 0 }}>{tr(lang, "Скасувати завдання?", "Cancel this job?")}</h3>
           <p style={{ color: "var(--muted)" }}>
-            {lang === "uk"
-              ? "Поточне завдання буде скасоване. Якщо обробка вже почалася, її буде зупинено."
-              : "The job will be cancelled. If processing has started, it will be stopped."}
+            {tr(lang, "Поточне завдання буде скасоване. Якщо обробка вже почалася, її буде зупинено.", "The job will be cancelled. If processing has started, it will be stopped.")}
           </p>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
             <button className="btn" onClick={() => setConfirmCancel(false)} disabled={cancelling}>
-              {lang === "uk" ? "Назад" : "Back"}
+              {tr(lang, "Назад", "Back")}
             </button>
             <button className="btn btn-danger" onClick={doCancel} disabled={cancelling}>
-              {cancelling ? "…" : (lang === "uk" ? "Скасувати" : "Cancel job")}
+              {cancelling ? "…" : (tr(lang, "Скасувати", "Cancel job"))}
             </button>
           </div>
         </Modal>
+      )}
+
+      {assignOpen && (
+        <AssignTranscriptModal
+          jobId={id}
+          jobLanguage={job?.language}
+          lang={lang}
+          navigate={navigate}
+          onClose={() => setAssignOpen(false)}
+          onAssigned={(res) => setAssignment({
+            report_id: res.id, code: res.code,
+            status: res.status || "draft", patient_id: res.patient_id,
+          })}
+        />
       )}
     </div>
   );

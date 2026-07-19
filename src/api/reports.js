@@ -319,3 +319,86 @@ export async function signReport(id, body = {}) {
     body: JSON.stringify(body),
   });
 }
+
+// ── Assign a batch transcription to a patient (sprint: dictation-assign) ──
+// POST /v1/reports/from-transcript — creates a draft report from a COMPLETE
+// asr job's transcript. Omit template_id for deterministic auto-match; the
+// response's template_selection ("explicit" | "auto" | "fallback") tells the
+// UI whether to warn that the default template was used.
+export async function assignTranscript({ asr_job_id, patient_id, template_id, title, encounter_date }) {
+  const body = { asr_job_id, patient_id };
+  if (template_id) body.template_id = template_id;
+  if (title && title.trim()) body.title = title.trim();
+  if (encounter_date) body.encounter_date = encounter_date;
+  return a("/v1/reports/from-transcript", { method: "POST", body: JSON.stringify(body) });
+}
+
+// Backend's 200-id ceiling for the bulk by-source-job lookup.
+export const BY_SOURCE_JOB_CHUNK = 200;
+
+// GET /v1/reports/by-source-job?ids=… — bulk "is this job already assigned?"
+// lookup for list badges. Accepts any number of ids (chunked to the backend's
+// 200-id limit); returns Map<asr_job_id, {report_id, code, status, patient_id}>.
+export async function reportsBySourceJobs(ids = []) {
+  const map = new Map();
+  const uniq = [...new Set(ids.filter(Boolean))];
+  for (let i = 0; i < uniq.length; i += BY_SOURCE_JOB_CHUNK) {
+    const chunk = uniq.slice(i, i + BY_SOURCE_JOB_CHUNK);
+    const rows = await a(`/v1/reports/by-source-job?ids=${chunk.map(encodeURIComponent).join(",")}`, { method: "GET" });
+    for (const r of Array.isArray(rows) ? rows : []) {
+      map.set(r.asr_job_id, { report_id: r.report_id, code: r.code, status: r.status, patient_id: r.patient_id });
+    }
+  }
+  return map;
+}
+
+// Pull a string field out of a backend problem body, wherever it lives. The
+// live report-service returns HTTPException(detail={dict}) which FastAPI
+// serializes into the RFC 7807 `detail` as a Python *repr string*
+// (e.g. detail: "{'code': 'already_assigned', 'report_code': 'REP-…'}"), so a
+// plain object read misses it. We check, in order: the flat problem object,
+// a nested detail object, and a regex over a stringified detail (single- or
+// double-quoted). Verified live 2026-07-18 against job 229eabb6 (REP-2026-00381).
+function pickProblemField(raw, key) {
+  if (raw && raw[key] != null) return raw[key];
+  const d = raw && raw.detail;
+  if (d && typeof d === "object" && d[key] != null) return d[key];
+  if (typeof d === "string") {
+    const m = d.match(new RegExp(`['"]${key}['"]\\s*:\\s*['"]([^'"]*)['"]`));
+    if (m) return m[1];
+  }
+  return undefined;
+}
+
+// Classify an assignTranscript() error into a translation-free descriptor the
+// UI maps to localized copy. Kept pure (no i18n) so it's unit-testable.
+// Returns one of:
+//   { kind: "already_assigned", report_id, report_code }
+//   { kind: "not_complete", job_status }
+//   { kind: "field", code }            // patient_not_found / template_not_found / empty_transcript / no_templates
+//   { kind: "erased" }                 // 410 — transcript gone by retention
+//   { kind: "unavailable" }            // 503 — asr service down
+//   { kind: "unknown", message }
+export function classifyAssignError(err) {
+  const raw = err?.problem || {};
+  const status = err?.status;
+  const code = pickProblemField(raw, "code");
+  const jobStatus = pickProblemField(raw, "job_status");
+  if (status === 409 && code === "already_assigned") {
+    return {
+      kind: "already_assigned",
+      report_id: pickProblemField(raw, "report_id"),
+      report_code: pickProblemField(raw, "report_code"),
+    };
+  }
+  if (status === 409 && jobStatus) {
+    return { kind: "not_complete", job_status: jobStatus };
+  }
+  if (status === 422 &&
+      ["patient_not_found", "template_not_found", "empty_transcript", "no_templates"].includes(code)) {
+    return { kind: "field", code };
+  }
+  if (status === 410) return { kind: "erased" };
+  if (status === 503) return { kind: "unavailable" };
+  return { kind: "unknown", message: err?.message || null };
+}

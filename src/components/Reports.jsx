@@ -3,13 +3,14 @@
 // Version diff via ReportDiff. Amendment via AmendmentModal.
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useI18n } from '../i18n.js';
+import { useI18n , tr } from "../i18n.js";
 import { Icon, Empty, SaveStatus, Modal } from './UI.jsx';
 import { Loading, asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { Pagination } from './Pagination.jsx';
+import { MenuSelect } from './MenuSelect.jsx';
 import { useAsync } from '../api/useAsync.js';
-import { listReports, countReports, reportHits, getReport, listReportVersions, getReportVersion, amendReport, cancelReport } from '../api/reports.js';
+import { listReports, countReports, reportHits, getReport, listReportVersions, getReportVersion, amendReport, cancelReport, revertReportToDraft } from '../api/reports.js';
 import { listTemplates, getTemplate, toStudioTemplate } from '../api/templates.js';
 import { AmendmentModal, ReportDiffView } from './ReportDiff.jsx';
 import { SigningFlow } from './SigningFlow.jsx';
@@ -79,37 +80,33 @@ function StatusChip({ status, lang }) {
 
 // ── Specialty filter dropdown ─────────────────────────────────────────────
 
+// Localized specialty name, humanizing any backend slug the i18n map doesn't
+// cover (e.g. "family_medicine" → "Family medicine") instead of leaking the
+// raw "spec.<slug>" key into the UI.
+function specLabel(t, specialty) {
+  if (!specialty) return "";
+  const key = `spec.${specialty}`;
+  const translated = t(key);
+  if (translated !== key) return translated;
+  return String(specialty).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function SpecFilter({ value, onChange, lang, specs }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const ref = React.useRef(null);
-  useEffect(() => {
-    const close = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-  const label = value ? t(`spec.${value}`) : (lang === "uk" ? "Спеціальність" : "Specialty");
+  const options = [
+    { value: "", label: tr(lang, "Усі спеціальності", "All specialties") },
+    ...[...specs]
+      .map(s => ({ value: s, label: specLabel(t, s) }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+  ];
   return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button className={`btn ghost sm${value ? " accent" : ""}`} onClick={() => setOpen(!open)} style={{ gap: 6 }}>
-        <Icon name="filter" size={12} />
-        {label}
-        <Icon name="chevDown" size={11} />
-        {value && (
-          <span style={{ marginLeft: 2, opacity: .7 }} onClick={e => { e.stopPropagation(); onChange(null); }}>×</span>
-        )}
-      </button>
-      {open && (
-        <div className="tpl-dropdown" style={{ minWidth: 200 }}>
-          {specs.map(s => (
-            <button key={s} className={`tpl-option${value === s ? " active" : ""}`}
-                    onClick={() => { onChange(s); setOpen(false); }}>
-              {t(`spec.${s}`)}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <MenuSelect
+      icon="filter"
+      value={value || ""}
+      onChange={v => onChange(v || null)}
+      ariaLabel={tr(lang, "Спеціальність", "Specialty")}
+      options={options}
+    />
   );
 }
 
@@ -231,12 +228,12 @@ export function ReportsList({ navigate, lang }) {
   };
 
   const tabs = [
-    { key: "mine",      label: lang === "uk" ? "Мої чернетки"    : "My drafts" },
-    { key: "finalized", label: lang === "uk" ? "Очікують підпису" : "Awaiting signature" },
-    { key: "signed",    label: lang === "uk" ? "Підписані"       : "Signed"    },
-    { key: "amended",   label: lang === "uk" ? "З правками"      : "Amended"   },
-    { key: "cancelled", label: lang === "uk" ? "Скасовані"       : "Cancelled" },
-    { key: "all",       label: lang === "uk" ? "Всі"             : "All"       },
+    { key: "mine",      label: tr(lang, "Мої чернетки", "My drafts") },
+    { key: "finalized", label: tr(lang, "Очікують підпису", "Awaiting signature") },
+    { key: "signed",    label: tr(lang, "Підписані", "Signed")    },
+    { key: "amended",   label: tr(lang, "З правками", "Amended")   },
+    { key: "cancelled", label: tr(lang, "Скасовані", "Cancelled") },
+    { key: "all",       label: tr(lang, "Всі", "All")       },
   ];
 
   const specs = useMemo(() => {
@@ -248,16 +245,16 @@ export function ReportsList({ navigate, lang }) {
     <div className="page">
       <div className="page-h">
         <div>
-          <h1>{lang === "uk" ? "Звіти" : "Reports"}</h1>
-          <p className="sub">{lang === "uk" ? "Всі диктовані звіти" : "All dictated reports"}</p>
+          <h1>{tr(lang, "Звіти", "Reports")}</h1>
+          <p className="sub">{tr(lang, "Всі диктовані звіти", "All dictated reports")}</p>
         </div>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <button className="btn" title={lang === 'uk' ? 'Скопіюйте URL для поточного фільтру' : 'Copy URL for current filter'}
                   onClick={() => { navigator.clipboard?.writeText(location.href); }}>
-            <Icon name="download" size={14} /> {lang === "uk" ? "Копіювати посилання" : "Copy link"}
+            <Icon name="download" size={14} /> {tr(lang, "Копіювати посилання", "Copy link")}
           </button>
           <button className="btn accent" onClick={() => navigate("/dictate/studio")}>
-            <Icon name="plus" size={14} /> {lang === "uk" ? "Новий звіт" : "New report"}
+            <Icon name="plus" size={14} /> {tr(lang, "Новий звіт", "New report")}
           </button>
         </div>
       </div>
@@ -266,7 +263,7 @@ export function ReportsList({ navigate, lang }) {
         <label className="search-input">
           <Icon name="search" size={14} />
           <input
-            placeholder={lang === "uk" ? "Пошук пацієнта, звіту…" : "Search patient, report…"}
+            placeholder={tr(lang, "Пошук пацієнта, звіту…", "Search patient, report…")}
             value={filters.search}
             onChange={e => setFilter('search', e.target.value)}
           />
@@ -288,18 +285,18 @@ export function ReportsList({ navigate, lang }) {
 
       <div className="ptable">
         <div className="rep-head">
-          <span>{lang === "uk" ? "Пацієнт" : "Patient"}</span>
-          <span>{lang === "uk" ? "Шаблон" : "Template"}</span>
-          <span>{lang === "uk" ? "Статус" : "Status"}</span>
-          <span>{lang === "uk" ? "Оновлено" : "Modified"}</span>
-          <span>{lang === "uk" ? "Дата візиту" : "Encounter"}</span>
+          <span>{tr(lang, "Пацієнт", "Patient")}</span>
+          <span>{tr(lang, "Шаблон", "Template")}</span>
+          <span>{tr(lang, "Статус", "Status")}</span>
+          <span>{tr(lang, "Оновлено", "Modified")}</span>
+          <span>{tr(lang, "Дата візиту", "Encounter")}</span>
           <span />
         </div>
         {reportsReq.loading ? <Loading lang={lang} />
           : reportsReq.error ? <ApiErrorView error={reportsReq.error} lang={lang} />
           : reports.length === 0 ? (
             <div style={{ padding: "40px 24px", textAlign: "center" }}>
-              <Empty icon="fileText" title={lang === "uk" ? "Звітів не знайдено" : "No reports found"} />
+              <Empty icon="fileText" title={tr(lang, "Звітів не знайдено", "No reports found")} />
             </div>
           ) : pageReports.map(r => (
             <ReportRow key={r.id} r={r} tpl={templatesMap[r.template_id]} lang={lang}
@@ -333,13 +330,13 @@ function ReportRow({ r, tpl, onClick, onChanged, lang }) {
       <div className="pcell-name">
         <div className="tpl-icon sm"><Icon name={tpl?.icon || "fileText"} size={14} /></div>
         <div>
-          <div className="pname">{r.patient_initials || (lang === "uk" ? "Пацієнт" : "Patient")}</div>
+          <div className="pname">{r.patient_initials || (tr(lang, "Пацієнт", "Patient"))}</div>
           <div className="psub">{r.code}</div>
         </div>
       </div>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 500 }}>{loc(tpl?.name, lang) || loc(r.title, lang) || (lang === "uk" ? "Без шаблону" : "No template")}</div>
-        {tpl?.specialty && <div className="psub">{t(`spec.${tpl.specialty}`)}</div>}
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{loc(tpl?.name, lang) || loc(r.title, lang) || (tr(lang, "Без шаблону", "No template"))}</div>
+        {tpl?.specialty && <div className="psub">{specLabel(t, tpl.specialty)}</div>}
       </div>
       <div><StatusChip status={r.status} lang={lang} /></div>
       <div>
@@ -822,6 +819,7 @@ export function ReportView({ id, navigate, lang }) {
   const [showAmend, setShowAmend] = useState(false);
   const [amendSeed, setAmendSeed] = useState(null); // dictated body → AmendmentModal.initialBody
   const [signOpen, setSignOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [toasts, setToasts] = useState([]);
   const insightsRef = React.useRef(null);
 
@@ -839,14 +837,25 @@ export function ReportView({ id, navigate, lang }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [showInsights]);
 
-  if (reportReq.loading) return <div className="page"><Loading lang={lang} /></div>;
+  // A draft is still being written — it belongs in the Studio editor, not this
+  // read-only/amend view. Whatever the entry point (direct URL, the assign-to-
+  // patient links, a bookmarked report id), reopen it in the Studio rehydrated
+  // with its current content (same id/version, status untouched) so "return to
+  // draft" always lands in the identical editing surface. openReportPath()
+  // routes list rows the same way; this backstops every other path.
+  const isDraft = reportReq.data?.status === "draft";
+  useEffect(() => {
+    if (isDraft) navigate(`/dictate/studio?report=${id}`);
+  }, [isDraft, id, navigate]);
+
+  if (reportReq.loading || isDraft) return <div className="page"><Loading lang={lang} /></div>;
   if (reportReq.error) return <div className="page"><ApiErrorView error={reportReq.error} lang={lang} /></div>;
 
   const r = reportReq.data;
   if (!r) {
     return (
       <div className="page">
-        <Empty icon="fileText" title={lang === "uk" ? "Звіт не знайдено" : "Report not found"}
+        <Empty icon="fileText" title={tr(lang, "Звіт не знайдено", "Report not found")}
                action={<button className="btn" onClick={() => navigate("/dictate/reports")}>← Back</button>} />
       </div>
     );
@@ -889,6 +898,28 @@ export function ReportView({ id, navigate, lang }) {
     }
   };
 
+  // Correct a FINALIZED (awaiting-signature, not yet signed) report. It cannot
+  // be amended — amendments are only for SIGNED reports (backend returns
+  // amend_requires_signed) — and it isn't directly editable. The intended path
+  // is to revert it to a draft and open it in the Studio, which has the
+  // left-rail section chooser plus inline writing AND dictation (issues the
+  // right-side amend panel couldn't cover). Author-only server-side (403 for
+  // anyone else) — surface that verbatim rather than a generic failure.
+  const handleEditFinalized = async () => {
+    if (editing) return;
+    setEditing(true);
+    try {
+      await revertReportToDraft(id);
+      navigate(`/dictate/studio?report=${id}`);
+    } catch (e) {
+      setEditing(false);
+      const forbidden = e?.status === 403;
+      pushToast(forbidden
+        ? tr(lang, "Редагувати може лише автор звіту.", "Only the report's author can edit it.")
+        : (e?.message || tr(lang, "Не вдалося відкрити для редагування", "Could not open for editing")));
+    }
+  };
+
   return (
     <div className="report-page">
       <div className="toast-stack" style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 99 }}>
@@ -899,7 +930,7 @@ export function ReportView({ id, navigate, lang }) {
         <div className="editor-toolbar">
           <button className="btn ghost sm" onClick={() => navigate("/dictate/reports")}>
             <Icon name="arrowLeft" size={13} />
-            {lang === "uk" ? "Звіти" : "Reports"}
+            {tr(lang, "Звіти", "Reports")}
           </button>
           <StatusChip status={r.status} lang={lang} />
           <div className="spacer" />
@@ -908,17 +939,20 @@ export function ReportView({ id, navigate, lang }) {
           {isSigned ? (
             <>
               <button className="btn sm" onClick={() => { setAmendSeed(null); setShowAmend(true); }}>
-                <Icon name="edit" size={12} /> {lang === "uk" ? "Правки" : "Amend"}
+                <Icon name="edit" size={12} /> {tr(lang, "Правки", "Amend")}
               </button>
               <button className="btn sm" onClick={() => window.print()}>
-                <Icon name="print" size={12} /> {lang === "uk" ? "Друк" : "Print"}
+                <Icon name="print" size={12} /> {tr(lang, "Друк", "Print")}
               </button>
             </>
           ) : (
             <>
-              <button className="btn sm" onClick={() => window.print()}><Icon name="download" size={12} /> {lang === "uk" ? "Експорт" : "Export"}</button>
+              <button className="btn sm" onClick={() => window.print()}><Icon name="download" size={12} /> {tr(lang, "Експорт", "Export")}</button>
+              <button className="btn sm" onClick={handleEditFinalized} disabled={editing}>
+                <Icon name="edit" size={12} /> {editing ? tr(lang, "Відкриття…", "Opening…") : tr(lang, "Редагувати", "Edit")}
+              </button>
               <button className="btn accent sm" onClick={() => setSignOpen(true)}>
-                <Icon name="sign" size={12} /> {lang === "uk" ? "Підписати" : "Sign"}
+                <Icon name="sign" size={12} /> {tr(lang, "Підписати", "Sign")}
               </button>
             </>
           )}
@@ -931,17 +965,17 @@ export function ReportView({ id, navigate, lang }) {
               onClick={() => setShowInsights(o => !o)}
               aria-haspopup="menu"
               aria-expanded={showInsights}
-              title={lang === "uk" ? "Версії · Різниця · Історія" : "Versions · Diff · History"}
+              title={tr(lang, "Версії · Різниця · Історія", "Versions · Diff · History")}
             >
               <Icon name="moreH" size={16} />
             </button>
             {showInsights && (
               <div className="insights-menu" role="menu">
-                <div className="side-tabs" role="tablist" aria-label={lang === "uk" ? "Розділи звіту" : "Report panels"}>
+                <div className="side-tabs" role="tablist" aria-label={tr(lang, "Розділи звіту", "Report panels")}>
                   {[
-                    { key: "versions", icon: "layers",  label: lang === "uk" ? "Версії"  : "Versions" },
-                    { key: "diff",     icon: "diff",    label: lang === "uk" ? "Різниця" : "Diff" },
-                    { key: "history",  icon: "history", label: lang === "uk" ? "Історія" : "History" },
+                    { key: "versions", icon: "layers",  label: tr(lang, "Версії", "Versions") },
+                    { key: "diff",     icon: "diff",    label: tr(lang, "Різниця", "Diff") },
+                    { key: "history",  icon: "history", label: tr(lang, "Історія", "History") },
                   ].map(tb => (
                     <button
                       key={tb.key}
@@ -959,13 +993,13 @@ export function ReportView({ id, navigate, lang }) {
 
                 {sideTab === "versions" && (
                   versionsReq.loading ? <Loading lang={lang} /> : versions.length === 0 ? (
-                    <div className="psub">{lang === "uk" ? "Немає версій" : "No versions"}</div>
+                    <div className="psub">{tr(lang, "Немає версій", "No versions")}</div>
                   ) : (
                     <div className="version-list">
                       {versions.map((v, i) => (
                         <div key={v.version_number} className={`version-row${activeVer === i ? " current" : ""}`} onClick={() => setActiveVer(i)}>
                           <div className="v-top">
-                            <span className="v-label">v{v.version_number}{v.is_amendment ? ` · ${lang === "uk" ? "правка" : "amendment"}` : ""}</span>
+                            <span className="v-label">v{v.version_number}{v.is_amendment ? ` · ${tr(lang, "правка", "amendment")}` : ""}</span>
                             {activeVer === i && <Icon name="check" size={12} style={{ color: "var(--accent)" }} />}
                           </div>
                           <div className="v-meta">{formatDate(v.created_at, lang)}</div>
@@ -998,7 +1032,7 @@ export function ReportView({ id, navigate, lang }) {
               <div className="signed-banner">
                 <Icon name="shield" size={15} />
                 <div>
-                  <strong>{lang === "uk" ? "Підписано цифровим підписом" : "Digitally signed"}</strong>
+                  <strong>{tr(lang, "Підписано цифровим підписом", "Digitally signed")}</strong>
                   {r.signed_at && <>{" · "}{formatDate(r.signed_at, lang)}</>}
                   {(signature.sha || envelopeId) && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
@@ -1019,14 +1053,14 @@ export function ReportView({ id, navigate, lang }) {
             <h1 className="report-title">{loc(r.title, lang) || loc(tpl?.name, lang) || r.code}</h1>
             <div className="report-meta">
               <span className="chip">{r.code}</span>
-              {tpl?.specialty && <span>{t(`spec.${tpl.specialty}`)}</span>}
+              {tpl?.specialty && <span>{specLabel(t, tpl.specialty)}</span>}
               {r.patient_name_redacted && <><span>·</span><span>{r.patient_name_redacted}</span></>}
               {r.encounter_date && <><span>·</span><span className="mono" style={{ fontSize: 12 }}>{formatDate(r.encounter_date, lang)}</span></>}
             </div>
 
             {contentSections.length === 0 ? (
               <div className="body" style={{ color: "var(--muted)", fontStyle: "italic" }}>
-                {lang === "uk" ? "— порожній звіт —" : "— empty report —"}
+                {tr(lang, "— порожній звіт —", "— empty report —")}
               </div>
             ) : contentSections.map(s => (
               <div key={s.section_key} className="section-block">
@@ -1034,7 +1068,7 @@ export function ReportView({ id, navigate, lang }) {
                   <span>{sectionLabel(s.section_key)}</span>
                 </div>
                 <div className="body" style={{ whiteSpace: "pre-wrap" }}>
-                  {s.text || <span style={{ color: "var(--muted)", fontStyle: "italic" }}>— {lang === "uk" ? "відсутнє" : "missing"} —</span>}
+                  {s.text || <span style={{ color: "var(--muted)", fontStyle: "italic" }}>— {tr(lang, "відсутнє", "missing")} —</span>}
                 </div>
               </div>
             ))}
@@ -1047,7 +1081,7 @@ export function ReportView({ id, navigate, lang }) {
           <div className="audio-player">
             <div className="ap-h">
               <span><Icon name="audio" size={12} style={{ verticalAlign: "-2px", marginRight: 4 }} />
-                {lang === "uk" ? "Аудіозапис" : "Audio"}
+                {tr(lang, "Аудіозапис", "Audio")}
               </span>
               {r.audio.duration != null && <span className="mono">{formatDur(r.audio.duration)}</span>}
             </div>
@@ -1055,21 +1089,40 @@ export function ReportView({ id, navigate, lang }) {
           </div>
         )}
 
-        <ReportDictatePanel
-          contentSections={contentSections}
-          sectionLabel={sectionLabel}
-          lang={lang}
-          onAmend={(draftBody) => { setAmendSeed(draftBody); setShowAmend(true); }}
-        />
+        {isSigned ? (
+          // Amendments (dictate or write a correction → new version) are only
+          // valid on a SIGNED report; the panel's chips + textarea live here.
+          <ReportDictatePanel
+            contentSections={contentSections}
+            sectionLabel={sectionLabel}
+            lang={lang}
+            onAmend={(draftBody) => { setAmendSeed(draftBody); setShowAmend(true); }}
+          />
+        ) : (
+          // Finalized (awaiting signature) — not amendable and not directly
+          // editable. Point at "Edit", which reopens it in the Studio.
+          <div className="edit-hint">
+            <div className="rail-h" style={{ padding: 0, marginBottom: 8 }}>{tr(lang, "Виправити звіт", "Correct the report")}</div>
+            <p className="psub" style={{ margin: "0 0 12px", lineHeight: 1.5 }}>
+              {tr(lang,
+                "Щоб виправити цей звіт — текстом або диктуванням із вибором розділів ліворуч — відкрийте його в Студії. Звіт повернеться в чернетку; після правок підпишіть його знову.",
+                "To correct this report — by typing or dictating, with the section list on the left — open it in the Studio. The report returns to a draft; re-sign it after your edits.")}
+            </p>
+            <button className="btn accent" style={{ width: "100%", justifyContent: "center" }}
+              onClick={handleEditFinalized} disabled={editing}>
+              <Icon name="edit" size={13} /> {editing ? tr(lang, "Відкриття…", "Opening…") : tr(lang, "Редагувати в Студії", "Edit in Studio")}
+            </button>
+          </div>
+        )}
 
         <div>
-          <div className="rail-h" style={{ padding: "0 0 8px" }}>{lang === "uk" ? "Метадані" : "Details"}</div>
+          <div className="rail-h" style={{ padding: "0 0 8px" }}>{tr(lang, "Метадані", "Details")}</div>
           <div className="meta-list">
-            <MetaRow label={lang === "uk" ? "Створено" : "Created"} value={formatDate(r.created_at, lang)} />
-            <MetaRow label={lang === "uk" ? "Оновлено" : "Modified"} value={formatDate(r.updated_at, lang)} />
-            <MetaRow label={lang === "uk" ? "Слів" : "Words"} value={String(countWords(contentSections.map(s => s.text || "")))} />
-            {r.finalized_at && <MetaRow label={lang === "uk" ? "Завершено" : "Finalized"} value={formatDate(r.finalized_at, lang)} />}
-            {isSigned && r.signed_at && <MetaRow label={lang === "uk" ? "Підписано" : "Signed"} value={formatDate(r.signed_at, lang)} />}
+            <MetaRow label={tr(lang, "Створено", "Created")} value={formatDate(r.created_at, lang)} />
+            <MetaRow label={tr(lang, "Оновлено", "Modified")} value={formatDate(r.updated_at, lang)} />
+            <MetaRow label={tr(lang, "Слів", "Words")} value={String(countWords(contentSections.map(s => s.text || "")))} />
+            {r.finalized_at && <MetaRow label={tr(lang, "Завершено", "Finalized")} value={formatDate(r.finalized_at, lang)} />}
+            {isSigned && r.signed_at && <MetaRow label={tr(lang, "Підписано", "Signed")} value={formatDate(r.signed_at, lang)} />}
           </div>
         </div>
       </aside>
@@ -1122,7 +1175,7 @@ function relativeTime(iso, lang) {
 }
 function formatDate(iso, lang) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString(lang === "uk" ? "uk-UA" : "en-US", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleString(tr(lang, "uk-UA", "en-US"), { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 function formatDur(s) {
   s = Math.floor(s || 0);

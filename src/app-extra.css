@@ -381,7 +381,11 @@
 .settings-row-label { font-size: 13px; font-weight: 500; }
 .settings-row-hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .settings-row-control { display: flex; align-items: center; gap: 8px; }
-.seg { display: inline-flex; gap: 4px; background: var(--surface-2); border-radius: 8px; padding: 3px; }
+/* Every setting control is a dropdown now — give them a consistent width so
+   they line up on the right of each row. */
+.settings-row-control .menu-select { min-width: 170px; }
+.settings-row-control .menu-select .spec-menu { max-height: 300px; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--surface-2); border-radius: 8px; padding: 3px; }
 .seg-btn {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 5px 10px; border-radius: 6px;
@@ -514,6 +518,60 @@
   border: 1px solid rgba(220, 38, 38, .35);
   color: #7f1d1d;
 }
+.asr-banner-ok {
+  background: rgba(16, 185, 129, .10);
+  border: 1px solid rgba(16, 185, 129, .35);
+  color: #065f46;
+}
+.asr-banner-ok a, .asr-banner-warn a { color: inherit; font-weight: 600; text-decoration: underline; }
+.assign-banner { align-items: center; margin: 0 0 16px; font-size: 13px; }
+
+/* ── Assign-transcript modal (dictation-assign) ─────────────────────── */
+.modal-xl .modal-body.assign-form {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 28px; align-items: start;
+  padding: 20px 28px 24px;
+}
+.assign-pane { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.assign-pane-patient { padding-right: 28px; border-right: 1px solid var(--line); }
+.assign-form .np-row { display: flex; flex-direction: column; gap: 6px; }
+.assign-form .np-row > span { font-size: 12.5px; font-weight: 500; color: var(--text-2); }
+.assign-form .ti { padding: 10px 12px; font-size: 13.5px; width: 100%; box-sizing: border-box; }
+.assign-patients {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 320px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 8px; padding: 4px;
+}
+.assign-patient {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: 8px 10px; border-radius: 6px; border: 1px solid transparent;
+  background: transparent; cursor: pointer;
+}
+.assign-patient:hover { background: var(--surface-2); }
+.assign-patient.on { background: var(--accent-soft, rgba(10,138,122,.10)); border-color: var(--accent); }
+.assign-patient-name { font-size: 13.5px; font-weight: 500; color: var(--text-1); }
+.assign-patient-meta { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+.assign-done { display: flex; flex-direction: column; gap: 12px; padding: 20px 24px; }
+.assign-done-row { display: flex; gap: 10px; align-items: baseline; }
+.assign-done-k { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); min-width: 90px; }
+@media (max-width: 860px) {
+  .modal-xl .modal-body.assign-form { grid-template-columns: 1fr; gap: 18px; }
+  .assign-pane-patient { padding-right: 0; border-right: 0; }
+}
+.asr-assigned-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 999px;
+  background: rgba(16, 185, 129, .12); border: 1px solid rgba(16, 185, 129, .30);
+  color: #065f46; font-size: 11.5px; font-weight: 600; cursor: pointer;
+  font-family: var(--mono);
+}
+.asr-assigned-badge:hover { background: rgba(16, 185, 129, .20); }
+/* Transcription jobs list: standard `.ptable` layout (like Patients/Reports),
+   with its own column set — Job · Status · Lang · Assignment · chevron. */
+.asr-job-table .ptable-head,
+.asr-job-table .ptable-row {
+  grid-template-columns: 2.4fr 1fr 0.8fr 1.6fr 24px;
+}
 
 /* ── Audio drop zone ──────────────────────────────────────────────── */
 .audio-drop {
@@ -553,16 +611,30 @@
 .asr-label > span:first-child { font-weight: 500; color: var(--text-2); }
 .asr-label input[type="text"] {
   border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 6px 10px;
-  font-size: 13px;
+  border-radius: 8px;
+  padding: 9px 12px;              /* match the MenuSelect trigger height */
+  font-size: 13.5px;
   background: var(--surface);
   color: var(--text-1);
   width: 100%;
+  transition: border-color .12s, box-shadow .12s;
+}
+.asr-label input[type="text"]:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft, rgba(10,138,122,.15));
 }
 .asr-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ── Job detail / failure card ────────────────────────────────────── */
+.asr-job .me-section { padding: 14px 16px; margin-bottom: 14px; }
+.asr-job .me-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 720px) {
+  .asr-job .me-grid { grid-template-columns: 1fr; }
+}
+.asr-job .me-section .transcript {
+  margin: 4px -16px -14px;
+  border-top: 1px solid var(--line);
+}
 .asr-fail {
   border: 1px solid rgba(220, 38, 38, .35);
   background: rgba(220, 38, 38, .04);
@@ -671,6 +743,18 @@
   transition: background .12s, border-color .12s;
 }
 .lp-lang:hover { background: var(--surface-2); }
+.lp-lang-select {
+  position: relative; display: inline-flex; align-items: center; gap: 4px;
+  height: 34px; padding: 0 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface);
+  font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.lp-lang-select:hover { background: var(--surface-2); }
+.lp-lang-select select {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; appearance: none;
+}
 .lp-burger { display: none; background: none; border: 0; color: var(--text-1); cursor: pointer; padding: 6px; }
 
 /* ── Layout helpers ────────────────────────────────────────── */
@@ -1651,4 +1735,74 @@
 @media (max-width: 460px) {
   .apidocs-tabs { grid-template-columns: 1fr; }
   .apidocs-bar { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
+/* ── Developer docs (/docs) ─────────────────────────────────── */
+.docs-hero { padding-bottom: 8px; }
+.docs-layout {
+  display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 36px;
+  max-width: 1160px; margin: 0 auto; padding: 24px 24px 72px;
+  align-items: start;
+}
+.docs-nav { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 2px; }
+.docs-nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 8px;
+  font-size: 13.5px; color: var(--text-2); text-decoration: none;
+}
+.docs-nav-item:hover { background: var(--surface-2); color: var(--text-1); }
+.docs-nav-item.is-active {
+  background: var(--accent-soft, rgba(79,70,229,.08));
+  color: var(--accent-text, var(--accent));
+  font-weight: 600;
+}
+.docs-nav-sep { border-top: 1px solid var(--line); margin: 10px 8px; }
+.docs-article { min-width: 0; }
+.docs-title { margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+.docs-lead { margin: 0 0 18px; font-size: 15px; color: var(--muted); line-height: 1.55; }
+.docs-h2 { margin: 26px 0 8px; font-size: 18px; font-weight: 650; letter-spacing: -.01em; }
+.docs-p { margin: 0 0 14px; font-size: 14.5px; line-height: 1.65; color: var(--text-1); }
+.docs-bullets { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.docs-bullets li { display: flex; gap: 9px; font-size: 14px; line-height: 1.55; color: var(--text-1); }
+.docs-bullets li svg { flex: none; margin-top: 4px; color: var(--accent-text, var(--accent)); }
+.docs-code { margin: 0 0 18px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.docs-code figcaption {
+  padding: 7px 14px; font-size: 12px; font-weight: 600; letter-spacing: .02em;
+  color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line);
+}
+.docs-code pre {
+  margin: 0; padding: 14px; overflow-x: auto;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+  background: var(--surface); color: var(--text-1);
+}
+.docs-table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 10px; }
+.docs-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.docs-table th {
+  text-align: left; padding: 9px 14px; font-size: 11.5px; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted); background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+.docs-table td { padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.docs-table tr:last-child td { border-bottom: 0; }
+.docs-td-mono { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+.docs-note {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin: 0 0 18px; padding: 12px 14px; border-radius: 10px;
+  background: var(--accent-soft, rgba(79,70,229,.06));
+  font-size: 13.5px; line-height: 1.55; color: var(--text-1);
+}
+.docs-note svg { flex: none; margin-top: 3px; color: var(--accent-text, var(--accent)); }
+.docs-pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); }
+.docs-pager-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13.5px; font-weight: 600; color: var(--accent-text, var(--accent));
+}
+.docs-pager-link:hover { text-decoration: underline; }
+.devs-form-sub { margin: -6px 0 14px; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+@media (max-width: 860px) {
+  .docs-layout { grid-template-columns: 1fr; gap: 18px; }
+  .docs-nav { position: static; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .docs-nav-item { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; }
+  .docs-nav-item.is-active { border-color: var(--accent); }
+  .docs-nav-sep { display: none; }
 }

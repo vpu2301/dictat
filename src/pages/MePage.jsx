@@ -5,6 +5,7 @@ import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { JsonViewer } from "../components/JsonViewer.jsx";
 import { me as apiMe } from "../api/endpoints.js";
 import { useAuth } from "../auth/AuthContext.jsx";
+import { tr } from "../i18n.js";
 
 function Field({ label, value, mono, copyable }) {
   const copy = () => { try { navigator.clipboard.writeText(String(value)); } catch {} };
@@ -42,7 +43,7 @@ export function MePage({ lang = "en" }) {
   if (!state) {
     return (
       <div className="page">
-        {error ? <ApiErrorView error={error} lang={lang} /> : <Empty icon="user" title={lang === "uk" ? "Завантаження…" : "Loading…"} />}
+        {error ? <ApiErrorView error={error} lang={lang} /> : <Empty icon="user" title={tr(lang, "Завантаження…", "Loading…")} />}
       </div>
     );
   }
@@ -54,13 +55,13 @@ export function MePage({ lang = "en" }) {
     <div className="page me-page">
       <div className="page-h">
         <div>
-          <h1>{lang === "uk" ? "Профіль" : "My profile"}</h1>
-          <p className="muted">{lang === "uk" ? "Дані з підписаного токена." : "What the verified token says."}</p>
+          <h1>{tr(lang, "Профіль", "My profile")}</h1>
+          <p className="muted">{tr(lang, "Дані з підписаного токена.", "What the verified token says.")}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={refresh} disabled={loading}>
             <Icon name="refresh" size={13} />
-            <span>{lang === "uk" ? "Оновити" : "Refresh"}</span>
+            <span>{tr(lang, "Оновити", "Refresh")}</span>
           </button>
         </div>
       </div>
@@ -70,7 +71,7 @@ export function MePage({ lang = "en" }) {
       <section className="card me-section">
         <header className="me-section-h">
           <Icon name="shield" size={14} />
-          <h2>{lang === "uk" ? "Токен" : "Token claims"}</h2>
+          <h2>{tr(lang, "Токен", "Token claims")}</h2>
           <span className={"chip " + (c.mfa ? "chip-ok" : "chip-warn")}>
             MFA {c.mfa ? "on" : "off"}
           </span>
@@ -82,7 +83,7 @@ export function MePage({ lang = "en" }) {
           <Field label="iss" value={c.iss} mono />
         </div>
         <div className="me-roles">
-          <span className="me-field-label">{lang === "uk" ? "Ролі" : "Roles"}</span>
+          <span className="me-field-label">{tr(lang, "Ролі", "Roles")}</span>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {(c.roles || []).map((r) => <span key={r} className="chip">{r}</span>)}
           </div>
@@ -92,14 +93,14 @@ export function MePage({ lang = "en" }) {
       <section className="card me-section">
         <header className="me-section-h">
           <Icon name="user" size={14} />
-          <h2>{lang === "uk" ? "Профіль у БД" : "DB profile"}</h2>
+          <h2>{tr(lang, "Профіль у БД", "DB profile")}</h2>
         </header>
         {u ? (
           <div className="me-grid">
-            <Field label={lang === "uk" ? "Email" : "Email"} value={u.email} copyable />
-            <Field label={lang === "uk" ? "Імʼя" : "Display name"} value={u.display_name} />
-            <Field label={lang === "uk" ? "Роль" : "Role"} value={u.role} />
-            <Field label={lang === "uk" ? "Статус" : "Status"} value={u.status} />
+            <Field label={tr(lang, "Email", "Email")} value={u.email} copyable />
+            <Field label={tr(lang, "Імʼя", "Display name")} value={u.display_name} />
+            <Field label={tr(lang, "Роль", "Role")} value={u.role} />
+            <Field label={tr(lang, "Статус", "Status")} value={u.status} />
             <Field label="MFA enrolled" value={u.mfa_enrolled_at} mono />
             <Field label="Last login" value={u.last_login_at} mono />
           </div>
@@ -107,11 +108,9 @@ export function MePage({ lang = "en" }) {
           <div className="me-empty">
             <Icon name="help" size={20} />
             <div>
-              <strong>{lang === "uk" ? "Профіль ще не синхронізовано" : "Profile not synced yet"}</strong>
+              <strong>{tr(lang, "Профіль ще не синхронізовано", "Profile not synced yet")}</strong>
               <p className="muted">
-                {lang === "uk"
-                  ? "Цей користувач існує тільки в Keycloak. Запис у локальній БД зʼявиться після першого входу."
-                  : "This user exists in Keycloak only. The local DB row appears after the first sync."}
+                {tr(lang, "Цей користувач існує тільки в Keycloak. Запис у локальній БД зʼявиться після першого входу.", "This user exists in Keycloak only. The local DB row appears after the first sync.")}
               </p>
             </div>
           </div>
@@ -120,7 +119,7 @@ export function MePage({ lang = "en" }) {
 
       <details className="card me-section">
         <summary style={{ cursor: "pointer", padding: "12px 16px", fontWeight: 500 }}>
-          {lang === "uk" ? "Сирий JSON" : "Raw JSON"}
+          {tr(lang, "Сирий JSON", "Raw JSON")}
         </summary>
         <div style={{ padding: "0 16px 16px" }}>
           <JsonViewer value={state} />

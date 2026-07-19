@@ -11,11 +11,12 @@ import { UsagePanel } from "../components/dashboard/UsagePanel.jsx";
 import { DoctorsPanel } from "../components/dashboard/DoctorsPanel.jsx";
 import { ReportsPanel } from "../components/dashboard/ReportsPanel.jsx";
 import { CapabilitiesPanel } from "../components/dashboard/CapabilitiesPanel.jsx";
+import { tr } from "../i18n.js";
 
 const RANGES = [7, 30, 90];
 
 export function DashboardPage({ lang = "en", navigate }) {
-  const T = (uk, en) => (lang === "uk" ? uk : en);
+  const T = (uk, en) => tr(lang, uk, en);
   const { state } = useAuth();
   const [rangeDays, setRangeDays] = useState(30);
 

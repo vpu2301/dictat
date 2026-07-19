@@ -13,6 +13,7 @@ import { Icon, Empty } from "../components/UI.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { me as apiMe } from "../api/endpoints.js";
 import { useAuth } from "../auth/AuthContext.jsx";
+import { tr } from "../i18n.js";
 
 // Friendly, bilingual role labels (roles arrive as raw slugs).
 const ROLE_LABELS = {
@@ -31,7 +32,7 @@ function initialsOf(name, email) {
 }
 
 export function ProfilePage({ lang = "en", navigate }) {
-  const T = (uk, en) => (lang === "uk" ? uk : en);
+  const T = (uk, en) => tr(lang, uk, en);
   const { state, setState } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -172,7 +173,7 @@ export function ProfilePage({ lang = "en", navigate }) {
 
 // ── Primitives ────────────────────────────────────────────────────────────────
 function SoonPill({ lang }) {
-  return <span className="soon-pill">{lang === "uk" ? "Незабаром" : "Coming soon"}</span>;
+  return <span className="soon-pill">{tr(lang, "Незабаром", "Coming soon")}</span>;
 }
 
 function Section({ icon, title, action, children }) {

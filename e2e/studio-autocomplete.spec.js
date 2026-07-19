@@ -137,7 +137,7 @@ async function openStudio(page) {
   await page.locator('button[type="submit"]').click();
   await expect(page.locator(".sb-brand")).toBeVisible();
   await page.goto("/#/dictate/studio");
-  const gateRow = page.locator(".patient-gate-row").first();
+  const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await expect(gateRow).toBeVisible({ timeout: 10000 });
   await gateRow.click();
   const editor = page.locator(".ProseMirror").first();
@@ -545,7 +545,7 @@ test("step-05: master toggle — default ON, OFF kills everything mid-session, p
   // Persistence: reload (same auth session), reopen the studio — still OFF,
   // heavy typing at mount produces zero client calls.
   await page.reload();
-  const gateRow = page.locator(".patient-gate-row").first();
+  const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await expect(gateRow).toBeVisible({ timeout: 10000 });
   await gateRow.click();
   const editor2 = page.locator(".ProseMirror").first();

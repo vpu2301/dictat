@@ -7,9 +7,10 @@ import { useAsync } from "../../api/useAsync.js";
 import { fetchDoctors } from "../../api/dashboard.js";
 import { Panel, PanelState } from "./Panel.jsx";
 import { StatusBadge } from "./StatusBadge.jsx";
+import { tr } from "../../i18n.js";
 
 export function DoctorsPanel({ lang, navigate }) {
-  const T = (uk, en) => (lang === "uk" ? uk : en);
+  const T = (uk, en) => tr(lang, uk, en);
   const req = useAsync(() => fetchDoctors(), []);
   const doctors = req.data?.doctors || [];
   const isEmpty = req.data && doctors.length === 0;

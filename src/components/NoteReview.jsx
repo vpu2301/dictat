@@ -6,6 +6,7 @@ import { ApiErrorView } from './ApiErrorView.jsx';
 import { useAsync } from '../api/useAsync.js';
 import { getReviewSession } from '../api/scribe.js';
 import { createReport } from '../api/reports.js';
+import { tr } from "../i18n.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ function SourceCoverageBar({ coverage, lang }) {
   const pct = Math.round(coverage * 100);
   return (
     <div className="coverage-bar">
-      <span className="cb-label">{lang === "uk" ? "Покриття джерелом:" : "Source coverage:"}</span>
+      <span className="cb-label">{tr(lang, "Покриття джерелом:", "Source coverage:")}</span>
       <span className="cb-pct">{pct}%</span>
       <div className="cb-track">
         <div className="cb-fill" style={{ width: `${pct}%` }} />
@@ -83,7 +84,7 @@ function ScreenSplitter({ onDrag }) {
 function TranscriptViewer({ segments, activeSourceIds, lang, speakerMap, onSpeakerChange }) {
   const [openDropdown, setOpenDropdown] = useState(null);
 
-  const resolvedName = (speaker) => speakerMap[speaker] || (speaker === "clinician" ? (lang === "uk" ? "Лікар" : "Clinician") : (lang === "uk" ? "Пацієнт" : "Patient"));
+  const resolvedName = (speaker) => speakerMap[speaker] || (speaker === "clinician" ? (tr(lang, "Лікар", "Clinician")) : (tr(lang, "Пацієнт", "Patient")));
 
   const roleOptions = [
     { key: "clinician", uk: "Лікар", en: "Clinician" },
@@ -120,7 +121,7 @@ function TranscriptViewer({ segments, activeSourceIds, lang, speakerMap, onSpeak
                 <button
                   className={`speaker-badge ${badgeClass}`}
                   onClick={() => setOpenDropdown(openDropdown === seg.id ? null : seg.id)}
-                  title={lang === "uk" ? "Змінити мовця" : "Change speaker"}
+                  title={tr(lang, "Змінити мовця", "Change speaker")}
                 >
                   {resolvedName(seg.speaker)}
                   <Icon name="chevDown" size={10} />
@@ -128,7 +129,7 @@ function TranscriptViewer({ segments, activeSourceIds, lang, speakerMap, onSpeak
                 {openDropdown === seg.id && (
                   <div className="speaker-dropdown">
                     <div style={{ fontSize: 11, color: "var(--muted)", padding: "6px 12px 4px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      {lang === "uk" ? "Замінити всіх" : "Change all"} &ldquo;{resolvedName(seg.speaker)}&rdquo;
+                      {tr(lang, "Замінити всіх", "Change all")} &ldquo;{resolvedName(seg.speaker)}&rdquo;
                     </div>
                     {roleOptions.map(opt => (
                       <div
@@ -222,7 +223,7 @@ function AnnotatedContent({ text, spans, lang, activeSpan, onSpanHover }) {
           <span
             key={i}
             className={`traceability-span${isLowConf ? " low-conf" : ""}${isActive ? " active-trace" : ""}`}
-            title={`${lang === "uk" ? "Джерела: " : "Sources: "}${seg.span.sourceIds.join(", ")} — ${Math.round(seg.span.confidence * 100)}%`}
+            title={`${tr(lang, "Джерела: ", "Sources: ")}${seg.span.sourceIds.join(", ")} — ${Math.round(seg.span.confidence * 100)}%`}
             onMouseEnter={() => onSpanHover(seg.span.sourceIds)}
             onMouseLeave={() => onSpanHover(null)}
           >
@@ -262,7 +263,7 @@ export function NoteReviewPage({ sessionId, lang, navigate }) {
   const session = req.data;
   if (!session) {
     return <div style={{ padding: 40, color: "var(--muted)", textAlign: "center" }}>
-      {lang === "uk" ? "Сесію не знайдено" : "Session not found"}
+      {tr(lang, "Сесію не знайдено", "Session not found")}
     </div>;
   }
 
@@ -294,7 +295,7 @@ export function NoteReviewPage({ sessionId, lang, navigate }) {
           </div>
         )}
         <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text-1)", flex: 1 }}>
-          {lang === "uk" ? "Огляд нотатки" : "Note review"}
+          {tr(lang, "Огляд нотатки", "Note review")}
           {patient && (
             <span style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)", marginLeft: 8 }}>
               — {loc(patient.short, lang) || patientName(patient, lang)}
@@ -309,11 +310,11 @@ export function NoteReviewPage({ sessionId, lang, navigate }) {
               onChange={e => setScrollSync(e.target.checked)}
               style={{ cursor: "pointer" }}
             />
-            {lang === "uk" ? "Синхронна прокрутка" : "Scroll sync"}
+            {tr(lang, "Синхронна прокрутка", "Scroll sync")}
           </label>
           <button className="btn accent" onClick={handleSign} disabled={signing}>
             <Icon name="sign" size={13} />
-            {signing ? (lang === "uk" ? "Створення…" : "Creating…") : (lang === "uk" ? "Підписати як звіт" : "Sign as report")}
+            {signing ? (tr(lang, "Створення…", "Creating…")) : (tr(lang, "Підписати як звіт", "Sign as report"))}
           </button>
         </div>
       </div>
@@ -327,9 +328,9 @@ export function NoteReviewPage({ sessionId, lang, navigate }) {
         >
           <div className="review-pane-header">
             <Icon name="mic" size={14} />
-            {lang === "uk" ? "Транскрипт" : "Transcript"}
+            {tr(lang, "Транскрипт", "Transcript")}
             <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>
-              {transcript.length} {lang === "uk" ? "фрагментів" : "segments"}
+              {transcript.length} {tr(lang, "фрагментів", "segments")}
             </span>
           </div>
           <div className="review-pane-body">
@@ -353,17 +354,15 @@ export function NoteReviewPage({ sessionId, lang, navigate }) {
         >
           <div className="review-pane-header">
             <Icon name="fileText" size={14} />
-            {lang === "uk" ? "Згенерована нотатка" : "Generated note"}
+            {tr(lang, "Згенерована нотатка", "Generated note")}
             <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>
-              {sections.length} {lang === "uk" ? "розділів" : "sections"}
+              {sections.length} {tr(lang, "розділів", "sections")}
             </span>
           </div>
           <div className="review-pane-body">
             <div style={{ marginBottom: 12, padding: "8px 12px", background: "var(--accent-soft)", borderRadius: "var(--radius)", fontSize: 12.5, color: "var(--accent-text,var(--accent))", display: "flex", alignItems: "center", gap: 6 }}>
               <Icon name="sparkle" size={13} />
-              {lang === "uk"
-                ? "Підкреслені фрагменти пов'язані з першоджерелами в транскрипті. Наведіть курсор, щоб побачити зв'язок."
-                : "Underlined spans are linked to source segments in the transcript. Hover to see the connection."}
+              {tr(lang, "Підкреслені фрагменти пов'язані з першоджерелами в транскрипті. Наведіть курсор, щоб побачити зв'язок.", "Underlined spans are linked to source segments in the transcript. Hover to see the connection.")}
             </div>
             <GeneratedNoteEditor
               sections={sections}
@@ -385,9 +384,9 @@ export function NoteReviewPage({ sessionId, lang, navigate }) {
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", display: "inline-block" }} />
-          {lang === "uk" ? "— нормальна достовірність" : "— normal confidence"}
+          {tr(lang, "— нормальна достовірність", "— normal confidence")}
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--warn)", display: "inline-block", marginLeft: 8 }} />
-          {lang === "uk" ? "— низька достовірність (пунктир)" : "— low confidence (dotted)"}
+          {tr(lang, "— низька достовірність (пунктир)", "— low confidence (dotted)")}
         </div>
       </div>
     </div>

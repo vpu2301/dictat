@@ -12,6 +12,7 @@
 // otherwise we fall back to plain segment text.
 import React, { useMemo, useState } from "react";
 import { Icon } from "./UI.jsx";
+import { tr } from "../i18n.js";
 
 function fmtT(sec) {
   if (sec == null || Number.isNaN(sec)) return "—";
@@ -28,6 +29,41 @@ function shadeFor(conf) {
   if (c >= 0.75) return "rgba(245,158,11,.10)";
   if (c >= 0.6)  return "rgba(245,158,11,.22)";
   return "rgba(220,38,38,.22)";
+}
+
+// NLP confidence-span level → shade (server-side confidence stage).
+function shadeForLevel(level) {
+  if (level === "high_concern") return "rgba(220,38,38,.22)";
+  if (level === "moderate")     return "rgba(245,158,11,.22)";
+  return "transparent";
+}
+
+// Processed-segment renderer: plain text with char-range shading from
+// the NLP confidence stage ({start_char, end_char, level}).
+function SpannedText({ text, spans, shade }) {
+  if (!shade || !Array.isArray(spans) || spans.length === 0) return <span>{text}</span>;
+  const sorted = [...spans].sort((a, b) => a.start_char - b.start_char);
+  const parts = [];
+  let pos = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    const s = Math.max(pos, sorted[i].start_char);
+    const e = Math.min(text.length, sorted[i].end_char);
+    if (s > pos) parts.push(<span key={`t${i}`}>{text.slice(pos, s)}</span>);
+    if (e > s) {
+      parts.push(
+        <span
+          key={`s${i}`}
+          title={sorted[i].level === "high_concern" ? "low confidence" : "check this"}
+          style={{ background: shadeForLevel(sorted[i].level), padding: "0 1px", borderRadius: 3 }}
+        >
+          {text.slice(s, e)}
+        </span>
+      );
+    }
+    pos = Math.max(pos, e);
+  }
+  if (pos < text.length) parts.push(<span key="tail">{text.slice(pos)}</span>);
+  return <>{parts}</>;
 }
 
 export function TranscriptView({ output, lang = "en" }) {
@@ -61,15 +97,15 @@ export function TranscriptView({ output, lang = "en" }) {
         <div className="transcript-tools">
           <label className="transcript-toggle">
             <input type="checkbox" checked={showTimes} onChange={(e) => setShowTimes(e.target.checked)} />
-            <span>{lang === "uk" ? "Час" : "Times"}</span>
+            <span>{tr(lang, "Час", "Times")}</span>
           </label>
           <label className="transcript-toggle">
             <input type="checkbox" checked={shadeConf} onChange={(e) => setShadeConf(e.target.checked)} />
-            <span>{lang === "uk" ? "Впевненість" : "Confidence"}</span>
+            <span>{tr(lang, "Впевненість", "Confidence")}</span>
           </label>
           <button className="btn btn-ghost" onClick={copy} title="Copy plain text">
             <Icon name="download" size={12} />
-            <span>{lang === "uk" ? "Копіювати" : "Copy"}</span>
+            <span>{tr(lang, "Копіювати", "Copy")}</span>
           </button>
         </div>
       </header>
@@ -83,7 +119,11 @@ export function TranscriptView({ output, lang = "en" }) {
               </div>
             )}
             <div className="transcript-text">
-              {Array.isArray(seg.words) && seg.words.length > 0 ? (
+              {seg.processed ? (
+                <span title={seg.rawText && seg.rawText !== seg.text ? `ASR: ${seg.rawText}` : undefined} style={{ whiteSpace: "pre-wrap" }}>
+                  <SpannedText text={seg.text} spans={seg.spans} shade={shadeConf} />
+                </span>
+              ) : Array.isArray(seg.words) && seg.words.length > 0 ? (
                 seg.words.map((w, j) => (
                   <span
                     key={j}
@@ -108,7 +148,7 @@ export function TranscriptView({ output, lang = "en" }) {
         ))}
         {segments.length === 0 && (
           <div className="muted" style={{ padding: 12 }}>
-            {lang === "uk" ? "Порожня транскрипція." : "Empty transcript."}
+            {tr(lang, "Порожня транскрипція.", "Empty transcript.")}
           </div>
         )}
       </div>

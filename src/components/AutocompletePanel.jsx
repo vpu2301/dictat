@@ -11,6 +11,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { suggest } from '../api/autocomplete.js'
 import { extractPrefix } from '../autocomplete/prefix.js'
 import { useI18n } from '../i18n.js'
+import { Icon } from './UI.jsx'
 
 // ── Source metadata (backend scopes: system | tenant | user) ─────────────
 
@@ -307,77 +308,107 @@ export function AutocompletePauseToast({ onResume, lang }) {
 
 // ── Autocomplete settings panel ───────────────────────────────────────────
 
+// Legacy 1/2/3 (Low/Med/High) → 20/50/90%. New scale is 10–100% in 10% steps.
+function sensPct(prefs) {
+  const s = prefs.sensitivity
+  if (s == null) return 50
+  if (s <= 3) return { 1: 20, 2: 50, 3: 90 }[s] ?? 50
+  return Math.min(100, Math.max(10, s))
+}
+
 export function AutocompleteSettings({ prefs, onChange, lang }) {
   const { t } = useI18n()
   const uk = lang === 'uk'
+  const [open, setOpen] = useState(true)
   const set = (key, val) => onChange({ ...prefs, [key]: val })
   const off = prefs.enabled === false
 
+  const pct = sensPct(prefs)
+  const fill = ((pct - 10) / 90) * 100   // thumb position across a 10–100 track
+
   return (
-    <div className="autocomplete-settings">
-      <div className="rail-h">{uk ? 'Автодоповнення' : 'Autocomplete'}</div>
+    <details
+      className="cmd-ref autocomplete-settings"
+      open={open}
+      onToggle={e => setOpen(e.currentTarget.open)}
+    >
+      <summary>
+        <Icon name="chevRight" size={11} className="chev" />
+        {uk ? 'Автодоповнення' : 'Autocomplete'}
+      </summary>
 
-      {/* Master switch (step 05): OFF fully disables the feature — no
-          queries, no ghost/popup, no telemetry, no Tab interception. */}
-      <label className="setting-row">
-        <span>{t('ac.settings.label')}</span>
-        <input
-          type="checkbox"
-          checked={!off}
-          onChange={e => set('enabled', e.target.checked)}
-        />
-      </label>
-      <div className="muted" style={{ fontSize: 11, lineHeight: 1.45, padding: '0 4px 6px' }}>
-        {t('ac.settings.desc')}
-      </div>
+      {(
+        <div className="ac-body">
+          {/* Master switch (step 05): OFF fully disables the feature — no
+              queries, no ghost/popup, no telemetry, no Tab interception. */}
+          <div className="setting-row">
+            <span>{t('ac.settings.label')}</span>
+            <Switch checked={!off} onChange={v => set('enabled', v)} />
+          </div>
+          <div className="muted" style={{ fontSize: 11, lineHeight: 1.45, padding: '0 4px 6px' }}>
+            {t('ac.settings.desc')}
+          </div>
 
-      <label className="setting-row">
-        <span>{uk ? 'Підказки-примари (Layer A)' : 'Ghost text (Layer A)'}</span>
-        <input
-          type="checkbox"
-          disabled={off}
-          checked={prefs.ghostEnabled !== false}
-          onChange={e => set('ghostEnabled', e.target.checked)}
-        />
-      </label>
+          <div className="setting-row">
+            <span>{uk ? 'Підказки-примари (Layer A)' : 'Ghost text (Layer A)'}</span>
+            <Switch disabled={off} checked={prefs.ghostEnabled !== false} onChange={v => set('ghostEnabled', v)} />
+          </div>
 
-      <label className="setting-row">
-        <span>{uk ? 'Пропозиції (Layer B)' : 'Pill suggestions (Layer B)'}</span>
-        <input
-          type="checkbox"
-          disabled={off}
-          checked={prefs.pillsEnabled !== false}
-          onChange={e => set('pillsEnabled', e.target.checked)}
-        />
-      </label>
+          <div className="setting-row">
+            <span>{uk ? 'Пропозиції (Layer B)' : 'Pill suggestions (Layer B)'}</span>
+            <Switch disabled={off} checked={prefs.pillsEnabled !== false} onChange={v => set('pillsEnabled', v)} />
+          </div>
 
-      <div className="rail-h" style={{ marginTop: 8 }}>{uk ? 'Джерела' : 'Sources'}</div>
+          <div className="rail-h" style={{ marginTop: 8 }}>{uk ? 'Джерела' : 'Sources'}</div>
 
-      {Object.entries(SOURCE_META).map(([key, meta]) => (
-        <label key={key} className="setting-row">
-          <span style={{ fontSize: 12 }}>{lang === 'uk' ? meta.labelUk : meta.labelEn}</span>
-          <input
-            type="checkbox"
-            checked={prefs.sources?.[key] !== false}
-            onChange={e => set('sources', { ...(prefs.sources || {}), [key]: e.target.checked })}
-          />
-        </label>
-      ))}
+          {Object.entries(SOURCE_META).map(([key, meta]) => (
+            <div key={key} className="setting-row">
+              <span style={{ fontSize: 12 }}>{lang === 'uk' ? meta.labelUk : meta.labelEn}</span>
+              <Switch
+                disabled={off}
+                checked={prefs.sources?.[key] !== false}
+                onChange={v => set('sources', { ...(prefs.sources || {}), [key]: v })}
+              />
+            </div>
+          ))}
 
-      <div className="rail-h" style={{ marginTop: 8 }}>{uk ? 'Чутливість' : 'Sensitivity'}</div>
-      <div style={{ padding: '0 4px' }}>
-        <input
-          type="range" min="1" max="3"
-          value={prefs.sensitivity || 2}
-          onChange={e => set('sensitivity', parseInt(e.target.value))}
-          style={{ width: '100%' }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)' }}>
-          <span>{uk ? 'Низька' : 'Low'}</span>
-          <span>{uk ? 'Середня' : 'Medium'}</span>
-          <span>{uk ? 'Висока' : 'High'}</span>
+          <div className="ac-sens-head" style={{ marginTop: 8 }}>
+            <span className="rail-h" style={{ padding: 0 }}>{uk ? 'Чутливість' : 'Sensitivity'}</span>
+            <span className={'ac-sens-val' + (off ? ' off' : '')}>{pct}%</span>
+          </div>
+          <div className="ac-range-wrap" style={{ padding: '2px 4px 0' }}>
+            <input
+              className="ac-range"
+              type="range" min="10" max="100" step="10"
+              value={pct}
+              disabled={off}
+              style={{ '--ac-fill': fill + '%' }}
+              onChange={e => set('sensitivity', parseInt(e.target.value))}
+            />
+            <div className="ac-range-scale">
+              <span>{uk ? 'Низька' : 'Low'}</span>
+              <span>{uk ? 'Висока' : 'High'}</span>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </details>
+  )
+}
+
+// Platform toggle switch (matches Settings' Toggle) — replaces native
+// checkboxes in the autocomplete panel for design consistency.
+function Switch({ checked, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={!!checked}
+      disabled={disabled}
+      className={'toggle' + (checked ? ' on' : '')}
+      onClick={() => onChange(!checked)}
+    >
+      <span />
+    </button>
   )
 }

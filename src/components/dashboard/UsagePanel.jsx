@@ -7,9 +7,10 @@ import { fetchSessionUsage, fetchJobUsage } from "../../api/dashboard.js";
 import { Panel, PanelState } from "./Panel.jsx";
 import { Sparkline } from "./Sparkline.jsx";
 import { MiniBarChart } from "./MiniBarChart.jsx";
+import { tr } from "../../i18n.js";
 
 export function UsagePanel({ lang, rangeDays }) {
-  const T = (uk, en) => (lang === "uk" ? uk : en);
+  const T = (uk, en) => tr(lang, uk, en);
   const sessReq = useAsync(() => fetchSessionUsage(rangeDays), [rangeDays]);
   const jobReq = useAsync(() => fetchJobUsage(rangeDays), [rangeDays]);
 
@@ -20,7 +21,7 @@ export function UsagePanel({ lang, rangeDays }) {
   // Day labels for bar hover.
   const fmtDay = (b) => {
     const d = b.date instanceof Date ? b.date : new Date(b.key);
-    return `${d.toLocaleDateString(lang === "uk" ? "uk-UA" : "en-US", { month: "short", day: "numeric" })}: ${b.value}`;
+    return `${d.toLocaleDateString(tr(lang, "uk-UA", "en-US"), { month: "short", day: "numeric" })}: ${b.value}`;
   };
 
   return (

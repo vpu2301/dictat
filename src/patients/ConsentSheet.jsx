@@ -8,6 +8,7 @@ import React, { useState } from "react";
 import { Icon, Modal } from "../components/UI.jsx";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { recordConsent, signConsent } from "../api/consents.js";
+import { tr } from "../i18n.js";
 
 // Approved consent-text versions (must match the backend's registry at
 // infra/seeds/consents/<type>-<version>.md — a digital capture with an
@@ -74,20 +75,16 @@ export function ConsentSignDialog({ lang, patientId, consent, onClose, onSigned 
 
   const problemCopy = (e) => {
     const code = e?.problem?.code;
-    if (code === "consent_already_signed") return lang === "uk" ? "Цю згоду вже підписано." : "This consent is already signed.";
-    if (code === "consent_canonical_changed") return lang === "uk"
-      ? "Дані пацієнта змінилися після фіксації згоди — оформіть згоду заново."
-      : "The patient record changed since capture — re-capture the consent.";
-    return e?.problem?.detail || e?.message || (lang === "uk" ? "Не вдалося підписати" : "Signing failed");
+    if (code === "consent_already_signed") return tr(lang, "Цю згоду вже підписано.", "This consent is already signed.");
+    if (code === "consent_canonical_changed") return tr(lang, "Дані пацієнта змінилися після фіксації згоди — оформіть згоду заново.", "The patient record changed since capture — re-capture the consent.");
+    return e?.problem?.detail || e?.message || (tr(lang, "Не вдалося підписати", "Signing failed"));
   };
 
   return (
     <Modal onClose={onClose}>
       <div className="modal-h">
-        <h2>{lang === "uk" ? "Підписати згоду (КЕП)" : "Sign the consent (КЕП)"}</h2>
-        <p>{lang === "uk"
-          ? "Підпис привʼязує точний текст затвердженої згоди до ключа пацієнта."
-          : "The signature binds the exact approved wording to the patient's key."}</p>
+        <h2>{tr(lang, "Підписати згоду (КЕП)", "Sign the consent (КЕП)")}</h2>
+        <p>{tr(lang, "Підпис привʼязує точний текст затвердженої згоди до ключа пацієнта.", "The signature binds the exact approved wording to the patient's key.")}</p>
       </div>
       <div className="modal-body consent-sign-body">
         {signed ? (
@@ -95,11 +92,11 @@ export function ConsentSignDialog({ lang, patientId, consent, onClose, onSigned 
             <Icon name="check" size={22} />
             <div>
               <div style={{ fontWeight: 600, color: "var(--text-1)" }}>
-                {lang === "uk" ? "Згоду підписано" : "Consent signed"}
+                {tr(lang, "Згоду підписано", "Consent signed")}
               </div>
               <div className="pmono" style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
-                {lang === "uk" ? "Конверт" : "Envelope"}: {signed.envelope_id}
-                {" · "}{signed.is_qualified ? (lang === "uk" ? "кваліфікований" : "qualified") : signed.signature_level}
+                {tr(lang, "Конверт", "Envelope")}: {signed.envelope_id}
+                {" · "}{signed.is_qualified ? (tr(lang, "кваліфікований", "qualified")) : signed.signature_level}
               </div>
             </div>
           </div>
@@ -108,28 +105,28 @@ export function ConsentSignDialog({ lang, patientId, consent, onClose, onSigned 
             {devProvider && (
               <div className="np-sex-toggle" style={{ marginBottom: 12 }}>
                 <button type="button" className={provider === "file_key" ? "on" : ""} onClick={() => setProvider("file_key")}>
-                  {lang === "uk" ? "Файловий ключ" : "Key file"}
+                  {tr(lang, "Файловий ключ", "Key file")}
                 </button>
                 <button type="button" className={provider === "dev_password" ? "on" : ""} onClick={() => setProvider("dev_password")}>
-                  {lang === "uk" ? "Тест-підпис (dev)" : "Dev signature"}
+                  {tr(lang, "Тест-підпис (dev)", "Dev signature")}
                 </button>
               </div>
             )}
             {provider === "file_key" ? (
               <>
                 <label className="consent-key-file">
-                  <span>{lang === "uk" ? "Файл ключа (*.dat, *.jks, *.pfx)" : "Key container (*.dat, *.jks, *.pfx)"}</span>
+                  <span>{tr(lang, "Файл ключа (*.dat, *.jks, *.pfx)", "Key container (*.dat, *.jks, *.pfx)")}</span>
                   <input type="file" accept=".dat,.jks,.pfx,.zs2,.p12" onChange={(e) => onFile(e.target.files?.[0])} />
                   {keyName && <em className="pmono">{keyName}</em>}
                 </label>
                 <label>
-                  <span>{lang === "uk" ? "Пароль ключа" : "Key password"}</span>
+                  <span>{tr(lang, "Пароль ключа", "Key password")}</span>
                   <input className="ti" type="password" value={keyPassword} onChange={(e) => setKeyPassword(e.target.value)} />
                 </label>
               </>
             ) : (
               <label>
-                <span>{lang === "uk" ? "Пароль користувача (dev-скаффолд)" : "Your password (dev scaffold)"}</span>
+                <span>{tr(lang, "Пароль користувача (dev-скаффолд)", "Your password (dev scaffold)")}</span>
                 <input className="ti" type="password" value={devPassword} onChange={(e) => setDevPassword(e.target.value)} />
               </label>
             )}
@@ -139,15 +136,15 @@ export function ConsentSignDialog({ lang, patientId, consent, onClose, onSigned 
       </div>
       <div className="modal-foot">
         {signed ? (
-          <button className="btn accent" onClick={onClose}>{lang === "uk" ? "Готово" : "Done"}</button>
+          <button className="btn accent" onClick={onClose}>{tr(lang, "Готово", "Done")}</button>
         ) : (
           <>
             <button className="btn" onClick={onClose}>
-              {lang === "uk" ? "Пізніше (залишити без підпису)" : "Later (leave unsigned)"}
+              {tr(lang, "Пізніше (залишити без підпису)", "Later (leave unsigned)")}
             </button>
             <button className="btn accent" disabled={!canSign || busy} onClick={sign}>
               <Icon name="sign" size={13} />
-              {busy ? (lang === "uk" ? "Підписання…" : "Signing…") : (lang === "uk" ? "Підписати" : "Sign")}
+              {busy ? (tr(lang, "Підписання…", "Signing…")) : (tr(lang, "Підписати", "Sign"))}
             </button>
           </>
         )}
@@ -212,21 +209,19 @@ export function ConsentSheet({ lang, patient, encounterId, onClose, onGranted })
   return (
     <Modal onClose={onClose}>
       <div className="modal-h">
-        <h2>{lang === "uk" ? "Згода пацієнта на AI-запис" : "Patient consent to AI recording"}</h2>
-        <p>{lang === "uk"
-          ? "Запис голосу обробляється AI-сервісом для створення медичної документації."
-          : "The voice recording is processed by an AI service to produce clinical documentation."}</p>
+        <h2>{tr(lang, "Згода пацієнта на AI-запис", "Patient consent to AI recording")}</h2>
+        <p>{tr(lang, "Запис голосу обробляється AI-сервісом для створення медичної документації.", "The voice recording is processed by an AI service to produce clinical documentation.")}</p>
       </div>
       <div className="modal-body consent-sheet-body" data-testid="consent-sheet">
         <div className="consent-scope">
-          <div><span className="consent-scope-k">{lang === "uk" ? "Пацієнт" : "Patient"}:</span> <strong>{patientLabel}</strong></div>
-          <div><span className="consent-scope-k">{lang === "uk" ? "Засвідчує" : "Attested by"}:</span> {attester}</div>
+          <div><span className="consent-scope-k">{tr(lang, "Пацієнт", "Patient")}:</span> <strong>{patientLabel}</strong></div>
+          <div><span className="consent-scope-k">{tr(lang, "Засвідчує", "Attested by")}:</span> {attester}</div>
           {encounterId && (
-            <div><span className="consent-scope-k">{lang === "uk" ? "Прийом" : "Encounter"}:</span> {lang === "uk" ? "поточний" : "current"}</div>
+            <div><span className="consent-scope-k">{tr(lang, "Прийом", "Encounter")}:</span> {tr(lang, "поточний", "current")}</div>
           )}
         </div>
 
-        <div className="consent-methods" role="radiogroup" aria-label={lang === "uk" ? "Спосіб надання згоди" : "Consent method"}>
+        <div className="consent-methods" role="radiogroup" aria-label={tr(lang, "Спосіб надання згоди", "Consent method")}>
           {["verbal", "written", "digital"].map((m) => (
             <label key={m} className={"consent-method" + (method === m ? " on" : "")}>
               <input type="radio" name="consent-method" value={m}
@@ -237,7 +232,7 @@ export function ConsentSheet({ lang, patient, encounterId, onClose, onGranted })
         </div>
 
         <label className="consent-version">
-          <span>{lang === "uk" ? "Версія тексту згоди" : "Consent text version"}</span>
+          <span>{tr(lang, "Версія тексту згоди", "Consent text version")}</span>
           <select value={version} onChange={(e) => setVersion(e.target.value)}>
             {versions.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
@@ -245,19 +240,19 @@ export function ConsentSheet({ lang, patient, encounterId, onClose, onGranted })
 
         {error && (
           <div className="consent-sign-error" role="alert">
-            {error.message || (lang === "uk" ? "Не вдалося зберегти згоду" : "Could not record the consent")}
+            {error.message || (tr(lang, "Не вдалося зберегти згоду", "Could not record the consent"))}
           </div>
         )}
       </div>
       <div className="modal-foot">
-        <button className="btn" onClick={onClose}>{lang === "uk" ? "Скасувати" : "Cancel"}</button>
+        <button className="btn" onClick={onClose}>{tr(lang, "Скасувати", "Cancel")}</button>
         <button className="btn accent" disabled={busy} onClick={capture}>
           <Icon name="shield" size={13} />
           {busy
-            ? (lang === "uk" ? "Збереження…" : "Saving…")
+            ? (tr(lang, "Збереження…", "Saving…"))
             : method === "digital"
-              ? (lang === "uk" ? "Зафіксувати та підписати" : "Record & sign")
-              : (lang === "uk" ? "Зафіксувати згоду" : "Record consent")}
+              ? (tr(lang, "Зафіксувати та підписати", "Record & sign"))
+              : (tr(lang, "Зафіксувати згоду", "Record consent"))}
         </button>
       </div>
     </Modal>

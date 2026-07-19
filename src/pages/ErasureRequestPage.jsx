@@ -14,6 +14,7 @@ import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { useAsync } from "../api/useAsync.js";
 import { getPatient, displayName } from "../api/patients.js";
 import { scheduleErasure } from "../api/privacy.js";
+import { tr } from "../i18n.js";
 
 const CONFIRM_WORD = "ВИДАЛЕННЯ";
 
@@ -49,18 +50,16 @@ export function ErasureRequestPage({ patientId, lang, navigate }) {
       <div className="page privacy-doc">
         <div className="privacy-done" data-testid="erasure-request-created">
           <Icon name="check" size={22} />
-          <h2>{lang === "uk" ? "Запит на видалення створено" : "Erasure request created"}</h2>
+          <h2>{tr(lang, "Запит на видалення створено", "Erasure request created")}</h2>
           <p>
-            {lang === "uk"
-              ? "Статус: очікує на розгляд. Запит має схвалити інший адміністратор — ви не можете схвалити власний запит. Після схвалення почнеться відлік пільгового періоду, протягом якого запит можна скасувати."
-              : "Status: awaiting review. A different administrator must approve it — you cannot approve your own request. After approval the grace period starts, during which the request can still be cancelled."}
+            {tr(lang, "Статус: очікує на розгляд. Запит має схвалити інший адміністратор — ви не можете схвалити власний запит. Після схвалення почнеться відлік пільгового періоду, протягом якого запит можна скасувати.", "Status: awaiting review. A different administrator must approve it — you cannot approve your own request. After approval the grace period starts, during which the request can still be cancelled.")}
           </p>
           <div className="privacy-done-actions">
             <button className="btn accent" onClick={() => navigate("/admin/privacy")}>
-              {lang === "uk" ? "До черги приватності" : "Open the privacy queue"}
+              {tr(lang, "До черги приватності", "Open the privacy queue")}
             </button>
             <button className="btn" onClick={() => navigate(`/patients/${patientId}`)}>
-              {lang === "uk" ? "До картки пацієнта" : "Back to the patient"}
+              {tr(lang, "До картки пацієнта", "Back to the patient")}
             </button>
           </div>
         </div>
@@ -70,14 +69,14 @@ export function ErasureRequestPage({ patientId, lang, navigate }) {
 
   return (
     <div className="page privacy-doc" data-testid="erasure-request-page">
-      <h1>{lang === "uk" ? "Запит на видалення даних пацієнта" : "Request erasure of patient data"}</h1>
+      <h1>{tr(lang, "Запит на видалення даних пацієнта", "Request erasure of patient data")}</h1>
       <p className="privacy-doc-sub">
         {displayName(patient, lang)} · <span className="pmono">{patient?.mrn}</span>
       </p>
 
       {/* 1 — consequences, enumerated as fixed copy */}
       <section className="privacy-block">
-        <h3>{lang === "uk" ? "1. Наслідки виконання запиту" : "1. Consequences of executing this request"}</h3>
+        <h3>{tr(lang, "1. Наслідки виконання запиту", "1. Consequences of executing this request")}</h3>
         {lang === "uk" ? (
           <>
             <p>Після схвалення та завершення пільгового періоду буде <strong>безповоротно знищено</strong>:</p>
@@ -127,18 +126,16 @@ export function ErasureRequestPage({ patientId, lang, navigate }) {
 
       {/* 2 — required reason */}
       <section className="privacy-block">
-        <h3>{lang === "uk" ? "2. Підстава запиту (обов'язково, 50–500 символів)" : "2. Reason for the request (required, 50–500 characters)"}</h3>
+        <h3>{tr(lang, "2. Підстава запиту (обов'язково, 50–500 символів)", "2. Reason for the request (required, 50–500 characters)")}</h3>
         <textarea className="privacy-reason" rows={5} value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder={lang === "uk"
-            ? "Напр.: письмова вимога пацієнта від 15.07.2026 про реалізацію права на забуття (ст. 17 GDPR)…"
-            : "e.g. the patient's written right-to-be-forgotten request of 15 Jul 2026 (GDPR art. 17)…"} />
+          placeholder={tr(lang, "Напр.: письмова вимога пацієнта від 15.07.2026 про реалізацію права на забуття (ст. 17 GDPR)…", "e.g. the patient's written right-to-be-forgotten request of 15 Jul 2026 (GDPR art. 17)…")} />
         <span className={"privacy-count" + (reasonValid ? " ok" : "")}>{reason.trim().length} / 500</span>
       </section>
 
       {/* 3 — explicit typed confirmation */}
       <section className="privacy-block">
-        <h3>{lang === "uk" ? "3. Підтвердження" : "3. Confirmation"}</h3>
+        <h3>{tr(lang, "3. Підтвердження", "3. Confirmation")}</h3>
         <p>{lang === "uk"
           ? <>Введіть слово <strong className="pmono">{CONFIRM_WORD}</strong>, щоб підтвердити створення запиту:</>
           : <>Type <strong className="pmono">{CONFIRM_WORD}</strong> to confirm creating the request:</>}</p>
@@ -150,12 +147,12 @@ export function ErasureRequestPage({ patientId, lang, navigate }) {
 
       <div className="privacy-doc-actions">
         <button className="btn" onClick={() => navigate(`/patients/${patientId}`)}>
-          {lang === "uk" ? "Скасувати" : "Cancel"}
+          {tr(lang, "Скасувати", "Cancel")}
         </button>
         <button className="btn accent" disabled={!reasonValid || !confirmValid || busy} onClick={submit}>
           {busy
-            ? (lang === "uk" ? "Створення запиту…" : "Creating the request…")
-            : (lang === "uk" ? "Надіслати запит на видалення" : "Submit the erasure request")}
+            ? (tr(lang, "Створення запиту…", "Creating the request…"))
+            : (tr(lang, "Надіслати запит на видалення", "Submit the erasure request"))}
         </button>
       </div>
     </div>

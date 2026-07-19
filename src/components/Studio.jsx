@@ -4,8 +4,9 @@
 // and autocomplete (Sprint 10) are wired here.
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useI18n } from '../i18n.js';
+import { useI18n , tr } from "../i18n.js";
 import { Icon, SaveStatus, Modal, Toast, Empty } from './UI.jsx';
+import { MenuSelect } from './MenuSelect.jsx';
 import { TipTapEditor, bodyToDoc, docToBody } from './TipTapEditor.jsx';
 import { SigningFlow } from './SigningFlow.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
@@ -18,7 +19,7 @@ import { getPatient, listPatients, yearOfBirth } from '../api/patients.js';
 import { getEncounter, createEncounter } from '../api/encounters.js';
 import { useConsentGate } from '../patients/consentGate.js';
 import { ConsentSheet } from '../patients/ConsentSheet.jsx';
-import { asList } from './DataStates.jsx';
+import { asList, Loading } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { COMMANDS, segmentUtterance, appendUtterance, actionsOf, findBestSection, INSERT_OPS } from '../dictation/voiceCommands.js';
 import {
@@ -42,7 +43,18 @@ function slugify(input, fallback = "item") {
 }
 
 // Sensitivity (settings slider) → min typed chars before a phrase query.
-const AC_MIN_PREFIX_BY_SENSITIVITY = { 1: 5, 2: 3, 3: 2 };
+// The slider is now a 10–100% scale (10% steps). Higher % = more sensitive =
+// fewer chars before suggesting. Legacy values (1/2/3, the old Low/Med/High
+// scale) are migrated to 20/50/90% on read.
+export function acSensitivityPct(sensitivity) {
+  if (sensitivity == null) return 50;
+  if (sensitivity <= 3) return { 1: 20, 2: 50, 3: 90 }[sensitivity] ?? 50;
+  return Math.min(100, Math.max(10, sensitivity));
+}
+function acMinPrefix(sensitivity) {
+  const pct = acSensitivityPct(sensitivity);
+  return Math.min(6, Math.max(1, Math.round(6 - pct / 20)));
+}
 
 // Per-user autocomplete prefs (step 05). Persisted in localStorage keyed by
 // the user's sub — the repo's interim pattern for per-user prefs
@@ -50,7 +62,7 @@ const AC_MIN_PREFIX_BY_SENSITIVITY = { 1: 5, 2: 3, 3: 2 };
 // design). Server-side preferences endpoint is a named follow-up in
 // docs/sprint-10/EXPLORE.md. `enabled` is the master switch: false ⇒ no
 // queries, no decorations, no telemetry, no keyboard interception.
-const AC_PREFS_DEFAULTS = { enabled: true, ghostEnabled: true, pillsEnabled: true, sensitivity: 2 };
+const AC_PREFS_DEFAULTS = { enabled: true, ghostEnabled: true, pillsEnabled: true, sensitivity: 50 };
 const acPrefsKey = (sub) => `mdx.ac.prefs.v1.${sub || "anon"}`;
 function loadAcPrefs(sub) {
   try {
@@ -192,7 +204,7 @@ export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
     const r = new SR();
     r.continuous = true;
     r.interimResults = true;
-    r.lang = lang === "uk" ? "uk-UA" : "en-US";
+    r.lang = tr(lang, "uk-UA", "en-US");
     r.onresult = (ev) => {
       let interim = "", final = "";
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
@@ -370,7 +382,7 @@ function SuggestionsPanel({ suggestions, onAccept }) {
 // can never drift from what actually works.
 function VoiceCommandModal({ onClose }) {
   const { t, lang } = useI18n();
-  const L = lang === "uk" ? "uk" : "en";
+  const L = tr(lang, "uk", "en");
   const chipOf = (c) => {
     switch (c.op) {
       case "insert_paragraph_break": return "¶";
@@ -486,7 +498,7 @@ function AddTemplateDialog({ onClose, onCreate }) {
     const def = {
       code: slugify(code, "tpl"),
       name: (lang === "uk" ? nameUk : nameEn).trim() || nameUk.trim() || nameEn.trim(),
-      language: lang === "uk" ? "uk" : "en",
+      language: tr(lang, "uk", "en"),
       specialty: specialty,
       schema_version: 1,
       sections: sections.map((s, i) => {
@@ -514,71 +526,97 @@ function AddTemplateDialog({ onClose, onCreate }) {
     onCreate(def);
   };
   const iconOpts = ["fileText", "scan", "heart", "scalpel", "bone"];
+  const iconLabel = {
+    fileText: tr(lang, "Документ", "Document"),
+    scan:     tr(lang, "Знімок", "Imaging"),
+    heart:    tr(lang, "Кардіологія", "Cardiology"),
+    scalpel:  tr(lang, "Хірургія", "Surgery"),
+    bone:     tr(lang, "Ортопедія", "Orthopedics"),
+  };
   const specOpts = ["radiology", "cardiology", "cardiacSurgery", "orthopaedics"];
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} className="modal-xl">
       <div className="modal-h">
         <h2>{t("tpl.addTitle")}</h2>
         <p>{t("tpl.addSub")}</p>
       </div>
       <div className="modal-body addtpl">
-        <div className="addtpl-row two">
-          <label>
-            <span>{t("tpl.nameUk")}</span>
-            <input className="ti" value={nameUk} onChange={e => setNameUk(e.target.value)} placeholder={t("tpl.nameUk.ph")} />
-          </label>
-          <label>
-            <span>{t("tpl.nameEn")}</span>
-            <input className="ti" value={nameEn} onChange={e => setNameEn(e.target.value)} placeholder={t("tpl.nameEn.ph")} />
-          </label>
-        </div>
-        <div className="addtpl-row two">
-          <label>
-            <span>{t("tpl.code")}</span>
-            <input className="ti mono" value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="MRI-BRAIN" />
-          </label>
-          <label>
-            <span>{t("tpl.specialty")}</span>
-            <select className="ti" value={specialty} onChange={e => setSpecialty(e.target.value)}>
-              {specOpts.map(s => <option key={s} value={s}>{t(`spec.${s}`)}</option>)}
-            </select>
-          </label>
-        </div>
-        <div className="addtpl-row">
-          <label>
-            <span>{t("tpl.icon")}</span>
-            <div className="icon-pick">
-              {iconOpts.map(ic => (
-                <button key={ic} type="button" className={"icon-opt" + (icon === ic ? " on" : "")} onClick={() => setIcon(ic)} aria-label={ic}>
-                  <Icon name={ic} size={16} />
-                </button>
-              ))}
-            </div>
-          </label>
+        <div className="addtpl-meta">
+          <div className="addtpl-row">
+            <label>
+              <span>{t("tpl.nameUk")}</span>
+              <input className="ti" value={nameUk} onChange={e => setNameUk(e.target.value)} placeholder={t("tpl.nameUk.ph")} />
+            </label>
+          </div>
+          <div className="addtpl-row">
+            <label>
+              <span>{t("tpl.nameEn")}</span>
+              <input className="ti" value={nameEn} onChange={e => setNameEn(e.target.value)} placeholder={t("tpl.nameEn.ph")} />
+            </label>
+          </div>
+          <div className="addtpl-row two">
+            <label>
+              <span>{t("tpl.code")}</span>
+              <input className="ti mono" value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="MRI-BRAIN" />
+            </label>
+            <label>
+              <span>{t("tpl.specialty")}</span>
+              <MenuSelect
+                block
+                value={specialty}
+                onChange={setSpecialty}
+                ariaLabel={t("tpl.specialty")}
+                options={specOpts.map(s => ({ value: s, label: t(`spec.${s}`) }))}
+              />
+            </label>
+          </div>
+          <div className="addtpl-row">
+            <label>
+              <span>{t("tpl.icon")}</span>
+              <div className="icon-pick">
+                {iconOpts.map(ic => (
+                  <button key={ic} type="button"
+                    className={"icon-opt" + (icon === ic ? " on" : "")}
+                    onClick={() => setIcon(ic)}
+                    aria-label={iconLabel[ic]}
+                    data-tip={iconLabel[ic]}>
+                    <Icon name={ic} size={16} />
+                  </button>
+                ))}
+              </div>
+            </label>
+          </div>
         </div>
         <div className="addtpl-sections">
           <div className="addtpl-secshead">
-            <span className="rail-h" style={{ padding: 0 }}>{t("tpl.sections")}</span>
-            <button type="button" className="btn ghost sm" onClick={addSection}><Icon name="plus" size={12} /> {t("tpl.addSection")}</button>
+            <span className="rail-h" style={{ padding: 0 }}>{sections.length} {t("tpl.sections")}</span>
           </div>
-          {sections.map((s, i) => (
-            <div key={i} className="addtpl-secrow">
-              <input className="ti" value={s.uk} onChange={e => setSection(i, "uk", e.target.value)} placeholder="Українською" />
-              <input className="ti" value={s.en} onChange={e => setSection(i, "en", e.target.value)} placeholder="English" />
-              <label className="req-toggle" title={t("tpl.required")}>
-                <input type="checkbox" checked={s.required} onChange={e => setSection(i, "required", e.target.checked)} />
-                <span>!</span>
-              </label>
-              <button type="button" className="iconbtn danger" onClick={() => removeSection(i)} aria-label="Remove" disabled={sections.length <= 1}>
-                <Icon name="x" size={13} />
-              </button>
-            </div>
-          ))}
+          <div className="addtpl-seclist">
+            {sections.map((s, i) => (
+              <div key={i} className="addtpl-secrow">
+                <span className="addtpl-secnum">{i + 1}</span>
+                <input className="ti" value={s.uk} onChange={e => setSection(i, "uk", e.target.value)} placeholder="Українською" />
+                <input className="ti" value={s.en} onChange={e => setSection(i, "en", e.target.value)} placeholder="English" />
+                <label className="req-toggle" title={t("tpl.required")}>
+                  <input type="checkbox" checked={s.required} onChange={e => setSection(i, "required", e.target.checked)} />
+                  <span>!</span>
+                </label>
+                <button type="button" className="iconbtn danger" onClick={() => removeSection(i)} aria-label="Remove" disabled={sections.length <= 1}>
+                  <Icon name="x" size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="addtpl-addbtn" onClick={addSection}>
+            <Icon name="plus" size={13} /> {t("tpl.addSection")}
+          </button>
         </div>
       </div>
       <div className="modal-foot">
         <button className="btn" onClick={onClose}>{t("action.cancel")}</button>
-        <button className="btn primary" disabled={!valid} onClick={submit}>{t("tpl.create")}</button>
+        <button className="btn accent" disabled={!valid} onClick={submit}>
+          <Icon name="plus" size={13} /> {t("tpl.create")}
+        </button>
       </div>
     </Modal>
   );
@@ -595,29 +633,111 @@ function specLabel(t, specialty) {
 }
 
 // ── Section nav (left rail) — Sprint 06 enhanced ───────────────────────
+// Template picker — a full modal (styled like the voice-commands modal) rather
+// than a cramped rail dropdown: search + starred filter + a 2-col grid of
+// template cards with star toggles and the active check.
+function TemplatePickerModal({ template, templatesMap, onSelect, onAdd, onClose, lang, t }) {
+  const [query, setQuery] = useState("");
+  const [starredOnly, setStarredOnly] = useState(false);
+  const [stars, setStars] = useState(() => getStarredIds());
+  const [usage] = useState(() => getUsage());
+  const handleStar = (id, e) => { e.stopPropagation(); toggleStarPref(id); setStars(getStarredIds()); };
+
+  const nameOf = (tpl) => String(tpl.name?.[lang] || tpl.name?.en || tpl.code || "");
+  const all = Object.values(templatesMap || {});
+  const q = query.trim().toLowerCase();
+  const visible = all
+    .filter((tpl) => !q || `${nameOf(tpl)} ${tpl.code} ${tpl.specialty}`.toLowerCase().includes(q))
+    .filter((tpl) => !starredOnly || stars.has(tpl.id))
+    .sort((a, b) => {
+      const ua = usage[a.id] || 0, ub = usage[b.id] || 0;
+      if (ub !== ua) return ub - ua;
+      return nameOf(a).localeCompare(nameOf(b));
+    });
+  const starredCount = all.reduce((n, tpl) => n + (stars.has(tpl.id) ? 1 : 0), 0);
+
+  return (
+    <Modal onClose={onClose} className="tplpick-modal">
+      <div className="modal-h cmd-modal-h">
+        <div>
+          <h2>{tr(lang, "Оберіть шаблон", "Choose a template")}</h2>
+          <p>{tr(lang, "Шаблон визначає розділи звіту, у які ви диктуєте.", "The template defines the report sections you dictate into.")}</p>
+        </div>
+        <button className="icon-btn" onClick={onClose} aria-label={t("cmd.close")}>
+          <Icon name="x" size={14} />
+        </button>
+      </div>
+
+      <div className="tplpick-toolbar">
+        <label className="search-input" style={{ flex: 1 }}>
+          <Icon name="search" size={14} />
+          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder={tr(lang, "Пошук шаблону…", "Search templates…")}
+            aria-label={tr(lang, "Пошук шаблону", "Search templates")} />
+        </label>
+        <button type="button" className={"tpl-filter-chip" + (starredOnly ? " on" : "")}
+          onClick={() => setStarredOnly((s) => !s)} aria-pressed={starredOnly}>
+          <Icon name="star" size={12} fill={starredOnly ? "currentColor" : "none"} />
+          <span>{tr(lang, "Лише обрані", "Starred")}{starredCount > 0 ? ` (${starredCount})` : ""}</span>
+        </button>
+        <span className="muted" style={{ fontSize: 12.5, minWidth: 24, textAlign: "right" }}>{visible.length}</span>
+      </div>
+
+      <div className="modal-body cmd-modal-body">
+        {visible.length === 0 ? (
+          <div className="tpl-dropdown-empty" style={{ padding: 32, textAlign: "center" }}>
+            {starredOnly
+              ? tr(lang, "Немає обраних шаблонів", "No starred templates")
+              : tr(lang, "Нічого не знайдено", "No matches")}
+          </div>
+        ) : (
+          <div className="tplpick-grid">
+            {visible.map((tpl) => {
+              const uc = usage[tpl.id] || 0;
+              const starred = stars.has(tpl.id);
+              const active = tpl.id === template.id;
+              return (
+                <div key={tpl.id} className={"tplpick-item" + (active ? " active" : "")}>
+                  <button type="button" className="tplpick-main"
+                    onClick={() => { recordUse(tpl.id); onSelect(tpl.id); onClose(); }}>
+                    <span className="tpl-icon sm"><Icon name={tpl.icon || "fileText"} size={16} /></span>
+                    <span className="tplpick-text">
+                      <span className="tplpick-name">
+                        {nameOf(tpl)}
+                        {active && <Icon name="check" size={13} className="accent" />}
+                      </span>
+                      <span className="tplpick-meta">
+                        {tpl.code} · {specLabel(t, tpl.specialty)}
+                        {tpl.sections?.length ? ` · ${tpl.sections.length} ${t("tpl.sections")}` : ""}
+                        {uc > 0 ? ` · ${uc}×` : ""}
+                      </span>
+                    </span>
+                  </button>
+                  <button type="button" className={"tpl-option-star" + (starred ? " on" : "")}
+                    onClick={(e) => handleStar(tpl.id, e)} aria-pressed={starred}
+                    title={starred ? tr(lang, "Прибрати з обраних", "Unstar") : tr(lang, "Додати в обрані", "Star")}>
+                    <Icon name="star" size={14} fill={starred ? "currentColor" : "none"} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="modal-foot">
+        <button type="button" className="btn accent" onClick={onAdd}>
+          <Icon name="plus" size={13} /> {t("tpl.add")}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTemplate, onAddTemplate }) {
   const { t, lang } = useI18n();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const pickerRef = useRef(null);
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onDoc = e => { if (pickerRef.current && !pickerRef.current.contains(e.target)) setPickerOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [pickerOpen]);
-
-  // Template picker: search, starred filter, and stars/usage prefs (interim
-  // client-side; backend will provide these — see templatePrefs.js).
-  const [query, setQuery] = useState("");
-  const [starredOnly, setStarredOnly] = useState(false);
-  const [stars, setStars] = useState(() => getStarredIds());
-  const [usage, setUsage] = useState(() => getUsage());
-  // Refresh prefs each time the picker opens (cheap; reflects other tabs/uses).
-  useEffect(() => {
-    if (pickerOpen) { setStars(getStarredIds()); setUsage(getUsage()); setQuery(""); }
-  }, [pickerOpen]);
-  const handleStar = (id, e) => { e.stopPropagation(); toggleStarPref(id); setStars(getStarredIds()); };
 
   const filled = (id) => {
     const v = (body[id] || "").trim();
@@ -627,114 +747,37 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
   };
   const total = template.sections.length;
   const done  = template.sections.filter(s => filled(s.id) === "filled").length;
-  const all   = Object.values(templatesMap || {});
-
-  const nameOf = (tpl) => String(tpl.name?.[lang] || tpl.name?.en || tpl.code || "");
-  // Filter by search + starred, then order by most-used first (ties → name).
-  const q = query.trim().toLowerCase();
-  const visible = all
-    .filter(tpl => !q || `${nameOf(tpl)} ${tpl.code} ${tpl.specialty}`.toLowerCase().includes(q))
-    .filter(tpl => !starredOnly || stars.has(tpl.id))
-    .sort((a, b) => {
-      const ua = usage[a.id] || 0, ub = usage[b.id] || 0;
-      if (ub !== ua) return ub - ua;
-      return nameOf(a).localeCompare(nameOf(b));
-    });
-  const starredCount = all.reduce((n, tpl) => n + (stars.has(tpl.id) ? 1 : 0), 0);
 
   return (
     <>
       <div className="rail-h">{t("nav.dictation")} · {specLabel(t, template.specialty)}</div>
-      <div className="tpl-picker" ref={pickerRef}>
+      <div className="tpl-picker">
         <button
           type="button"
           className={"rail-tplsel" + (pickerOpen ? " open" : "")}
-          onClick={() => setPickerOpen(o => !o)}
+          onClick={() => setPickerOpen(true)}
           aria-expanded={pickerOpen}
-          aria-haspopup="listbox"
+          aria-haspopup="dialog"
         >
           <div className="tpl-icon"><Icon name={template.icon || "fileText"} size={16} /></div>
           <div className="tpl-meta">
             <div className="tpl-name">{template.name[lang] || template.name.en}</div>
             <div className="tpl-spec">{template.code} · {specLabel(t, template.specialty)}</div>
           </div>
-          <Icon name="chevDown" size={14} className={"muted chev" + (pickerOpen ? " up" : "")} />
+          <Icon name="chevDown" size={14} className="muted chev" />
         </button>
-        {pickerOpen && (
-          <div className="tpl-dropdown" role="listbox">
-            <div className="tpl-dropdown-search">
-              <Icon name="search" size={14} className="muted" />
-              <input
-                autoFocus
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder={lang === "uk" ? "Пошук шаблону…" : "Search templates…"}
-                aria-label={lang === "uk" ? "Пошук шаблону" : "Search templates"}
-              />
-            </div>
-            <div className="tpl-dropdown-filter">
-              <button
-                type="button"
-                className={"tpl-filter-chip" + (starredOnly ? " on" : "")}
-                onClick={() => setStarredOnly(s => !s)}
-                aria-pressed={starredOnly}
-              >
-                <Icon name="star" size={12} fill={starredOnly ? "currentColor" : "none"} />
-                <span>{lang === "uk" ? "Лише обрані" : "Starred"}{starredCount > 0 ? ` (${starredCount})` : ""}</span>
-              </button>
-              <span className="tpl-dropdown-count muted">{visible.length}</span>
-            </div>
-            <div className="tpl-dropdown-list">
-              {visible.length === 0 ? (
-                <div className="tpl-dropdown-empty">
-                  {starredOnly
-                    ? (lang === "uk" ? "Немає обраних шаблонів" : "No starred templates")
-                    : (lang === "uk" ? "Нічого не знайдено" : "No matches")}
-                </div>
-              ) : visible.map(tpl => {
-                const uc = usage[tpl.id] || 0;
-                const starred = stars.has(tpl.id);
-                return (
-                  <div className="tpl-option-row" key={tpl.id}>
-                    <button
-                      type="button" role="option"
-                      aria-selected={tpl.id === template.id}
-                      className={"tpl-option" + (tpl.id === template.id ? " active" : "")}
-                      onClick={() => { recordUse(tpl.id); onSelectTemplate(tpl.id); setPickerOpen(false); }}
-                    >
-                      <div className="tpl-icon sm"><Icon name={tpl.icon || "fileText"} size={14} /></div>
-                      <div className="tpl-meta">
-                        <div className="tpl-name">{nameOf(tpl)}</div>
-                        <div className="tpl-spec">{tpl.code} · {specLabel(t, tpl.specialty)}{tpl.sections?.length ? <> · <span className="muted">{tpl.sections.length} {t("tpl.sections")}</span></> : null}{uc > 0 ? <> · <span className="muted">{uc}×</span></> : null}</div>
-                      </div>
-                      {tpl.id === template.id && <Icon name="check" size={14} className="accent" />}
-                    </button>
-                    <button
-                      type="button"
-                      className={"tpl-option-star" + (starred ? " on" : "")}
-                      onClick={(e) => handleStar(tpl.id, e)}
-                      aria-pressed={starred}
-                      aria-label={starred
-                        ? (lang === "uk" ? "Прибрати з обраних" : "Unstar")
-                        : (lang === "uk" ? "Додати в обрані" : "Star")}
-                      title={starred
-                        ? (lang === "uk" ? "Прибрати з обраних" : "Unstar")
-                        : (lang === "uk" ? "Додати в обрані" : "Star")}
-                    >
-                      <Icon name="star" size={14} fill={starred ? "currentColor" : "none"} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="tpl-dropdown-sep" />
-            <button type="button" className="tpl-add" onClick={() => { setAddOpen(true); setPickerOpen(false); }}>
-              <Icon name="plus" size={14} />
-              <span>{t("tpl.add")}</span>
-            </button>
-          </div>
-        )}
       </div>
+      {pickerOpen && (
+        <TemplatePickerModal
+          template={template}
+          templatesMap={templatesMap}
+          onSelect={onSelectTemplate}
+          onAdd={() => { setPickerOpen(false); setAddOpen(true); }}
+          onClose={() => setPickerOpen(false)}
+          lang={lang}
+          t={t}
+        />
+      )}
       {addOpen && (
         <AddTemplateDialog
           onClose={() => setAddOpen(false)}
@@ -814,9 +857,9 @@ function StudioContextBar({ patient, encounter, canEscape, lang }) {
       {encounter && (
         <span className="scb-enc">
           <Icon name="calendar" size={12} />
-          {encounter.reason || (lang === "uk" ? "Прийом" : "Encounter")}
+          {encounter.reason || (tr(lang, "Прийом", "Encounter"))}
           {encounter.status === "in_progress" && (
-            <em>{lang === "uk" ? " · триває" : " · in progress"}</em>
+            <em>{tr(lang, " · триває", " · in progress")}</em>
           )}
         </span>
       )}
@@ -824,7 +867,7 @@ function StudioContextBar({ patient, encounter, canEscape, lang }) {
       {canEscape && (
         <button type="button" className="scb-escape"
           onClick={() => { location.hash = "/patients"; }}>
-          {lang === "uk" ? "Неправильний пацієнт?" : "Wrong patient?"}
+          {tr(lang, "Неправильний пацієнт?", "Wrong patient?")}
         </button>
       )}
     </div>
@@ -841,8 +884,8 @@ function DictationStatusBar({ template, activeId, listening, lang }) {
       <span className="dsb-dot" aria-hidden="true" />
       <span className="dsb-label">
         {listening
-          ? (lang === "uk" ? "Диктуєте у розділ" : "Dictating into")
-          : (lang === "uk" ? "Активний розділ" : "Active section")}
+          ? (tr(lang, "Диктуєте у розділ", "Dictating into"))
+          : (tr(lang, "Активний розділ", "Active section"))}
       </span>
       <span className="dsb-section">{name}</span>
       {idx >= 0 && (
@@ -857,28 +900,28 @@ function StudioFooter({ done, total, onSaveDraft, onDownloadDraft, onComplete, s
   const saving = saveState === "saving";
   const saved  = saveState === "saved";
   const saveLabel = saving
-    ? (lang === "uk" ? "Збереження…" : "Saving…")
+    ? (tr(lang, "Збереження…", "Saving…"))
     : saved
-      ? (lang === "uk" ? "Збережено" : "Saved")
-      : (lang === "uk" ? "Зберегти чернетку" : "Save draft");
+      ? (tr(lang, "Збережено", "Saved"))
+      : (tr(lang, "Зберегти чернетку", "Save draft"));
   return (
     <div className="studio-footer">
       <div className="studio-footer-info">
-        <span className="sf-progress">{done}/{total} {lang === "uk" ? "розділів" : "sections"}</span>
+        <span className="sf-progress">{done}/{total} {tr(lang, "розділів", "sections")}</span>
       </div>
       <button
         className="btn ghost"
         onClick={onSaveDraft}
         disabled={saving || saved}
-        title={lang === "uk" ? "Зберегти, щоб продовжити пізніше (⌘S)" : "Save to continue later (⌘S)"}
+        title={tr(lang, "Зберегти, щоб продовжити пізніше (⌘S)", "Save to continue later (⌘S)")}
       >
         <Icon name={saving ? "refresh" : saved ? "check" : "save"} size={14} /> {saveLabel}
       </button>
       <button className="btn ghost" onClick={onDownloadDraft}>
-        <Icon name="download" size={14} /> {lang === "uk" ? "PDF (чернетка)" : "Draft PDF"}
+        <Icon name="download" size={14} /> {tr(lang, "PDF (чернетка)", "Draft PDF")}
       </button>
       <button className="btn primary" onClick={onComplete}>
-        <Icon name="check" size={14} /> {lang === "uk" ? "Завершити диктування" : "Complete dictation"}
+        <Icon name="check" size={14} /> {tr(lang, "Завершити диктування", "Complete dictation")}
       </button>
     </div>
   );
@@ -926,74 +969,101 @@ function PatientGate({ lang, onSelect }) {
   }, [query]);
 
   const patientsReq = useAsync(
-    () => listPatients({ query: debounced || undefined, limit: 8 }),
+    () => listPatients({ query: debounced || undefined, limit: 24 }),
     [debounced],
   );
   const patients = asList(patientsReq.data);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  // Keyboard: ↑/↓ move the highlight, Enter opens it — same as the Patients
+  // roster and other list pages.
+  const [kbIdx, setKbIdx] = useState(-1);
+  useEffect(() => { setKbIdx(-1); }, [patients.length, debounced]);
+  const onListKeyDown = (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setKbIdx((i) => Math.min(patients.length - 1, i + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setKbIdx((i) => Math.max(0, i - 1)); }
+    else if (e.key === "Enter") {
+      const pick = patients[kbIdx >= 0 ? kbIdx : 0];
+      if (pick) { e.preventDefault(); onSelect(normalizePatient(pick, lang)); }
+    }
+  };
+
+  const initialLoading = patientsReq.loading && patients.length === 0 && !patientsReq.error;
+
   return (
     <div className="studio">
       <div className="patient-gate">
-        <div className="patient-gate-card">
-          <div className="patient-gate-icon"><Icon name="user" size={22} /></div>
-          <h2>{lang === "uk" ? "Оберіть пацієнта" : "Select a patient"}</h2>
-          <p className="muted">
-            {lang === "uk"
-              ? "Диктування завжди прив'язане до пацієнта. Оберіть пацієнта, щоб почати."
-              : "Every dictation is filed against a patient. Choose one to begin."}
-          </p>
+        <div className="page">
+          <div className="page-h">
+            <div style={{ flex: 1 }}>
+              <h1>{tr(lang, "Оберіть пацієнта", "Choose a patient")}</h1>
+              <p className="sub">
+                {tr(lang, "Диктування завжди прив'язане до пацієнта. Оберіть пацієнта, щоб почати запис.", "Every dictation is filed against a patient. Choose one to start recording.")}
+              </p>
+            </div>
+          </div>
 
-          <label className="search-input" style={{ width: "100%", marginTop: 8 }}>
-            <Icon name="search" size={14} />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={lang === "uk" ? "Пошук за іменем або МКА…" : "Search by name or MRN…"}
-              aria-label={lang === "uk" ? "Пошук пацієнта" : "Search patient"}
-            />
-          </label>
-
-          <div className="patient-gate-list" role="listbox">
-            {patientsReq.loading ? (
-              <div className="muted" style={{ padding: 16, textAlign: "center" }}>
-                {lang === "uk" ? "Завантаження…" : "Loading…"}
-              </div>
-            ) : patients.length === 0 ? (
-              <Empty
-                icon="user"
-                title={lang === "uk" ? "Пацієнтів не знайдено" : "No patients found"}
-                body={debounced
-                  ? (lang === "uk" ? "Спробуйте інший запит." : "Try a different search.")
-                  : (lang === "uk" ? "Почніть вводити, щоб знайти пацієнта." : "Start typing to find a patient.")}
+          <div className="ptable-toolbar">
+            <div className="search-input" style={{ flex: 1 }}>
+              <Icon name="search" size={14} />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={tr(lang, "Пошук: ім'я або MRN…", "Search: name or MRN…")}
+                aria-label={tr(lang, "Пошук пацієнта", "Search patient")}
               />
-            ) : (
-              patients.map((p) => {
-                const norm = normalizePatient(p, lang);
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    role="option"
-                    className="patient-gate-row"
-                    onClick={() => onSelect(norm)}
-                  >
-                    <span className="avatar" style={{ width: 32, height: 32, fontSize: 12, flexShrink: 0 }}>
-                      {p.initials || patientInitials(norm.label)}
-                    </span>
-                    <span className="patient-gate-row-meta">
-                      <span className="patient-gate-row-name">{norm.label}</span>
-                      <span className="patient-gate-row-sub muted">
-                        {norm.ref}{norm.age != null ? ` · ${norm.age}${norm.sex || ""}` : ""}
-                      </span>
-                    </span>
-                    <Icon name="chevRight" size={14} className="muted" />
-                  </button>
-                );
-              })
+            </div>
+            {patientsReq.loading && patients.length > 0 && (
+              <span className="pdir-searching">{tr(lang, "Пошук…", "Searching…")}</span>
             )}
+          </div>
+
+          <div className="ptable patient-pick-list" role="listbox" tabIndex={0} onKeyDown={onListKeyDown}
+            aria-label={tr(lang, "Список пацієнтів", "Patient list")}>
+            <div className="ptable-head">
+              <div>{tr(lang, "Пацієнт", "Patient")}</div>
+              <div>MRN</div>
+              <div>{tr(lang, "Вік / стать", "Age / sex")}</div>
+              <div></div>
+            </div>
+
+            {initialLoading && <Loading lang={lang} />}
+            {patientsReq.error && <ApiErrorView error={patientsReq.error} lang={lang} />}
+            {!initialLoading && !patientsReq.error && patients.length === 0 && (
+              <div style={{ padding: "40px 24px", textAlign: "center" }}>
+                <Empty icon="users" title={debounced
+                  ? (tr(lang, "Нічого не знайдено", "No results"))
+                  : (tr(lang, "Пацієнтів ще немає", "No patients yet"))} />
+              </div>
+            )}
+
+            {!initialLoading && !patientsReq.error && patients.map((p, i) => {
+              const norm = normalizePatient(p, lang);
+              return (
+                <div
+                  key={p.id}
+                  role="option"
+                  aria-selected={i === kbIdx}
+                  data-testid="patient-gate-row"
+                  className={"ptable-row" + (i === kbIdx ? " pdir-kb" : "")}
+                  onClick={() => onSelect(norm)}
+                >
+                  <div className="pcell-name">
+                    <div className="pavatar" style={{ width: 34, height: 34, fontSize: 12 }}>
+                      {p.initials || patientInitials(norm.label)}
+                    </div>
+                    <div className="pname">{norm.label}</div>
+                  </div>
+                  <div className="pmono">{p.mrn || norm.ref || "—"}</div>
+                  <div className="psub">
+                    {norm.age != null ? `${norm.age}${norm.sex ? ` · ${norm.sex}` : ""}` : "—"}
+                  </div>
+                  <div className="pdir-row-actions"><Icon name="chevRight" size={14} /></div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1260,11 +1330,9 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
         /patient_not_found/.test(code || e.message || "");
       pushToast({
         message: isMissingPatient
-          ? (lang === "uk"
-            ? "Оберіть пацієнта, перш ніж зберігати звіт"
-            : "Select a patient before saving the report")
-          : (lang === "uk" ? "Не вдалося зберегти: " : "Save failed: ")
-            + ((e && e.message) || (lang === "uk" ? "спробуйте ще раз" : "will retry")),
+          ? (tr(lang, "Оберіть пацієнта, перш ніж зберігати звіт", "Select a patient before saving the report"))
+          : (tr(lang, "Не вдалося зберегти: ", "Save failed: "))
+            + ((e && e.message) || (tr(lang, "спробуйте ще раз", "will retry"))),
       });
     } finally {
       savingRef.current = false;
@@ -1365,24 +1433,20 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       expected_version: reportVersionRef.current,
     });
     if (r?.version_number != null) reportVersionRef.current = r.version_number;
-    pushToast({ message: lang === "uk" ? "Звіт завершено" : "Report finalized" });
+    pushToast({ message: tr(lang, "Звіт завершено", "Report finalized") });
     return r;
   }, [saveDraft, lang]);
 
   const downloadDraft = useCallback(async () => {
     if (!reportIdRef.current) { await saveDraft(); }
     if (!reportIdRef.current) {
-      pushToast({ message: lang === "uk"
-        ? "Спершу збережіть чернетку, щоб завантажити PDF"
-        : "Save the draft first to download the PDF" });
+      pushToast({ message: tr(lang, "Спершу збережіть чернетку, щоб завантажити PDF", "Save the draft first to download the PDF") });
       return;
     }
     try {
       await downloadReportPdf(reportIdRef.current, { variant: "draft", lang });
     } catch (e) {
-      pushToast({ message: lang === "uk"
-        ? "Не вдалося завантажити PDF"
-        : "Could not download the PDF" });
+      pushToast({ message: tr(lang, "Не вдалося завантажити PDF", "Could not download the PDF") });
     }
   }, [saveDraft, lang]);
 
@@ -1479,7 +1543,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     // Sensitivity slider: how much typed evidence a phrase query needs
     // (1 = low → 5 chars, 2 = medium → 3, 3 = high → 2). Snippet "/"
     // triggers always fire.
-    minPrefixLen: AC_MIN_PREFIX_BY_SENSITIVITY[acPrefs.sensitivity] ?? 3,
+    minPrefixLen: acMinPrefix(acPrefs.sensitivity),
     onDegraded: handleAcDegraded,
   });
 
@@ -1562,10 +1626,10 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           <ApiErrorView error={reportReq.error} lang={lang} />
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn accent" onClick={reportReq.reload}>
-              {lang === "uk" ? "Спробувати ще раз" : "Retry"}
+              {tr(lang, "Спробувати ще раз", "Retry")}
             </button>
             <button className="btn" onClick={() => { location.hash = "/dictate/reports"; }}>
-              {lang === "uk" ? "← До звітів" : "← Back to reports"}
+              {tr(lang, "← До звітів", "← Back to reports")}
             </button>
           </div>
         </div>
@@ -1586,7 +1650,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     if (resolving) {
       return (
         <div className="studio">
-          <Empty icon="user" title={lang === "uk" ? "Завантаження…" : "Loading…"} />
+          <Empty icon="user" title={tr(lang, "Завантаження…", "Loading…")} />
         </div>
       );
     }
@@ -1600,13 +1664,11 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     return (
       <div className="studio">
         <Empty icon="calendar"
-          title={lang === "uk" ? "Прийом не знайдено" : "Encounter not found"}
-          body={lang === "uk"
-            ? "Посилання застаріле або прийом було видалено. Поверніться до картки пацієнта та почніть прийом заново."
-            : "The link is stale or the encounter was removed. Return to the patient record and start the encounter again."}
+          title={tr(lang, "Прийом не знайдено", "Encounter not found")}
+          body={tr(lang, "Посилання застаріле або прийом було видалено. Поверніться до картки пацієнта та почніть прийом заново.", "The link is stale or the encounter was removed. Return to the patient record and start the encounter again.")}
           action={
             <button className="btn accent" onClick={() => { location.hash = `/patients/${patient.id}`; }}>
-              {lang === "uk" ? "Повернутися до пацієнта" : "Back to the patient"}
+              {tr(lang, "Повернутися до пацієнта", "Back to the patient")}
             </button>
           } />
       </div>
@@ -1631,19 +1693,17 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     return (
       <div className="studio">
         <Empty icon="calendar"
-          title={lang === "uk" ? "Прийом уже завершено" : "This encounter is closed"}
-          body={lang === "uk"
-            ? "До завершеного прийому не можна додати новий запис. Створіть новий прийом, щоб продовжити диктування."
-            : "A closed encounter can't take a new recording. Start a fresh encounter to continue dictating."}
+          title={tr(lang, "Прийом уже завершено", "This encounter is closed")}
+          body={tr(lang, "До завершеного прийому не можна додати новий запис. Створіть новий прийом, щоб продовжити диктування.", "A closed encounter can't take a new recording. Start a fresh encounter to continue dictating.")}
           action={
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
               <button className="btn accent" disabled={creatingEncounter} onClick={startFresh}>
                 {creatingEncounter
-                  ? (lang === "uk" ? "Створення…" : "Creating…")
-                  : (lang === "uk" ? "Створити новий прийом" : "Start a new encounter")}
+                  ? (tr(lang, "Створення…", "Creating…"))
+                  : (tr(lang, "Створити новий прийом", "Start a new encounter"))}
               </button>
               <button className="btn" onClick={() => { location.hash = `/patients/${patient.id}`; }}>
-                {lang === "uk" ? "До пацієнта" : "Back to the patient"}
+                {tr(lang, "До пацієнта", "Back to the patient")}
               </button>
             </div>
           } />
@@ -1664,22 +1724,18 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
         <Empty
           icon="fileText"
           title={loading
-            ? (lang === "uk" ? "Завантаження шаблонів…" : "Loading templates…")
+            ? (tr(lang, "Завантаження шаблонів…", "Loading templates…"))
             : errored
-              ? (lang === "uk" ? "Не вдалося завантажити шаблони" : "Couldn't load templates")
-              : (lang === "uk" ? "Шаблони недоступні" : "No templates available")}
+              ? (tr(lang, "Не вдалося завантажити шаблони", "Couldn't load templates"))
+              : (tr(lang, "Шаблони недоступні", "No templates available"))}
           body={loading
             ? ""
             : errored
-              ? (lang === "uk"
-                ? "Сервіс звітів недоступний. Спробуйте ще раз."
-                : "The report service is unavailable. Please try again.")
-              : (lang === "uk"
-                ? "Немає доступних шаблонів звітів."
-                : "No report templates are available.")}
+              ? (tr(lang, "Сервіс звітів недоступний. Спробуйте ще раз.", "The report service is unavailable. Please try again."))
+              : (tr(lang, "Немає доступних шаблонів звітів.", "No report templates are available."))}
           action={errored && onRetryTemplates
             ? <button className="btn accent" onClick={onRetryTemplates}>
-                {lang === "uk" ? "Спробувати ще раз" : "Retry"}
+                {tr(lang, "Спробувати ще раз", "Retry")}
               </button>
             : undefined}
         />
@@ -1782,20 +1838,18 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           {consentGate.status === "required" && (
             <div className="consent-gate-banner" data-testid="consent-gate-banner" role="status">
               <Icon name="shield" size={14} />
-              <span>{lang === "uk" ? "Потрібна згода пацієнта на AI-запис" : "Patient consent to AI recording is required"}</span>
+              <span>{tr(lang, "Потрібна згода пацієнта на AI-запис", "Patient consent to AI recording is required")}</span>
               <button type="button" className="btn accent sm" onClick={() => setConsentSheetOpen(true)}>
-                {lang === "uk" ? "Отримати згоду" : "Capture consent"}
+                {tr(lang, "Отримати згоду", "Capture consent")}
               </button>
             </div>
           )}
           {consentGate.status === "error" && (
             <div className="consent-gate-banner error" data-testid="consent-gate-error" role="alert">
               <Icon name="micOff" size={14} />
-              <span>{lang === "uk"
-                ? "Не вдалося перевірити згоду — запис заблоковано"
-                : "Couldn't verify consent — recording is blocked"}</span>
+              <span>{tr(lang, "Не вдалося перевірити згоду — запис заблоковано", "Couldn't verify consent — recording is blocked")}</span>
               <button type="button" className="btn sm" onClick={consentGate.refresh}>
-                {lang === "uk" ? "Повторити" : "Retry"}
+                {tr(lang, "Повторити", "Retry")}
               </button>
             </div>
           )}
@@ -1853,7 +1907,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           onClose={() => setSignOpen(false)}
           onSigned={() => {
             setSignOpen(false);
-            pushToast({ message: lang === "uk" ? "Звіт підписано" : "Report signed" });
+            pushToast({ message: tr(lang, "Звіт підписано", "Report signed") });
             onSignedNavigate?.();
           }}
         />

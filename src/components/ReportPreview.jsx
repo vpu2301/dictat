@@ -15,8 +15,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Icon } from "./UI.jsx";
 import { synthesizeReport, downloadReportPdf } from "../api/reports.js";
+import { tr } from "../i18n.js";
 
-const T = (lang, uk, en) => (lang === "uk" ? uk : en);
+const T = (lang, uk, en) => tr(lang, uk, en);
 
 const nameOf = (s, lang) => s?.name?.[lang] || s?.name?.en || s?.id || "";
 
@@ -30,7 +31,7 @@ function labelFor(section, lang, labelMap) {
 
 function todayLabel(lang) {
   try {
-    return new Date().toLocaleDateString(lang === "uk" ? "uk-UA" : "en-US", {
+    return new Date().toLocaleDateString(tr(lang, "uk-UA", "en-US"), {
       year: "numeric", month: "long", day: "numeric",
     });
   } catch {

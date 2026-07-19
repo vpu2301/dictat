@@ -17,6 +17,7 @@ import { useAsync } from "../api/useAsync.js";
 import { asList } from "./DataStates.jsx";
 import { ApiErrorView } from "./ApiErrorView.jsx";
 import { listTenants, switchTenant, createTenant, isValidSlug } from "../api/tenants.js";
+import { tr } from "../i18n.js";
 
 function LogoTile({ tenant, size = 18 }) {
   const label = tenant.display_name || tenant.name || "?";
@@ -57,7 +58,7 @@ export function ClinicMenuSection({ lang = "en", navigate, onToast, onNavigate, 
       const res = await switchTenant(t.id);
       setNote({ tenant: t, note: res?.note });
     } catch (err) {
-      if (onToast) onToast(err?.message || (lang === "uk" ? "Не вдалося перемкнути" : "Switch failed"));
+      if (onToast) onToast(err?.message || (tr(lang, "Не вдалося перемкнути", "Switch failed")));
     } finally {
       setSwitching(null);
     }
@@ -67,7 +68,7 @@ export function ClinicMenuSection({ lang = "en", navigate, onToast, onNavigate, 
     <>
       {tenantsReq.loading && (
         <div className="muted" style={{ padding: "6px 10px", fontSize: 12 }}>
-          {lang === "uk" ? "Завантаження…" : "Loading…"}
+          {tr(lang, "Завантаження…", "Loading…")}
         </div>
       )}
       {tenantsReq.error && (
@@ -105,28 +106,26 @@ export function ClinicMenuSection({ lang = "en", navigate, onToast, onNavigate, 
               : `Switched to “${note.tenant.display_name || note.tenant.name}”`}
           </div>
           <div className="tsw-note-body">
-            {note.note || (lang === "uk"
-              ? "Увійдіть знову, щоб отримати токен для цієї клініки перед доступом до її даних."
-              : "Re-authenticate to obtain a token scoped to this clinic before accessing its data.")}
+            {note.note || (tr(lang, "Увійдіть знову, щоб отримати токен для цієї клініки перед доступом до її даних.", "Re-authenticate to obtain a token scoped to this clinic before accessing its data."))}
           </div>
           <button className="btn btn-primary" onClick={() => go("/login")}>
-            {lang === "uk" ? "Увійти знову" : "Log in again"}
+            {tr(lang, "Увійти знову", "Log in again")}
           </button>
         </div>
       )}
 
       <button type="button" className="sb-user-menu-item" role="menuitem" onClick={() => go("/tenant/settings")}>
         <Icon name="settings" size={14} />
-        <span>{lang === "uk" ? "Налаштування клініки" : "Clinic settings"}</span>
+        <span>{tr(lang, "Налаштування клініки", "Clinic settings")}</span>
       </button>
       <button type="button" className="sb-user-menu-item" role="menuitem" onClick={() => go("/tenant/members")}>
         <Icon name="users" size={14} />
-        <span>{lang === "uk" ? "Учасники" : "Members"}</span>
+        <span>{tr(lang, "Учасники", "Members")}</span>
       </button>
       {canCreate && (
         <button type="button" className="sb-user-menu-item" role="menuitem" onClick={() => onCreateClinic && onCreateClinic()}>
           <Icon name="plus" size={14} />
-          <span>{lang === "uk" ? "Створити клініку" : "Create clinic"}</span>
+          <span>{tr(lang, "Створити клініку", "Create clinic")}</span>
         </button>
       )}
     </>
@@ -136,7 +135,7 @@ export function ClinicMenuSection({ lang = "en", navigate, onToast, onNavigate, 
 
   return (
     <div className="sb-more-section">
-      <div className="sb-more-head">{lang === "uk" ? "Клініка" : "Clinic"}</div>
+      <div className="sb-more-head">{tr(lang, "Клініка", "Clinic")}</div>
       {body}
     </div>
   );
@@ -156,7 +155,7 @@ export function CreateClinicModal({ lang = "en", onClose, onCreated }) {
     setError(null); setSlugErr(null);
     const slug = form.slug.trim();
     if (slug && !isValidSlug(slug)) {
-      setSlugErr(lang === "uk" ? "Лише малі літери, цифри та дефіси" : "Lowercase letters, digits and hyphens only");
+      setSlugErr(tr(lang, "Лише малі літери, цифри та дефіси", "Lowercase letters, digits and hyphens only"));
       return;
     }
     setSubmitting(true);
@@ -175,30 +174,30 @@ export function CreateClinicModal({ lang = "en", onClose, onCreated }) {
   return (
     <Modal onClose={() => { if (!submitting) onClose(); }}>
       <form className="admin-form" onSubmit={submit} style={{ minWidth: 320 }}>
-        <h3 style={{ margin: "0 0 4px" }}>{lang === "uk" ? "Нова клініка" : "New clinic"}</h3>
+        <h3 style={{ margin: "0 0 4px" }}>{tr(lang, "Нова клініка", "New clinic")}</h3>
         {error && <ApiErrorView error={error} lang={lang} />}
         <label className="admin-field">
-          <span>{lang === "uk" ? "Код (name)" : "Name (identifier)"}</span>
+          <span>{tr(lang, "Код (name)", "Name (identifier)")}</span>
           <input value={form.name} onChange={(e) => set("name", e.target.value)}
                  placeholder="kyiv-clinic" required disabled={submitting} />
         </label>
         <label className="admin-field">
-          <span>{lang === "uk" ? "Назва для показу" : "Display name"}</span>
+          <span>{tr(lang, "Назва для показу", "Display name")}</span>
           <input value={form.display_name} onChange={(e) => set("display_name", e.target.value)}
                  placeholder="Kyiv Family Clinic" required disabled={submitting} />
         </label>
         <label className="admin-field">
-          <span>Slug <span className="muted">({lang === "uk" ? "необовʼязково" : "optional"})</span></span>
+          <span>Slug <span className="muted">({tr(lang, "необовʼязково", "optional")})</span></span>
           <input value={form.slug} onChange={(e) => set("slug", e.target.value)}
                  placeholder="kyiv-clinic" disabled={submitting} />
           {slugErr && <small className="field-error">{slugErr}</small>}
         </label>
         <div className="admin-form-actions" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button type="button" className="btn btn-ghost" onClick={onClose} disabled={submitting}>
-            {lang === "uk" ? "Скасувати" : "Cancel"}
+            {tr(lang, "Скасувати", "Cancel")}
           </button>
           <button type="submit" className="btn btn-primary" disabled={submitting}>
-            {submitting ? (lang === "uk" ? "Створення…" : "Creating…") : (lang === "uk" ? "Створити" : "Create")}
+            {submitting ? (tr(lang, "Створення…", "Creating…")) : (tr(lang, "Створити", "Create"))}
           </button>
         </div>
       </form>

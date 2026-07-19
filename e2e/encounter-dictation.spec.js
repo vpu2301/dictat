@@ -225,7 +225,7 @@ test("ad-hoc dictation without a patient is unchanged (gate, no context bar)", a
   await login(page);
 
   await page.goto("/#/dictate/studio");
-  await expect(page.locator(".patient-gate-row").first()).toBeVisible({ timeout: 10000 });
+  await expect(page.locator("[data-testid='patient-gate-row']").first()).toBeVisible({ timeout: 10000 });
   await expect(page.getByTestId("studio-context-bar")).toHaveCount(0);
 });
 

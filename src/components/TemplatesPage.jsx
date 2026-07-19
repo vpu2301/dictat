@@ -16,6 +16,7 @@ import { Icon, Empty } from "./UI.jsx";
 import { Loading, asList } from "./DataStates.jsx";
 import { ApiErrorView } from "./ApiErrorView.jsx";
 import { Pagination } from "./Pagination.jsx";
+import { MenuSelect } from "./MenuSelect.jsx";
 import { useAsync } from "../api/useAsync.js";
 import { usePermission } from "../auth/permissions.js";
 import { getStarredIds, toggleStar } from "../api/templatePrefs.js";
@@ -24,8 +25,9 @@ import {
   validateDefinition, classifyEdit, isSlug, FIELD_TYPES, ASR_PROMPT_MAX, SYNTHESIS_PROMPT_MAX,
   MAX_SECTIONS, specialtyIcon,
 } from "../api/templates.js";
+import { tr } from "../i18n.js";
 
-const T = (lang, uk, en) => (lang === "uk" ? uk : en);
+const T = (lang, uk, en) => tr(lang, uk, en);
 
 // Client-side pagination over the fetched list (the list endpoint returns up to
 // `limit` rows in one shot; we page through them locally).
@@ -121,6 +123,7 @@ function StatusBadge({ status, lang }) {
   if (!row) return null;
   return <span className={`tpl-badge status ${row[1]}`}>{row[0]}</span>;
 }
+
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function TemplatesPage({ lang, navigate }) {
@@ -244,35 +247,56 @@ export function TemplatesPage({ lang, navigate }) {
           />
         </label>
 
-        <select className="ti" style={{ width: "auto", padding: "5px 10px" }}
-          value={specialty} onChange={(e) => setSpecialty(e.target.value)}>
-          <option value="">{T(lang, "Всі спеціальності", "All specialties")}</option>
-          {SPECIALTIES.map(([v, uk, en]) => (
-            <option key={v} value={v}>{T(lang, uk, en)}</option>
-          ))}
-        </select>
+        <MenuSelect
+          icon="filter"
+          value={specialty}
+          onChange={setSpecialty}
+          ariaLabel={T(lang, "Спеціальність", "Specialty")}
+          options={[
+            { value: "", label: T(lang, "Всі спеціальності", "All specialties") },
+            ...[...SPECIALTIES]
+              .map(([v, uk, en]) => ({ value: v, label: T(lang, uk, en) }))
+              .sort((a, b) => a.label.localeCompare(b.label)),
+          ]}
+        />
 
-        <select className="ti" style={{ width: "auto", padding: "5px 10px" }}
-          value={language} onChange={(e) => setLanguage(e.target.value)}>
-          <option value="">{T(lang, "Всі мови", "All languages")}</option>
-          <option value="uk">{T(lang, "Українська", "Ukrainian")}</option>
-          <option value="en">{T(lang, "Англійська", "English")}</option>
-        </select>
+        <MenuSelect
+          icon="flag"
+          value={language}
+          onChange={setLanguage}
+          ariaLabel={T(lang, "Мова", "Language")}
+          options={[
+            { value: "", label: T(lang, "Всі мови", "All languages") },
+            { value: "uk", label: T(lang, "Українська", "Ukrainian") },
+            { value: "en", label: T(lang, "Англійська", "English") },
+          ]}
+        />
 
-        <label className="tpl-toggle">
-          <input type="checkbox" checked={customOnly} onChange={(e) => setCustomOnly(e.target.checked)} />
+        <button
+          type="button"
+          className={"tpl-filter-chip" + (customOnly ? " on" : "")}
+          onClick={() => setCustomOnly((v) => !v)}
+          aria-pressed={customOnly}
+        >
           {T(lang, "Лише власні", "Custom only")}
-        </label>
-        <label className="tpl-toggle">
-          <input type="checkbox" checked={starredOnly} onChange={(e) => setStarredOnly(e.target.checked)} />
+        </button>
+        <button
+          type="button"
+          className={"tpl-filter-chip" + (starredOnly ? " on" : "")}
+          onClick={() => setStarredOnly((v) => !v)}
+          aria-pressed={starredOnly}
+        >
           <Icon name="star" size={12} fill={starredOnly ? "currentColor" : "none"} />
-          {T(lang, "Лише обрані", "Starred only")}
-          {starredCount > 0 && ` (${starredCount})`}
-        </label>
-        <label className="tpl-toggle">
-          <input type="checkbox" checked={showDeprecated} onChange={(e) => setShowDep(e.target.checked)} />
+          <span>{T(lang, "Лише обрані", "Starred only")}{starredCount > 0 ? ` (${starredCount})` : ""}</span>
+        </button>
+        <button
+          type="button"
+          className={"tpl-filter-chip" + (showDeprecated ? " on" : "")}
+          onClick={() => setShowDep((v) => !v)}
+          aria-pressed={showDeprecated}
+        >
           {T(lang, "Показати депрековані", "Show deprecated")}
-        </label>
+        </button>
 
         <div style={{ flex: 1 }} />
         <div className="seg" role="group" aria-label={T(lang, "Вигляд", "View")}>

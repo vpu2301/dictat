@@ -8,9 +8,10 @@ import {
 } from "../../api/dashboard.js";
 import { Icon } from "../UI.jsx";
 import { Panel } from "./Panel.jsx";
+import { tr } from "../../i18n.js";
 
 export function CapabilitiesPanel({ lang }) {
-  const T = (uk, en) => (lang === "uk" ? uk : en);
+  const T = (uk, en) => tr(lang, uk, en);
   const [health, setHealth] = useState({}); // serviceKey → ready|starting|down|unknown
   const proofsReq = useAsync(() => fetchCapabilityProofs(), []);
 

@@ -5,13 +5,14 @@
 import React from "react";
 import { Empty } from "./UI.jsx";
 import { ApiErrorView } from "./ApiErrorView.jsx";
+import { tr } from "../i18n.js";
 
 export function Loading({ lang = "en" }) {
   return (
     <div className="data-loading" role="status" aria-live="polite"
          style={{ padding: 36, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
       <span className="data-spinner" aria-hidden="true" />
-      {lang === "uk" ? "Завантаження…" : "Loading…"}
+      {tr(lang, "Завантаження…", "Loading…")}
     </div>
   );
 }
