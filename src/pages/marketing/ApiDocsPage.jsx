@@ -51,7 +51,7 @@ export function ApiDocsPage({ svc, navigate, lang, tweaks, setTweak }) {
               onClick={go(`/developers/api/${s.key}`)}
             >
               <span className="apidocs-tab-label">{s.label}</span>
-              <span className="apidocs-tab-desc">{s.desc[uk ? "uk" : "en"]}</span>
+              <span className="apidocs-tab-desc">{s.desc[lang] ?? s.desc.en}</span>
             </a>
           ))}
         </div>

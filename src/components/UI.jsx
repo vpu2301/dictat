@@ -1,6 +1,6 @@
 // UI.jsx — Shared UI primitives + icons + shell (Sidebar, TopBar)
 import React from 'react';
-import { useI18n } from '../i18n.js';
+import { useI18n , tr } from "../i18n.js";
 
 export const Icon = ({ name, size = 16, ...rest }) => {
   const paths = {
@@ -129,41 +129,41 @@ export function Sidebar({ route, navigate, lang, setLang, theme, setTheme, onNew
 
       {product === "scribe" ? (
         <>
-          <button className="sb-cta" onClick={onNewSession} title={lang === "uk" ? "Нова консультація" : "New consultation"}>
+          <button className="sb-cta" onClick={onNewSession} title={tr(lang, "Нова консультація", "New consultation")}>
             <span className="sb-cta-icon"><Icon name="mic" size={13} /></span>
-            {!collapsed && <span className="sb-cta-label">{lang === "uk" ? "Нова консультація" : "New consultation"}</span>}
+            {!collapsed && <span className="sb-cta-label">{tr(lang, "Нова консультація", "New consultation")}</span>}
             {!collapsed && <kbd>N</kbd>}
           </button>
 
           <div className="sb-section">
-            {!collapsed && <div className="sb-section-h">{lang === "uk" ? "Робочий простір" : "Workspace"}</div>}
-            <Link icon="inbox" label={lang === "uk" ? "Сьогодні" : "Today"} path="/scribe" exact />
-            <Link icon="users" label={lang === "uk" ? "Пацієнти" : "Patients"} path="/scribe/patients" prefix="/scribe/patients" />
-            <Link icon="fileText" label={lang === "uk" ? "Нотатки" : "Notes"} path="/scribe/notes" />
-            <Link icon="layers" label={lang === "uk" ? "Шаблони нотаток" : "Note templates"} path="/scribe/templates" />
+            {!collapsed && <div className="sb-section-h">{tr(lang, "Робочий простір", "Workspace")}</div>}
+            <Link icon="inbox" label={tr(lang, "Сьогодні", "Today")} path="/scribe" exact />
+            <Link icon="users" label={tr(lang, "Пацієнти", "Patients")} path="/scribe/patients" prefix="/scribe/patients" />
+            <Link icon="fileText" label={tr(lang, "Нотатки", "Notes")} path="/scribe/notes" />
+            <Link icon="layers" label={tr(lang, "Шаблони нотаток", "Note templates")} path="/scribe/templates" />
           </div>
         </>
       ) : (
         <>
-          <button className="sb-cta" onClick={onNewDictation} title={lang === "uk" ? "Нове диктування" : "New dictation"}>
+          <button className="sb-cta" onClick={onNewDictation} title={tr(lang, "Нове диктування", "New dictation")}>
             <span className="sb-cta-icon"><Icon name="mic" size={13} /></span>
-            {!collapsed && <span className="sb-cta-label">{lang === "uk" ? "Нове диктування" : "New dictation"}</span>}
+            {!collapsed && <span className="sb-cta-label">{tr(lang, "Нове диктування", "New dictation")}</span>}
             {!collapsed && <kbd>D</kbd>}
           </button>
 
           <div className="sb-section">
-            {!collapsed && <div className="sb-section-h">{lang === "uk" ? "Робочий простір" : "Workspace"}</div>}
-            <Link icon="mic" label={lang === "uk" ? "Студія" : "Studio"} path="/dictate" exact />
-            <Link icon="fileText" label={lang === "uk" ? "Звіти" : "Reports"} path="/dictate/reports" prefix="/dictate/reports" badge="7" />
-            <Link icon="layers" label={lang === "uk" ? "Шаблони" : "Templates"} path="/dictate/templates" />
+            {!collapsed && <div className="sb-section-h">{tr(lang, "Робочий простір", "Workspace")}</div>}
+            <Link icon="mic" label={tr(lang, "Студія", "Studio")} path="/dictate" exact />
+            <Link icon="fileText" label={tr(lang, "Звіти", "Reports")} path="/dictate/reports" prefix="/dictate/reports" badge="7" />
+            <Link icon="layers" label={tr(lang, "Шаблони", "Templates")} path="/dictate/templates" />
           </div>
         </>
       )}
 
       <div className="sb-section">
-        {!collapsed && <div className="sb-section-h">{lang === "uk" ? "Адмін" : "Admin"}</div>}
-        <Link icon="sliders" label={lang === "uk" ? "Налаштування" : "Settings"} path="/settings" />
-        <Link icon="shield" label={lang === "uk" ? "Аудит" : "Audit log"} path="/audit" />
+        {!collapsed && <div className="sb-section-h">{tr(lang, "Адмін", "Admin")}</div>}
+        <Link icon="sliders" label={tr(lang, "Налаштування", "Settings")} path="/settings" />
+        <Link icon="shield" label={tr(lang, "Аудит", "Audit log")} path="/audit" />
       </div>
 
       <div className="sb-spacer" />
@@ -172,7 +172,7 @@ export function Sidebar({ route, navigate, lang, setLang, theme, setTheme, onNew
         <div className="sb-controls">
           {!collapsed && (
             <div className="lang-pill">
-              <button className={lang === "uk" ? "on" : ""} onClick={() => setLang("uk")}>UK</button>
+              <button className={tr(lang, "on", "")} onClick={() => setLang("uk")}>UK</button>
               <button className={lang === "en" ? "on" : ""} onClick={() => setLang("en")}>EN</button>
             </div>
           )}
@@ -189,7 +189,7 @@ export function Sidebar({ route, navigate, lang, setLang, theme, setTheme, onNew
           {!collapsed && (
             <>
               <div className="sb-user-info">
-                <div className="sb-user-name">{user?.display_name || (lang === "uk" ? "Гість" : "Guest")}</div>
+                <div className="sb-user-name">{user?.display_name || (tr(lang, "Гість", "Guest"))}</div>
                 {user?.role && <div className="sb-user-role">{user.role}</div>}
               </div>
               <Icon name="chevRight" size={14} />
@@ -229,7 +229,7 @@ export function DictateTopBar({ route, navigate, lang, setLang, theme, setTheme 
       </nav>
       <div className="dtb-right">
         <div className="lang-pill">
-          <button className={lang === "uk" ? "on" : ""} onClick={() => setLang("uk")}>UK</button>
+          <button className={tr(lang, "on", "")} onClick={() => setLang("uk")}>UK</button>
           <button className={lang === "en" ? "on" : ""} onClick={() => setLang("en")}>EN</button>
         </div>
         <button className="icon-btn" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Theme">
@@ -271,7 +271,7 @@ export function TopBar({ title, subtitle, crumbs, back, onBack, right, search, l
       {search !== false && (
         <div className="tb-search">
           <Icon name="search" size={14} />
-          <input placeholder={lang === "uk" ? "Пошук…" : "Search…"} />
+          <input placeholder={tr(lang, "Пошук…", "Search…")} />
           <kbd>⌘K</kbd>
         </div>
       )}
@@ -295,7 +295,7 @@ export function Toast({ message, action, onAction, onClose, duration = 3500 }) {
 }
 
 // ── Modal ───────────────────────────────────────────────────────────────
-export function Modal({ children, onClose }) {
+export function Modal({ children, onClose, className }) {
   React.useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -303,7 +303,7 @@ export function Modal({ children, onClose }) {
   }, [onClose]);
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className={"modal" + (className ? " " + className : "")} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>
@@ -315,10 +315,10 @@ export function SaveStatus({ state, lastSavedAt }) {
   const { t, lang } = useI18n();
   const since = lastSavedAt ? Math.max(0, Math.floor((Date.now() - lastSavedAt) / 60000)) : 0;
   const labels = {
-    saved: since === 0 ? (lang === "uk" ? "Збережено" : "Saved") : (lang === "uk" ? `Збережено ${since} хв тому` : `Saved ${since} min ago`),
-    saving: lang === "uk" ? "Збереження…" : "Saving…",
-    unsaved: lang === "uk" ? "Незбережено" : "Unsaved",
-    error: lang === "uk" ? "Помилка збереження" : "Save error",
+    saved: since === 0 ? (tr(lang, "Збережено", "Saved")) : (lang === "uk" ? `Збережено ${since} хв тому` : `Saved ${since} min ago`),
+    saving: tr(lang, "Збереження…", "Saving…"),
+    unsaved: tr(lang, "Незбережено", "Unsaved"),
+    error: tr(lang, "Помилка збереження", "Save error"),
   };
   return (
     <div className="save-status" data-state={state}>

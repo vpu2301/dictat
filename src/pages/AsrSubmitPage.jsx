@@ -3,12 +3,15 @@ import React, { useState } from "react";
 import { Icon } from "../components/UI.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { PromptPicker } from "../components/PromptPicker.jsx";
+import { MenuSelect } from "../components/MenuSelect.jsx";
 import { AudioDrop } from "../components/AudioDrop.jsx";
 import { submitJob } from "../api/asr.js";
+import { tr } from "../i18n.js";
 
 export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
   const [file, setFile] = useState(null);
-  const [language, setLanguage] = useState("uk");
+  // "auto" lets the recognizer detect the language (Whisper auto-detect).
+  const [language, setLanguage] = useState("auto");
   const [promptId, setPromptId] = useState("");
   const [encounterId, setEncounterId] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -28,7 +31,7 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
         language,
         encounter_id: encounterId.trim() || undefined,
       });
-      if (onToast) onToast(lang === "uk" ? "Завдання поставлено в чергу" : "Job queued");
+      if (onToast) onToast(tr(lang, "Завдання поставлено в чергу", "Job queued"));
       // Optimistic route to detail; detail polls regardless of initial state.
       navigate(`/asr/jobs/${encodeURIComponent(job.id)}`);
     } catch (err) {
@@ -42,17 +45,15 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
     <div className="page asr-submit">
       <div className="page-h">
         <div>
-          <h1>{lang === "uk" ? "Нова транскрипція" : "New transcription"}</h1>
+          <h1>{tr(lang, "Нова транскрипція", "New transcription")}</h1>
           <p className="muted">
-            {lang === "uk"
-              ? "Завантажте аудіо, виберіть напрям та мову. Завдання обробляється у фоні."
-              : "Upload audio, pick the specialty and language. Processing happens in the background."}
+            {tr(lang, "Завантажте аудіо, виберіть напрям та мову. Завдання обробляється у фоні.", "Upload audio, pick the specialty and language. Processing happens in the background.")}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={() => navigate("/asr/jobs")}>
             <Icon name="inbox" size={13} />
-            <span>{lang === "uk" ? "Усі завдання" : "All jobs"}</span>
+            <span>{tr(lang, "Усі завдання", "All jobs")}</span>
           </button>
         </div>
       </div>
@@ -62,31 +63,31 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
       <form className="card asr-form" onSubmit={onSubmit}>
         <section className="asr-form-section">
           <label className="asr-label">
-            <span>{lang === "uk" ? "Аудіо" : "Audio"}</span>
+            <span>{tr(lang, "Аудіо", "Audio")}</span>
             <AudioDrop file={file} onFile={setFile} disabled={submitting} lang={lang} />
           </label>
         </section>
 
         <section className="asr-form-section asr-form-grid">
           <label className="asr-label">
-            <span>{lang === "uk" ? "Мова" : "Language"}</span>
-            <div className="seg">
-              {[{ v: "uk", l: "UK" }, { v: "en", l: "EN" }].map((o) => (
-                <button
-                  type="button"
-                  key={o.v}
-                  className={"seg-btn " + (language === o.v ? "on" : "")}
-                  onClick={() => setLanguage(o.v)}
-                  disabled={submitting}
-                >
-                  {o.l}
-                </button>
-              ))}
-            </div>
+            <span>{tr(lang, "Мова", "Language")}</span>
+            <MenuSelect
+              block
+              icon="flag"
+              value={language}
+              onChange={setLanguage}
+              disabled={submitting}
+              ariaLabel={tr(lang, "Мова аудіо", "Audio language")}
+              options={[
+                { value: "auto", label: tr(lang, "Авто (визначити)", "Auto (detect)") },
+                { value: "uk", label: tr(lang, "Українська", "Ukrainian") },
+                { value: "en", label: tr(lang, "Англійська", "English") },
+              ]}
+            />
           </label>
 
           <label className="asr-label">
-            <span>{lang === "uk" ? "Промпт" : "Prompt"}</span>
+            <span>{tr(lang, "Промпт", "Prompt")}</span>
             <PromptPicker
               value={promptId}
               onChange={setPromptId}
@@ -97,7 +98,7 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
           </label>
 
           <label className="asr-label">
-            <span>{lang === "uk" ? "ID візиту (опціонально)" : "Encounter ID (optional)"}</span>
+            <span>{tr(lang, "ID візиту (опціонально)", "Encounter ID (optional)")}</span>
             <input
               type="text"
               value={encounterId}
@@ -113,8 +114,8 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
             <Icon name="bot" size={13} />
             <span>
               {submitting
-                ? (lang === "uk" ? "Надсилання…" : "Submitting…")
-                : (lang === "uk" ? "Поставити в чергу" : "Queue job")}
+                ? (tr(lang, "Надсилання…", "Submitting…"))
+                : (tr(lang, "Поставити в чергу", "Queue job"))}
             </span>
           </button>
         </div>

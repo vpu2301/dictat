@@ -13,12 +13,12 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Extension } from '@tiptap/core'
-import { TextSelection } from '@tiptap/pm/state'
+import { TextSelection, Plugin } from '@tiptap/pm/state'
 import { closeHistory } from '@tiptap/pm/history'
 import { SectionExtension } from '../extensions/SectionExtension.js'
 import { LowConfidenceMark } from '../extensions/LowConfidenceMark.js'
 import { AutocompleteGhost, autocompleteGhostKey } from '../extensions/AutocompleteGhost.js'
-import { sanitizePastedHTML } from '../paste/sanitizingPaste.js'
+import { clipboardToInsertHTML } from '../paste/sanitizingPaste.js'
 import { Icon } from './UI.jsx'
 import { useI18n } from '../i18n.js'
 
@@ -51,35 +51,44 @@ export function docToBody(doc) {
 }
 
 // ── Paste sanitizer extension ─────────────────────────────────────────────
+// The report body is plain text organized into fixed template sections, so a
+// paste must only ever contribute *text* — never document structure. This
+// matters most for the in-editor "cut from one section, paste into another"
+// move: ProseMirror's own HTML clipboard slice carries the source `section`
+// wrapper (whose title renders a label), and its native paste would nest that
+// whole section — label and all — into the target. We intercept inside
+// ProseMirror's pipeline (handlePaste → return true short-circuits the default
+// slice insertion, so there is no race with a separate DOM listener) and
+// insert clean text: the `text/plain` flavor (ProseMirror's serialization of
+// node *content* — labels are attributes/overlays, never content), falling
+// back to sanitized-HTML text only for external pastes that carry no plain
+// text. Newlines become hard breaks so a report's line-per-finding layout
+// survives the move.
 
 const SanitizingPaste = Extension.create({
   name: 'sanitizingPaste',
   addProseMirrorPlugins() {
-    return []
-  },
-  // Hook into the editor's event handling
-  onCreate() {
-    const { view } = this.editor
-    const handler = (ev) => {
-      const html = ev.clipboardData?.getData('text/html')
-      if (!html) return // let plain-text paste through normally
+    const editor = this.editor
+    return [
+      new Plugin({
+        props: {
+          handlePaste: (_view, event) => {
+            const cd = event.clipboardData
+            if (!cd) return false
+            const plain = cd.getData('text/plain')
+            const html = cd.getData('text/html')
+            if (!plain && !html) return false // nothing we recognize — let PM handle it
 
-      ev.preventDefault()
-      const clean = sanitizePastedHTML(html)
-      const div = document.createElement('div')
-      div.innerHTML = clean
-      const text = div.textContent || div.innerText || ''
-      if (text) {
-        this.editor.chain().focus().insertContent(text).run()
-      }
-    }
-    view.dom.addEventListener('paste', handler)
-    this._pasteHandler = handler
-  },
-  onDestroy() {
-    if (this._pasteHandler && this.editor.view?.dom) {
-      this.editor.view.dom.removeEventListener('paste', this._pasteHandler)
-    }
+            // Swallow the paste (return true) so ProseMirror never inserts its
+            // native slice — which for an in-editor copy is the source section
+            // wrapper, label and all. Insert only clean text.
+            const body = clipboardToInsertHTML({ plain, html })
+            if (body) editor.chain().focus().insertContent(body).run()
+            return true
+          },
+        },
+      }),
+    ]
   },
 })
 

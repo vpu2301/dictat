@@ -9,6 +9,7 @@
 // Bilingual (uk/en) via the shared `lang` tweak; no auth required.
 import React, { useEffect, useRef, useState } from "react";
 import { Icon, Logo } from "../../components/UI.jsx";
+import { LANGS } from "../../i18n.js";
 
 /* ── Navigation model ──────────────────────────────────────────
    Shared by desktop dropdowns and the mobile accordion. Each menu
@@ -55,21 +56,173 @@ export const NAV = {
     },
     flat: [{ label: "Pricing", path: "/pricing" }, { label: "Security", path: "/security" }],
   },
+  pl: {
+    product: {
+      label: "Produkt",
+      items: [
+        { icon: "waveform", label: "Scribe", desc: "Ambientowy skryba do wizyt", path: "/product/scribe" },
+        { icon: "fileText", label: "Dictate", desc: "Dyktowanie raportów z szablonami", path: "/product/dictate" },
+        { icon: "layers",   label: "Funkcje", desc: "Pełny cykl dokumentacji", path: "/features" },
+      ],
+    },
+    company: {
+      label: "Firma",
+      items: [
+        { icon: "home",  label: "O nas", desc: "Nasza misja i zespół", path: "/about" },
+        { icon: "users", label: "Kariera", desc: "Dołącz do zespołu", path: "/careers" },
+        { icon: "book",  label: "Blog", desc: "Aktualności i artykuły", path: "/blog" },
+        { icon: "help",  label: "Kontakt", desc: "Porozmawiaj z nami", path: "/contact" },
+      ],
+    },
+    flat: [{ label: "Cennik", path: "/pricing" }, { label: "Bezpieczeństwo", path: "/security" }],
+  },
+  de: {
+    product: {
+      label: "Produkt",
+      items: [
+        { icon: "waveform", label: "Scribe", desc: "Ambienter Scribe für Konsultationen", path: "/product/scribe" },
+        { icon: "fileText", label: "Dictate", desc: "Befunddiktat mit Vorlagen", path: "/product/dictate" },
+        { icon: "layers",   label: "Funktionen", desc: "Der komplette Dokumentationszyklus", path: "/features" },
+      ],
+    },
+    company: {
+      label: "Unternehmen",
+      items: [
+        { icon: "home",  label: "Über uns", desc: "Unsere Mission und unser Team", path: "/about" },
+        { icon: "users", label: "Karriere", desc: "Werden Sie Teil des Teams", path: "/careers" },
+        { icon: "book",  label: "Blog", desc: "Neuigkeiten und Beiträge", path: "/blog" },
+        { icon: "help",  label: "Kontakt", desc: "Sprechen Sie mit uns", path: "/contact" },
+      ],
+    },
+    flat: [{ label: "Preise", path: "/pricing" }, { label: "Sicherheit", path: "/security" }],
+  },
+  ro: {
+    product: {
+      label: "Produs",
+      items: [
+        { icon: "waveform", label: "Scribe", desc: "Scrib ambiental pentru consultații", path: "/product/scribe" },
+        { icon: "fileText", label: "Dictate", desc: "Dictarea rapoartelor cu șabloane", path: "/product/dictate" },
+        { icon: "layers",   label: "Funcționalități", desc: "Ciclul complet de documentare", path: "/features" },
+      ],
+    },
+    company: {
+      label: "Companie",
+      items: [
+        { icon: "home",  label: "Despre noi", desc: "Misiunea și echipa noastră", path: "/about" },
+        { icon: "users", label: "Cariere", desc: "Alăturați-vă echipei", path: "/careers" },
+        { icon: "book",  label: "Blog", desc: "Noutăți și articole", path: "/blog" },
+        { icon: "help",  label: "Contact", desc: "Discutați cu noi", path: "/contact" },
+      ],
+    },
+    flat: [{ label: "Prețuri", path: "/pricing" }, { label: "Securitate", path: "/security" }],
+  },
+  cs: {
+    product: {
+      label: "Produkt",
+      items: [
+        { icon: "waveform", label: "Scribe", desc: "Ambientní zápis přímo z vyšetření", path: "/product/scribe" },
+        { icon: "fileText", label: "Dictate", desc: "Diktování zpráv se šablonami", path: "/product/dictate" },
+        { icon: "layers",   label: "Funkce", desc: "Kompletní cyklus dokumentace", path: "/features" },
+      ],
+    },
+    company: {
+      label: "Společnost",
+      items: [
+        { icon: "home",  label: "O nás", desc: "Naše poslání a tým", path: "/about" },
+        { icon: "users", label: "Kariéra", desc: "Přidejte se k týmu", path: "/careers" },
+        { icon: "book",  label: "Blog", desc: "Novinky a články", path: "/blog" },
+        { icon: "help",  label: "Kontakt", desc: "Ozvěte se nám", path: "/contact" },
+      ],
+    },
+    flat: [{ label: "Ceník", path: "/pricing" }, { label: "Zabezpečení", path: "/security" }],
+  },
+  sr: {
+    product: {
+      label: "Proizvod",
+      items: [
+        { icon: "waveform", label: "Scribe", desc: "Ambijentalni zapisničar za preglede", path: "/product/scribe" },
+        { icon: "fileText", label: "Dictate", desc: "Diktiranje izveštaja sa šablonima", path: "/product/dictate" },
+        { icon: "layers",   label: "Funkcije", desc: "Kompletan ciklus dokumentacije", path: "/features" },
+      ],
+    },
+    company: {
+      label: "Kompanija",
+      items: [
+        { icon: "home",  label: "O nama", desc: "Naša misija i tim", path: "/about" },
+        { icon: "users", label: "Karijera", desc: "Pridružite se timu", path: "/careers" },
+        { icon: "book",  label: "Blog", desc: "Vesti i članci", path: "/blog" },
+        { icon: "help",  label: "Kontakt", desc: "Razgovarajte sa nama", path: "/contact" },
+      ],
+    },
+    flat: [{ label: "Cenovnik", path: "/pricing" }, { label: "Bezbednost", path: "/security" }],
+  },
+  hu: {
+    product: {
+      label: "Termék",
+      items: [
+        { icon: "waveform", label: "Scribe", desc: "Ambiens jegyzetelő a vizitekhez", path: "/product/scribe" },
+        { icon: "fileText", label: "Dictate", desc: "Leletdiktálás sablonokkal", path: "/product/dictate" },
+        { icon: "layers",   label: "Funkciók", desc: "A teljes dokumentációs ciklus", path: "/features" },
+      ],
+    },
+    company: {
+      label: "Vállalat",
+      items: [
+        { icon: "home",  label: "Rólunk", desc: "Küldetésünk és csapatunk", path: "/about" },
+        { icon: "users", label: "Karrier", desc: "Csatlakozzon csapatunkhoz", path: "/careers" },
+        { icon: "book",  label: "Blog", desc: "Hírek és cikkek", path: "/blog" },
+        { icon: "help",  label: "Kapcsolat", desc: "Beszéljen velünk", path: "/contact" },
+      ],
+    },
+    flat: [{ label: "Árak", path: "/pricing" }, { label: "Biztonság", path: "/security" }],
+  },
 };
 
-/* Footer "API Docs" column — deep-links into the in-site FastAPI docs browser
-   (/developers/api/:svc, ApiDocsPage.jsx), which embeds each service's live
-   Swagger UI. Slugs must match API_DOC_SERVICES keys there. */
-const API_DOCS_LINKS = [
-  { label: "Auth API",         path: "/developers/api/auth" },
-  { label: "ASR API",          path: "/developers/api/asr" },
-  { label: "Dictation API",    path: "/developers/api/dictation" },
-  { label: "NLP API",          path: "/developers/api/nlp" },
-  { label: "Reports API",      path: "/developers/api/reports" },
-  { label: "Autocomplete API", path: "/developers/api/autocomplete" },
-  { label: "Signing API",      path: "/developers/api/signing" },
-  { label: "Core API",         path: "/developers/api/core" },
-];
+/* Footer "Developers" column — the developer hub (/developers, request access
+   + API key), ONE "API Docs" entry into the all-services Swagger browser
+   (/developers/api, ApiDocsPage.jsx) and the written docs (/docs). */
+const DEV_LINKS = {
+  uk: [
+    { label: "Для розробників", path: "/developers" },
+    { label: "API Docs",        path: "/developers/api" },
+    { label: "Документація",    path: "/docs" },
+  ],
+  en: [
+    { label: "Developers",     path: "/developers" },
+    { label: "API Docs",       path: "/developers/api" },
+    { label: "Documentation",  path: "/docs" },
+  ],
+  pl: [
+    { label: "Dla deweloperów", path: "/developers" },
+    { label: "API Docs",        path: "/developers/api" },
+    { label: "Dokumentacja",    path: "/docs" },
+  ],
+  de: [
+    { label: "Für Entwickler",  path: "/developers" },
+    { label: "API Docs",        path: "/developers/api" },
+    { label: "Dokumentation",   path: "/docs" },
+  ],
+  ro: [
+    { label: "Pentru dezvoltatori", path: "/developers" },
+    { label: "API Docs",            path: "/developers/api" },
+    { label: "Documentație",        path: "/docs" },
+  ],
+  cs: [
+    { label: "Pro vývojáře",   path: "/developers" },
+    { label: "API Docs",       path: "/developers/api" },
+    { label: "Dokumentace",    path: "/docs" },
+  ],
+  sr: [
+    { label: "Za programere",  path: "/developers" },
+    { label: "API Docs",       path: "/developers/api" },
+    { label: "Dokumentacija",  path: "/docs" },
+  ],
+  hu: [
+    { label: "Fejlesztőknek",  path: "/developers" },
+    { label: "API Docs",       path: "/developers/api" },
+    { label: "Dokumentáció",   path: "/docs" },
+  ],
+};
 
 /* The footer map is shared with the landing page so the columns stay in sync.
    Each link carries a real route (no jump-to-section stubs). */
@@ -96,7 +249,7 @@ export const FOOTER = {
         { label: "Обробка даних", path: "/legal/data" },
         { label: "Згода", path: "/legal/consent" },
       ] },
-      { h: "API документація", links: API_DOCS_LINKS },
+      { h: "Розробникам", links: DEV_LINKS.uk },
     ],
     rights: "Усі права захищено.",
     signin: "Увійти",
@@ -125,12 +278,186 @@ export const FOOTER = {
         { label: "Data processing", path: "/legal/data" },
         { label: "Consent", path: "/legal/consent" },
       ] },
-      { h: "API Docs", links: API_DOCS_LINKS },
+      { h: "Developers", links: DEV_LINKS.en },
     ],
     rights: "All rights reserved.",
     signin: "Sign in",
     start: "Sign up",
     nav: { product: "Product", features: "Features", workflow: "How it works", security: "Security" },
+  },
+  pl: {
+    tag: "Medyczne dyktowanie głosem. Dane nigdy nie opuszczają Twojego wdrożenia.",
+    cols: [
+      { h: "Produkt", links: [
+        { label: "Scribe", path: "/product/scribe" },
+        { label: "Dictate", path: "/product/dictate" },
+        { label: "Funkcje", path: "/features" },
+        { label: "Cennik", path: "/pricing" },
+        { label: "Bezpieczeństwo", path: "/security" },
+      ] },
+      { h: "Firma", links: [
+        { label: "O nas", path: "/about" },
+        { label: "Kontakt", path: "/contact" },
+        { label: "Kariera", path: "/careers" },
+        { label: "Blog", path: "/blog" },
+      ] },
+      { h: "Informacje prawne", links: [
+        { label: "Prywatność", path: "/legal/privacy" },
+        { label: "Regulamin", path: "/legal/terms" },
+        { label: "Przetwarzanie danych", path: "/legal/data" },
+        { label: "Zgoda", path: "/legal/consent" },
+      ] },
+      { h: "Dla deweloperów", links: DEV_LINKS.pl },
+    ],
+    rights: "Wszelkie prawa zastrzeżone.",
+    signin: "Zaloguj się",
+    start: "Zarejestruj się",
+    nav: { product: "Produkt", features: "Funkcje", workflow: "Jak to działa", security: "Bezpieczeństwo" },
+  },
+  de: {
+    tag: "Medizinisches Diktieren per Sprache. Daten verlassen niemals Ihre Umgebung.",
+    cols: [
+      { h: "Produkt", links: [
+        { label: "Scribe", path: "/product/scribe" },
+        { label: "Dictate", path: "/product/dictate" },
+        { label: "Funktionen", path: "/features" },
+        { label: "Preise", path: "/pricing" },
+        { label: "Sicherheit", path: "/security" },
+      ] },
+      { h: "Unternehmen", links: [
+        { label: "Über uns", path: "/about" },
+        { label: "Kontakt", path: "/contact" },
+        { label: "Karriere", path: "/careers" },
+        { label: "Blog", path: "/blog" },
+      ] },
+      { h: "Rechtliches", links: [
+        { label: "Datenschutz", path: "/legal/privacy" },
+        { label: "Nutzungsbedingungen", path: "/legal/terms" },
+        { label: "Datenverarbeitung", path: "/legal/data" },
+        { label: "Einwilligung", path: "/legal/consent" },
+      ] },
+      { h: "Für Entwickler", links: DEV_LINKS.de },
+    ],
+    rights: "Alle Rechte vorbehalten.",
+    signin: "Anmelden",
+    start: "Registrieren",
+    nav: { product: "Produkt", features: "Funktionen", workflow: "So funktioniert es", security: "Sicherheit" },
+  },
+  ro: {
+    tag: "Dictare medicală prin voce. Datele nu părăsesc niciodată infrastructura dumneavoastră.",
+    cols: [
+      { h: "Produs", links: [
+        { label: "Scribe", path: "/product/scribe" },
+        { label: "Dictate", path: "/product/dictate" },
+        { label: "Funcționalități", path: "/features" },
+        { label: "Prețuri", path: "/pricing" },
+        { label: "Securitate", path: "/security" },
+      ] },
+      { h: "Companie", links: [
+        { label: "Despre noi", path: "/about" },
+        { label: "Contact", path: "/contact" },
+        { label: "Cariere", path: "/careers" },
+        { label: "Blog", path: "/blog" },
+      ] },
+      { h: "Aspecte juridice", links: [
+        { label: "Confidențialitate", path: "/legal/privacy" },
+        { label: "Termeni și condiții", path: "/legal/terms" },
+        { label: "Prelucrarea datelor", path: "/legal/data" },
+        { label: "Consimțământ", path: "/legal/consent" },
+      ] },
+      { h: "Pentru dezvoltatori", links: DEV_LINKS.ro },
+    ],
+    rights: "Toate drepturile rezervate.",
+    signin: "Autentificare",
+    start: "Înregistrare",
+    nav: { product: "Produs", features: "Funcționalități", workflow: "Cum funcționează", security: "Securitate" },
+  },
+  cs: {
+    tag: "Lékařské diktování hlasem. Data nikdy neopustí vaše nasazení.",
+    cols: [
+      { h: "Produkt", links: [
+        { label: "Scribe", path: "/product/scribe" },
+        { label: "Dictate", path: "/product/dictate" },
+        { label: "Funkce", path: "/features" },
+        { label: "Ceník", path: "/pricing" },
+        { label: "Zabezpečení", path: "/security" },
+      ] },
+      { h: "Společnost", links: [
+        { label: "O nás", path: "/about" },
+        { label: "Kontakt", path: "/contact" },
+        { label: "Kariéra", path: "/careers" },
+        { label: "Blog", path: "/blog" },
+      ] },
+      { h: "Právní informace", links: [
+        { label: "Ochrana soukromí", path: "/legal/privacy" },
+        { label: "Podmínky", path: "/legal/terms" },
+        { label: "Zpracování údajů", path: "/legal/data" },
+        { label: "Souhlas", path: "/legal/consent" },
+      ] },
+      { h: "Pro vývojáře", links: DEV_LINKS.cs },
+    ],
+    rights: "Všechna práva vyhrazena.",
+    signin: "Přihlásit se",
+    start: "Registrovat se",
+    nav: { product: "Produkt", features: "Funkce", workflow: "Jak to funguje", security: "Zabezpečení" },
+  },
+  sr: {
+    tag: "Medicinsko diktiranje glasom. Podaci nikada ne napuštaju vaše okruženje.",
+    cols: [
+      { h: "Proizvod", links: [
+        { label: "Scribe", path: "/product/scribe" },
+        { label: "Dictate", path: "/product/dictate" },
+        { label: "Funkcije", path: "/features" },
+        { label: "Cenovnik", path: "/pricing" },
+        { label: "Bezbednost", path: "/security" },
+      ] },
+      { h: "Kompanija", links: [
+        { label: "O nama", path: "/about" },
+        { label: "Kontakt", path: "/contact" },
+        { label: "Karijera", path: "/careers" },
+        { label: "Blog", path: "/blog" },
+      ] },
+      { h: "Pravne informacije", links: [
+        { label: "Privatnost", path: "/legal/privacy" },
+        { label: "Uslovi korišćenja", path: "/legal/terms" },
+        { label: "Obrada podataka", path: "/legal/data" },
+        { label: "Saglasnost", path: "/legal/consent" },
+      ] },
+      { h: "Za programere", links: DEV_LINKS.sr },
+    ],
+    rights: "Sva prava zadržana.",
+    signin: "Prijava",
+    start: "Registracija",
+    nav: { product: "Proizvod", features: "Funkcije", workflow: "Kako funkcioniše", security: "Bezbednost" },
+  },
+  hu: {
+    tag: "Orvosi diktálás hanggal. Az adatok soha nem hagyják el az Ön környezetét.",
+    cols: [
+      { h: "Termék", links: [
+        { label: "Scribe", path: "/product/scribe" },
+        { label: "Dictate", path: "/product/dictate" },
+        { label: "Funkciók", path: "/features" },
+        { label: "Árak", path: "/pricing" },
+        { label: "Biztonság", path: "/security" },
+      ] },
+      { h: "Vállalat", links: [
+        { label: "Rólunk", path: "/about" },
+        { label: "Kapcsolat", path: "/contact" },
+        { label: "Karrier", path: "/careers" },
+        { label: "Blog", path: "/blog" },
+      ] },
+      { h: "Jogi információk", links: [
+        { label: "Adatvédelem", path: "/legal/privacy" },
+        { label: "Felhasználási feltételek", path: "/legal/terms" },
+        { label: "Adatkezelés", path: "/legal/data" },
+        { label: "Hozzájárulás", path: "/legal/consent" },
+      ] },
+      { h: "Fejlesztőknek", links: DEV_LINKS.hu },
+    ],
+    rights: "Minden jog fenntartva.",
+    signin: "Bejelentkezés",
+    start: "Regisztráció",
+    nav: { product: "Termék", features: "Funkciók", workflow: "Hogyan működik", security: "Biztonság" },
   },
 };
 
@@ -194,7 +521,6 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
   }, []);
 
   const go = (path) => (e) => { e.preventDefault(); setMenuOpen(false); setOpenGroup(null); navigate(path); };
-  const toggleLang = () => setTweak && setTweak("lang", lang === "uk" ? "en" : "uk");
 
   return (
     <div className="lp">
@@ -217,9 +543,19 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
           </nav>
 
           <div className="lp-nav-actions">
-            <button className="lp-lang" onClick={toggleLang} title="Language">
-              {lang === "uk" ? "EN" : "UA"}
-            </button>
+            <label className="lp-lang-select" title="Language">
+              <span aria-hidden="true">{(LANGS.find((l) => l.code === lang) || LANGS[1]).short}</span>
+              <Icon name="chevDown" size={12} />
+              <select
+                aria-label="Language"
+                value={lang}
+                onChange={(e) => setTweak && setTweak("lang", e.target.value)}
+              >
+                {LANGS.map((l) => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
+              </select>
+            </label>
             <a className="btn btn-ghost lp-signin" href="#/login" onClick={go("/login")}>{f.signin}</a>
             <a className="btn btn-primary lp-nav-cta" href="#/signup" onClick={go("/signup")}>{f.start}</a>
             <button className="lp-burger" onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }} aria-label="Menu">

@@ -5,6 +5,7 @@ import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { ForgotPasswordModal } from "../components/ForgotPasswordModal.jsx";
 import { login as apiLogin, me as apiMe } from "../api/endpoints.js";
 import { useAuth } from "../auth/AuthContext.jsx";
+import { tr } from "../i18n.js";
 
 export function LoginPage({ navigate, lang = "en" }) {
   const { setState } = useAuth();
@@ -34,11 +35,11 @@ export function LoginPage({ navigate, lang = "en" }) {
       if (status === 401 && (wwwAuth || "").toLowerCase().includes("mfa")) {
         setMfaToast(true);
       } else if (status === 401) {
-        setError({ status, problem: { title: lang === "uk" ? "Невірний логін" : "Invalid email or password",
-          detail: lang === "uk" ? "Перевірте логін та пароль." : "Check your username and password." } });
+        setError({ status, problem: { title: tr(lang, "Невірний логін", "Invalid email or password"),
+          detail: tr(lang, "Перевірте логін та пароль.", "Check your username and password.") } });
       } else if (status === 423) {
-        setError({ status, problem: { title: lang === "uk" ? "Акаунт заблоковано" : "Account locked",
-          detail: lang === "uk" ? "Забагато спроб. Спробуйте за хвилину." : "Too many failures. Try again in a minute." } });
+        setError({ status, problem: { title: tr(lang, "Акаунт заблоковано", "Account locked"),
+          detail: tr(lang, "Забагато спроб. Спробуйте за хвилину.", "Too many failures. Try again in a minute.") } });
       } else {
         setError(err);
       }
@@ -55,12 +56,12 @@ export function LoginPage({ navigate, lang = "en" }) {
         >
           <Logo size={34} />
         </a>
-        <h1 className="mk-auth-title">{lang === "uk" ? "Вхід" : "Sign in"}</h1>
-        <p className="mk-auth-sub">{lang === "uk" ? "Введіть облікові дані вашого тенанта." : "Use your tenant credentials."}</p>
+        <h1 className="mk-auth-title">{tr(lang, "Вхід", "Sign in")}</h1>
+        <p className="mk-auth-sub">{tr(lang, "Введіть облікові дані вашого тенанта.", "Use your tenant credentials.")}</p>
 
         <form className="mk-auth-form" onSubmit={onSubmit} noValidate>
           <label className="mk-auth-field">
-            <span>{lang === "uk" ? "Електронна пошта" : "Email"}</span>
+            <span>{tr(lang, "Електронна пошта", "Email")}</span>
             <input
               type="email"
               autoComplete="username"
@@ -74,7 +75,7 @@ export function LoginPage({ navigate, lang = "en" }) {
           </label>
 
           <label className="mk-auth-field">
-            <span>{lang === "uk" ? "Пароль" : "Password"}</span>
+            <span>{tr(lang, "Пароль", "Password")}</span>
             <input
               type="password"
               autoComplete="current-password"
@@ -89,7 +90,7 @@ export function LoginPage({ navigate, lang = "en" }) {
           {mfaToast && (
             <div className="login-toast">
               <Icon name="shield" size={14} />
-              <span>{lang === "uk" ? "Потрібна MFA — зверніться до адміна." : "MFA required — contact admin."}</span>
+              <span>{tr(lang, "Потрібна MFA — зверніться до адміна.", "MFA required — contact admin.")}</span>
             </div>
           )}
 
@@ -99,8 +100,8 @@ export function LoginPage({ navigate, lang = "en" }) {
             disabled={phase === "submitting" || !email || !password}
           >
             {phase === "submitting"
-              ? (lang === "uk" ? "Вхід…" : "Signing in…")
-              : (lang === "uk" ? "Увійти" : "Sign in")}
+              ? (tr(lang, "Вхід…", "Signing in…"))
+              : (tr(lang, "Увійти", "Sign in"))}
           </button>
 
           <div className="mk-auth-foot">
@@ -109,19 +110,19 @@ export function LoginPage({ navigate, lang = "en" }) {
               href="#"
               onClick={(e) => { e.preventDefault(); setForgotOpen(true); }}
             >
-              {lang === "uk" ? "Забули пароль?" : "Forgot password?"}
+              {tr(lang, "Забули пароль?", "Forgot password?")}
             </a>
           </div>
         </form>
 
         <div className="mk-auth-foot">
-          <span>{lang === "uk" ? "Немає акаунту?" : "No account?"}</span>
+          <span>{tr(lang, "Немає акаунту?", "No account?")}</span>
           <a
             className="mk-auth-link"
             href="#/signup"
             onClick={(e) => { e.preventDefault(); navigate("/signup"); }}
           >
-            {lang === "uk" ? "Реєстрація" : "Sign up"}
+            {tr(lang, "Реєстрація", "Sign up")}
           </a>
         </div>
       </div>

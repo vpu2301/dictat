@@ -6,17 +6,17 @@ import { MarketingShell } from "./marketing/MarketingShell.jsx";
 import { listPosts } from "./marketing/blog.js";
 
 export function BlogPage({ navigate, lang = "en", tweaks, setTweak }) {
-  const uk = lang === "uk";
+  const L = (m) => m[lang] ?? m.en;
   const posts = listPosts(lang);
   const go = (path) => (e) => { e.preventDefault(); navigate(path); };
 
   return (
     <MarketingShell navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak}>
       <section className="mk-hero">
-        <span className="lp-eyebrow">{uk ? "Блог" : "Blog"}</span>
-        <h1 className="mk-hero-title">{uk ? "Ідеї, оновлення та дослідження" : "Ideas, updates and research"}</h1>
+        <span className="lp-eyebrow">{L({ uk: "Блог", en: "Blog", pl: "Blog", de: "Blog", ro: "Blog", cs: "Blog", sr: "Blog", hu: "Blog" })}</span>
+        <h1 className="mk-hero-title">{L({ uk: "Ідеї, оновлення та дослідження", en: "Ideas, updates and research", pl: "Pomysły, aktualności i badania", de: "Ideen, Updates und Forschung", ro: "Idei, noutăți și cercetare", cs: "Nápady, novinky a výzkum", sr: "Ideje, novosti i istraživanja", hu: "Ötletek, hírek és kutatás" })}</h1>
         <p className="mk-hero-sub">
-          {uk ? "Як ми будуємо голосову документацію для медицини — без води." : "How we build voice documentation for healthcare — no fluff."}
+          {L({ uk: "Як ми будуємо голосову документацію для медицини — без води.", en: "How we build voice documentation for healthcare — no fluff.", pl: "Jak budujemy głosową dokumentację dla medycyny — bez lania wody.", de: "Wie wir Sprachdokumentation für das Gesundheitswesen bauen — ohne Floskeln.", ro: "Cum construim documentația vocală pentru medicină — fără vorbe goale.", cs: "Jak stavíme hlasovou dokumentaci pro zdravotnictví — bez omáčky.", sr: "Kako gradimo glasovnu dokumentaciju za zdravstvo — bez praznih priča.", hu: "Így építünk hangalapú dokumentációt az egészségügynek — üres szavak nélkül." })}
         </p>
       </section>
 
@@ -31,7 +31,7 @@ export function BlogPage({ navigate, lang = "en", tweaks, setTweak }) {
               </div>
               <div className="mk-post-meta">
                 <span>{p.date}</span><span>·</span><span>{p.read}</span>
-                <span className="mk-post-arrow">{uk ? "Читати" : "Read"} <Icon name="arrowRight" size={14} /></span>
+                <span className="mk-post-arrow">{L({ uk: "Читати", en: "Read", pl: "Czytaj", de: "Lesen", ro: "Citește", cs: "Číst", sr: "Pročitaj", hu: "Olvasás" })} <Icon name="arrowRight" size={14} /></span>
               </div>
             </a>
           ))}

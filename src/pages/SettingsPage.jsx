@@ -9,6 +9,8 @@
 // placeholders awaiting their API.
 import React from "react";
 import { Icon } from "../components/UI.jsx";
+import { MenuSelect } from "../components/MenuSelect.jsx";
+import { LANGS , tr } from "../i18n.js";
 
 // ── Section registry (drives both the side nav and the rendered order) ────────
 const SECTIONS = [
@@ -71,21 +73,13 @@ function Row({ label, hint, children }) {
 }
 
 // ── Reusable controls ─────────────────────────────────────────────────────────
+// Multi-option pickers are dropdowns (MenuSelect); binary on/off settings stay
+// switches.
 function Seg({ value, options, onChange }) {
-  return (
-    <div className="seg">
-      {options.map((o) => {
-        const v = typeof o === "object" ? o.v : o;
-        const label = typeof o === "object" ? o.l : o;
-        const ic = typeof o === "object" ? o.icon : null;
-        return (
-          <button key={v} className={"seg-btn " + (value === v ? "on" : "")} onClick={() => onChange(v)}>
-            {ic && <Icon name={ic} size={12} />} {label}
-          </button>
-        );
-      })}
-    </div>
-  );
+  const opts = options.map((o) => (
+    typeof o === "object" ? { value: o.v, label: o.l } : { value: o, label: o }
+  ));
+  return <MenuSelect value={value} options={opts} onChange={onChange} />;
 }
 
 function Toggle({ on, onChange, label }) {
@@ -112,7 +106,7 @@ function SoonBtn({ children }) {
 }
 
 export function SettingsPage({ lang = "en", tweaks, setTweak }) {
-  const T = (uk, en) => (lang === "uk" ? uk : en);
+  const T = (uk, en) => tr(lang, uk, en);
   const ids = SECTIONS.map((s) => s.id);
   const [active, setActive] = useScrollSpy(ids);
 
@@ -171,7 +165,7 @@ export function SettingsPage({ lang = "en", tweaks, setTweak }) {
           <Section id="language" icon="layers" title={T("Мова та регіон", "Language & region")}>
             <Row label={T("Мова інтерфейсу", "UI language")}>
               <Seg value={tweaks.lang} onChange={(v) => setTweak("lang", v)}
-                options={[{ v: "uk", l: "Українська" }, { v: "en", l: "English" }]} />
+                options={LANGS.map((l) => ({ v: l.code, l: l.label }))} />
             </Row>
             <Row label={T("Мова диктування", "Dictation language")} hint={T("Мова за замовчуванням для розпізнавання", "Default language for recognition")}>
               <Seg value={g("dictLang", "auto")} onChange={(v) => setTweak("dictLang", v)}

@@ -12,6 +12,7 @@
 
 import React from "react";
 import { Icon } from "./UI.jsx";
+import { tr } from "../i18n.js";
 
 // First, last, and a small window around the current page, with ellipses.
 function pageWindow(page, pageCount, around = 1) {
@@ -50,9 +51,9 @@ export function Pagination({
   // the pager if it carries a page-size selector the user can act on.
   if (numbered && pageCount <= 1 && !canNext && !canPrev && !showSizer) return null;
 
-  const prevLabel = lang === "uk" ? "Назад" : "Prev";
-  const nextLabel = lang === "uk" ? "Далі" : "Next";
-  const perPageLabel = lang === "uk" ? "На сторінці" : "Per page";
+  const prevLabel = tr(lang, "Назад", "Prev");
+  const nextLabel = tr(lang, "Далі", "Next");
+  const perPageLabel = tr(lang, "На сторінці", "Per page");
 
   let rangeHint = null;
   if (total != null && pageSize) {
@@ -62,7 +63,7 @@ export function Pagination({
   }
 
   return (
-    <nav className="pager" aria-label={lang === "uk" ? "Пагінація" : "Pagination"}>
+    <nav className="pager" aria-label={tr(lang, "Пагінація", "Pagination")}>
       <button className="btn pager-arrow" onClick={onPrev} disabled={!canPrev}>
         <Icon name="chevLeft" size={13} />
         <span>{prevLabel}</span>
@@ -89,7 +90,7 @@ export function Pagination({
       ) : (
         <span className="pager-label">
           {loading
-            ? (lang === "uk" ? "Завантаження…" : "Loading…")
+            ? (tr(lang, "Завантаження…", "Loading…"))
             : (lang === "uk" ? `Сторінка ${page}` : `Page ${page}`)}
         </span>
       )}

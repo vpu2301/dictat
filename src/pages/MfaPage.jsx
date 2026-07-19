@@ -6,6 +6,7 @@
 import React, { useRef, useState } from "react";
 import { Icon } from "../components/UI.jsx";
 import { FEATURES } from "../api/services.js";
+import { tr } from "../i18n.js";
 
 export function MfaPage({ lang = "en" }) {
   const [digits, setDigits] = useState(["", "", "", "", "", ""]);
@@ -34,23 +35,19 @@ export function MfaPage({ lang = "en" }) {
       <div className="page">
         <div className="page-h">
           <div>
-            <h1>{lang === "uk" ? "Двофакторна автентифікація" : "Multi-factor authentication"}</h1>
+            <h1>{tr(lang, "Двофакторна автентифікація", "Multi-factor authentication")}</h1>
             <div className="muted" style={{ marginTop: 4 }}>
-              {lang === "uk"
-                ? "MFA наразі не вимагається. Підключення TOTP заплановане на спринт 16."
-                : "MFA is not required yet. TOTP enrolment ships in sprint 16."}
+              {tr(lang, "MFA наразі не вимагається. Підключення TOTP заплановане на спринт 16.", "MFA is not required yet. TOTP enrolment ships in sprint 16.")}
             </div>
           </div>
         </div>
         <div className="card" style={{ padding: 16, maxWidth: 480 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <Icon name="shield" size={14} />
-            <strong>{lang === "uk" ? "Готовий каркас" : "Scaffold only"}</strong>
+            <strong>{tr(lang, "Готовий каркас", "Scaffold only")}</strong>
           </div>
           <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.5 }}>
-            {lang === "uk"
-              ? "Бекенд ще не випустив ендпоінти /auth/mfa/{enroll,verify,...}. Поле нижче готове до підключення; коли бекенд увімкне MDX_REQUIRE_MFA, перемикач функцій активує цю форму."
-              : "Backend has not shipped /auth/mfa/{enroll,verify,...} yet. The field below is wired up; flipping VITE_FEAT_MFA_ENROLMENT (and the matching MDX_REQUIRE_MFA on the backend) will activate the form."}
+            {tr(lang, "Бекенд ще не випустив ендпоінти /auth/mfa/{enroll,verify,...}. Поле нижче готове до підключення; коли бекенд увімкне MDX_REQUIRE_MFA, перемикач функцій активує цю форму.", "Backend has not shipped /auth/mfa/{enroll,verify,...} yet. The field below is wired up; flipping VITE_FEAT_MFA_ENROLMENT (and the matching MDX_REQUIRE_MFA on the backend) will activate the form.")}
           </p>
           <div className="mfa-row" style={{ display: "flex", gap: 8, marginTop: 12 }} onPaste={onPaste}>
             {digits.map((d, i) => (
@@ -80,7 +77,7 @@ export function MfaPage({ lang = "en" }) {
   // this branch with the real verify call.
   return (
     <div className="page">
-      <div className="page-h"><h1>{lang === "uk" ? "Підтвердьте код" : "Verify code"}</h1></div>
+      <div className="page-h"><h1>{tr(lang, "Підтвердьте код", "Verify code")}</h1></div>
       <div className="card" style={{ padding: 16, maxWidth: 480 }}>
         <div style={{ display: "flex", gap: 8 }} onPaste={onPaste}>
           {digits.map((d, i) => (

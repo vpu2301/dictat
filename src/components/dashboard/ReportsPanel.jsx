@@ -6,6 +6,7 @@ import { useAsync } from "../../api/useAsync.js";
 import { fetchReportStats, REPORT_STATUSES } from "../../api/dashboard.js";
 import { Panel, PanelState } from "./Panel.jsx";
 import { StatusBreakdown } from "./StatusBreakdown.jsx";
+import { tr } from "../../i18n.js";
 
 const STATUS_COLORS = {
   draft: "#9ca3af",
@@ -16,7 +17,7 @@ const STATUS_COLORS = {
 };
 
 export function ReportsPanel({ lang, rangeDays, navigate }) {
-  const T = (uk, en) => (lang === "uk" ? uk : en);
+  const T = (uk, en) => tr(lang, uk, en);
   const req = useAsync(() => fetchReportStats(rangeDays), [rangeDays]);
   const data = req.data;
 
@@ -88,5 +89,5 @@ function fmtWhen(v, lang) {
   if (!v) return "";
   const d = new Date(v);
   if (isNaN(d)) return "";
-  return d.toLocaleDateString(lang === "uk" ? "uk-UA" : "en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString(tr(lang, "uk-UA", "en-US"), { month: "short", day: "numeric" });
 }

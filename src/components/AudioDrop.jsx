@@ -2,6 +2,7 @@
 // no validation of the encrypted envelope (that's a backend concern, ADR-0011).
 import React, { useRef, useState } from "react";
 import { Icon } from "./UI.jsx";
+import { tr } from "../i18n.js";
 
 const ACCEPT = "audio/*";
 
@@ -51,7 +52,7 @@ export function AudioDrop({ file, onFile, disabled, lang = "en" }) {
         <>
           <div className="audio-drop-name">{file.name}</div>
           <div className="audio-drop-meta">
-            {fmtBytes(file.size)} · {file.type || (lang === "uk" ? "невідомий тип" : "unknown type")}
+            {fmtBytes(file.size)} · {file.type || (tr(lang, "невідомий тип", "unknown type"))}
           </div>
           <button
             type="button"
@@ -59,16 +60,16 @@ export function AudioDrop({ file, onFile, disabled, lang = "en" }) {
             onClick={(e) => { e.stopPropagation(); onFile(null); }}
             disabled={disabled}
           >
-            {lang === "uk" ? "Прибрати" : "Remove"}
+            {tr(lang, "Прибрати", "Remove")}
           </button>
         </>
       ) : (
         <>
           <div className="audio-drop-title">
-            {lang === "uk" ? "Перетягніть аудіо або натисніть" : "Drop audio here or click to pick"}
+            {tr(lang, "Перетягніть аудіо або натисніть", "Drop audio here or click to pick")}
           </div>
           <div className="audio-drop-meta">
-            {lang === "uk" ? "WAV, FLAC, MP3, OGG, WebM …" : "WAV, FLAC, MP3, OGG, WebM …"}
+            {tr(lang, "WAV, FLAC, MP3, OGG, WebM …", "WAV, FLAC, MP3, OGG, WebM …")}
           </div>
         </>
       )}

@@ -481,20 +481,64 @@ del.diff-delete {
 }
 
 /* Autocomplete settings panel */
-.autocomplete-settings {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+/* Collapsible container — reuses .cmd-ref (voice-commands) card + summary so
+   the header/chevron are visually identical. Spacing comes from the rail's
+   flex `gap` (.right-pad), so no extra margin here — matches card-to-card. */
+.autocomplete-settings > .ac-body {
+  padding: 6px 8px 10px;
+  border-top: 1px solid var(--line-2, var(--line));
 }
 
 .setting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 4px;
+  padding: 5px 4px;
   font-size: 13px;
   gap: 12px;
 }
+.setting-row .toggle:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Sensitivity — percentage badge + modern filled slider. */
+.ac-sens-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+.ac-sens-val {
+  font-size: 12px; font-weight: 600; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 999px; padding: 1px 8px; min-width: 40px; text-align: center;
+}
+.ac-sens-val.off { color: var(--muted); background: var(--surface-2); }
+
+/* The track is a two-tone fill: accent up to the thumb (--ac-fill), line after.
+   Modern flat thumb with an accent ring that lifts on hover/active. */
+.ac-range {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 6px; margin: 8px 0 8px;
+  border-radius: 999px; cursor: pointer;
+  background: linear-gradient(to right,
+    var(--accent) 0, var(--accent) var(--ac-fill, 50%),
+    var(--line) var(--ac-fill, 50%), var(--line) 100%);
+}
+.ac-range:disabled { cursor: not-allowed; background: var(--line); opacity: .55; }
+.ac-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--surface); border: 4px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(15,23,42,.28);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.ac-range::-webkit-slider-thumb:hover { transform: scale(1.12); }
+.ac-range:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.ac-range::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--surface); border: 4px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(15,23,42,.28);
+}
+.ac-range::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--accent); }
+.ac-range::-moz-range-track { height: 6px; border-radius: 999px; background: var(--line); }
+.ac-range-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 2px; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    Sprint 09 — Public Verification Page (/verify/:id)
@@ -639,46 +683,24 @@ del.diff-delete {
 .studio-footer .sf-progress { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* ── Patient gate (select a patient before dictating) ─────────────────── */
+/* ── Studio patient picker — a standard list page (like the Patients roster)
+   hosted inside the Studio grid. `.patient-gate` just spans all columns and
+   scrolls; `.page`/`.ptable` inside supply the shared list-page styling. ── */
 .patient-gate {
   grid-column: 1 / -1;
-  display: flex; align-items: flex-start; justify-content: center;
-  padding: 64px 24px; overflow-y: auto; min-height: 0;
+  overflow-y: auto; min-height: 0;
   background: var(--bg);
 }
-.patient-gate-card {
-  width: 100%; max-width: 440px;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  background: var(--surface);
-  border: 1px solid var(--line); border-radius: 14px;
-  padding: 28px 24px;
-  box-shadow: 0 8px 30px rgba(15,23,42,0.06);
-  text-align: center;
+/* Picker table: Patient · MRN · Age/Sex · chevron (4 cols, no tags/last-visit
+   the roster shows — the gate only needs enough to identify + pick). */
+.patient-pick-list.ptable-head,
+.patient-pick-list .ptable-head,
+.patient-pick-list .ptable-row {
+  grid-template-columns: 2.4fr 1.2fr 1fr 30px;
 }
-.patient-gate-icon {
-  width: 48px; height: 48px; border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent); margin-bottom: 4px;
-}
-.patient-gate-card h2 { margin: 0; font-size: 18px; }
-.patient-gate-card > p { margin: 0 0 4px; font-size: 13px; line-height: 1.45; }
-.patient-gate-list {
-  width: 100%; margin-top: 8px;
-  display: flex; flex-direction: column; gap: 2px;
-  max-height: 340px; overflow-y: auto;
-}
-.patient-gate-row {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 8px 10px;
-  background: transparent; border: 1px solid transparent; border-radius: 10px;
-  cursor: pointer; text-align: left; transition: background .12s, border-color .12s;
-}
-.patient-gate-row:hover, .patient-gate-row:focus-visible {
-  background: var(--bg); border-color: var(--line); outline: none;
-}
-.patient-gate-row-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.patient-gate-row-name { font-size: 13.5px; font-weight: 500; }
-.patient-gate-row-sub { font-size: 11.5px; }
+/* The roster tints each avatar inline; the gate keeps a single accent fill so
+   the white initials stay visible (.pavatar sets color:white, no background). */
+.patient-pick-list .pavatar { background: var(--accent); }
 
 /* ── Written-report preview modal ─────────────────────────────────────── */
 .report-preview-overlay {
@@ -693,29 +715,28 @@ del.diff-delete {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 14px;
-  width: 100%; max-width: 760px; max-height: 92vh;
+  width: 100%; max-width: 780px; max-height: 90vh;
   display: flex; flex-direction: column;
   box-shadow: var(--shadow-3);
   overflow: hidden;
 }
 .report-preview-head {
   display: flex; align-items: center; gap: 10px;
-  padding: 14px 18px;
+  padding: 16px 26px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 .report-preview-head-l { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; }
-.report-preview-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.report-preview-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+/* One clean frame: the document flows directly in the scrolling body with
+   consistent padding — no bordered "paper" card floating in a grey gutter. */
 .report-preview-body {
   flex: 1; min-height: 0; overflow-y: auto;
-  padding: 24px; background: var(--bg);
+  padding: 22px 26px 26px; background: var(--surface);
 }
 .report-preview-doc {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 30px 34px;
-  max-width: 640px; margin: 0 auto;
+  background: transparent; border: 0; border-radius: 0;
+  padding: 0; max-width: none; margin: 0;
 }
 .rp-draft-ribbon {
   display: inline-flex; align-items: center; gap: 7px;
@@ -749,8 +770,9 @@ del.diff-delete {
 }
 .report-preview-foot {
   display: flex; align-items: center; gap: 8px;
-  padding: 12px 18px;
+  padding: 14px 26px;
   border-top: 1px solid var(--line);
+  background: var(--surface-2);
   flex-shrink: 0;
 }
 .rp-foot-err { font-size: 12px; color: var(--rec); }
@@ -886,6 +908,62 @@ del.diff-delete {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 @media (max-width: 640px) { .cmd-grid { grid-template-columns: 1fr; } }
+
+/* Template picker modal — mirrors the voice-commands modal (2-col grid of
+   hoverable cards). A bounded flex column: header, toolbar and footer stay
+   put; only the grid scrolls, so the footer never overlaps the last cards. */
+.modal.tplpick-modal {
+  max-width: 760px;
+  display: flex; flex-direction: column;
+  max-height: min(86vh, 840px);
+}
+.tplpick-modal .cmd-modal-h { flex: none; padding: 18px 22px 0; }
+.tplpick-toolbar {
+  flex: none;
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 22px;
+}
+.tplpick-toolbar .search-input { min-width: 0; }
+.tplpick-modal .cmd-modal-body {
+  flex: 1 1 auto; min-height: 0; max-height: none;
+  overflow-y: auto;
+  padding: 2px 22px 18px;
+}
+.tplpick-modal .modal-foot { flex: none; padding: 14px 22px; }
+.tplpick-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.tplpick-item {
+  display: flex; align-items: stretch; gap: 2px;
+  border: 1px solid var(--line); border-radius: 10px;
+  overflow: hidden; transition: border-color .12s, box-shadow .12s;
+}
+.tplpick-item:hover { border-color: var(--accent); box-shadow: 0 4px 14px rgba(15,23,42,.07); }
+.tplpick-item.active { border-color: var(--accent); background: var(--accent-soft, rgba(10,138,122,.06)); }
+.tplpick-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 11px;
+  padding: 11px 12px; text-align: left; background: transparent; border: 0; cursor: pointer;
+}
+.tplpick-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tplpick-name {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 600; color: var(--text-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tplpick-meta {
+  font-size: 12px; color: var(--muted); font-family: var(--mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tplpick-item .tpl-option-star {
+  flex: none; width: 40px; align-self: stretch;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--muted); cursor: pointer; background: transparent; border: 0;
+  border-left: 1px solid var(--line-2);
+}
+.tplpick-item .tpl-option-star:hover { background: var(--surface-2); color: var(--accent); }
+.tplpick-item .tpl-option-star.on { color: var(--accent); }
+@media (max-width: 640px) { .tplpick-grid { grid-template-columns: 1fr; } }
 
 /* ── Dictation insertion-point indicator ──────────────────────────────── */
 /* While the mic is listening, a blinking caret marks the exact spot the

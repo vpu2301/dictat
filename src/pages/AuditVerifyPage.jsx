@@ -4,6 +4,7 @@ import { Icon } from "../components/UI.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { JsonViewer } from "../components/JsonViewer.jsx";
 import { verifyAuditChain } from "../api/endpoints.js";
+import { tr } from "../i18n.js";
 
 export function AuditVerifyPage({ lang = "en" }) {
   const [form, setForm] = useState({ from_seq: 1, to_seq: "" });
@@ -41,8 +42,8 @@ export function AuditVerifyPage({ lang = "en" }) {
     <div className="page audit-verify">
       <div className="page-h">
         <div>
-          <h1>{lang === "uk" ? "Перевірка ланцюга аудиту" : "Verify audit chain"}</h1>
-          <p className="muted">{lang === "uk" ? "Запустити прохід по ланцюгу для виявлення розривів." : "Walk the hash chain to detect divergence."}</p>
+          <h1>{tr(lang, "Перевірка ланцюга аудиту", "Verify audit chain")}</h1>
+          <p className="muted">{tr(lang, "Запустити прохід по ланцюгу для виявлення розривів.", "Walk the hash chain to detect divergence.")}</p>
         </div>
       </div>
 
@@ -53,10 +54,10 @@ export function AuditVerifyPage({ lang = "en" }) {
         </label>
         <label>
           <span>to_seq</span>
-          <input type="number" value={form.to_seq} onChange={(e) => setForm({ ...form, to_seq: e.target.value })} placeholder={lang === "uk" ? "до кінця" : "to end"} />
+          <input type="number" value={form.to_seq} onChange={(e) => setForm({ ...form, to_seq: e.target.value })} placeholder={tr(lang, "до кінця", "to end")} />
         </label>
         <button className="btn btn-primary" type="submit" disabled={running}>
-          {running ? "…" : (lang === "uk" ? "Запустити" : "Run verification")}
+          {running ? "…" : (tr(lang, "Запустити", "Run verification"))}
         </button>
       </form>
 
@@ -67,14 +68,14 @@ export function AuditVerifyPage({ lang = "en" }) {
           <header>
             {result.ok ? (
               <><Icon name="check" size={28} /><div>
-                <strong>{lang === "uk" ? "Підтверджено" : "Verified"}</strong>
+                <strong>{tr(lang, "Підтверджено", "Verified")}</strong>
                 <p>{lang === "uk"
                   ? `${result.events_checked} подій перевірено; останній seq ${result.last_seq}.`
                   : `${result.events_checked} events; last seq ${result.last_seq}.`}</p>
               </div></>
             ) : (
               <><Icon name="x" size={28} /><div>
-                <strong>{lang === "uk" ? "Виявлено розрив" : "Divergence detected"}</strong>
+                <strong>{tr(lang, "Виявлено розрив", "Divergence detected")}</strong>
                 <p>{lang === "uk"
                   ? `seq ${result.first_divergence_seq} — ${result.divergence_reason}`
                   : `seq ${result.first_divergence_seq} — ${result.divergence_reason}`}</p>
@@ -100,7 +101,7 @@ export function AuditVerifyPage({ lang = "en" }) {
           </div>
 
           <details>
-            <summary>{lang === "uk" ? "Сирий результат" : "Raw response"}</summary>
+            <summary>{tr(lang, "Сирий результат", "Raw response")}</summary>
             <JsonViewer value={result} />
           </details>
         </section>

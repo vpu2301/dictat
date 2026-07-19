@@ -7,7 +7,7 @@ import { MarketingShell } from "./marketing/MarketingShell.jsx";
 import { getPost, listPosts } from "./marketing/blog.js";
 
 export function BlogPostPage({ slug, navigate, lang = "en", tweaks, setTweak }) {
-  const uk = lang === "uk";
+  const L = (m) => m[lang] ?? m.en;
   const post = getPost(slug, lang);
   const go = (path) => (e) => { e.preventDefault(); navigate(path); };
 
@@ -15,9 +15,9 @@ export function BlogPostPage({ slug, navigate, lang = "en", tweaks, setTweak }) 
     return (
       <MarketingShell navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak}>
         <section className="mk-hero">
-          <h1 className="mk-hero-title">{uk ? "Статтю не знайдено" : "Article not found"}</h1>
+          <h1 className="mk-hero-title">{L({ uk: "Статтю не знайдено", en: "Article not found", pl: "Nie znaleziono artykułu", de: "Artikel nicht gefunden", ro: "Articolul nu a fost găsit", cs: "Článek nenalezen", sr: "Članak nije pronađen", hu: "A cikk nem található" })}</h1>
           <p className="mk-hero-sub">
-            <a className="mk-auth-link" href="#/blog" onClick={go("/blog")}>{uk ? "← До блогу" : "← Back to blog"}</a>
+            <a className="mk-auth-link" href="#/blog" onClick={go("/blog")}>{L({ uk: "← До блогу", en: "← Back to blog", pl: "← Wróć do bloga", de: "← Zurück zum Blog", ro: "← Înapoi la blog", cs: "← Zpět na blog", sr: "← Nazad na blog", hu: "← Vissza a bloghoz" })}</a>
           </p>
         </section>
       </MarketingShell>
@@ -31,7 +31,7 @@ export function BlogPostPage({ slug, navigate, lang = "en", tweaks, setTweak }) 
     <MarketingShell navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak}>
       <article className="mk-article">
         <a className="mk-auth-back is-top mk-article-back" href="#/blog" onClick={go("/blog")}>
-          <Icon name="arrowLeft" size={16} /> {uk ? "Блог" : "Blog"}
+          <Icon name="arrowLeft" size={16} /> {L({ uk: "Блог", en: "Blog", pl: "Blog", de: "Blog", ro: "Blog", cs: "Blog", sr: "Blog", hu: "Blog" })}
         </a>
 
         <header className="mk-article-head">
@@ -51,7 +51,7 @@ export function BlogPostPage({ slug, navigate, lang = "en", tweaks, setTweak }) 
       </article>
 
       <section className="mk-section">
-        <div className="lp-head"><h2 className="lp-h2">{uk ? "Читати далі" : "Read next"}</h2></div>
+        <div className="lp-head"><h2 className="lp-h2">{L({ uk: "Читати далі", en: "Read next", pl: "Czytaj dalej", de: "Weiterlesen", ro: "Citiți în continuare", cs: "Čtěte dále", sr: "Čitajte dalje", hu: "Olvasson tovább" })}</h2></div>
         <div className="mk-posts">
           {others.map((p) => (
             <a className="mk-post mk-post-link" href={`#/blog/${p.slug}`} onClick={go(`/blog/${p.slug}`)} key={p.slug}>
@@ -62,7 +62,7 @@ export function BlogPostPage({ slug, navigate, lang = "en", tweaks, setTweak }) 
               </div>
               <div className="mk-post-meta">
                 <span>{p.date}</span><span>·</span><span>{p.read}</span>
-                <span className="mk-post-arrow">{uk ? "Читати" : "Read"} <Icon name="arrowRight" size={14} /></span>
+                <span className="mk-post-arrow">{L({ uk: "Читати", en: "Read", pl: "Czytaj", de: "Lesen", ro: "Citește", cs: "Číst", sr: "Pročitaj", hu: "Olvasás" })} <Icon name="arrowRight" size={14} /></span>
               </div>
             </a>
           ))}

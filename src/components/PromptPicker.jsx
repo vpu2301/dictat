@@ -5,7 +5,9 @@
 // returns no prompts.
 import React, { useEffect, useMemo, useState } from "react";
 import { Icon } from "./UI.jsx";
+import { MenuSelect } from "./MenuSelect.jsx";
 import { listPrompts } from "../api/asr.js";
+import { tr } from "../i18n.js";
 
 const SPECIALTY_LABELS = {
   cardiology:       { uk: "Кардіологія",        en: "Cardiology" },
@@ -44,9 +46,9 @@ export function PromptPicker({ value, onChange, language, lang = "en", disabled 
     return () => { cancelled = true; };
   }, []);
 
-  // Filter by selected language; if language unset, show all.
+  // Filter by selected language; "auto" (or unset) shows every language.
   const filtered = useMemo(() => {
-    if (!language) return prompts;
+    if (!language || language === "auto") return prompts;
     return prompts.filter((p) => p.language === language);
   }, [prompts, language]);
 
@@ -57,31 +59,31 @@ export function PromptPicker({ value, onChange, language, lang = "en", disabled 
     // eslint-disable-next-line
   }, [language, prompts]);
 
+  const options = useMemo(() => filtered.map((p) => ({
+    value: p.id,
+    label: labelFor(p, lang),
+    sub: p.is_default ? undefined : p.id.slice(0, 6),
+  })), [filtered, lang]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <select
-        className="select"
+      <MenuSelect
+        block
+        icon="bot"
         value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
+        options={options}
+        onChange={onChange}
         disabled={disabled || loading}
-        style={{ width: "100%" }}
-      >
-        <option value="" disabled>
-          {loading
-            ? (lang === "uk" ? "Завантаження…" : "Loading prompts…")
-            : (lang === "uk" ? "Оберіть напрям" : "Choose specialty")}
-        </option>
-        {filtered.map((p) => (
-          <option key={p.id} value={p.id}>
-            {labelFor(p, lang)}{p.is_default ? "" : ` · ${p.id.slice(0, 6)}`}
-          </option>
-        ))}
-      </select>
+        ariaLabel={tr(lang, "Напрям транскрипції", "Transcription specialty")}
+        placeholder={loading
+          ? tr(lang, "Завантаження…", "Loading prompts…")
+          : tr(lang, "Оберіть напрям", "Choose specialty")}
+      />
 
       {error && (
         <div className="asr-banner asr-banner-err" role="alert">
           <Icon name="x" size={13} />
-          <span>{error.message || (lang === "uk" ? "Не вдалося завантажити" : "Could not load prompts")}</span>
+          <span>{error.message || (tr(lang, "Не вдалося завантажити", "Could not load prompts"))}</span>
         </div>
       )}
 
@@ -89,9 +91,7 @@ export function PromptPicker({ value, onChange, language, lang = "en", disabled 
         <div className="asr-banner asr-banner-warn" role="status">
           <Icon name="help" size={13} />
           <span>
-            {lang === "uk"
-              ? "Немає доступних напрямів транскрипції."
-              : "No transcription prompts available."}
+            {tr(lang, "Немає доступних напрямів транскрипції.", "No transcription prompts available.")}
           </span>
         </div>
       )}

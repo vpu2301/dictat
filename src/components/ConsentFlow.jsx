@@ -5,6 +5,7 @@ import { useAsync } from '../api/useAsync.js';
 import { getPatient } from '../api/patients.js';
 import { recordConsent } from '../api/consents.js';
 import { requestMic, startCapture } from '../dictation/audioPipeline.js';
+import { tr } from "../i18n.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,27 +79,25 @@ function VerbalConsentRecorder({ lang, onGrant, onCancel }) {
   return (
     <div className="verbal-recorder">
       <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text-1)" }}>
-        {lang === "uk" ? "Вербальна згода" : "Verbal consent"}
+        {tr(lang, "Вербальна згода", "Verbal consent")}
       </div>
 
       {state === "idle" && (
         <>
           <div className="vr-status">
-            {lang === "uk"
-              ? "Натисніть кнопку та зафіксуйте усну згоду пацієнта"
-              : "Press the button to record the patient's verbal consent"}
+            {tr(lang, "Натисніть кнопку та зафіксуйте усну згоду пацієнта", "Press the button to record the patient's verbal consent")}
           </div>
           <button className="btn accent" style={{ padding: "10px 24px" }} onClick={startRecording}>
-            <Icon name="mic" size={15} /> {lang === "uk" ? "Почати запис" : "Start recording"}
+            <Icon name="mic" size={15} /> {tr(lang, "Почати запис", "Start recording")}
           </button>
         </>
       )}
 
       {state === "error" && (
         <div className="vr-status" style={{ color: "var(--rec)" }}>
-          {lang === "uk" ? "Немає доступу до мікрофона." : "Microphone access denied."}
+          {tr(lang, "Немає доступу до мікрофона.", "Microphone access denied.")}
           <button className="btn sm" style={{ marginLeft: 8 }} onClick={() => setState("idle")}>
-            {lang === "uk" ? "Спробувати ще" : "Try again"}
+            {tr(lang, "Спробувати ще", "Try again")}
           </button>
         </div>
       )}
@@ -110,11 +109,11 @@ function VerbalConsentRecorder({ lang, onGrant, onCancel }) {
           </div>
           <div className="vr-status" style={{ color: "var(--rec)" }}>
             <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--rec)", marginRight: 6, animation: "recPulse 1.4s ease-in-out infinite" }} />
-            {lang === "uk" ? "Запис…" : "Recording…"} {fmtDur(elapsed)}
+            {tr(lang, "Запис…", "Recording…")} {fmtDur(elapsed)}
           </div>
           <div className="vr-actions">
             <button className="btn sm" onClick={stopRecording}>
-              <Icon name="stop" size={12} /> {lang === "uk" ? "Зупинити" : "Stop"}
+              <Icon name="stop" size={12} /> {tr(lang, "Зупинити", "Stop")}
             </button>
           </div>
         </>
@@ -123,24 +122,24 @@ function VerbalConsentRecorder({ lang, onGrant, onCancel }) {
       {state === "done" && (
         <>
           <div style={{ color: "var(--ok,#047857)", display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 500 }}>
-            <Icon name="check" size={16} /> {lang === "uk" ? "Вербальна згода зафіксована" : "Verbal consent recorded"}
+            <Icon name="check" size={16} /> {tr(lang, "Вербальна згода зафіксована", "Verbal consent recorded")}
           </div>
           <div style={{ fontSize: 12, color: "var(--muted)" }}>
-            {fmtDur(elapsed)} {lang === "uk" ? "тривалість запису" : "recording length"}
+            {fmtDur(elapsed)} {tr(lang, "тривалість запису", "recording length")}
           </div>
           <div className="vr-actions">
             <button className="btn ghost sm" onClick={() => { setState("idle"); setElapsed(0); }}>
-              {lang === "uk" ? "Повторити" : "Re-record"}
+              {tr(lang, "Повторити", "Re-record")}
             </button>
             <button className="btn accent" disabled={busy} onClick={grant}>
-              <Icon name="check" size={13} /> {lang === "uk" ? "Підтвердити згоду" : "Confirm consent"}
+              <Icon name="check" size={13} /> {tr(lang, "Підтвердити згоду", "Confirm consent")}
             </button>
           </div>
         </>
       )}
 
       <button className="btn ghost sm" style={{ alignSelf: "flex-end" }} onClick={onCancel}>
-        {lang === "uk" ? "Скасувати" : "Cancel"}
+        {tr(lang, "Скасувати", "Cancel")}
       </button>
     </div>
   );
@@ -161,19 +160,17 @@ function KioskTapConsent({ lang, onGrant, onCancel }) {
     <div className="kiosk-consent">
       <div className="kiosk-icon"><Icon name="user" size={28} /></div>
       <div className="kiosk-title">
-        {lang === "uk" ? "Пацієнт, торкніться кнопки" : "Patient, tap the button below"}
+        {tr(lang, "Пацієнт, торкніться кнопки", "Patient, tap the button below")}
       </div>
       <div className="kiosk-body">
-        {lang === "uk"
-          ? "Торкаючись кнопки, ви підтверджуєте, що прочитали та зрозуміли інформацію вище і надаєте згоду на AI-асистований запис консультації."
-          : "By tapping, you confirm you have read and understood the information above and consent to AI-assisted recording of this consultation."}
+        {tr(lang, "Торкаючись кнопки, ви підтверджуєте, що прочитали та зрозуміли інформацію вище і надаєте згоду на AI-асистований запис консультації.", "By tapping, you confirm you have read and understood the information above and consent to AI-assisted recording of this consultation.")}
       </div>
       <button className="kiosk-tap-btn" onClick={handleTap}
         style={tapped ? { background: "var(--ok,#047857)", transform: "scale(0.97)" } : undefined}>
         <Icon name="check" size={28} />
-        <span style={{ fontSize: 13 }}>{tapped ? (lang === "uk" ? "Дякуємо" : "Thank you") : (lang === "uk" ? "Я погоджуюсь" : "I agree")}</span>
+        <span style={{ fontSize: 13 }}>{tapped ? (tr(lang, "Дякуємо", "Thank you")) : (tr(lang, "Я погоджуюсь", "I agree"))}</span>
       </button>
-      <button className="btn ghost sm" onClick={onCancel}>{lang === "uk" ? "Скасувати" : "Cancel"}</button>
+      <button className="btn ghost sm" onClick={onCancel}>{tr(lang, "Скасувати", "Cancel")}</button>
     </div>
   );
 }
@@ -184,6 +181,7 @@ export function ConsentScreen({ patientId, lang, navigate }) {
   const patientReq = useAsync(() => (patientId ? getPatient(patientId) : Promise.resolve(null)), [patientId]);
   const patient = patientReq.data;
   const [mode, setMode] = useState(null); // null | "verbal" | "kiosk"
+  const [granted, setGranted] = useState(null); // method once recorded
   const [error, setError] = useState(null);
 
   const pName = patient ? patientName(patient, lang) : patientId;
@@ -192,7 +190,11 @@ export function ConsentScreen({ patientId, lang, navigate }) {
     setError(null);
     try {
       await recordConsent(patientId, { type: "ai_scribe", method, status: "granted" });
-      navigate(`/scribe/consult/new?patient=${patientId}&consented=1`);
+      // Confirm in place. There is no live ambient-scribe recorder wired to
+      // "/scribe/consult/new" (it only reads finalized sessions), so landing
+      // there showed a dead "no session" screen; a success card that states
+      // the consent is on record and offers the real next steps is correct.
+      setGranted(method);
     } catch (e) {
       setError(e);
       throw e;
@@ -202,6 +204,39 @@ export function ConsentScreen({ patientId, lang, navigate }) {
   const handleDecline = () => {
     navigate(patientId ? `/scribe/patients/${patientId}` : "/scribe");
   };
+
+  if (granted) {
+    return (
+      <div className="consent-screen">
+        <div className="consent-card" role="status">
+          <div className="consent-header">
+            <div className="consent-granted-mark">
+              <Icon name="check" size={28} />
+            </div>
+            <div className="consent-patient-name">{pName}</div>
+            <div className="consent-subtitle">
+              {tr(lang, "Згоду на AI-запис зафіксовано", "Consent to AI recording is on record")}
+            </div>
+          </div>
+          <p className="consent-granted-note">
+            {granted === "verbal"
+              ? tr(lang, "Спосіб: усна згода. Запис збережено в картці пацієнта та може бути відкликаний у будь-який момент.",
+                        "Method: verbal consent. It is saved to the patient record and can be withdrawn at any time.")
+              : tr(lang, "Спосіб: підтвердження на екрані. Запис збережено в картці пацієнта та може бути відкликаний у будь-який момент.",
+                        "Method: on-screen confirmation. It is saved to the patient record and can be withdrawn at any time.")}
+          </p>
+          <div className="consent-granted-actions">
+            <button className="btn accent" onClick={() => navigate(`/dictate/studio?patient=${patientId}`)}>
+              <Icon name="mic" size={14} /> {tr(lang, "Розпочати диктування", "Start dictation")}
+            </button>
+            <button className="btn" onClick={() => navigate(patientId ? `/scribe/patients/${patientId}` : "/scribe")}>
+              {tr(lang, "До картки пацієнта", "To patient record")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const consentText = lang === "uk"
     ? `Ваш лікар використовує систему Klarnote для допомоги в документуванні консультації. Під час розмови буде створено автоматичний транскрипт. На його основі AI сформує проект медичної нотатки, яку лікар перевірить і підпише.
@@ -220,7 +255,7 @@ Your data is protected in accordance with GDPR. You may withdraw this consent at
           </div>
           <div className="consent-patient-name">{pName}</div>
           <div className="consent-subtitle">
-            {lang === "uk" ? "Запит згоди на AI-асистований запис консультації" : "Consent request for AI-assisted consultation recording"}
+            {tr(lang, "Запит згоди на AI-асистований запис консультації", "Consent request for AI-assisted consultation recording")}
           </div>
         </div>
 
@@ -228,7 +263,7 @@ Your data is protected in accordance with GDPR. You may withdraw this consent at
 
         {error && (
           <div style={{ color: "var(--rec,#dc2626)", fontSize: 13, textAlign: "center", marginBottom: 8 }}>
-            {error.message || (lang === "uk" ? "Не вдалося зберегти згоду" : "Could not record consent")}
+            {error.message || (tr(lang, "Не вдалося зберегти згоду", "Could not record consent"))}
           </div>
         )}
 
@@ -237,18 +272,18 @@ Your data is protected in accordance with GDPR. You may withdraw this consent at
             <div className="consent-actions">
               <div className="consent-action-card" onClick={() => setMode("verbal")}>
                 <div className="ca-icon"><Icon name="mic" size={22} /></div>
-                <div className="ca-title">{lang === "uk" ? "Вербальна згода" : "Verbal consent"}</div>
-                <div className="ca-desc">{lang === "uk" ? "Зафіксуйте усну згоду пацієнта" : "Record patient's spoken consent"}</div>
+                <div className="ca-title">{tr(lang, "Вербальна згода", "Verbal consent")}</div>
+                <div className="ca-desc">{tr(lang, "Зафіксуйте усну згоду пацієнта", "Record patient's spoken consent")}</div>
               </div>
               <div className="consent-action-card" onClick={() => setMode("kiosk")}>
                 <div className="ca-icon"><Icon name="user" size={22} /></div>
-                <div className="ca-title">{lang === "uk" ? "Торкнутись екрану" : "Tap to consent"}</div>
-                <div className="ca-desc">{lang === "uk" ? "Пацієнт самостійно підтверджує згоду" : "Patient taps to confirm consent"}</div>
+                <div className="ca-title">{tr(lang, "Торкнутись екрану", "Tap to consent")}</div>
+                <div className="ca-desc">{tr(lang, "Пацієнт самостійно підтверджує згоду", "Patient taps to confirm consent")}</div>
               </div>
             </div>
             <div className="consent-decline">
               <button className="btn" onClick={handleDecline}>
-                {lang === "uk" ? "Відмовитись від запису" : "Decline recording"}
+                {tr(lang, "Відмовитись від запису", "Decline recording")}
               </button>
             </div>
           </>
@@ -298,7 +333,7 @@ export function RecordingIndicator({ session, lang, onPause, onStop, navigate })
           : <div className="rec-dot" />}
         <div className="rec-info">
           <span className="rec-label">
-            {session.paused ? (lang === "uk" ? "Пауза" : "Paused") : (lang === "uk" ? "Запис" : "Recording")}
+            {session.paused ? (tr(lang, "Пауза", "Paused")) : (tr(lang, "Запис", "Recording"))}
           </span>
           <span style={{ fontSize: 13, color: "var(--text-2)", marginLeft: 8 }}>— {pName}</span>
           <span className="rec-timer">{fmtDur(elapsed)}</span>
@@ -306,14 +341,14 @@ export function RecordingIndicator({ session, lang, onPause, onStop, navigate })
         <div className="rec-actions">
           <button className="btn sm" onClick={() => onPause && onPause()}>
             <Icon name={session.paused ? "play" : "pause"} size={12} />
-            {session.paused ? (lang === "uk" ? "Продовжити" : "Resume") : (lang === "uk" ? "Пауза" : "Pause")}
+            {session.paused ? (tr(lang, "Продовжити", "Resume")) : (tr(lang, "Пауза", "Pause"))}
           </button>
           <button className="btn sm" style={{ color: "var(--rec)", borderColor: "color-mix(in srgb, var(--rec) 30%, transparent)" }} onClick={() => setShowStopConfirm(true)}>
-            <Icon name="stop" size={12} /> {lang === "uk" ? "Стоп" : "Stop"}
+            <Icon name="stop" size={12} /> {tr(lang, "Стоп", "Stop")}
           </button>
           {session.patientId && (
             <button className="btn ghost sm" onClick={() => navigate(`/scribe/patients/${session.patientId}`)}>
-              <Icon name="user" size={12} /> {lang === "uk" ? "Профіль" : "Profile"}
+              <Icon name="user" size={12} /> {tr(lang, "Профіль", "Profile")}
             </button>
           )}
         </div>
@@ -322,13 +357,13 @@ export function RecordingIndicator({ session, lang, onPause, onStop, navigate })
       {showStopConfirm && (
         <Modal onClose={() => setShowStopConfirm(false)}>
           <div className="modal-h">
-            <h2>{lang === "uk" ? "Зупинити запис?" : "Stop recording?"}</h2>
-            <p>{lang === "uk" ? "Запис буде збережено. Ви зможете продовжити пізніше." : "Recording will be saved. You can continue later."}</p>
+            <h2>{tr(lang, "Зупинити запис?", "Stop recording?")}</h2>
+            <p>{tr(lang, "Запис буде збережено. Ви зможете продовжити пізніше.", "Recording will be saved. You can continue later.")}</p>
           </div>
           <div className="modal-foot">
-            <button className="btn" onClick={() => setShowStopConfirm(false)}>{lang === "uk" ? "Скасувати" : "Cancel"}</button>
+            <button className="btn" onClick={() => setShowStopConfirm(false)}>{tr(lang, "Скасувати", "Cancel")}</button>
             <button className="btn" style={{ background: "var(--rec)", color: "white", borderColor: "var(--rec)" }} onClick={handleStop}>
-              <Icon name="stop" size={13} /> {lang === "uk" ? "Зупинити" : "Stop"}
+              <Icon name="stop" size={13} /> {tr(lang, "Зупинити", "Stop")}
             </button>
           </div>
         </Modal>
@@ -346,7 +381,7 @@ export function WithdrawalModal({ consent, lang, onClose, onConfirm }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const slaText = lang === "uk" ? "протягом 30 днів" : "within 30 days";
+  const slaText = tr(lang, "протягом 30 днів", "within 30 days");
 
   const confirm = async () => {
     setBusy(true); setError(null);
@@ -358,8 +393,8 @@ export function WithdrawalModal({ consent, lang, onClose, onConfirm }) {
   return (
     <Modal onClose={onClose}>
       <div className="modal-h">
-        <h2>{lang === "uk" ? "Відкликати згоду" : "Withdraw consent"}</h2>
-        {consent && <p>{consent.type === "ai_scribe" ? (lang === "uk" ? "AI-скрайб" : "AI Scribe") : consent.type}</p>}
+        <h2>{tr(lang, "Відкликати згоду", "Withdraw consent")}</h2>
+        {consent && <p>{consent.type === "ai_scribe" ? (tr(lang, "AI-скрайб", "AI Scribe")) : consent.type}</p>}
       </div>
 
       <div className="withdrawal-modal">
@@ -367,12 +402,10 @@ export function WithdrawalModal({ consent, lang, onClose, onConfirm }) {
           <div className="wm-step">
             <div className="wm-icon"><Icon name="flag" size={22} /></div>
             <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text-1)", marginBottom: 10 }}>
-              {lang === "uk" ? "Що означає відкликання згоди?" : "What does withdrawing consent mean?"}
+              {tr(lang, "Що означає відкликання згоди?", "What does withdrawing consent mean?")}
             </div>
             <div style={{ fontSize: 13.5, color: "var(--text-2)", lineHeight: 1.7 }}>
-              {lang === "uk"
-                ? "Відкликання згоди означає, що AI-система більше не буде обробляти ваші голосові дані. Записи, зроблені до відкликання, залишаться у системі відповідно до вимог медичної документації."
-                : "Withdrawing consent means the AI system will no longer process your voice data. Records already made will be retained in the system as required for medical documentation purposes."}
+              {tr(lang, "Відкликання згоди означає, що AI-система більше не буде обробляти ваші голосові дані. Записи, зроблені до відкликання, залишаться у системі відповідно до вимог медичної документації.", "Withdrawing consent means the AI system will no longer process your voice data. Records already made will be retained in the system as required for medical documentation purposes.")}
             </div>
             <div className="wm-sla">
               <Icon name="clock" size={14} />{" "}
@@ -386,12 +419,12 @@ export function WithdrawalModal({ consent, lang, onClose, onConfirm }) {
         {!confirmed && step === 2 && (
           <div className="wm-step">
             <div style={{ fontSize: 13.5, color: "var(--text-2)", marginBottom: 12 }}>
-              {lang === "uk" ? "Причина відкликання (необов'язково):" : "Reason for withdrawal (optional):"}
+              {tr(lang, "Причина відкликання (необов'язково):", "Reason for withdrawal (optional):")}
             </div>
             <textarea value={reason} onChange={e => setReason(e.target.value)} rows={4}
-              placeholder={lang === "uk" ? "Вкажіть причину…" : "Enter reason…"}
+              placeholder={tr(lang, "Вкажіть причину…", "Enter reason…")}
               style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "var(--radius)", fontFamily: "var(--sans)", fontSize: 13, background: "var(--surface)", color: "var(--text-1)", resize: "vertical" }} />
-            {error && <div style={{ color: "var(--rec,#dc2626)", fontSize: 13, marginTop: 8 }}>{error.message || (lang === "uk" ? "Помилка" : "Error")}</div>}
+            {error && <div style={{ color: "var(--rec,#dc2626)", fontSize: 13, marginTop: 8 }}>{error.message || (tr(lang, "Помилка", "Error"))}</div>}
           </div>
         )}
 
@@ -401,12 +434,10 @@ export function WithdrawalModal({ consent, lang, onClose, onConfirm }) {
               <Icon name="check" size={24} />
             </div>
             <div style={{ fontWeight: 600, fontSize: 16, color: "var(--text-1)", marginBottom: 8 }}>
-              {lang === "uk" ? "Згоду відкликано" : "Consent withdrawn"}
+              {tr(lang, "Згоду відкликано", "Consent withdrawn")}
             </div>
             <div style={{ fontSize: 13.5, color: "var(--text-2)" }}>
-              {lang === "uk"
-                ? "Обробку нових записів зупинено. Наявні дані будуть видалені відповідно до SLA."
-                : "Processing of new recordings has stopped. Existing data will be erased per the SLA."}
+              {tr(lang, "Обробку нових записів зупинено. Наявні дані будуть видалені відповідно до SLA.", "Processing of new recordings has stopped. Existing data will be erased per the SLA.")}
             </div>
           </div>
         )}
@@ -414,21 +445,21 @@ export function WithdrawalModal({ consent, lang, onClose, onConfirm }) {
 
       <div className="modal-foot">
         {confirmed ? (
-          <button className="btn accent" onClick={onClose}>{lang === "uk" ? "Закрити" : "Close"}</button>
+          <button className="btn accent" onClick={onClose}>{tr(lang, "Закрити", "Close")}</button>
         ) : (
           <>
             <button className="btn" onClick={step === 1 ? onClose : () => setStep(1)}>
-              {step === 1 ? (lang === "uk" ? "Скасувати" : "Cancel") : (lang === "uk" ? "Назад" : "Back")}
+              {step === 1 ? (tr(lang, "Скасувати", "Cancel")) : (tr(lang, "Назад", "Back"))}
             </button>
             {step === 1 && (
               <button className="btn" style={{ borderColor: "var(--warn)", color: "var(--warn)" }} onClick={() => setStep(2)}>
-                {lang === "uk" ? "Продовжити" : "Continue"}
+                {tr(lang, "Продовжити", "Continue")}
               </button>
             )}
             {step === 2 && (
               <button className="btn" style={{ background: "var(--warn)", color: "white", borderColor: "var(--warn)" }} disabled={busy} onClick={confirm}>
                 <Icon name="check" size={13} />
-                {busy ? (lang === "uk" ? "Обробка…" : "Working…") : (lang === "uk" ? "Підтвердити відкликання" : "Confirm withdrawal")}
+                {busy ? (tr(lang, "Обробка…", "Working…")) : (tr(lang, "Підтвердити відкликання", "Confirm withdrawal"))}
               </button>
             )}
           </>

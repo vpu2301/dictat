@@ -22,6 +22,7 @@ import {
 } from "../api/patients.js";
 import { useSearchQuery } from "../api/useSearchQuery.js";
 import { checkIpn, stripIpnSeparators } from "./ipn.js";
+import { tr } from "../i18n.js";
 
 // ─── Local avatar helpers (same convention as PatientProfile.jsx) ────────
 const ACCENT_PALETTE = [
@@ -42,23 +43,23 @@ function fmtRel(iso, lang) {
   if (!iso) return "";
   const d = new Date(iso);
   const diffMin = Math.floor((Date.now() - d) / 60000);
-  if (diffMin < 1) return lang === "uk" ? "щойно" : "just now";
+  if (diffMin < 1) return tr(lang, "щойно", "just now");
   if (diffMin < 60) return lang === "uk" ? `${diffMin} хв тому` : `${diffMin} min ago`;
   const h = Math.floor(diffMin / 60);
   if (h < 24) return lang === "uk" ? `${h} год тому` : `${h} h ago`;
   const days = Math.floor(h / 24);
   if (days < 7) return lang === "uk" ? `${days} дн. тому` : `${days} d ago`;
-  return d.toLocaleDateString(lang === "uk" ? "uk-UA" : "en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString(tr(lang, "uk-UA", "en-GB"), { day: "2-digit", month: "short", year: "numeric" });
 }
 
 const SEX_LABEL = { M: "M", F: "F", U: "—" };
 
 function StatusBadge({ status, lang }) {
   if (status === "inactive") {
-    return <span className="pdir-badge inactive">{lang === "uk" ? "архів" : "archived"}</span>;
+    return <span className="pdir-badge inactive">{tr(lang, "архів", "archived")}</span>;
   }
   if (status === "deceased") {
-    return <span className="pdir-badge deceased">{lang === "uk" ? "помер(ла)" : "deceased"}</span>;
+    return <span className="pdir-badge deceased">{tr(lang, "помер(ла)", "deceased")}</span>;
   }
   return null;
 }
@@ -70,14 +71,14 @@ function ipnHint(text, lang) {
   const stripped = stripIpnSeparators(text);
   if (!stripped) return null;
   const c = checkIpn(text);
-  if (c.ok) return { kind: "ok", msg: lang === "uk" ? "ІПН коректний" : "Valid ІПН" };
+  if (c.ok) return { kind: "ok", msg: tr(lang, "ІПН коректний", "Valid ІПН") };
   if (c.reason === "checksum") {
-    return { kind: "err", msg: lang === "uk" ? "Контрольна цифра не збігається — перевірте ІПН" : "Control digit mismatch — check the ІПН" };
+    return { kind: "err", msg: tr(lang, "Контрольна цифра не збігається — перевірте ІПН", "Control digit mismatch — check the ІПН") };
   }
   if (stripped.length < 10 && /^\d*$/.test(stripped)) {
     return { kind: "hint", msg: lang === "uk" ? `${stripped.length}/10 цифр` : `${stripped.length}/10 digits` };
   }
-  return { kind: "err", msg: lang === "uk" ? "ІПН — рівно 10 цифр" : "ІПН is exactly 10 digits" };
+  return { kind: "err", msg: tr(lang, "ІПН — рівно 10 цифр", "ІПН is exactly 10 digits") };
 }
 
 // ─── Create / edit form ──────────────────────────────────────────────────
@@ -106,8 +107,8 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
   const valid = nameUk.trim() && !ipnBlocked && !needsDeceasedConfirm;
 
   const title = editing
-    ? (lang === "uk" ? "Редагувати пацієнта" : "Edit patient")
-    : (lang === "uk" ? "Новий пацієнт" : "New patient");
+    ? (tr(lang, "Редагувати пацієнта", "Edit patient"))
+    : (tr(lang, "Новий пацієнт", "New patient"));
 
   const addTag = (val) => {
     const v = val.trim();
@@ -146,41 +147,42 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
   const existingId = ipnConflict ? error.problem.existing_patient_id : null;
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} className="modal-xl">
       <div className="modal-h">
         <h2>{title}</h2>
         <p>{editing
-          ? (lang === "uk" ? "Зміни зберігаються в картці пацієнта" : "Changes are saved to the patient record")
-          : (lang === "uk" ? "Додайте пацієнта до вашої картки" : "Add a patient to your panel")}</p>
+          ? (tr(lang, "Зміни зберігаються в картці пацієнта", "Changes are saved to the patient record"))
+          : (tr(lang, "Додайте пацієнта до вашої картки", "Add a patient to your panel"))}</p>
       </div>
 
       <div className="modal-body np-form">
+        <div className="np-pane np-pane-id">
         <div className="np-row two">
           <label>
-            <span>{lang === "uk" ? "ПІБ (УКР) *" : "Full name (UK) *"}</span>
+            <span>{tr(lang, "ПІБ (УКР) *", "Full name (UK) *")}</span>
             <input className="ti" value={nameUk} autoFocus={!editing}
               onChange={(e) => setNameUk(e.target.value)} />
           </label>
           <label>
-            <span>{lang === "uk" ? "ПІБ (EN)" : "Full name (EN)"}</span>
+            <span>{tr(lang, "ПІБ (EN)", "Full name (EN)")}</span>
             <input className="ti" value={nameEn} onChange={(e) => setNameEn(e.target.value)} />
           </label>
         </div>
 
         <div className="np-row three">
           <label>
-            <span>{lang === "uk" ? "Дата народження" : "Date of birth"}</span>
+            <span>{tr(lang, "Дата народження", "Date of birth")}</span>
             <input className="ti" type="date" value={dob}
               max={new Date().toISOString().slice(0, 10)}
               onChange={(e) => setDob(e.target.value)} />
           </label>
           <label>
-            <span>{lang === "uk" ? "Стать" : "Sex"}</span>
+            <span>{tr(lang, "Стать", "Sex")}</span>
             <div className="np-sex-toggle">
               {["M", "F", "U"].map((s) => (
                 <button key={s} type="button" className={sex === s ? "on" : ""} onClick={() => setSex(s)}>
-                  {s === "M" ? (lang === "uk" ? "Чол." : "Male")
-                    : s === "F" ? (lang === "uk" ? "Жін." : "Female")
+                  {s === "M" ? (tr(lang, "Чол.", "Male"))
+                    : s === "F" ? (tr(lang, "Жін.", "Female"))
                     : "—"}
                 </button>
               ))}
@@ -195,10 +197,10 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
         <div className="np-row">
           <label style={{ flex: 1 }}>
             <span>
-              {lang === "uk" ? "ІПН (РНОКПП)" : "ІПН (tax number)"}
+              {tr(lang, "ІПН (РНОКПП)", "ІПН (tax number)")}
               {editing && patient.has_ipn && !clearIpn && (
                 <em className="pdir-ipn-stored">
-                  {lang === "uk" ? " · збережено — введіть новий, щоб замінити" : " · on file — type a new one to replace"}
+                  {tr(lang, " · збережено — введіть новий, щоб замінити", " · on file — type a new one to replace")}
                 </em>
               )}
             </span>
@@ -212,7 +214,7 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
             <label className="pdir-ipn-clear">
               <input type="checkbox" checked={clearIpn}
                 onChange={(e) => { setClearIpn(e.target.checked); if (e.target.checked) setIpn(""); }} />
-              <span>{lang === "uk" ? "Прибрати ІПН" : "Remove ІПН"}</span>
+              <span>{tr(lang, "Прибрати ІПН", "Remove ІПН")}</span>
             </label>
           )}
         </div>
@@ -220,14 +222,14 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
         {editing && (
           <div className="np-row">
             <label>
-              <span>{lang === "uk" ? "Статус" : "Status"}</span>
+              <span>{tr(lang, "Статус", "Status")}</span>
               <div className="np-sex-toggle pdir-status-toggle">
                 {["active", "inactive", "deceased"].map((s) => (
                   <button key={s} type="button" className={status === s ? "on" : ""}
                     onClick={() => { setStatus(s); if (s !== "deceased") setDeceasedConfirmed(false); }}>
-                    {s === "active" ? (lang === "uk" ? "Активний" : "Active")
-                      : s === "inactive" ? (lang === "uk" ? "Архів" : "Archived")
-                      : (lang === "uk" ? "Помер(ла)" : "Deceased")}
+                    {s === "active" ? (tr(lang, "Активний", "Active"))
+                      : s === "inactive" ? (tr(lang, "Архів", "Archived"))
+                      : (tr(lang, "Помер(ла)", "Deceased"))}
                   </button>
                 ))}
               </div>
@@ -238,19 +240,19 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
           <label className="pdir-deceased-confirm">
             <input type="checkbox" checked={deceasedConfirmed}
               onChange={(e) => setDeceasedConfirmed(e.target.checked)} />
-            <span>{lang === "uk"
-              ? "Підтверджую: пацієнт помер. Картка буде позначена відповідно."
-              : "I confirm the patient is deceased. The record will be marked accordingly."}</span>
+            <span>{tr(lang, "Підтверджую: пацієнт помер. Картка буде позначена відповідно.", "I confirm the patient is deceased. The record will be marked accordingly.")}</span>
           </label>
         )}
+        </div>
 
+        <div className="np-pane">
         <label className="np-row">
-          <span>{lang === "uk" ? "Основний діагноз / причина звернення" : "Chief complaint / summary"}</span>
-          <input className="ti" value={summary} onChange={(e) => setSummary(e.target.value)} />
+          <span>{tr(lang, "Основний діагноз / причина звернення", "Chief complaint / summary")}</span>
+          <textarea className="ti np-summary" rows={5} value={summary} onChange={(e) => setSummary(e.target.value)} />
         </label>
 
         <div className="np-row">
-          <span className="np-label">{lang === "uk" ? "Теги / стани" : "Tags / conditions"}</span>
+          <span className="np-label">{tr(lang, "Теги / стани", "Tags / conditions")}</span>
           <div className="np-tags-field">
             {tags.map((tag) => (
               <span key={tag} className="chip">
@@ -262,7 +264,7 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
             <input
               className="np-tag-input"
               value={tagInput}
-              placeholder={lang === "uk" ? "+ додати тег" : "+ add tag"}
+              placeholder={tr(lang, "+ додати тег", "+ add tag")}
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(tagInput); }
@@ -275,30 +277,29 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
 
         {error && ipnConflict && (
           <div className="pdir-conflict" role="alert">
-            <div>{lang === "uk"
-              ? "Пацієнт із цим ІПН уже існує у вашій клініці."
-              : "A patient with this ІПН already exists in your clinic."}</div>
+            <div>{tr(lang, "Пацієнт із цим ІПН уже існує у вашій клініці.", "A patient with this ІПН already exists in your clinic.")}</div>
             {existingId && (
               <button type="button" className="btn small" onClick={() => onOpenExisting?.(existingId)}>
-                <Icon name="user" size={13} /> {lang === "uk" ? "Відкрити наявну картку" : "Open the existing record"}
+                <Icon name="user" size={13} /> {tr(lang, "Відкрити наявну картку", "Open the existing record")}
               </button>
             )}
           </div>
         )}
         {error && !ipnConflict && (
           <div style={{ color: "var(--rec, #dc2626)", fontSize: 13 }}>
-            {error.message || (lang === "uk" ? "Не вдалося зберегти" : "Could not save")}
+            {error.message || (tr(lang, "Не вдалося зберегти", "Could not save"))}
           </div>
         )}
+        </div>
       </div>
 
       <div className="modal-foot">
-        <button className="btn" onClick={onClose}>{lang === "uk" ? "Скасувати" : "Cancel"}</button>
+        <button className="btn" onClick={onClose}>{tr(lang, "Скасувати", "Cancel")}</button>
         <button className="btn accent" disabled={!valid || saving} onClick={handleSave}>
           {!editing && <Icon name="plus" size={13} />}
-          {saving ? (lang === "uk" ? "Збереження…" : "Saving…")
-            : editing ? (lang === "uk" ? "Зберегти" : "Save")
-            : (lang === "uk" ? "Додати пацієнта" : "Add patient")}
+          {saving ? (tr(lang, "Збереження…", "Saving…"))
+            : editing ? (tr(lang, "Зберегти", "Save"))
+            : (tr(lang, "Додати пацієнта", "Add patient"))}
         </button>
       </div>
     </Modal>
@@ -404,13 +405,13 @@ export function PatientDirectory({ navigate, lang }) {
     <div className="page">
       <div className="page-h">
         <div style={{ flex: 1 }}>
-          <h1>{lang === "uk" ? "Пацієнти" : "Patients"}</h1>
+          <h1>{tr(lang, "Пацієнти", "Patients")}</h1>
           <p className="sub">
-            {rows.length}{sq.hasMore ? "+" : ""} {lang === "uk" ? "у вашій карті" : "in your panel"}
+            {rows.length}{sq.hasMore ? "+" : ""} {tr(lang, "у вашій карті", "in your panel")}
           </p>
         </div>
         <button className="btn accent" onClick={() => setAddOpen(true)}>
-          <Icon name="plus" size={13} /> {lang === "uk" ? "Новий пацієнт" : "Add patient"}
+          <Icon name="plus" size={13} /> {tr(lang, "Новий пацієнт", "Add patient")}
         </button>
       </div>
 
@@ -418,32 +419,32 @@ export function PatientDirectory({ navigate, lang }) {
         <div className="search-input">
           <Icon name="search" size={14} />
           <input ref={searchRef}
-            placeholder={lang === "uk" ? "Пошук: ім'я або MRN…" : "Search: name or MRN…"}
+            placeholder={tr(lang, "Пошук: ім'я або MRN…", "Search: name or MRN…")}
             value={nameText} onChange={(e) => onNameChange(e.target.value)} />
         </div>
         <div className={"search-input pdir-ipn-search" + (ipnState?.kind === "err" ? " has-err" : "")}>
           <Icon name="shield" size={14} />
-          <input inputMode="numeric" aria-label={lang === "uk" ? "Пошук за ІПН" : "Search by ІПН"}
-            placeholder={lang === "uk" ? "Пошук за ІПН (10 цифр)" : "Search by ІПН (10 digits)"}
+          <input inputMode="numeric" aria-label={tr(lang, "Пошук за ІПН", "Search by ІПН")}
+            placeholder={tr(lang, "Пошук за ІПН (10 цифр)", "Search by ІПН (10 digits)")}
             value={ipnText} onChange={(e) => onIpnChange(e.target.value)} />
           {ipnState && <span className={`pdir-ipn-hint ${ipnState.kind}`}>{ipnState.msg}</span>}
         </div>
         <label className="pdir-inactive-toggle">
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-          <span>{lang === "uk" ? "Показувати архівних" : "Show archived"}</span>
+          <span>{tr(lang, "Показувати архівних", "Show archived")}</span>
         </label>
         {sq.loading && sq.items.length > 0 && (
-          <span className="pdir-searching">{lang === "uk" ? "Пошук…" : "Searching…"}</span>
+          <span className="pdir-searching">{tr(lang, "Пошук…", "Searching…")}</span>
         )}
       </div>
 
       <div className="ptable" role="listbox" tabIndex={0} onKeyDown={onListKeyDown}
-        aria-label={lang === "uk" ? "Список пацієнтів" : "Patient list"}>
+        aria-label={tr(lang, "Список пацієнтів", "Patient list")}>
         <div className="ptable-head">
-          <div>{lang === "uk" ? "Пацієнт" : "Patient"}</div>
+          <div>{tr(lang, "Пацієнт", "Patient")}</div>
           <div>MRN</div>
-          <div>{lang === "uk" ? "Стан / теги" : "Conditions"}</div>
-          <div>{lang === "uk" ? "Останній візит" : "Last visit"}</div>
+          <div>{tr(lang, "Стан / теги", "Conditions")}</div>
+          <div>{tr(lang, "Останній візит", "Last visit")}</div>
           <div></div>
         </div>
 
@@ -453,8 +454,8 @@ export function PatientDirectory({ navigate, lang }) {
           <div style={{ padding: "40px 24px", textAlign: "center" }}>
             <Empty icon="users" title={
               sq.query
-                ? (lang === "uk" ? "Нічого не знайдено" : "No results")
-                : (lang === "uk" ? "Пацієнтів ще немає" : "No patients yet")
+                ? (tr(lang, "Нічого не знайдено", "No results"))
+                : (tr(lang, "Пацієнтів ще немає", "No patients yet"))
             } />
           </div>
         )}
@@ -478,7 +479,7 @@ export function PatientDirectory({ navigate, lang }) {
                     <StatusBadge status={p.status} lang={lang} />
                   </div>
                   <div className="psub">
-                    {yob != null ? (lang === "uk" ? `нар. ${yob}` : `b. ${yob}`) : (lang === "uk" ? "рік нар. невідомий" : "YOB unknown")}
+                    {yob != null ? (lang === "uk" ? `нар. ${yob}` : `b. ${yob}`) : (tr(lang, "рік нар. невідомий", "YOB unknown"))}
                     {` · ${SEX_LABEL[p.sex] || p.sex}`}
                   </div>
                 </div>
@@ -486,7 +487,7 @@ export function PatientDirectory({ navigate, lang }) {
               <div className="pmono">
                 {p.mrn}
                 {p.has_ipn && (
-                  <span className="pdir-ipn-chip" title={lang === "uk" ? "ІПН збережено" : "ІПН on file"}>
+                  <span className="pdir-ipn-chip" title={tr(lang, "ІПН збережено", "ІПН on file")}>
                     <Icon name="shield" size={11} /> ІПН
                   </span>
                 )}
@@ -497,7 +498,7 @@ export function PatientDirectory({ navigate, lang }) {
               </div>
               <div className="psub">{fmtRel(p.last_visit, lang)}</div>
               <div className="pdir-row-actions">
-                <button type="button" className="icon-btn" title={lang === "uk" ? "Редагувати" : "Edit"}
+                <button type="button" className="icon-btn" title={tr(lang, "Редагувати", "Edit")}
                   aria-label={lang === "uk" ? `Редагувати ${displayName(p, lang)}` : `Edit ${displayName(p, lang)}`}
                   onClick={(e) => { e.stopPropagation(); setEditPatient(p); }}>
                   <Icon name="edit" size={14} />
@@ -513,8 +514,8 @@ export function PatientDirectory({ navigate, lang }) {
             <div ref={sentinelRef} aria-hidden="true" />
             <button type="button" className="btn" disabled={sq.loadingMore} onClick={sq.loadMore}>
               {sq.loadingMore
-                ? (lang === "uk" ? "Завантаження…" : "Loading…")
-                : (lang === "uk" ? "Показати ще" : "Show more")}
+                ? (tr(lang, "Завантаження…", "Loading…"))
+                : (tr(lang, "Показати ще", "Show more"))}
             </button>
           </div>
         )}

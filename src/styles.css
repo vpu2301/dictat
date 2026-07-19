@@ -486,16 +486,27 @@ kbd {
   background: var(--text-1); color: var(--surface);
   border-color: var(--text-1);
 }
-.btn.primary:hover { opacity: .92; }
+/* Set the hover background EXPLICITLY: the generic `.btn:hover` (a lighter
+   surface) would otherwise leak a light background under the primary button's
+   light text and make it unreadable. */
+.btn.primary:hover {
+  background: color-mix(in srgb, var(--text-1) 86%, #fff);
+  border-color: color-mix(in srgb, var(--text-1) 86%, #fff);
+  color: var(--surface);
+}
 .btn.accent {
   background: var(--accent); color: #fff;
   border-color: var(--accent);
 }
-.btn.accent:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.btn.accent:hover { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); }
 .btn.ghost:hover { background: var(--surface-2); color: var(--text-1); }
 .btn.danger { background: var(--rec); border-color: var(--rec); color: white; }
-.btn.danger:hover { opacity: .92; }
+.btn.danger:hover {
+  background: color-mix(in srgb, var(--rec) 88%, #000);
+  border-color: color-mix(in srgb, var(--rec) 88%, #000);
+  color: #fff;
+}
 .btn.sm { padding: 4px 8px; font-size: 12px; gap: 5px; border-radius: 6px; }
 .btn.lg { padding: 10px 16px; font-size: 14px; }
 
@@ -1153,6 +1164,48 @@ kbd {
   box-shadow: var(--shadow-3);
   overflow: hidden;
 }
+
+/* Specialty filter menu (Reports toolbar) — a standard platform dropdown:
+   anchored under its trigger, radio-style options with a check on the active
+   one, plus an "All specialties" reset row. */
+.spec-menu {
+  position: absolute; top: calc(100% + 6px); left: 0;
+  z-index: 40; min-width: 230px; max-height: 360px; overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-3);
+  padding: 4px;
+}
+.spec-menu-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border-radius: 7px; cursor: pointer; text-align: left;
+  font-size: 13.5px; color: var(--text-1); background: transparent; border: 0;
+}
+.spec-menu-item:hover { background: var(--surface-2); }
+.spec-menu-item.on { color: var(--accent-text, var(--accent)); font-weight: 600; }
+.spec-menu-item svg { color: var(--accent-text, var(--accent)); flex: none; }
+.spec-menu-sep { height: 1px; background: var(--line); margin: 4px 2px; }
+
+/* MenuSelect — a form-field-styled trigger that opens the .spec-menu. */
+.menu-select { position: relative; display: inline-block; }
+.menu-select.block { display: block; width: 100%; }
+.menu-select-trigger {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--text-1);
+  font-size: 13.5px; cursor: pointer; text-align: left;
+  transition: border-color .12s, box-shadow .12s;
+}
+.menu-select-trigger:hover:not(:disabled) { border-color: var(--accent); }
+.menu-select-trigger.open { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft, rgba(10,138,122,.15)); }
+.menu-select-trigger:disabled { opacity: .55; cursor: not-allowed; }
+.menu-select-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-select-trigger .chev { transition: transform .12s; }
+.menu-select-trigger .chev.up { transform: rotate(180deg); }
+.menu-select .spec-menu { left: 0; right: 0; min-width: 0; }
+.menu-select-opt { display: flex; flex-direction: column; gap: 1px; min-width: 0; text-align: left; }
+.menu-select-sub { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
 .tpl-dropdown-h {
   padding: 10px 14px 6px;
   font-size: 10.5px; font-weight: 600;
@@ -1253,6 +1306,96 @@ kbd {
 .addtpl-sections { display: flex; flex-direction: column; gap: 6px; }
 .addtpl-secshead { display: flex; align-items: center; justify-content: space-between; }
 .addtpl-secrow { display: grid; grid-template-columns: 1fr 1fr 28px 28px; gap: 6px; align-items: center; }
+
+/* ── Large modal variant (create-template) ──────────────────────────
+   Two panes: template meta on the left, the sections builder on the
+   right; the body scrolls while header/footer stay put. */
+.modal.modal-xl { max-width: 1040px; }
+.modal-xl .modal-body { max-height: min(74vh, 740px); overflow-y: auto; }
+.modal-xl .modal-h { padding: 24px 32px 6px; }
+.modal-xl .modal-h h2 { font-size: 19px; }
+.modal-xl .modal-h p { font-size: 13.5px; }
+.modal-xl .modal-body.addtpl {
+  display: grid; grid-template-columns: 340px minmax(0, 1fr);
+  gap: 0 36px; align-items: start;
+  padding: 22px 32px 28px;
+}
+.modal-xl .modal-foot { padding: 16px 32px; }
+.modal-xl .modal-foot .btn { padding: 10px 20px; font-size: 13.5px; }
+.addtpl-meta {
+  display: flex; flex-direction: column; gap: 16px;
+  padding-right: 36px; border-right: 1px solid var(--line);
+  position: sticky; top: 0;
+}
+.modal-xl .addtpl .ti { padding: 10px 12px; font-size: 13.5px; }
+.modal-xl .addtpl-row label { gap: 6px; font-size: 12.5px; }
+.modal-xl .icon-pick .icon-opt { width: 40px; height: 40px; }
+/* Sections builder grouped in a light panel so it reads as one block. */
+.modal-xl .addtpl-sections { gap: 10px; }
+.modal-xl .addtpl-secshead { margin-bottom: 2px; }
+.modal-xl .addtpl-secshead .rail-h { font-size: 11.5px; letter-spacing: .06em; }
+.addtpl-seclist {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+}
+.modal-xl .addtpl-secrow {
+  grid-template-columns: 26px 1fr 1fr 34px 34px; gap: 8px;
+}
+.modal-xl .addtpl-seclist .ti { background: var(--surface); }
+.addtpl-secnum {
+  font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+  text-align: center;
+}
+.modal-xl .req-toggle, .modal-xl .iconbtn { width: 34px; height: 38px; }
+/* In the XL modal the "!" badge IS the required toggle — the checkbox is
+   visually hidden and the badge flips dashed/muted ↔ solid/red. */
+.modal-xl .req-toggle { justify-content: center; position: relative; }
+.modal-xl .req-toggle input {
+  position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer;
+}
+.modal-xl .req-toggle span {
+  font-size: 12px; padding: 4px 9px; border-radius: 6px;
+  border: 1px dashed var(--line); color: var(--muted);
+  transition: border-color .12s, color .12s, background .12s;
+}
+.modal-xl .req-toggle:has(input:checked) span {
+  border: 1px solid var(--rec); color: var(--rec); background: var(--rec-soft);
+}
+.addtpl-addbtn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 10px; padding: 10px;
+  border: 1px dashed var(--line); border-radius: 8px;
+  background: transparent; color: var(--text-2);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.addtpl-addbtn:hover { border-color: var(--accent); color: var(--accent-text, var(--accent)); background: var(--surface-2); }
+@media (max-width: 860px) {
+  .modal-xl .modal-body.addtpl { grid-template-columns: 1fr; gap: 18px; }
+  .addtpl-meta { padding-right: 0; border-right: 0; position: static; }
+  .modal-xl .addtpl-secrow { grid-template-columns: 1fr 1fr 34px 34px; }
+  .addtpl-secnum { display: none; }
+}
+
+/* Patient form in the XL modal: identity pane left, clinical pane right. */
+.modal-xl .modal-body.np-form {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 28px; align-items: start;
+  padding: 20px 28px 24px;
+}
+.np-pane { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.np-pane-id { padding-right: 28px; border-right: 1px solid var(--line); }
+.modal-xl .np-form .ti { padding: 10px 12px; font-size: 13.5px; min-width: 0; width: 100%; box-sizing: border-box; }
+.modal-xl .np-form .np-row label { min-width: 0; }
+.modal-xl .np-form textarea.np-summary { min-height: 120px; resize: vertical; line-height: 1.5; }
+.modal-xl .np-tags-field { min-height: 96px; align-content: flex-start; }
+@media (max-width: 860px) {
+  .modal-xl .modal-body.np-form { grid-template-columns: 1fr; gap: 16px; }
+  .np-pane-id { padding-right: 0; border-right: 0; }
+}
 .ti { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 10px; font-size: 13px; color: var(--text-1); outline: none; }
 .ti:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .ti.mono { font-family: var(--mono); }
@@ -1263,9 +1406,26 @@ kbd {
 .iconbtn.danger { color: var(--rec); }
 .iconbtn.danger:hover { background: var(--rec-soft); }
 .icon-pick { display: flex; gap: 6px; }
-.icon-opt { width: 32px; height: 32px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--muted); }
+.icon-opt { position: relative; width: 32px; height: 32px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--muted); }
 .icon-opt:hover { background: var(--surface-2); color: var(--text-1); }
 .icon-opt.on { background: var(--dictate-soft); border-color: var(--dictate); color: var(--dictate); }
+/* Hover/focus popup label for each icon option. */
+.icon-opt[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+  background: var(--text-1); color: var(--surface);
+  font-size: 11px; font-weight: 500; white-space: nowrap;
+  padding: 4px 8px; border-radius: 6px;
+  opacity: 0; pointer-events: none; transition: opacity .12s;
+  box-shadow: 0 4px 12px rgba(15,23,42,.18); z-index: 10;
+}
+.icon-opt[data-tip]::before {
+  content: ""; position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%);
+  border: 5px solid transparent; border-top-color: var(--text-1);
+  opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 10;
+}
+.icon-opt[data-tip]:hover::after, .icon-opt[data-tip]:focus-visible::after,
+.icon-opt[data-tip]:hover::before, .icon-opt[data-tip]:focus-visible::before { opacity: 1; }
 
 /* Sign modal steps */
 .sign-step { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; font-size: 13.5px; color: var(--muted); }
@@ -1316,6 +1476,20 @@ kbd {
 }
 .section-block:last-child { border-bottom: 0; }
 .section-block.active .sec-h > span { color: var(--dictate); }
+
+/* Read-only / awaiting-signature report document mirrors the Studio's
+   section-card layout (`.tiptap-section`) so a report looks identical whether
+   it's a draft in the Studio or finalized in the ReportView. */
+.report-page .editor .section-block {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 14px 16px 12px;
+  margin: 0 0 16px;
+}
+.report-page .editor .section-block:last-child { border-bottom: 1px solid var(--line); }
+.report-page .editor .sec-h { margin-bottom: 7px; }
+.report-page .editor .sec-h > span { font-weight: 700; letter-spacing: .05em; }
 .sec-h {
   display: flex; align-items: center; gap: 8px;
   margin-bottom: 10px;
@@ -1721,6 +1895,12 @@ kbd {
   border-radius: var(--radius-lg);
   padding: 14px;
 }
+.edit-hint {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+}
 .dictate-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .dictate-secs { display: flex; flex-wrap: wrap; gap: 6px; }
 .dictate-sec-chip {
@@ -2087,6 +2267,14 @@ kbd {
   font-size: 12.5px; color: var(--text-2); cursor: pointer;
   padding: 5px 4px;
 }
+
+/* Toolbar filter chips sit next to framed dropdowns/search — bump their
+   height so the whole toolbar row aligns. */
+.ptable-toolbar .tpl-filter-chip { padding: 7px 12px; font-size: 13px; }
+
+/* Match the search field's height to the framed MenuSelect dropdowns
+   (.menu-select-trigger padding: 9px 12px) so the toolbar row is uniform. */
+.ptable-toolbar .search-input { padding: 9px 12px; }
 
 /* Error banner (404 / 409 / 422) */
 .tpl-err-banner {

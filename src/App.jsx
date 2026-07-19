@@ -1,6 +1,6 @@
 // App.jsx — App shell, hash router, Tweaks
 import React, { useState, useEffect, useMemo } from 'react';
-import { I18nProvider } from './i18n.js';
+import { I18nProvider, LANGS , tr } from "./i18n.js";
 import {
   useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor, TweakSelect, TweakToggle,
 } from './components/TweaksPanel.jsx';
@@ -25,6 +25,8 @@ import { listTemplates, createTemplate, toStudioTemplate } from './api/templates
 import { LandingPage } from './pages/LandingPage.jsx';
 import { ContentPage } from './pages/marketing/ContentPage.jsx';
 import { ApiDocsPage } from './pages/marketing/ApiDocsPage.jsx';
+import { DevelopersPage } from './pages/marketing/DevelopersPage.jsx';
+import { DocsPage } from './pages/marketing/DocsPage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 import { SignupFlow } from './pages/SignupFlow.jsx';
 import { PricingPage } from './pages/PricingPage.jsx';
@@ -119,7 +121,8 @@ function App() {
   const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing"];
   const isMarketing = MARKETING_EXACT.includes(route)
     || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/")
-    || route.startsWith("/blog/") || route === "/developers/api" || route.startsWith("/developers/api/");
+    || route.startsWith("/blog/") || route === "/developers" || route === "/developers/api"
+    || route.startsWith("/developers/api/") || route === "/docs" || route.startsWith("/docs/");
   const isPublicRoute = isAuthRoute || isLanding || isMarketing || route.startsWith("/verify/");
   const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
   const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
@@ -137,12 +140,13 @@ function App() {
     if (auth && isTenantAdmin && (route === "/" || route === "")) navigate("/dashboard");
   }, [auth, isTenantAdmin, route]);
 
-  // Theme + density + accent
+  // Theme + density + accent + document language
   useEffect(() => {
     document.documentElement.dataset.theme = tweaks.theme;
     document.documentElement.dataset.density = tweaks.density;
     document.documentElement.style.setProperty("--accent", tweaks.accent);
-  }, [tweaks.theme, tweaks.density, tweaks.accent]);
+    document.documentElement.lang = tweaks.lang;
+  }, [tweaks.theme, tweaks.density, tweaks.accent, tweaks.lang]);
 
   // Keyboard: N → new consultation in scribe; D → studio
   useEffect(() => {
@@ -170,7 +174,7 @@ function App() {
     fullBleed = true;
   } else if (gateToHome) {
     view = <ScribeToday navigate={navigate} lang={lang} />;
-    title = lang === "uk" ? "Сьогодні" : "Today";
+    title = tr(lang, "Сьогодні", "Today");
   }
   // ── auth routes ────────────────────────────────────────────
   else if (r === "/login") {
@@ -204,6 +208,14 @@ function App() {
     view = <ApiDocsPage svc={r.replace(/^\/developers\/api\/?/, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     fullBleed = true;
   }
+  else if (r === "/developers") {
+    view = <DevelopersPage navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
+  else if (r === "/docs" || r.startsWith("/docs/")) {
+    view = <DocsPage slug={r.replace(/^\/docs\/?/, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
   else if (
     ["/about", "/contact", "/careers", "/features", "/security"].includes(r)
     || r.startsWith("/legal/") || r.startsWith("/features/") || r.startsWith("/product/")
@@ -214,16 +226,16 @@ function App() {
   // ── mfa scaffold (sprint 16; flag-off path today) ───────────
   else if (r === "/mfa") {
     view = <MfaPage lang={lang} />;
-    crumbs = [{ label: lang === "uk" ? "Безпека" : "Security" }, { label: "MFA" }];
+    crumbs = [{ label: tr(lang, "Безпека", "Security") }, { label: "MFA" }];
   }
   // ── scribe ─────────────────────────────────────────────────
   else if (r === "/scribe" || r === "/" || r === "") {
     view = <ScribeToday navigate={navigate} lang={lang} />;
-    title = lang === "uk" ? "Сьогодні" : "Today";
+    title = tr(lang, "Сьогодні", "Today");
   } else if (r === "/scribe/patients" || r === "/patients") {
     // /patients is the sprint-11 canonical alias; both render the directory.
     view = <PatientDirectory navigate={navigate} lang={lang} />;
-    crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Пацієнти" : "Patients" }];
+    crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: tr(lang, "Пацієнти", "Patients") }];
   } else if (r.startsWith("/patients/") && r.endsWith("/erasure-request")) {
     // S11 step 06 — the weighty full-screen erasure request (admin-only,
     // deep-link-safe: RequireRole renders the standard forbidden state)
@@ -233,14 +245,14 @@ function App() {
         <ErasureRequestPage patientId={pid} lang={lang} navigate={navigate} />
       </RequireRole>
     );
-    crumbs = [{ label: lang === "uk" ? "Приватність" : "Privacy" }, { label: lang === "uk" ? "Запит на видалення" : "Erasure request" }];
+    crumbs = [{ label: tr(lang, "Приватність", "Privacy") }, { label: tr(lang, "Запит на видалення", "Erasure request") }];
   } else if (r.startsWith("/scribe/patients/") || r.startsWith("/patients/")) {
     // ?tab= is the one allowed (enum) param on this route — strip it from the id
     const id = r.split("/")[r.startsWith("/scribe/") ? 3 : 2]?.split("?")[0];
     view = <EnhancedScribePatient id={id} navigate={navigate} lang={lang} />;
     crumbs = [
       { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
-      { label: lang === "uk" ? "Пацієнти" : "Patients", path: "/scribe/patients", onClick: () => navigate("/scribe/patients") },
+      { label: tr(lang, "Пацієнти", "Patients"), path: "/scribe/patients", onClick: () => navigate("/scribe/patients") },
       { label: id },
     ];
   } else if (r.startsWith("/scribe/notes/new") || r === "/scribe/notes/new") {
@@ -266,17 +278,17 @@ function App() {
     showTopbar = false;
   } else if (r === "/scribe/notes") {
     view = <ScribeNotes navigate={navigate} lang={lang} />;
-    crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Нотатки" : "Notes" }];
+    crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: tr(lang, "Нотатки", "Notes") }];
   } else if (r === "/scribe/templates") {
     view = <ScribeNoteStructures lang={lang} />;
-    crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: lang === "uk" ? "Шаблони" : "Templates" }];
+    crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: tr(lang, "Шаблони", "Templates") }];
   }
   // ── dictate ────────────────────────────────────────────────
   // /dictate is the product landing (overview); the recording Studio lives at
   // /dictate/studio so switching products doesn't drop straight into recording.
   else if (r === "/dictate" || r === "/dictate/") {
     view = <DictateToday lang={lang} navigate={navigate} />;
-    title = lang === "uk" ? "Диктування" : "Dictation";
+    title = tr(lang, "Диктування", "Dictation");
   } else if (r === "/dictate/studio" || r.startsWith("/dictate/studio?") || r.startsWith("/dictate?")) {
     const pm = r.match(/patient=([\w-]+)/);
     const tm = r.match(/template=([\w-]+)/);
@@ -289,14 +301,14 @@ function App() {
     showTopbar = false;
   } else if (r === "/dictate/reports") {
     view = <ReportsList lang={lang} navigate={navigate} />;
-    crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: lang === "uk" ? "Звіти" : "Reports" }];
+    crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: tr(lang, "Звіти", "Reports") }];
   } else if (r.startsWith("/dictate/reports/")) {
     const id = r.split("/")[3];
     view = <ReportView id={id} lang={lang} navigate={navigate} />;
-    crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: lang === "uk" ? "Звіти" : "Reports", path: "/dictate/reports", onClick: () => navigate("/dictate/reports") }, { label: id }];
+    crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: tr(lang, "Звіти", "Reports"), path: "/dictate/reports", onClick: () => navigate("/dictate/reports") }, { label: id }];
   } else if (r === "/dictate/templates") {
     view = <TemplatesPage lang={lang} navigate={navigate} />;
-    crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: lang === "uk" ? "Шаблони" : "Templates" }];
+    crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: tr(lang, "Шаблони", "Templates") }];
   }
   // ── asr (batch transcription) ──────────────────────────────
   else if (r === "/asr" || r === "/asr/jobs") {
@@ -305,7 +317,7 @@ function App() {
         <AsrJobsListPage lang={lang} navigate={navigate} />
       </RequireAuth>
     );
-    crumbs = [{ label: lang === "uk" ? "Транскрипція" : "Transcription" }, { label: lang === "uk" ? "Завдання" : "Jobs" }];
+    crumbs = [{ label: tr(lang, "Транскрипція", "Transcription") }, { label: tr(lang, "Завдання", "Jobs") }];
   } else if (r === "/asr/new") {
     view = (
       <RequireAuth navigate={navigate}>
@@ -313,8 +325,8 @@ function App() {
       </RequireAuth>
     );
     crumbs = [
-      { label: lang === "uk" ? "Транскрипція" : "Transcription", path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },
-      { label: lang === "uk" ? "Нове" : "New" },
+      { label: tr(lang, "Транскрипція", "Transcription"), path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },
+      { label: tr(lang, "Нове", "New") },
     ];
   } else if (r.startsWith("/asr/jobs/")) {
     const jid = r.split("/")[3];
@@ -324,15 +336,15 @@ function App() {
       </RequireAuth>
     );
     crumbs = [
-      { label: lang === "uk" ? "Транскрипція" : "Transcription", path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },
-      { label: lang === "uk" ? "Завдання" : "Jobs", path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },
+      { label: tr(lang, "Транскрипція", "Transcription"), path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },
+      { label: tr(lang, "Завдання", "Jobs"), path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },
       { label: String(jid).slice(0, 8) + "…" },
     ];
   }
   // ── settings ───────────────────────────────────────────────
   else if (r === "/settings") {
     view = <SettingsPage lang={lang} tweaks={tweaks} setTweak={setTweak} />;
-    crumbs = [{ label: lang === "uk" ? "Налаштування" : "Settings" }];
+    crumbs = [{ label: tr(lang, "Налаштування", "Settings") }];
   }
   // ── business-owner dashboard (tenant_admin) ────────────────
   else if (r === "/dashboard") {
@@ -341,17 +353,17 @@ function App() {
         <DashboardPage lang={lang} navigate={navigate} />
       </RequireRole>
     );
-    crumbs = [{ label: lang === "uk" ? "Панель" : "Dashboard" }];
+    crumbs = [{ label: tr(lang, "Панель", "Dashboard") }];
   }
   // ── account / profile ──────────────────────────────────────
   else if (r === "/profile") {
     view = <RequireAuth navigate={navigate}><ProfilePage lang={lang} navigate={navigate} /></RequireAuth>;
-    crumbs = [{ label: lang === "uk" ? "Профіль" : "Profile" }];
+    crumbs = [{ label: tr(lang, "Профіль", "Profile") }];
   }
   // ── account / identity (token inspector) ───────────────────
   else if (r === "/me") {
     view = <RequireAuth navigate={navigate}><MePage lang={lang} /></RequireAuth>;
-    crumbs = [{ label: lang === "uk" ? "Ідентичність" : "Identity" }];
+    crumbs = [{ label: tr(lang, "Ідентичність", "Identity") }];
   }
   // ── admin ──────────────────────────────────────────────────
   else if (r === "/admin/privacy") {
@@ -360,7 +372,7 @@ function App() {
         <PrivacyAdminPage lang={lang} navigate={navigate} />
       </RequireRole>
     );
-    crumbs = [{ label: lang === "uk" ? "Адмін" : "Admin" }, { label: lang === "uk" ? "Приватність" : "Privacy" }];
+    crumbs = [{ label: tr(lang, "Адмін", "Admin") }, { label: tr(lang, "Приватність", "Privacy") }];
   }
   else if (r === "/admin/users") {
     view = (
@@ -368,15 +380,15 @@ function App() {
         <AdminUsersPage lang={lang} onToast={fireToast} />
       </RequireRole>
     );
-    crumbs = [{ label: lang === "uk" ? "Адмін" : "Admin" }, { label: lang === "uk" ? "Користувачі" : "Users" }];
+    crumbs = [{ label: tr(lang, "Адмін", "Admin") }, { label: tr(lang, "Користувачі", "Users") }];
   }
   // ── clinic / tenant ────────────────────────────────────────
   else if (r === "/tenant" || r === "/tenant/settings") {
     view = <RequireAuth navigate={navigate}><TenantSettingsPage lang={lang} onToast={fireToast} /></RequireAuth>;
-    crumbs = [{ label: lang === "uk" ? "Клініка" : "Clinic" }, { label: lang === "uk" ? "Налаштування" : "Settings" }];
+    crumbs = [{ label: tr(lang, "Клініка", "Clinic") }, { label: tr(lang, "Налаштування", "Settings") }];
   } else if (r === "/tenant/members") {
     view = <RequireAuth navigate={navigate}><TenantMembersPage lang={lang} onToast={fireToast} /></RequireAuth>;
-    crumbs = [{ label: lang === "uk" ? "Клініка" : "Clinic" }, { label: lang === "uk" ? "Учасники" : "Members" }];
+    crumbs = [{ label: tr(lang, "Клініка", "Clinic") }, { label: tr(lang, "Учасники", "Members") }];
   }
   // ── audit ──────────────────────────────────────────────────
   else if (r === "/audit/events") {
@@ -385,14 +397,14 @@ function App() {
         <AuditEventsPage lang={lang} />
       </RequireRole>
     );
-    crumbs = [{ label: lang === "uk" ? "Аудит" : "Audit" }, { label: lang === "uk" ? "Події" : "Events" }];
+    crumbs = [{ label: tr(lang, "Аудит", "Audit") }, { label: tr(lang, "Події", "Events") }];
   } else if (r === "/audit/verify") {
     view = (
       <RequireRole any={["auditor", "tenant_admin"]} navigate={navigate}>
         <AuditVerifyPage lang={lang} />
       </RequireRole>
     );
-    crumbs = [{ label: lang === "uk" ? "Аудит" : "Audit" }, { label: lang === "uk" ? "Перевірка" : "Verify" }];
+    crumbs = [{ label: tr(lang, "Аудит", "Audit") }, { label: tr(lang, "Перевірка", "Verify") }];
   } else if (r === "/forbidden") {
     view = <ForbiddenPage navigate={navigate} lang={lang} />;
     showTopbar = false;
@@ -408,7 +420,7 @@ function App() {
   else {
     view = (
       <div className="page">
-        <Empty icon="search" title={lang === "uk" ? "Сторінку не знайдено" : "Page not found"} body={r} action={<button className="btn" onClick={() => navigate("/scribe")}>{lang === "uk" ? "На головну" : "Go home"}</button>} />
+        <Empty icon="search" title={tr(lang, "Сторінку не знайдено", "Page not found")} body={r} action={<button className="btn" onClick={() => navigate("/scribe")}>{tr(lang, "На головну", "Go home")}</button>} />
       </div>
     );
   }
@@ -423,7 +435,7 @@ function App() {
         options={["comfortable", "compact"]}
         onChange={(v) => setTweak("density", v)} />
       <TweakRadio label="UI language" value={tweaks.lang}
-        options={[{ value: "uk", label: "Українська" }, { value: "en", label: "English" }]}
+        options={LANGS.map((l) => ({ value: l.code, label: l.label }))}
         onChange={(v) => setTweak("lang", v)} />
       <TweakColor label="Accent" value={tweaks.accent}
         options={["#0a8a7a", "#2563eb", "#7c3aed", "#0f172a", "#dc2626"]}

@@ -12,6 +12,7 @@
 import React from "react";
 import { Icon } from "../components/UI.jsx";
 import { legalBasisText } from "./legalBasis.js";
+import { tr } from "../i18n.js";
 
 const KIND_LABEL = {
   recording:  { uk: "Аудіозаписи", en: "Recordings" },
@@ -47,16 +48,16 @@ export function ExecutionReport({ report, lang = "uk" }) {
   return (
     <div className="exec-report" data-testid="execution-report">
       <div className="exec-report-head">
-        <h3>{lang === "uk" ? "Звіт про виконання видалення" : "Erasure execution report"}</h3>
+        <h3>{tr(lang, "Звіт про виконання видалення", "Erasure execution report")}</h3>
         <button type="button" className="btn sm exec-report-print" onClick={() => window.print()}>
-          <Icon name="print" size={13} /> {lang === "uk" ? "Друк" : "Print"}
+          <Icon name="print" size={13} /> {tr(lang, "Друк", "Print")}
         </button>
       </div>
 
       <section className="exec-report-section">
-        <h4>{lang === "uk" ? "Знищено" : "Destroyed"} <span className="exec-count">{counts.destroyed ?? destroyed.length}</span></h4>
+        <h4>{tr(lang, "Знищено", "Destroyed")} <span className="exec-count">{counts.destroyed ?? destroyed.length}</span></h4>
         {destroyed.length === 0 && (
-          <p className="exec-empty">{lang === "uk" ? "Нічого не було знищено." : "Nothing was destroyed."}</p>
+          <p className="exec-empty">{tr(lang, "Нічого не було знищено.", "Nothing was destroyed.")}</p>
         )}
         {groupByKind(destroyed).map(([kind, items]) => (
           <div key={kind} className="exec-group">
@@ -73,9 +74,9 @@ export function ExecutionReport({ report, lang = "uk" }) {
       </section>
 
       <section className="exec-report-section retained">
-        <h4>{lang === "uk" ? "Збережено згідно із законом" : "Retained as required by law"} <span className="exec-count">{counts.retained ?? retained.length}</span></h4>
+        <h4>{tr(lang, "Збережено згідно із законом", "Retained as required by law")} <span className="exec-count">{counts.retained ?? retained.length}</span></h4>
         {retained.length === 0 && (
-          <p className="exec-empty">{lang === "uk" ? "Нічого не збережено." : "Nothing was retained."}</p>
+          <p className="exec-empty">{tr(lang, "Нічого не збережено.", "Nothing was retained.")}</p>
         )}
         {retained.map((it, i) => (
           <div key={`${it.id}-${i}`} className="exec-retained-row">
@@ -88,11 +89,11 @@ export function ExecutionReport({ report, lang = "uk" }) {
       </section>
 
       <footer className="exec-report-foot">
-        <span>{lang === "uk" ? "Виконано" : "Executed"}: {report.executed_at ? new Date(report.executed_at).toLocaleString(lang === "uk" ? "uk-UA" : "en-GB") : "—"}</span>
-        <span>{lang === "uk" ? "Оператор" : "Operator"}: <span className="pmono">{report.operator || "—"}</span></span>
-        <span>{lang === "uk" ? "Рушій" : "Engine"}: <span className="pmono">{report.engine_version || "—"}</span></span>
+        <span>{tr(lang, "Виконано", "Executed")}: {report.executed_at ? new Date(report.executed_at).toLocaleString(tr(lang, "uk-UA", "en-GB")) : "—"}</span>
+        <span>{tr(lang, "Оператор", "Operator")}: <span className="pmono">{report.operator || "—"}</span></span>
+        <span>{tr(lang, "Рушій", "Engine")}: <span className="pmono">{report.engine_version || "—"}</span></span>
         {counts.inventory_before != null && (
-          <span>{lang === "uk" ? "Обʼєктів до виконання" : "Objects before execution"}: {counts.inventory_before}</span>
+          <span>{tr(lang, "Обʼєктів до виконання", "Objects before execution")}: {counts.inventory_before}</span>
         )}
       </footer>
     </div>

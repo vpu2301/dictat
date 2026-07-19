@@ -3,6 +3,7 @@
 // loading / error / empty state inside this shell.
 import React from "react";
 import { Icon } from "../UI.jsx";
+import { tr } from "../../i18n.js";
 
 export function Panel({ title, icon, sub, gapNote, children }) {
   return (
@@ -22,22 +23,22 @@ export function Panel({ title, icon, sub, gapNote, children }) {
 // content to show (the caller renders that). `isEmpty` is caller-decided.
 export function PanelState({ loading, error, isEmpty, onRetry, lang, loadingText, emptyText }) {
   if (loading) {
-    return <div className="dash-panel-loading">{loadingText || (lang === "uk" ? "Завантаження…" : "Loading…")}</div>;
+    return <div className="dash-panel-loading">{loadingText || (tr(lang, "Завантаження…", "Loading…"))}</div>;
   }
   if (error) {
     return (
       <div className="dash-panel-error">
-        <span>{error.message || (lang === "uk" ? "Помилка завантаження" : "Failed to load")}</span>
+        <span>{error.message || (tr(lang, "Помилка завантаження", "Failed to load"))}</span>
         {onRetry && (
           <button className="dash-retry" onClick={onRetry}>
-            {lang === "uk" ? "Повторити" : "Retry"}
+            {tr(lang, "Повторити", "Retry")}
           </button>
         )}
       </div>
     );
   }
   if (isEmpty) {
-    return <div className="dash-panel-empty">{emptyText || (lang === "uk" ? "Немає даних" : "No data")}</div>;
+    return <div className="dash-panel-empty">{emptyText || (tr(lang, "Немає даних", "No data"))}</div>;
   }
   return null;
 }

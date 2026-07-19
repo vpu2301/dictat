@@ -6,9 +6,10 @@ import { useAsync } from "../../api/useAsync.js";
 import { fetchAllUsers, seatSummary, asrQuotaStatus, ROLE_KEYS } from "../../api/dashboard.js";
 import { Panel, PanelState } from "./Panel.jsx";
 import { StatusBadge } from "./StatusBadge.jsx";
+import { tr } from "../../i18n.js";
 
 export function LicensePanel({ lang }) {
-  const T = (uk, en) => (lang === "uk" ? uk : en);
+  const T = (uk, en) => tr(lang, uk, en);
   const usersReq = useAsync(() => fetchAllUsers(), []);
   const quotaReq = useAsync(() => asrQuotaStatus(30), []);
 

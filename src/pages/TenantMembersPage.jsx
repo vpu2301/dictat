@@ -13,6 +13,7 @@ import {
   getCurrentTenant, listMembers, addMember, updateMember, removeMember,
   canManageTenant, MANAGEMENT_ROLES,
 } from "../api/tenants.js";
+import { tr } from "../i18n.js";
 
 export function TenantMembersPage({ lang = "en", onToast }) {
   const claims = useClaims();
@@ -46,12 +47,12 @@ function MembersTable({ tenant, canManage, lang, onToast }) {
     setRowBusy(m.user_sub); setRowError(null);
     try {
       await updateMember(tenant.id, m.user_sub, role);
-      if (onToast) onToast(lang === "uk" ? "Роль оновлено" : "Role updated");
+      if (onToast) onToast(tr(lang, "Роль оновлено", "Role updated"));
       req.reload();
     } catch (err) {
       const msg = err.status === 409
-        ? (lang === "uk" ? "Клініка має мати щонайменше одного власника" : "A clinic must keep at least one owner")
-        : errMsg(err, lang === "uk" ? "Не вдалося змінити роль" : "Could not change role");
+        ? (tr(lang, "Клініка має мати щонайменше одного власника", "A clinic must keep at least one owner"))
+        : errMsg(err, tr(lang, "Не вдалося змінити роль", "Could not change role"));
       setRowError({ sub: m.user_sub, msg });
     } finally { setRowBusy(null); }
   };
@@ -60,13 +61,13 @@ function MembersTable({ tenant, canManage, lang, onToast }) {
     setRowBusy(m.user_sub); setRowError(null);
     try {
       await removeMember(tenant.id, m.user_sub);
-      if (onToast) onToast(lang === "uk" ? "Учасника вилучено" : "Member removed");
+      if (onToast) onToast(tr(lang, "Учасника вилучено", "Member removed"));
       setConfirm(null);
       req.reload();
     } catch (err) {
       const msg = err.status === 409
-        ? (lang === "uk" ? "Клініка має мати щонайменше одного власника" : "A clinic must keep at least one owner")
-        : errMsg(err, lang === "uk" ? "Не вдалося вилучити" : "Could not remove member");
+        ? (tr(lang, "Клініка має мати щонайменше одного власника", "A clinic must keep at least one owner"))
+        : errMsg(err, tr(lang, "Не вдалося вилучити", "Could not remove member"));
       setRowError({ sub: m.user_sub, msg });
       setConfirm(null);
     } finally { setRowBusy(null); }
@@ -76,12 +77,12 @@ function MembersTable({ tenant, canManage, lang, onToast }) {
     <div className="page tenant-members">
       <div className="page-h">
         <div style={{ flex: 1 }}>
-          <h1>{lang === "uk" ? "Учасники клініки" : "Clinic members"}</h1>
-          <p className="sub">{tenant.display_name} · {members.length} {lang === "uk" ? "учасників" : "members"}</p>
+          <h1>{tr(lang, "Учасники клініки", "Clinic members")}</h1>
+          <p className="sub">{tenant.display_name} · {members.length} {tr(lang, "учасників", "members")}</p>
         </div>
         {canManage && (
           <button className="btn accent" onClick={() => setAddOpen(true)}>
-            <Icon name="plus" size={13} /> {lang === "uk" ? "Додати учасника" : "Add member"}
+            <Icon name="plus" size={13} /> {tr(lang, "Додати учасника", "Add member")}
           </button>
         )}
       </div>
@@ -93,17 +94,17 @@ function MembersTable({ tenant, canManage, lang, onToast }) {
         <table className="admin-table tenant-members-table">
           <thead>
             <tr>
-              <th>{lang === "uk" ? "Імʼя" : "Name"}</th>
+              <th>{tr(lang, "Імʼя", "Name")}</th>
               <th>Email</th>
-              <th>{lang === "uk" ? "Роль" : "Role"}</th>
-              <th>{lang === "uk" ? "Статус" : "Status"}</th>
-              <th>{lang === "uk" ? "Платформна роль" : "Platform role"}</th>
+              <th>{tr(lang, "Роль", "Role")}</th>
+              <th>{tr(lang, "Статус", "Status")}</th>
+              <th>{tr(lang, "Платформна роль", "Platform role")}</th>
               {canManage && <th></th>}
             </tr>
           </thead>
           <tbody>
             {members.length === 0 && (
-              <tr><td colSpan={canManage ? 6 : 5} className="admin-empty">{lang === "uk" ? "Немає учасників." : "No members yet."}</td></tr>
+              <tr><td colSpan={canManage ? 6 : 5} className="admin-empty">{tr(lang, "Немає учасників.", "No members yet.")}</td></tr>
             )}
             {members.map((m) => (
               <React.Fragment key={m.user_sub}>
@@ -126,7 +127,7 @@ function MembersTable({ tenant, canManage, lang, onToast }) {
                   {canManage && (
                     <td>
                       <button className="btn btn-ghost" disabled={rowBusy === m.user_sub} onClick={() => setConfirm(m)}>
-                        {lang === "uk" ? "Вилучити" : "Remove"}
+                        {tr(lang, "Вилучити", "Remove")}
                       </button>
                     </td>
                   )}
@@ -149,22 +150,22 @@ function MembersTable({ tenant, canManage, lang, onToast }) {
           tenant={tenant}
           lang={lang}
           onClose={() => setAddOpen(false)}
-          onAdded={() => { setAddOpen(false); req.reload(); if (onToast) onToast(lang === "uk" ? "Учасника додано" : "Member added"); }}
+          onAdded={() => { setAddOpen(false); req.reload(); if (onToast) onToast(tr(lang, "Учасника додано", "Member added")); }}
         />
       )}
 
       {confirm && (
         <Modal onClose={() => setConfirm(null)}>
-          <h3 style={{ margin: 0 }}>{lang === "uk" ? "Вилучити учасника?" : "Remove member?"}</h3>
+          <h3 style={{ margin: 0 }}>{tr(lang, "Вилучити учасника?", "Remove member?")}</h3>
           <p style={{ color: "var(--muted)" }}>
-            {(confirm.display_name || confirm.email || confirm.user_sub)} — {lang === "uk" ? "втратить доступ до цієї клініки." : "will lose access to this clinic."}
+            {(confirm.display_name || confirm.email || confirm.user_sub)} — {tr(lang, "втратить доступ до цієї клініки.", "will lose access to this clinic.")}
           </p>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
             <button className="btn" onClick={() => setConfirm(null)} disabled={rowBusy === confirm.user_sub}>
-              {lang === "uk" ? "Скасувати" : "Cancel"}
+              {tr(lang, "Скасувати", "Cancel")}
             </button>
             <button className="btn btn-danger" onClick={() => doRemove(confirm)} disabled={rowBusy === confirm.user_sub}>
-              {rowBusy === confirm.user_sub ? "…" : (lang === "uk" ? "Вилучити" : "Remove")}
+              {rowBusy === confirm.user_sub ? "…" : (tr(lang, "Вилучити", "Remove"))}
             </button>
           </div>
         </Modal>
@@ -189,8 +190,8 @@ function AddMemberModal({ tenant, lang, onClose, onAdded }) {
       await addMember(tenant.id, body);
       onAdded();
     } catch (err) {
-      if (err.status === 409) setError({ status: 409, problem: { title: lang === "uk" ? "Вже є учасником" : "Already a member" } });
-      else if (err.status === 404) setError({ status: 404, problem: { title: lang === "uk" ? "Користувача з таким email не знайдено в цій клініці" : "No user with that email in this clinic" } });
+      if (err.status === 409) setError({ status: 409, problem: { title: tr(lang, "Вже є учасником", "Already a member") } });
+      else if (err.status === 404) setError({ status: 404, problem: { title: tr(lang, "Користувача з таким email не знайдено в цій клініці", "No user with that email in this clinic") } });
       else setError(err);
     } finally { setBusy(false); }
   };
@@ -198,7 +199,7 @@ function AddMemberModal({ tenant, lang, onClose, onAdded }) {
   return (
     <Modal onClose={() => { if (!busy) onClose(); }}>
       <form className="admin-form" onSubmit={submit} style={{ minWidth: 340 }}>
-        <h3 style={{ margin: "0 0 4px" }}>{lang === "uk" ? "Додати учасника" : "Add member"}</h3>
+        <h3 style={{ margin: "0 0 4px" }}>{tr(lang, "Додати учасника", "Add member")}</h3>
         {error && <ApiErrorView error={error} lang={lang} />}
         <div className="seg" style={{ display: "flex", gap: 6, marginBottom: 4 }}>
           <button type="button" className={"btn " + (mode === "email" ? "btn-primary" : "btn-ghost")} onClick={() => setMode("email")}>Email</button>
@@ -216,17 +217,17 @@ function AddMemberModal({ tenant, lang, onClose, onAdded }) {
           />
         </label>
         <label className="admin-field">
-          <span>{lang === "uk" ? "Роль" : "Role"}</span>
+          <span>{tr(lang, "Роль", "Role")}</span>
           <select value={role} onChange={(e) => setRole(e.target.value)} disabled={busy}>
             {MANAGEMENT_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </label>
         <div className="admin-form-actions" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>
-            {lang === "uk" ? "Скасувати" : "Cancel"}
+            {tr(lang, "Скасувати", "Cancel")}
           </button>
           <button type="submit" className="btn btn-primary" disabled={busy || !value.trim()}>
-            {busy ? (lang === "uk" ? "Додавання…" : "Adding…") : (lang === "uk" ? "Додати" : "Add")}
+            {busy ? (tr(lang, "Додавання…", "Adding…")) : (tr(lang, "Додати", "Add"))}
           </button>
         </div>
       </form>

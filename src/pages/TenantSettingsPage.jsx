@@ -15,6 +15,7 @@ import {
   getCurrentTenant, updateTenant, uploadLogo, fetchLogoObjectUrl,
   canManageTenant, isValidSlug,
 } from "../api/tenants.js";
+import { tr } from "../i18n.js";
 
 // Editable fields grouped into the four form sections. `slug` is validated
 // client-side; `is_active` is a toggle handled separately.
@@ -94,14 +95,14 @@ function TenantSettingsForm({ tenant, canManage, lang, onToast, onSaved }) {
     e.preventDefault();
     setError(null); setSlugErr(null);
     if (form.slug && !isValidSlug(form.slug)) {
-      setSlugErr(lang === "uk" ? "Лише малі літери, цифри та дефіси" : "Lowercase letters, digits and hyphens only");
+      setSlugErr(tr(lang, "Лише малі літери, цифри та дефіси", "Lowercase letters, digits and hyphens only"));
       return;
     }
     setSaving(true);
     try {
       const updated = await updateTenant(tenant.id, patch);
       onSaved(updated);
-      if (onToast) onToast(lang === "uk" ? "Зміни збережено" : "Changes saved");
+      if (onToast) onToast(tr(lang, "Зміни збережено", "Changes saved"));
     } catch (err) {
       setError(err);
     } finally {
@@ -113,7 +114,7 @@ function TenantSettingsForm({ tenant, canManage, lang, onToast, onSaved }) {
     <div className="page tenant-settings">
       <div className="page-h">
         <div style={{ flex: 1 }}>
-          <h1>{lang === "uk" ? "Налаштування клініки" : "Clinic settings"}</h1>
+          <h1>{tr(lang, "Налаштування клініки", "Clinic settings")}</h1>
           <p className="sub">
             {tenant.display_name}
             {tenant.status && <span className={"chip " + (tenant.is_active ? "chip-ok" : "chip-warn")} style={{ marginLeft: 8 }}>{tenant.status}</span>}
@@ -124,9 +125,7 @@ function TenantSettingsForm({ tenant, canManage, lang, onToast, onSaved }) {
       {!canManage && (
         <div className="tenant-readonly-note">
           <Icon name="eye" size={14} />
-          <span>{lang === "uk"
-            ? "Лише для перегляду. Керувати клінікою можуть власник або адміністратор."
-            : "Read-only. Only an owner or admin can manage this clinic."}</span>
+          <span>{tr(lang, "Лише для перегляду. Керувати клінікою можуть власник або адміністратор.", "Read-only. Only an owner or admin can manage this clinic.")}</span>
         </div>
       )}
       {error && <ApiErrorView error={error} lang={lang} />}
@@ -153,7 +152,7 @@ function TenantSettingsForm({ tenant, canManage, lang, onToast, onSaved }) {
                 ))}
                 {section.key === "profile" && (
                   <label className="admin-field admin-field-toggle">
-                    <span>{lang === "uk" ? "Активна" : "Active"}</span>
+                    <span>{tr(lang, "Активна", "Active")}</span>
                     <input
                       type="checkbox"
                       checked={form.is_active}
@@ -161,7 +160,7 @@ function TenantSettingsForm({ tenant, canManage, lang, onToast, onSaved }) {
                       disabled={!canManage || saving}
                     />
                     <small className="muted">
-                      {lang === "uk" ? "Вимкнення переводить клініку у стан «suspended»." : "Turning off suspends the clinic."}
+                      {tr(lang, "Вимкнення переводить клініку у стан «suspended».", "Turning off suspends the clinic.")}
                     </small>
                   </label>
                 )}
@@ -172,17 +171,17 @@ function TenantSettingsForm({ tenant, canManage, lang, onToast, onSaved }) {
           <section className="card tenant-card tenant-meta">
             <div className="tenant-meta-grid">
               <div><span className="muted">name</span><code>{tenant.name}</code></div>
-              <div><span className="muted">{lang === "uk" ? "Створено" : "Created"}</span><code>{tenant.created_at || "—"}</code></div>
-              <div><span className="muted">{lang === "uk" ? "Оновлено" : "Updated"}</span><code>{tenant.updated_at || "—"}</code></div>
+              <div><span className="muted">{tr(lang, "Створено", "Created")}</span><code>{tenant.created_at || "—"}</code></div>
+              <div><span className="muted">{tr(lang, "Оновлено", "Updated")}</span><code>{tenant.updated_at || "—"}</code></div>
             </div>
           </section>
 
           {canManage && (
             <div className="tenant-save-bar">
               <button type="submit" className="btn btn-primary" disabled={saving || !dirty}>
-                {saving ? (lang === "uk" ? "Збереження…" : "Saving…") : (lang === "uk" ? "Зберегти зміни" : "Save changes")}
+                {saving ? (tr(lang, "Збереження…", "Saving…")) : (tr(lang, "Зберегти зміни", "Save changes"))}
               </button>
-              {dirty && !saving && <span className="muted">{lang === "uk" ? "Незбережені зміни" : "Unsaved changes"}</span>}
+              {dirty && !saving && <span className="muted">{tr(lang, "Незбережені зміни", "Unsaved changes")}</span>}
             </div>
           )}
         </form>
@@ -228,8 +227,8 @@ function LogoCard({ tenant, canManage, lang, onToast, onSaved }) {
       onSaved(updated);
       if (onToast) onToast(okMsg);
     } catch (err) {
-      if (err.status === 413) setError({ status: 413, problem: { title: lang === "uk" ? "Файл завеликий (макс. 2 МБ)" : "File too large (max 2 MB)" } });
-      else if (err.status === 422) setError({ status: 422, problem: { title: lang === "uk" ? "Потрібне зображення або URL" : "Provide an image file or a URL" } });
+      if (err.status === 413) setError({ status: 413, problem: { title: tr(lang, "Файл завеликий (макс. 2 МБ)", "File too large (max 2 MB)") } });
+      else if (err.status === 422) setError({ status: 422, problem: { title: tr(lang, "Потрібне зображення або URL", "Provide an image file or a URL") } });
       else setError(err);
     } finally { setBusy(false); }
   };
@@ -238,25 +237,25 @@ function LogoCard({ tenant, canManage, lang, onToast, onSaved }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      setError({ status: 413, problem: { title: lang === "uk" ? "Файл завеликий (макс. 2 МБ)" : "File too large (max 2 MB)" } });
+      setError({ status: 413, problem: { title: tr(lang, "Файл завеликий (макс. 2 МБ)", "File too large (max 2 MB)") } });
       e.target.value = "";
       return;
     }
-    doUpload({ file }, lang === "uk" ? "Логотип оновлено" : "Logo updated");
+    doUpload({ file }, tr(lang, "Логотип оновлено", "Logo updated"));
     e.target.value = "";
   };
 
   const onUseUrl = () => {
     const u = urlInput.trim();
     if (!u) return;
-    doUpload({ logo_url: u }, lang === "uk" ? "Логотип оновлено" : "Logo updated").then(() => setUrlInput(""));
+    doUpload({ logo_url: u }, tr(lang, "Логотип оновлено", "Logo updated")).then(() => setUrlInput(""));
   };
 
   return (
     <section className="card tenant-card">
       <header className="admin-card-h">
         <Icon name="scan" size={14} />
-        <h2>{lang === "uk" ? "Логотип" : "Logo"}</h2>
+        <h2>{tr(lang, "Логотип", "Logo")}</h2>
       </header>
       <div className="tenant-logo-preview">
         {preview
@@ -268,7 +267,7 @@ function LogoCard({ tenant, canManage, lang, onToast, onSaved }) {
         <div className="tenant-logo-actions">
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
           <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()}>
-            <Icon name="download" size={13} /> {lang === "uk" ? "Завантажити файл" : "Upload file"}
+            <Icon name="download" size={13} /> {tr(lang, "Завантажити файл", "Upload file")}
           </button>
           <div className="tenant-logo-url">
             <input
@@ -279,10 +278,10 @@ function LogoCard({ tenant, canManage, lang, onToast, onSaved }) {
               disabled={busy}
             />
             <button className="btn btn-ghost" onClick={onUseUrl} disabled={busy || !urlInput.trim()}>
-              {lang === "uk" ? "URL" : "Use URL"}
+              {tr(lang, "URL", "Use URL")}
             </button>
           </div>
-          <small className="muted">{lang === "uk" ? "PNG/JPG, до 2 МБ." : "PNG/JPG, up to 2 MB."}</small>
+          <small className="muted">{tr(lang, "PNG/JPG, до 2 МБ.", "PNG/JPG, up to 2 MB.")}</small>
         </div>
       )}
     </section>
@@ -298,7 +297,7 @@ function BrandingPreview({ form, tenant, lang }) {
     <section className="card tenant-card">
       <header className="admin-card-h">
         <Icon name="fileText" size={14} />
-        <h2>{lang === "uk" ? "Бланк (превʼю)" : "Letterhead preview"}</h2>
+        <h2>{tr(lang, "Бланк (превʼю)", "Letterhead preview")}</h2>
       </header>
       <div className="tenant-letterhead">
         <div className="tenant-letterhead-name">{form.legal_name || form.display_name || tenant.name}</div>
@@ -309,9 +308,7 @@ function BrandingPreview({ form, tenant, lang }) {
         {contact && <div className="tenant-letterhead-line">{contact}</div>}
       </div>
       <small className="muted">
-        {lang === "uk"
-          ? "PDF-звіти друкують назву клініки автоматично."
-          : "Report PDFs print the clinic name as issuer automatically."}
+        {tr(lang, "PDF-звіти друкують назву клініки автоматично.", "Report PDFs print the clinic name as issuer automatically.")}
       </small>
     </section>
   );

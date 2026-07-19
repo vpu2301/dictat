@@ -7,6 +7,7 @@ import { listPatients, getPatient } from '../api/patients.js';
 import { getNote, createNote, updateNote, signNote } from '../api/notes.js';
 import { listTemplates } from '../api/templates.js';
 import { createReport } from '../api/reports.js';
+import { tr } from "../i18n.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -90,32 +91,30 @@ export function PromoteModal({ lang, onClose, onConfirm }) {
   return (
     <Modal onClose={onClose}>
       <div className="modal-h">
-        <h2>{lang === "uk" ? "Просунути до звіту" : "Promote to report"}</h2>
-        <p>{lang === "uk" ? "Нотатка буде перетворена в медичний звіт" : "This note will be promoted to a medical report"}</p>
+        <h2>{tr(lang, "Просунути до звіту", "Promote to report")}</h2>
+        <p>{tr(lang, "Нотатка буде перетворена в медичний звіт", "This note will be promoted to a medical report")}</p>
       </div>
       <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 13.5, color: "var(--text-2)", lineHeight: 1.65, padding: "12px 14px", background: "var(--accent-soft)", borderRadius: "var(--radius)", borderLeft: "3px solid var(--accent)" }}>
-          {lang === "uk"
-            ? "Нотатка буде просунута до звіту. Оригінальна нотатка залишається у системі й доступна у вкладці нотаток."
-            : "This note will be promoted to a report. The original note remains in the system and is accessible in the notes tab."}
+          {tr(lang, "Нотатка буде просунута до звіту. Оригінальна нотатка залишається у системі й доступна у вкладці нотаток.", "This note will be promoted to a report. The original note remains in the system and is accessible in the notes tab.")}
         </div>
         <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "var(--text-2)" }}>
-          {lang === "uk" ? "Шаблон звіту" : "Report template"}
+          {tr(lang, "Шаблон звіту", "Report template")}
           <select value={selectedTemplate} onChange={e => setSelectedTemplate(e.target.value)}
             disabled={req.loading || !templates.length}
             style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "var(--radius)", background: "var(--surface)", fontSize: 13, color: "var(--text-1)" }}>
-            {req.loading && <option>{lang === "uk" ? "Завантаження…" : "Loading…"}</option>}
-            {!req.loading && !templates.length && <option>{lang === "uk" ? "Немає шаблонів" : "No templates"}</option>}
+            {req.loading && <option>{tr(lang, "Завантаження…", "Loading…")}</option>}
+            {!req.loading && !templates.length && <option>{tr(lang, "Немає шаблонів", "No templates")}</option>}
             {templates.map(t => <option key={t.id} value={t.id}>{loc(t.name, lang)}</option>)}
           </select>
         </label>
-        {error && <div style={{ color: "var(--rec,#dc2626)", fontSize: 13 }}>{error.message || (lang === "uk" ? "Помилка" : "Error")}</div>}
+        {error && <div style={{ color: "var(--rec,#dc2626)", fontSize: 13 }}>{error.message || (tr(lang, "Помилка", "Error"))}</div>}
       </div>
       <div className="modal-foot">
-        <button className="btn" onClick={onClose}>{lang === "uk" ? "Скасувати" : "Cancel"}</button>
+        <button className="btn" onClick={onClose}>{tr(lang, "Скасувати", "Cancel")}</button>
         <button className="btn accent" disabled={!selectedTemplate || busy} onClick={confirm}>
           <Icon name="arrowRight" size={13} />
-          {busy ? (lang === "uk" ? "Просування…" : "Promoting…") : (lang === "uk" ? "Просунути" : "Promote")}
+          {busy ? (tr(lang, "Просування…", "Promoting…")) : (tr(lang, "Просунути", "Promote"))}
         </button>
       </div>
     </Modal>
@@ -168,7 +167,7 @@ export function QuickNoteModal({ lang, navigate, onClose }) {
   return (
     <Modal onClose={onClose}>
       <div className="modal-h">
-        <h2>{lang === "uk" ? "Швидка нотатка" : "Quick note"}</h2>
+        <h2>{tr(lang, "Швидка нотатка", "Quick note")}</h2>
         <p>
           <kbd>{navigator.platform?.startsWith("Mac") ? "⌘" : "Ctrl"}</kbd>
           <kbd>⇧</kbd>
@@ -180,13 +179,13 @@ export function QuickNoteModal({ lang, navigate, onClose }) {
         <div className="qno-body">
           <div className="qno-combobox" ref={comboRef}>
             <label style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4, display: "block" }}>
-              {lang === "uk" ? "Пацієнт" : "Patient"}
+              {tr(lang, "Пацієнт", "Patient")}
             </label>
             <input
               value={patientQuery}
               onChange={e => { setPatientQuery(e.target.value); setSelectedPatient(null); setDropdownOpen(true); }}
               onFocus={() => setDropdownOpen(true)}
-              placeholder={lang === "uk" ? "Пошук пацієнта…" : "Search patient…"}
+              placeholder={tr(lang, "Пошук пацієнта…", "Search patient…")}
             />
             {dropdownOpen && filteredPatients.length > 0 && (
               <div className="qno-dropdown" ref={dropdownRef}>
@@ -208,7 +207,7 @@ export function QuickNoteModal({ lang, navigate, onClose }) {
 
           <div>
             <label style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6, display: "block" }}>
-              {lang === "uk" ? "Структура" : "Structure"}
+              {tr(lang, "Структура", "Structure")}
             </label>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {STRUCTURES.map(s => (
@@ -221,20 +220,20 @@ export function QuickNoteModal({ lang, navigate, onClose }) {
 
           <div>
             <label style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4, display: "block" }}>
-              {lang === "uk" ? "Вміст нотатки" : "Note content"}
+              {tr(lang, "Вміст нотатки", "Note content")}
             </label>
             <textarea value={content} onChange={e => setContent(e.target.value)}
-              placeholder={lang === "uk" ? "Введіть текст нотатки…" : "Enter note content…"} rows={6} />
+              placeholder={tr(lang, "Введіть текст нотатки…", "Enter note content…")} rows={6} />
           </div>
-          {error && <div style={{ color: "var(--rec,#dc2626)", fontSize: 13 }}>{error.message || (lang === "uk" ? "Не вдалося зберегти" : "Could not save")}</div>}
+          {error && <div style={{ color: "var(--rec,#dc2626)", fontSize: 13 }}>{error.message || (tr(lang, "Не вдалося зберегти", "Could not save"))}</div>}
         </div>
       </div>
 
       <div className="modal-foot">
-        <button className="btn" onClick={onClose}>{lang === "uk" ? "Відхилити" : "Discard"}</button>
+        <button className="btn" onClick={onClose}>{tr(lang, "Відхилити", "Discard")}</button>
         <button className="btn accent" disabled={!selectedPatient || !content.trim() || saving} onClick={handleSave}>
           <Icon name="save" size={13} />
-          {saving ? (lang === "uk" ? "Збереження…" : "Saving…") : (lang === "uk" ? "Зберегти" : "Save")}
+          {saving ? (tr(lang, "Збереження…", "Saving…")) : (tr(lang, "Зберегти", "Save"))}
         </button>
       </div>
     </Modal>
@@ -314,10 +313,10 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
     try {
       if (!noteRef.current) await persist();
       if (noteRef.current) await signNote(noteRef.current);
-      setToast(lang === "uk" ? "Нотатку підписано" : "Note signed");
+      setToast(tr(lang, "Нотатку підписано", "Note signed"));
       noteReq.reload();
     } catch (e) {
-      setToast((e && e.message) || (lang === "uk" ? "Не вдалося підписати" : "Could not sign"));
+      setToast((e && e.message) || (tr(lang, "Не вдалося підписати", "Could not sign")));
     }
   };
 
@@ -332,7 +331,7 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
 
   if (noteId && noteReq.loading) return <div className="page note-editor-page"><Loading lang={lang} /></div>;
 
-  const title = note ? loc(note.title, lang) : (lang === "uk" ? "Нова нотатка" : "New note");
+  const title = note ? loc(note.title, lang) : (tr(lang, "Нова нотатка", "New note"));
 
   return (
     <div className="page note-editor-page">
@@ -357,11 +356,11 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
         <div className="nep-actions">
           <button className="btn ghost sm" onClick={() => setPromoteOpen(true)}>
             <Icon name="arrowRight" size={13} />
-            {lang === "uk" ? "Просунути до звіту" : "Promote to report"}
+            {tr(lang, "Просунути до звіту", "Promote to report")}
           </button>
           <button className="btn accent" onClick={handleSign}>
             <Icon name="sign" size={13} />
-            {lang === "uk" ? "Підписати" : "Sign & finish"}
+            {tr(lang, "Підписати", "Sign & finish")}
           </button>
         </div>
       </div>
@@ -369,7 +368,7 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
       <div className="nep-body">
         <div className="structure-picker">
           <label style={{ fontSize: 12, color: "var(--muted)", marginRight: 4 }}>
-            {lang === "uk" ? "Структура:" : "Structure:"}
+            {tr(lang, "Структура:", "Structure:")}
           </label>
           <select value={structure} onChange={e => { setStructure(e.target.value); setActiveSection(SECTIONS_MAP[e.target.value]?.[0]?.id || ""); }}>
             {STRUCTURES.map(s => <option key={s.id} value={s.id}>{s[lang] || s.en}</option>)}
@@ -387,10 +386,10 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
 
         {structure === "free" && (
           <div className="note-section-block">
-            <div className="nsb-header"><span className="nsb-title">{lang === "uk" ? "Нотатка" : "Note"}</span></div>
+            <div className="nsb-header"><span className="nsb-title">{tr(lang, "Нотатка", "Note")}</span></div>
             <textarea className="nsb-body" value={freeContent}
               onChange={e => { setFreeContent(e.target.value); triggerAutosave(); }}
-              placeholder={lang === "uk" ? "Почніть вводити нотатку…" : "Start typing your note…"} />
+              placeholder={tr(lang, "Почніть вводити нотатку…", "Start typing your note…")} />
           </div>
         )}
 

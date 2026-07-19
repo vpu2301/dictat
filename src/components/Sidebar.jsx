@@ -9,6 +9,7 @@ import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
 import { useAsync } from "../api/useAsync.js";
 import { countReports } from "../api/reports.js";
+import { tr } from "../i18n.js";
 
 // One collapsible group ── header clickable, body slides under.
 // When the sidebar itself is collapsed, the group header is hidden and the
@@ -184,7 +185,7 @@ export function Sidebar({
     clear();
     setSigningOut(false);
     setConfirmOpen(false);
-    if (onToast) onToast(lang === "uk" ? "Сесію завершено" : "Signed out");
+    if (onToast) onToast(tr(lang, "Сесію завершено", "Signed out"));
     navigate("/login");
   };
 
@@ -223,22 +224,22 @@ export function Sidebar({
     const secs = [];
     if (isAdmin) {
       secs.push({
-        title: lang === "uk" ? "Адмін" : "Admin",
+        title: tr(lang, "Адмін", "Admin"),
         icon: "grid",
         items: [
-          { icon: "grid", label: lang === "uk" ? "Панель" : "Dashboard", path: "/dashboard", exact: true },
-          { icon: "users", label: lang === "uk" ? "Користувачі" : "Users", path: "/admin/users", exact: true },
-          { icon: "shield", label: lang === "uk" ? "Приватність" : "Privacy", path: "/admin/privacy", exact: true },
+          { icon: "grid", label: tr(lang, "Панель", "Dashboard"), path: "/dashboard", exact: true },
+          { icon: "users", label: tr(lang, "Користувачі", "Users"), path: "/admin/users", exact: true },
+          { icon: "shield", label: tr(lang, "Приватність", "Privacy"), path: "/admin/privacy", exact: true },
         ],
       });
     }
     if (isAuditor) {
       secs.push({
-        title: lang === "uk" ? "Аудит" : "Audit",
+        title: tr(lang, "Аудит", "Audit"),
         icon: "history",
         items: [
-          { icon: "history", label: lang === "uk" ? "Події" : "Events", path: "/audit/events", prefix: "/audit/events" },
-          { icon: "shield", label: lang === "uk" ? "Перевірка ланцюга" : "Chain verify", path: "/audit/verify", exact: true },
+          { icon: "history", label: tr(lang, "Події", "Events"), path: "/audit/events", prefix: "/audit/events" },
+          { icon: "shield", label: tr(lang, "Перевірка ланцюга", "Chain verify"), path: "/audit/verify", exact: true },
         ],
       });
     }
@@ -270,49 +271,49 @@ export function Sidebar({
       {product === "scribe" ? (
         <button className="sb-cta" onClick={onNewSession}>
           <span className="sb-cta-icon"><Icon name="mic" size={13} /></span>
-          {!collapsed && <span className="sb-cta-label">{lang === "uk" ? "Нова консультація" : "New consultation"}</span>}
+          {!collapsed && <span className="sb-cta-label">{tr(lang, "Нова консультація", "New consultation")}</span>}
           {!collapsed && <kbd>N</kbd>}
         </button>
       ) : (
         <button className="sb-cta" onClick={onNewDictation}>
           <span className="sb-cta-icon"><Icon name="mic" size={13} /></span>
-          {!collapsed && <span className="sb-cta-label">{lang === "uk" ? "Нове диктування" : "New dictation"}</span>}
+          {!collapsed && <span className="sb-cta-label">{tr(lang, "Нове диктування", "New dictation")}</span>}
           {!collapsed && <kbd>D</kbd>}
         </button>
       )}
 
       {/* ── Workspace ─────────────────────────────────────── */}
-      <Group id="workspace" title={lang === "uk" ? "Робочий простір" : "Workspace"} icon="folder"
+      <Group id="workspace" title={tr(lang, "Робочий простір", "Workspace")} icon="folder"
              openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed} defaultOpen>
         {product === "scribe" ? (
           <>
-            <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={lang === "uk" ? "Сьогодні" : "Today"} path="/scribe" exact />
+            <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Сьогодні", "Today")} path="/scribe" exact />
             <NavLink {...{ route, navigate, collapsed }} icon="users"
-                     label={lang === "uk" ? "Пацієнти" : "Patients"}
+                     label={tr(lang, "Пацієнти", "Patients")}
                      path="/scribe/patients" prefix="/scribe/patients"
                      comingSoon={!FEATURES.patients} />
             <NavLink {...{ route, navigate, collapsed }} icon="fileText"
-                     label={lang === "uk" ? "Нотатки" : "Notes"}
+                     label={tr(lang, "Нотатки", "Notes")}
                      path="/scribe/notes"
                      comingSoon={!FEATURES.notes} />
             <NavLink {...{ route, navigate, collapsed }} icon="layers"
-                     label={lang === "uk" ? "Шаблони нотаток" : "Note templates"}
+                     label={tr(lang, "Шаблони нотаток", "Note templates")}
                      path="/scribe/templates"
                      comingSoon={!FEATURES.templates} />
           </>
         ) : (
           <>
-            <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={lang === "uk" ? "Огляд" : "Overview"} path="/dictate" exact />
+            <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Огляд", "Overview")} path="/dictate" exact />
             <NavLink {...{ route, navigate, collapsed }} icon="mic"
-                     label={lang === "uk" ? "Студія" : "Studio"}
+                     label={tr(lang, "Студія", "Studio")}
                      path="/dictate/studio" prefix="/dictate/studio" />
             <NavLink {...{ route, navigate, collapsed }} icon="fileText"
-                     label={lang === "uk" ? "Звіти" : "Reports"}
+                     label={tr(lang, "Звіти", "Reports")}
                      path="/dictate/reports" prefix="/dictate/reports"
                      badge={FEATURES.reports && draftReportCount > 0 ? String(draftReportCount) : undefined}
                      comingSoon={!FEATURES.reports} />
             <NavLink {...{ route, navigate, collapsed }} icon="layers"
-                     label={lang === "uk" ? "Шаблони" : "Templates"}
+                     label={tr(lang, "Шаблони", "Templates")}
                      path="/dictate/templates"
                      comingSoon={!FEATURES.templates} />
           </>
@@ -321,13 +322,13 @@ export function Sidebar({
 
       {/* ── Transcription (ASR — all authed users) ─────────── */}
       {state && (
-        <Group id="asr" title={lang === "uk" ? "Транскрипція" : "Transcription"} icon="bot"
-               openSet={openSet} setOpenSet={setOpenSet}>
+        <Group id="asr" title={tr(lang, "Транскрипція", "Transcription")} icon="bot"
+               openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed}>
           <NavLink {...{ route, navigate, collapsed }} icon="inbox"
-                   label={lang === "uk" ? "Завдання" : "Jobs"}
+                   label={tr(lang, "Завдання", "Jobs")}
                    path="/asr/jobs" prefix="/asr/jobs" />
           <NavLink {...{ route, navigate, collapsed }} icon="plus"
-                   label={lang === "uk" ? "Нове завдання" : "New job"}
+                   label={tr(lang, "Нове завдання", "New job")}
                    path="/asr/new" exact />
         </Group>
       )}
@@ -349,17 +350,17 @@ export function Sidebar({
             role="button"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            title={state ? (lang === "uk" ? "Меню акаунту" : "Account menu") : (lang === "uk" ? "Увійти" : "Sign in")}
+            title={state ? (tr(lang, "Меню акаунту", "Account menu")) : (tr(lang, "Увійти", "Sign in"))}
           >
             <div className="avatar">{initials}</div>
             {!collapsed && (
               <>
                 <div className="sb-user-info">
                   <div className="sb-user-name">
-                    {dbUser?.display_name || claims?.sub?.slice(0, 12) || (lang === "uk" ? "Гість" : "Guest")}
+                    {dbUser?.display_name || claims?.sub?.slice(0, 12) || (tr(lang, "Гість", "Guest"))}
                   </div>
                   <div className="sb-user-role">
-                    {claims ? (claims.roles || []).join(", ") : (lang === "uk" ? "Не авторизовано" : "Not signed in")}
+                    {claims ? (claims.roles || []).join(", ") : (tr(lang, "Не авторизовано", "Not signed in"))}
                   </div>
                 </div>
                 <Icon name={menuOpen ? "chevDown" : "chevRight"} size={14} />
@@ -372,13 +373,13 @@ export function Sidebar({
                 <>
                   <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/profile"))}>
                     <Icon name="user" size={14} />
-                    <span>{lang === "uk" ? "Профіль" : "Profile"}</span>
+                    <span>{tr(lang, "Профіль", "Profile")}</span>
                   </button>
                   <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/settings"))}>
                     <Icon name="sliders" size={14} />
-                    <span>{lang === "uk" ? "Налаштування" : "Settings"}</span>
+                    <span>{tr(lang, "Налаштування", "Settings")}</span>
                   </button>
-                  <SubMenu icon="home" label={lang === "uk" ? "Клініка" : "Clinic"}>
+                  <SubMenu icon="home" label={tr(lang, "Клініка", "Clinic")}>
                     <ClinicMenuSection
                       embedded
                       lang={lang}
@@ -409,13 +410,13 @@ export function Sidebar({
                   <div className="sb-user-menu-sep" />
                   <button className="sb-user-menu-item danger" role="menuitem" onClick={pickMenu(() => setConfirmOpen(true))}>
                     <Icon name="arrowLeft" size={14} />
-                    <span>{lang === "uk" ? "Вийти" : "Sign out"}</span>
+                    <span>{tr(lang, "Вийти", "Sign out")}</span>
                   </button>
                 </>
               ) : (
                 <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/login"))}>
                   <Icon name="user" size={14} />
-                  <span>{lang === "uk" ? "Увійти" : "Sign in"}</span>
+                  <span>{tr(lang, "Увійти", "Sign in")}</span>
                 </button>
               )}
             </div>
@@ -431,12 +432,10 @@ export function Sidebar({
             <Icon name="arrowLeft" size={20} />
           </span>
           <h2 className="signout-modal-title">
-            {lang === "uk" ? "Вийти з акаунту?" : "Sign out?"}
+            {tr(lang, "Вийти з акаунту?", "Sign out?")}
           </h2>
           <p className="signout-modal-body">
-            {lang === "uk"
-              ? "Поточну сесію буде завершено. Незбережені зміни може бути втрачено."
-              : "Your current session will end. Any unsaved changes may be lost."}
+            {tr(lang, "Поточну сесію буде завершено. Незбережені зміни може бути втрачено.", "Your current session will end. Any unsaved changes may be lost.")}
           </p>
           <div className="signout-modal-actions">
             <button
@@ -444,7 +443,7 @@ export function Sidebar({
               onClick={() => setConfirmOpen(false)}
               disabled={signingOut}
             >
-              {lang === "uk" ? "Скасувати" : "Cancel"}
+              {tr(lang, "Скасувати", "Cancel")}
             </button>
             <button
               className="btn btn-danger"
@@ -453,8 +452,8 @@ export function Sidebar({
               autoFocus
             >
               {signingOut
-                ? lang === "uk" ? "Вихід…" : "Signing out…"
-                : lang === "uk" ? "Вийти" : "Sign out"}
+                ? tr(lang, "Вихід…", "Signing out…")
+                : tr(lang, "Вийти", "Sign out")}
             </button>
           </div>
         </div>
