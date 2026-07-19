@@ -27,6 +27,7 @@ import { ContentPage } from './pages/marketing/ContentPage.jsx';
 import { ApiDocsPage } from './pages/marketing/ApiDocsPage.jsx';
 import { DevelopersPage } from './pages/marketing/DevelopersPage.jsx';
 import { DocsPage } from './pages/marketing/DocsPage.jsx';
+import { TemplatesMarketPage } from './pages/marketing/TemplatesMarketPage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 import { SignupFlow } from './pages/SignupFlow.jsx';
 import { PricingPage } from './pages/PricingPage.jsx';
@@ -118,9 +119,10 @@ function App() {
   // (authenticated users at "/" land on their workspace instead).
   const isLanding     = route === "/welcome" || ((route === "/" || route === "") && !auth);
   // Public marketing sub-pages (footer + feature/product/security content).
-  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing"];
+  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing", "/templates"];
   const isMarketing = MARKETING_EXACT.includes(route)
     || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/")
+    || route.startsWith("/templates/")
     || route.startsWith("/blog/") || route === "/developers" || route === "/developers/api"
     || route.startsWith("/developers/api/") || route === "/docs" || route.startsWith("/docs/");
   const isPublicRoute = isAuthRoute || isLanding || isMarketing || route.startsWith("/verify/");
@@ -214,6 +216,10 @@ function App() {
   }
   else if (r === "/docs" || r.startsWith("/docs/")) {
     view = <DocsPage slug={r.replace(/^\/docs\/?/, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
+  else if (r === "/templates" || r.startsWith("/templates/")) {
+    view = <TemplatesMarketPage slug={r.replace(/^\/templates\/?/, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     fullBleed = true;
   }
   else if (

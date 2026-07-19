@@ -11,7 +11,7 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "test:e2e": "playwright test",
-    "test:unit": "node --test src/autocomplete/prefix.test.js src/autocomplete/telemetry.test.js src/api/patients.test.js src/api/reports.assign.test.js src/paste/clipboardToInsertHTML.test.js src/patients/ipn.test.js src/patients/noTelemetryImport.test.js src/patients/feed.test.js src/dictation/messages.test.js src/dictation/voiceCommands.test.js src/patients/consentGate.test.js src/patients/legalBasis.test.js e2e/helpers/pii.test.js",
+    "test:unit": "node --test src/autocomplete/prefix.test.js src/autocomplete/telemetry.test.js src/api/patients.test.js src/api/reports.assign.test.js src/paste/clipboardToInsertHTML.test.js src/patients/ipn.test.js src/patients/noTelemetryImport.test.js src/patients/feed.test.js src/dictation/messages.test.js src/dictation/voiceCommands.test.js src/patients/consentGate.test.js src/patients/legalBasis.test.js src/pages/marketing/templates.test.js e2e/helpers/pii.test.js",
     "verify:autocomplete-contract": "RUN_BACKEND_INTEGRATION=1 node --test src/autocomplete/contract.int.test.js",
     "verify:patients-contract": "RUN_BACKEND_INTEGRATION=1 node --test src/api/patients.contract.int.test.js",
     "e2e:live": "RUN_BACKEND_INTEGRATION=1 playwright test e2e/autocomplete-live.spec.js",

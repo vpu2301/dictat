@@ -550,11 +550,20 @@ export function buildFeatureDetail(slug, lang, cta) {
   const L = (m) => m[lang] ?? m.en;
   const SIGN_UP = { uk: "Зареєструватися", en: "Sign up", pl: "Zarejestruj się", de: "Registrieren", ro: "Înregistrare", cs: "Zaregistrovat se", sr: "Registrujte se", hu: "Regisztráció" };
   const ALL_FEATURES = { uk: "Усі можливості", en: "All features", pl: "Wszystkie funkcje", de: "Alle Funktionen", ro: "Toate funcționalitățile", cs: "Všechny funkce", sr: "Sve funkcije", hu: "Minden funkció" };
+  /* The templates feature page doubles as the entry point to the public
+     catalogue, so it gets one extra card that links there. */
+  const MARKETPLACE_CARD = {
+    icon: "grid",
+    title: L({ uk: "Каталог шаблонів", en: "Template library", pl: "Biblioteka szablonów", de: "Vorlagenbibliothek", ro: "Biblioteca de șabloane", cs: "Knihovna šablon", sr: "Biblioteka šablona", hu: "Sablonkönyvtár" }),
+    desc: L({ uk: "Перегляньте готові структури документів за спеціальностями.", en: "Browse ready-made note structures by specialty.", pl: "Przeglądaj gotowe struktury notatek według specjalności.", de: "Fertige Notizstrukturen nach Fachrichtung durchsuchen.", ro: "Răsfoiți structuri de note gata făcute pe specialități.", cs: "Procházejte hotové struktury záznamů podle odbornosti.", sr: "Pregledajte gotove strukture zapisa po specijalnostima.", hu: "Böngésszen kész jegyzetstruktúrákat szakterület szerint." }),
+    path: "/templates",
+  };
+  const cards = slug === "templates" ? [...t.cards, MARKETPLACE_CARD] : t.cards;
   return {
     hero: { eyebrow: t.eyebrow, title: t.title, sub: t.sub, icon: d.icon, points: t.points,
       cta: { label: L(SIGN_UP), path: "/signup" } },
     blocks: [
-      { type: "grid", cols: 3, items: t.cards },
+      { type: "grid", cols: 3, items: cards },
       { type: "backlink", label: L(ALL_FEATURES), path: "/features" },
       cta,
     ],
