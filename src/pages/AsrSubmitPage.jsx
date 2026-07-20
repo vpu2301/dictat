@@ -8,16 +8,26 @@ import { AudioDrop } from "../components/AudioDrop.jsx";
 import { submitJob } from "../api/asr.js";
 import { tr } from "../i18n.js";
 
+// The backend pins `language` to ^(uk|en)$ (Body_submit_job_asr_jobs_post).
+// There is NO auto-detect: sending "auto" is a 422, so it is not offered.
+const ASR_LANGUAGES = ["uk", "en"];
+const defaultLanguage = (uiLang) => (ASR_LANGUAGES.includes(uiLang) ? uiLang : "uk");
+
+// `encounter_id` is a UUID on the wire; anything else is a 422 the user can
+// only read as "the page is broken". Caught here instead.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
   const [file, setFile] = useState(null);
-  // "auto" lets the recognizer detect the language (Whisper auto-detect).
-  const [language, setLanguage] = useState("auto");
+  const [language, setLanguage] = useState(() => defaultLanguage(lang));
   const [promptId, setPromptId] = useState("");
   const [encounterId, setEncounterId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  const canSubmit = !!file && !!promptId && !submitting;
+  const trimmedEncounter = encounterId.trim();
+  const encounterInvalid = trimmedEncounter !== "" && !UUID_RE.test(trimmedEncounter);
+  const canSubmit = !!file && !!promptId && !encounterInvalid && !submitting;
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +39,7 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
         file,
         prompt_id: promptId,
         language,
-        encounter_id: encounterId.trim() || undefined,
+        encounter_id: trimmedEncounter || undefined,
       });
       if (onToast) onToast(tr(lang, "Завдання поставлено в чергу", "Job queued"));
       // Optimistic route to detail; detail polls regardless of initial state.
@@ -79,7 +89,6 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
               disabled={submitting}
               ariaLabel={tr(lang, "Мова аудіо", "Audio language")}
               options={[
-                { value: "auto", label: tr(lang, "Авто (визначити)", "Auto (detect)") },
                 { value: "uk", label: tr(lang, "Українська", "Ukrainian") },
                 { value: "en", label: tr(lang, "Англійська", "English") },
               ]}
@@ -103,9 +112,15 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
               type="text"
               value={encounterId}
               onChange={(e) => setEncounterId(e.target.value)}
-              placeholder="enc_…"
+              placeholder="00000000-0000-0000-0000-000000000000"
+              aria-invalid={encounterInvalid || undefined}
               disabled={submitting}
             />
+            {encounterInvalid && (
+              <span className="asr-field-err" role="alert">
+                {tr(lang, "ID візиту має бути UUID.", "The encounter ID must be a UUID.")}
+              </span>
+            )}
           </label>
         </section>
 

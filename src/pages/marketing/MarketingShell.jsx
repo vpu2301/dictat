@@ -3,232 +3,337 @@
 // The landing page and all marketing sub-pages (About, Contact, Careers,
 // Blog, legal, feature/product/security detail) render inside this shell so
 // they share one header + footer. The header is an Abridge-style mega-menu:
-// two rich dropdowns (Product, Company) + a flat Security link, an indigo
-// pill "Request access" CTA, a language toggle and a ghost Sign-in.
+// two rich dropdowns (Product, Solutions) + flat Pricing and Security links,
+// a sign-up CTA, a language toggle and a ghost Sign-in. Resources and Company
+// live in the footer.
 //
-// Bilingual (uk/en) via the shared `lang` tweak; no auth required.
-import React, { useEffect, useRef, useState } from "react";
+// Localised via the shared `lang` tweak; no auth required.
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, Logo } from "../../components/UI.jsx";
 import { LANGS } from "../../i18n.js";
 
 /* ── Navigation model ──────────────────────────────────────────
-   Shared by desktop dropdowns and the mobile accordion. Each menu
-   group carries icon + label + short description per Abridge's
-   mega-menu pattern; `flat` items render as plain top-level links. */
-export const NAV = {
+   Split in two so eight languages stay maintainable:
+
+   NAV_STRUCT  — shape, icons and routes. Language-independent, written once.
+   NAV_TEXT    — per-language strings keyed by the same keys. Items are
+                 [label, description] tuples; CTAs are
+                 [title, sub, primaryLabel, secondaryLabel].
+
+   Every group renders as a mega-menu panel: an eyebrow + slogan, one or two
+   labelled columns of icon/label/description items, and — for groups that
+   declare a `cta` — a call-to-action strip pinned to the bottom. `flat`
+   entries stay plain top-level links.
+   Unknown languages fall back to English per key, so a new language can
+   ship partially translated. */
+const NAV_STRUCT = [
+  {
+    key: "product",
+    cols: [
+      /* Product answers "what do I get". Individual capabilities are
+         deliberately NOT listed here — the /features hub covers them, and
+         a menu that lists everything sells nothing. */
+      { key: "platform", items: [
+        { key: "scribe",       icon: "waveform", path: "/product/scribe" },
+        { key: "dictate",      icon: "fileText", path: "/product/dictate" },
+        { key: "templates",    icon: "grid",     path: "/templates" },
+        { key: "features",     icon: "layers",   path: "/features" },
+      ] },
+    ],
+    cta: { primary: "/signup", secondary: "/contact" },
+  },
+  {
+    /* Solutions answers "does it work for my situation" — the question a
+       clinician actually arrives with. Each case links to the note template
+       that covers it, so the claim is backed by something concrete. */
+    key: "solutions",
+    cols: [
+      { key: "settings", items: [
+        { key: "inperson",   icon: "users",   path: "/templates/consultation-note" },
+        { key: "telehealth", icon: "video",   path: "/templates/telehealth-visit" },
+        { key: "wardround",  icon: "heart",   path: "/templates/progress-note" },
+        { key: "procedures", icon: "scalpel", path: "/templates/procedure-note" },
+      ] },
+    ],
+    cta: { primary: "/contact", secondary: "/templates" },
+  },
+  /* Resources and Company deliberately live in the footer, not up here: they
+     are low-intent destinations, and the header stays focused on what the
+     product is and whether it fits. See FOOTER's Resources / Company / Legal
+     columns, which carry every one of those links. */
+];
+
+/* Top-level links that are not dropdowns. */
+const NAV_FLAT = [
+  { key: "pricing",  path: "/pricing" },
+  { key: "security", path: "/security" },
+];
+
+const NAV_TEXT = {
   uk: {
-    product: {
-      label: "Продукт",
-      items: [
-        { icon: "waveform", label: "Scribe", desc: "Амбулаторний скрайб для прийомів", path: "/product/scribe" },
-        { icon: "fileText", label: "Dictate", desc: "Диктування звітів із шаблонами", path: "/product/dictate" },
-        { icon: "layers",   label: "Можливості", desc: "Повний цикл документації", path: "/features" },
-        { icon: "grid",     label: "Шаблони", desc: "Медичні шаблони за спеціальностями", path: "/templates" },
-      ],
+    groups: {
+      product:   { label: "Продукт", tagline: "Від сказаного слова до підписаного звіту." },
+      solutions: { label: "Рішення", tagline: "Скрайб для будь-якого прийому — очно чи онлайн." },
     },
-    company: {
-      label: "Компанія",
-      items: [
-        { icon: "home",  label: "Про нас", desc: "Місія та команда", path: "/about" },
-        { icon: "users", label: "Кар'єра", desc: "Приєднуйтесь до нас", path: "/careers" },
-        { icon: "book",  label: "Блог", desc: "Новини та статті", path: "/blog" },
-        { icon: "help",  label: "Контакти", desc: "Зв'язатися з нами", path: "/contact" },
-      ],
+    cols: { platform: "Платформа", settings: "Де це працює" },
+    items: {
+      scribe:       ["Scribe", "Амбулаторний скрайб для прийомів"],
+      dictate:      ["Dictate", "Диктування звітів із шаблонами"],
+      templates:    ["Шаблони", "Медичні шаблони за спеціальностями"],
+      features:     ["Усі можливості", "Повний цикл документації"],
+      inperson:     ["Очні прийоми", "Розмова з пацієнтом у кабінеті"],
+      telehealth:   ["Телемедицина та відео", "Дистанційні консультації онлайн"],
+      wardround:    ["Обхід і біля ліжка", "Щоденні записи в стаціонарі"],
+      procedures:   ["Процедури та операційна", "Протоколи втручань і операцій"],
     },
-    flat: [{ label: "Тарифи", path: "/pricing" }, { label: "Безпека", path: "/security" }],
+    cta: {
+      product:   ["Спробуйте на власних нотатках", "Безкоштовний старт. Без картки та встановлення.", "Почати безкоштовно", "Замовити демо"],
+      solutions: ["Не впевнені, що підійде саме вам?", "Покажемо на вашому робочому процесі.", "Замовити демо", "Переглянути шаблони"],
+    },
+    flat: { pricing: "Тарифи", security: "Безпека" },
   },
   en: {
-    product: {
-      label: "Product",
-      items: [
-        { icon: "waveform", label: "Scribe", desc: "Ambient scribe for encounters", path: "/product/scribe" },
-        { icon: "fileText", label: "Dictate", desc: "Report dictation with templates", path: "/product/dictate" },
-        { icon: "layers",   label: "Features", desc: "The full documentation cycle", path: "/features" },
-        { icon: "grid",     label: "Templates", desc: "Medical note templates by specialty", path: "/templates" },
-      ],
+    groups: {
+      product:   { label: "Product", tagline: "From the spoken word to a signed report." },
+      solutions: { label: "Solutions", tagline: "One scribe for every setting — in the room or on video." },
     },
-    company: {
-      label: "Company",
-      items: [
-        { icon: "home",  label: "About", desc: "Our mission and team", path: "/about" },
-        { icon: "users", label: "Careers", desc: "Join the team", path: "/careers" },
-        { icon: "book",  label: "Blog", desc: "News and writing", path: "/blog" },
-        { icon: "help",  label: "Contact", desc: "Talk to us", path: "/contact" },
-      ],
+    cols: { platform: "Platform", settings: "Where it works" },
+    items: {
+      scribe:       ["Scribe", "Ambient scribe for encounters"],
+      dictate:      ["Dictate", "Report dictation with templates"],
+      templates:    ["Templates", "Note templates by specialty"],
+      features:     ["All features", "The full documentation cycle"],
+      inperson:     ["In-person visits", "The patient conversation in the room"],
+      telehealth:   ["Telehealth & video", "Remote consultations online"],
+      wardround:    ["Ward round & bedside", "Daily inpatient progress notes"],
+      procedures:   ["Procedures & theatre", "Procedure and operative records"],
     },
-    flat: [{ label: "Pricing", path: "/pricing" }, { label: "Security", path: "/security" }],
+    cta: {
+      product:   ["Try it on your own notes", "Free to start. No card, no install.", "Start free", "Book a demo"],
+      solutions: ["Not sure where Klarnote fits?", "We'll walk you through your workflow.", "Book a demo", "Browse templates"],
+    },
+    flat: { pricing: "Pricing", security: "Security" },
   },
   pl: {
-    product: {
-      label: "Produkt",
-      items: [
-        { icon: "waveform", label: "Scribe", desc: "Ambientowy skryba do wizyt", path: "/product/scribe" },
-        { icon: "fileText", label: "Dictate", desc: "Dyktowanie raportów z szablonami", path: "/product/dictate" },
-        { icon: "layers",   label: "Funkcje", desc: "Pełny cykl dokumentacji", path: "/features" },
-        { icon: "grid",     label: "Szablony", desc: "Szablony notatek według specjalności", path: "/templates" },
-      ],
+    groups: {
+      product:   { label: "Produkt", tagline: "Od wypowiedzianego słowa do podpisanego raportu." },
+      solutions: { label: "Rozwiązania", tagline: "Jeden skryba do każdej sytuacji — w gabinecie i online." },
     },
-    company: {
-      label: "Firma",
-      items: [
-        { icon: "home",  label: "O nas", desc: "Nasza misja i zespół", path: "/about" },
-        { icon: "users", label: "Kariera", desc: "Dołącz do zespołu", path: "/careers" },
-        { icon: "book",  label: "Blog", desc: "Aktualności i artykuły", path: "/blog" },
-        { icon: "help",  label: "Kontakt", desc: "Porozmawiaj z nami", path: "/contact" },
-      ],
+    cols: { platform: "Platforma", settings: "Gdzie działa" },
+    items: {
+      scribe:       ["Scribe", "Ambientowy skryba do wizyt"],
+      dictate:      ["Dictate", "Dyktowanie raportów z szablonami"],
+      templates:    ["Szablony", "Szablony notatek według specjalności"],
+      features:     ["Wszystkie funkcje", "Pełny cykl dokumentacji"],
+      inperson:     ["Wizyty osobiste", "Rozmowa z pacjentem w gabinecie"],
+      telehealth:   ["Telemedycyna i wideo", "Konsultacje zdalne online"],
+      wardround:    ["Obchód i przy łóżku", "Codzienne wpisy szpitalne"],
+      procedures:   ["Zabiegi i blok operacyjny", "Protokoły zabiegów i operacji"],
     },
-    flat: [{ label: "Cennik", path: "/pricing" }, { label: "Bezpieczeństwo", path: "/security" }],
+    cta: {
+      product:   ["Wypróbuj na własnych notatkach", "Darmowy start. Bez karty i instalacji.", "Zacznij za darmo", "Umów demo"],
+      solutions: ["Nie wiesz, co pasuje do Ciebie?", "Pokażemy to na Twoim procesie pracy.", "Umów demo", "Przeglądaj szablony"],
+    },
+    flat: { pricing: "Cennik", security: "Bezpieczeństwo" },
   },
   de: {
-    product: {
-      label: "Produkt",
-      items: [
-        { icon: "waveform", label: "Scribe", desc: "Ambienter Scribe für Konsultationen", path: "/product/scribe" },
-        { icon: "fileText", label: "Dictate", desc: "Befunddiktat mit Vorlagen", path: "/product/dictate" },
-        { icon: "layers",   label: "Funktionen", desc: "Der komplette Dokumentationszyklus", path: "/features" },
-        { icon: "grid",     label: "Vorlagen", desc: "Befundvorlagen nach Fachrichtung", path: "/templates" },
-      ],
+    groups: {
+      product:   { label: "Produkt", tagline: "Vom gesprochenen Wort zum signierten Befund." },
+      solutions: { label: "Lösungen", tagline: "Ein Scribe für jede Situation — vor Ort oder per Video." },
     },
-    company: {
-      label: "Unternehmen",
-      items: [
-        { icon: "home",  label: "Über uns", desc: "Unsere Mission und unser Team", path: "/about" },
-        { icon: "users", label: "Karriere", desc: "Werden Sie Teil des Teams", path: "/careers" },
-        { icon: "book",  label: "Blog", desc: "Neuigkeiten und Beiträge", path: "/blog" },
-        { icon: "help",  label: "Kontakt", desc: "Sprechen Sie mit uns", path: "/contact" },
-      ],
+    cols: { platform: "Plattform", settings: "Wo es funktioniert" },
+    items: {
+      scribe:       ["Scribe", "Ambienter Scribe für Konsultationen"],
+      dictate:      ["Dictate", "Befunddiktat mit Vorlagen"],
+      templates:    ["Vorlagen", "Befundvorlagen nach Fachrichtung"],
+      features:     ["Alle Funktionen", "Der komplette Dokumentationszyklus"],
+      inperson:     ["Präsenztermine", "Das Patientengespräch vor Ort"],
+      telehealth:   ["Telemedizin & Video", "Fernkonsultationen online"],
+      wardround:    ["Visite & am Krankenbett", "Tägliche Verlaufsnotizen"],
+      procedures:   ["Eingriffe & OP", "Eingriffs- und OP-Berichte"],
     },
-    flat: [{ label: "Preise", path: "/pricing" }, { label: "Sicherheit", path: "/security" }],
+    cta: {
+      product:   ["Testen Sie es mit Ihren eigenen Befunden", "Kostenlos starten. Ohne Karte, ohne Installation.", "Kostenlos starten", "Demo buchen"],
+      solutions: ["Unsicher, was zu Ihnen passt?", "Wir zeigen es an Ihrem Arbeitsablauf.", "Demo buchen", "Vorlagen ansehen"],
+    },
+    flat: { pricing: "Preise", security: "Sicherheit" },
   },
   ro: {
-    product: {
-      label: "Produs",
-      items: [
-        { icon: "waveform", label: "Scribe", desc: "Scrib ambiental pentru consultații", path: "/product/scribe" },
-        { icon: "fileText", label: "Dictate", desc: "Dictarea rapoartelor cu șabloane", path: "/product/dictate" },
-        { icon: "layers",   label: "Funcționalități", desc: "Ciclul complet de documentare", path: "/features" },
-        { icon: "grid",     label: "Șabloane", desc: "Șabloane de note pe specialități", path: "/templates" },
-      ],
+    groups: {
+      product:   { label: "Produs", tagline: "De la cuvântul rostit la raportul semnat." },
+      solutions: { label: "Soluții", tagline: "Un scrib pentru orice context — în cabinet sau video." },
     },
-    company: {
-      label: "Companie",
-      items: [
-        { icon: "home",  label: "Despre noi", desc: "Misiunea și echipa noastră", path: "/about" },
-        { icon: "users", label: "Cariere", desc: "Alăturați-vă echipei", path: "/careers" },
-        { icon: "book",  label: "Blog", desc: "Noutăți și articole", path: "/blog" },
-        { icon: "help",  label: "Contact", desc: "Discutați cu noi", path: "/contact" },
-      ],
+    cols: { platform: "Platformă", settings: "Unde funcționează" },
+    items: {
+      scribe:       ["Scribe", "Scrib ambiental pentru consultații"],
+      dictate:      ["Dictate", "Dictarea rapoartelor cu șabloane"],
+      templates:    ["Șabloane", "Șabloane de note pe specialități"],
+      features:     ["Toate funcționalitățile", "Ciclul complet de documentare"],
+      inperson:     ["Consultații în cabinet", "Conversația cu pacientul la fața locului"],
+      telehealth:   ["Telemedicină și video", "Consultații la distanță online"],
+      wardround:    ["Vizită și la patul bolnavului", "Note zilnice de evoluție"],
+      procedures:   ["Proceduri și sală de operație", "Protocoale de procedură și operatorii"],
     },
-    flat: [{ label: "Prețuri", path: "/pricing" }, { label: "Securitate", path: "/security" }],
+    cta: {
+      product:   ["Încercați pe propriile note", "Start gratuit. Fără card, fără instalare.", "Începeți gratuit", "Programați o demonstrație"],
+      solutions: ["Nu știți ce vi se potrivește?", "Vă arătăm pe fluxul dumneavoastră de lucru.", "Programați o demonstrație", "Vedeți șabloanele"],
+    },
+    flat: { pricing: "Prețuri", security: "Securitate" },
   },
   cs: {
-    product: {
-      label: "Produkt",
-      items: [
-        { icon: "waveform", label: "Scribe", desc: "Ambientní zápis přímo z vyšetření", path: "/product/scribe" },
-        { icon: "fileText", label: "Dictate", desc: "Diktování zpráv se šablonami", path: "/product/dictate" },
-        { icon: "layers",   label: "Funkce", desc: "Kompletní cyklus dokumentace", path: "/features" },
-        { icon: "grid",     label: "Šablony", desc: "Šablony záznamů podle odbornosti", path: "/templates" },
-      ],
+    groups: {
+      product:   { label: "Produkt", tagline: "Od vysloveného slova k podepsané zprávě." },
+      solutions: { label: "Řešení", tagline: "Jeden zapisovatel pro každou situaci — v ordinaci i online." },
     },
-    company: {
-      label: "Společnost",
-      items: [
-        { icon: "home",  label: "O nás", desc: "Naše poslání a tým", path: "/about" },
-        { icon: "users", label: "Kariéra", desc: "Přidejte se k týmu", path: "/careers" },
-        { icon: "book",  label: "Blog", desc: "Novinky a články", path: "/blog" },
-        { icon: "help",  label: "Kontakt", desc: "Ozvěte se nám", path: "/contact" },
-      ],
+    cols: { platform: "Platforma", settings: "Kde to funguje" },
+    items: {
+      scribe:       ["Scribe", "Ambientní skrib pro návštěvy"],
+      dictate:      ["Dictate", "Diktování zpráv se šablonami"],
+      templates:    ["Šablony", "Šablony nálezů podle oboru"],
+      features:     ["Všechny funkce", "Kompletní cyklus dokumentace"],
+      inperson:     ["Osobní návštěvy", "Rozhovor s pacientem v ordinaci"],
+      telehealth:   ["Telemedicína a video", "Vzdálené konzultace online"],
+      wardround:    ["Vizita a u lůžka", "Denní záznamy o průběhu"],
+      procedures:   ["Výkony a operační sál", "Zápisy výkonů a operací"],
     },
-    flat: [{ label: "Ceník", path: "/pricing" }, { label: "Zabezpečení", path: "/security" }],
+    cta: {
+      product:   ["Vyzkoušejte na vlastních nálezech", "Start zdarma. Bez karty a instalace.", "Začít zdarma", "Domluvit demo"],
+      solutions: ["Nevíte, co se k vám hodí?", "Ukážeme to na vašem pracovním postupu.", "Domluvit demo", "Procházet šablony"],
+    },
+    flat: { pricing: "Ceník", security: "Zabezpečení" },
   },
   sr: {
-    product: {
-      label: "Proizvod",
-      items: [
-        { icon: "waveform", label: "Scribe", desc: "Ambijentalni zapisničar za preglede", path: "/product/scribe" },
-        { icon: "fileText", label: "Dictate", desc: "Diktiranje izveštaja sa šablonima", path: "/product/dictate" },
-        { icon: "layers",   label: "Funkcije", desc: "Kompletan ciklus dokumentacije", path: "/features" },
-        { icon: "grid",     label: "Šabloni", desc: "Šabloni zapisa po specijalnostima", path: "/templates" },
-      ],
+    groups: {
+      product:   { label: "Proizvod", tagline: "Od izgovorene reči do potpisanog izveštaja." },
+      solutions: { label: "Rešenja", tagline: "Jedan skrajb za svaku situaciju — uživo ili video." },
     },
-    company: {
-      label: "Kompanija",
-      items: [
-        { icon: "home",  label: "O nama", desc: "Naša misija i tim", path: "/about" },
-        { icon: "users", label: "Karijera", desc: "Pridružite se timu", path: "/careers" },
-        { icon: "book",  label: "Blog", desc: "Vesti i članci", path: "/blog" },
-        { icon: "help",  label: "Kontakt", desc: "Razgovarajte sa nama", path: "/contact" },
-      ],
+    cols: { platform: "Platforma", settings: "Gde funkcioniše" },
+    items: {
+      scribe:       ["Scribe", "Ambijentalni skrajb za preglede"],
+      dictate:      ["Dictate", "Diktiranje izveštaja sa šablonima"],
+      templates:    ["Šabloni", "Šabloni nalaza po specijalnosti"],
+      features:     ["Sve funkcije", "Kompletan ciklus dokumentacije"],
+      inperson:     ["Pregledi uživo", "Razgovor sa pacijentom u ordinaciji"],
+      telehealth:   ["Telemedicina i video", "Konsultacije na daljinu onlajn"],
+      wardround:    ["Vizita i uz krevet", "Dnevne beleške o toku lečenja"],
+      procedures:   ["Procedure i operaciona sala", "Zapisi procedura i operacija"],
     },
-    flat: [{ label: "Cenovnik", path: "/pricing" }, { label: "Bezbednost", path: "/security" }],
+    cta: {
+      product:   ["Isprobajte na sopstvenim nalazima", "Besplatan početak. Bez kartice i instalacije.", "Počnite besplatno", "Zakažite demo"],
+      solutions: ["Niste sigurni šta vam odgovara?", "Pokazaćemo na vašem toku rada.", "Zakažite demo", "Pregledajte šablone"],
+    },
+    flat: { pricing: "Cene", security: "Bezbednost" },
   },
   hu: {
-    product: {
-      label: "Termék",
-      items: [
-        { icon: "waveform", label: "Scribe", desc: "Ambiens jegyzetelő a vizitekhez", path: "/product/scribe" },
-        { icon: "fileText", label: "Dictate", desc: "Leletdiktálás sablonokkal", path: "/product/dictate" },
-        { icon: "layers",   label: "Funkciók", desc: "A teljes dokumentációs ciklus", path: "/features" },
-        { icon: "grid",     label: "Sablonok", desc: "Jegyzetsablonok szakterületenként", path: "/templates" },
-      ],
+    groups: {
+      product:   { label: "Termék", tagline: "A kimondott szótól az aláírt leletig." },
+      solutions: { label: "Megoldások", tagline: "Egy írnok minden helyzetre — a rendelőben vagy videón." },
     },
-    company: {
-      label: "Vállalat",
-      items: [
-        { icon: "home",  label: "Rólunk", desc: "Küldetésünk és csapatunk", path: "/about" },
-        { icon: "users", label: "Karrier", desc: "Csatlakozzon csapatunkhoz", path: "/careers" },
-        { icon: "book",  label: "Blog", desc: "Hírek és cikkek", path: "/blog" },
-        { icon: "help",  label: "Kapcsolat", desc: "Beszéljen velünk", path: "/contact" },
-      ],
+    cols: { platform: "Platform", settings: "Hol működik" },
+    items: {
+      scribe:       ["Scribe", "Ambientális jegyzetelő vizitekhez"],
+      dictate:      ["Dictate", "Leletdiktálás sablonokkal"],
+      templates:    ["Sablonok", "Leletsablonok szakterületenként"],
+      features:     ["Összes funkció", "A teljes dokumentációs ciklus"],
+      inperson:     ["Személyes vizitek", "A beteggel folytatott beszélgetés a rendelőben"],
+      telehealth:   ["Telemedicina és videó", "Távkonzultációk online"],
+      wardround:    ["Vizit és betegágy mellett", "Napi kórlefolyás-jegyzetek"],
+      procedures:   ["Beavatkozások és műtő", "Beavatkozási és műtéti leírások"],
     },
-    flat: [{ label: "Árak", path: "/pricing" }, { label: "Biztonság", path: "/security" }],
+    cta: {
+      product:   ["Próbálja ki saját leletein", "Ingyenes kezdés. Kártya és telepítés nélkül.", "Kezdés ingyen", "Demó foglalása"],
+      solutions: ["Nem biztos benne, mi illik Önhöz?", "Megmutatjuk a saját munkafolyamatán.", "Demó foglalása", "Sablonok böngészése"],
+    },
+    flat: { pricing: "Árak", security: "Biztonság" },
   },
 };
+
+/* Resolve NAV_STRUCT against one language, falling back to English per key so
+   a partially translated language still renders a complete menu. */
+export function buildNav(lang) {
+  const t = NAV_TEXT[lang] || NAV_TEXT.en;
+  const en = NAV_TEXT.en;
+  const item = (k) => t.items[k] || en.items[k];
+  const col = (k) => t.cols[k] || en.cols[k];
+
+  return {
+    groups: NAV_STRUCT.map((g) => {
+      const meta = t.groups[g.key] || en.groups[g.key];
+      const cta = g.cta ? (t.cta[g.key] || en.cta[g.key]) : null;
+      return {
+        key: g.key,
+        label: meta.label,
+        tagline: meta.tagline,
+        cols: g.cols.map((c) => ({
+          key: c.key,
+          heading: col(c.key),
+          items: c.items.map((it) => ({
+            icon: it.icon, path: it.path,
+            label: item(it.key)[0], desc: item(it.key)[1],
+          })),
+        })),
+        cta: cta && {
+          title: cta[0], sub: cta[1],
+          primary: { label: cta[2], path: g.cta.primary },
+          secondary: { label: cta[3], path: g.cta.secondary },
+        },
+      };
+    }),
+    flat: NAV_FLAT.map((l) => ({ label: (t.flat[l.key] || en.flat[l.key]), path: l.path })),
+  };
+}
 
 /* Footer "Developers" column — the developer hub (/developers, request access
    + API key), ONE "API Docs" entry into the all-services Swagger browser
    (/developers/api, ApiDocsPage.jsx) and the written docs (/docs). */
-const DEV_LINKS = {
+const RESOURCE_LINKS = {
   uk: [
+    { label: "Документація", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
     { label: "Для розробників", path: "/developers" },
-    { label: "API Docs",        path: "/developers/api" },
-    { label: "Документація",    path: "/docs" },
+    { label: "Блог", path: "/blog" },
   ],
   en: [
-    { label: "Developers",     path: "/developers" },
-    { label: "API Docs",       path: "/developers/api" },
-    { label: "Documentation",  path: "/docs" },
+    { label: "Documentation", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
+    { label: "Developers", path: "/developers" },
+    { label: "Blog", path: "/blog" },
   ],
   pl: [
+    { label: "Dokumentacja", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
     { label: "Dla deweloperów", path: "/developers" },
-    { label: "API Docs",        path: "/developers/api" },
-    { label: "Dokumentacja",    path: "/docs" },
+    { label: "Blog", path: "/blog" },
   ],
   de: [
-    { label: "Für Entwickler",  path: "/developers" },
-    { label: "API Docs",        path: "/developers/api" },
-    { label: "Dokumentation",   path: "/docs" },
+    { label: "Dokumentation", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
+    { label: "Für Entwickler", path: "/developers" },
+    { label: "Blog", path: "/blog" },
   ],
   ro: [
+    { label: "Documentație", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
     { label: "Pentru dezvoltatori", path: "/developers" },
-    { label: "API Docs",            path: "/developers/api" },
-    { label: "Documentație",        path: "/docs" },
+    { label: "Blog", path: "/blog" },
   ],
   cs: [
-    { label: "Pro vývojáře",   path: "/developers" },
-    { label: "API Docs",       path: "/developers/api" },
-    { label: "Dokumentace",    path: "/docs" },
+    { label: "Dokumentace", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
+    { label: "Pro vývojáře", path: "/developers" },
+    { label: "Blog", path: "/blog" },
   ],
   sr: [
-    { label: "Za programere",  path: "/developers" },
-    { label: "API Docs",       path: "/developers/api" },
-    { label: "Dokumentacija",  path: "/docs" },
+    { label: "Dokumentacija", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
+    { label: "Za programere", path: "/developers" },
+    { label: "Blog", path: "/blog" },
   ],
   hu: [
-    { label: "Fejlesztőknek",  path: "/developers" },
-    { label: "API Docs",       path: "/developers/api" },
-    { label: "Dokumentáció",   path: "/docs" },
+    { label: "Dokumentáció", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
+    { label: "Fejlesztőknek", path: "/developers" },
+    { label: "Blog", path: "/blog" },
   ],
 };
 
@@ -246,11 +351,11 @@ export const FOOTER = {
         { label: "Тарифи", path: "/pricing" },
         { label: "Безпека", path: "/security" },
       ] },
+      { h: "Ресурси", links: RESOURCE_LINKS.uk },
       { h: "Компанія", links: [
         { label: "Про нас", path: "/about" },
         { label: "Контакти", path: "/contact" },
         { label: "Кар'єра", path: "/careers" },
-        { label: "Блог", path: "/blog" },
       ] },
       { h: "Правове", links: [
         { label: "Конфіденційність", path: "/legal/privacy" },
@@ -258,7 +363,6 @@ export const FOOTER = {
         { label: "Обробка даних", path: "/legal/data" },
         { label: "Згода", path: "/legal/consent" },
       ] },
-      { h: "Розробникам", links: DEV_LINKS.uk },
     ],
     rights: "Усі права захищено.",
     signin: "Увійти",
@@ -276,11 +380,11 @@ export const FOOTER = {
         { label: "Pricing", path: "/pricing" },
         { label: "Security", path: "/security" },
       ] },
+      { h: "Resources", links: RESOURCE_LINKS.en },
       { h: "Company", links: [
         { label: "About", path: "/about" },
         { label: "Contact", path: "/contact" },
         { label: "Careers", path: "/careers" },
-        { label: "Blog", path: "/blog" },
       ] },
       { h: "Legal", links: [
         { label: "Privacy", path: "/legal/privacy" },
@@ -288,7 +392,6 @@ export const FOOTER = {
         { label: "Data processing", path: "/legal/data" },
         { label: "Consent", path: "/legal/consent" },
       ] },
-      { h: "Developers", links: DEV_LINKS.en },
     ],
     rights: "All rights reserved.",
     signin: "Sign in",
@@ -306,11 +409,11 @@ export const FOOTER = {
         { label: "Cennik", path: "/pricing" },
         { label: "Bezpieczeństwo", path: "/security" },
       ] },
+      { h: "Zasoby", links: RESOURCE_LINKS.pl },
       { h: "Firma", links: [
         { label: "O nas", path: "/about" },
         { label: "Kontakt", path: "/contact" },
         { label: "Kariera", path: "/careers" },
-        { label: "Blog", path: "/blog" },
       ] },
       { h: "Informacje prawne", links: [
         { label: "Prywatność", path: "/legal/privacy" },
@@ -318,7 +421,6 @@ export const FOOTER = {
         { label: "Przetwarzanie danych", path: "/legal/data" },
         { label: "Zgoda", path: "/legal/consent" },
       ] },
-      { h: "Dla deweloperów", links: DEV_LINKS.pl },
     ],
     rights: "Wszelkie prawa zastrzeżone.",
     signin: "Zaloguj się",
@@ -336,11 +438,11 @@ export const FOOTER = {
         { label: "Preise", path: "/pricing" },
         { label: "Sicherheit", path: "/security" },
       ] },
+      { h: "Ressourcen", links: RESOURCE_LINKS.de },
       { h: "Unternehmen", links: [
         { label: "Über uns", path: "/about" },
         { label: "Kontakt", path: "/contact" },
         { label: "Karriere", path: "/careers" },
-        { label: "Blog", path: "/blog" },
       ] },
       { h: "Rechtliches", links: [
         { label: "Datenschutz", path: "/legal/privacy" },
@@ -348,7 +450,6 @@ export const FOOTER = {
         { label: "Datenverarbeitung", path: "/legal/data" },
         { label: "Einwilligung", path: "/legal/consent" },
       ] },
-      { h: "Für Entwickler", links: DEV_LINKS.de },
     ],
     rights: "Alle Rechte vorbehalten.",
     signin: "Anmelden",
@@ -366,11 +467,11 @@ export const FOOTER = {
         { label: "Prețuri", path: "/pricing" },
         { label: "Securitate", path: "/security" },
       ] },
+      { h: "Resurse", links: RESOURCE_LINKS.ro },
       { h: "Companie", links: [
         { label: "Despre noi", path: "/about" },
         { label: "Contact", path: "/contact" },
         { label: "Cariere", path: "/careers" },
-        { label: "Blog", path: "/blog" },
       ] },
       { h: "Aspecte juridice", links: [
         { label: "Confidențialitate", path: "/legal/privacy" },
@@ -378,7 +479,6 @@ export const FOOTER = {
         { label: "Prelucrarea datelor", path: "/legal/data" },
         { label: "Consimțământ", path: "/legal/consent" },
       ] },
-      { h: "Pentru dezvoltatori", links: DEV_LINKS.ro },
     ],
     rights: "Toate drepturile rezervate.",
     signin: "Autentificare",
@@ -396,11 +496,11 @@ export const FOOTER = {
         { label: "Ceník", path: "/pricing" },
         { label: "Zabezpečení", path: "/security" },
       ] },
+      { h: "Zdroje", links: RESOURCE_LINKS.cs },
       { h: "Společnost", links: [
         { label: "O nás", path: "/about" },
         { label: "Kontakt", path: "/contact" },
         { label: "Kariéra", path: "/careers" },
-        { label: "Blog", path: "/blog" },
       ] },
       { h: "Právní informace", links: [
         { label: "Ochrana soukromí", path: "/legal/privacy" },
@@ -408,7 +508,6 @@ export const FOOTER = {
         { label: "Zpracování údajů", path: "/legal/data" },
         { label: "Souhlas", path: "/legal/consent" },
       ] },
-      { h: "Pro vývojáře", links: DEV_LINKS.cs },
     ],
     rights: "Všechna práva vyhrazena.",
     signin: "Přihlásit se",
@@ -426,11 +525,11 @@ export const FOOTER = {
         { label: "Cenovnik", path: "/pricing" },
         { label: "Bezbednost", path: "/security" },
       ] },
+      { h: "Resursi", links: RESOURCE_LINKS.sr },
       { h: "Kompanija", links: [
         { label: "O nama", path: "/about" },
         { label: "Kontakt", path: "/contact" },
         { label: "Karijera", path: "/careers" },
-        { label: "Blog", path: "/blog" },
       ] },
       { h: "Pravne informacije", links: [
         { label: "Privatnost", path: "/legal/privacy" },
@@ -438,7 +537,6 @@ export const FOOTER = {
         { label: "Obrada podataka", path: "/legal/data" },
         { label: "Saglasnost", path: "/legal/consent" },
       ] },
-      { h: "Za programere", links: DEV_LINKS.sr },
     ],
     rights: "Sva prava zadržana.",
     signin: "Prijava",
@@ -456,11 +554,11 @@ export const FOOTER = {
         { label: "Árak", path: "/pricing" },
         { label: "Biztonság", path: "/security" },
       ] },
+      { h: "Források", links: RESOURCE_LINKS.hu },
       { h: "Vállalat", links: [
         { label: "Rólunk", path: "/about" },
         { label: "Kapcsolat", path: "/contact" },
         { label: "Karrier", path: "/careers" },
-        { label: "Blog", path: "/blog" },
       ] },
       { h: "Jogi információk", links: [
         { label: "Adatvédelem", path: "/legal/privacy" },
@@ -468,7 +566,6 @@ export const FOOTER = {
         { label: "Adatkezelés", path: "/legal/data" },
         { label: "Hozzájárulás", path: "/legal/consent" },
       ] },
-      { h: "Fejlesztőknek", links: DEV_LINKS.hu },
     ],
     rights: "Minden jog fenntartva.",
     signin: "Bejelentkezés",
@@ -477,8 +574,10 @@ export const FOOTER = {
   },
 };
 
-/* One dropdown group (Product / Company). Opens on hover (desktop) or click
-   (touch); the parent tracks which group is open so only one shows at a time. */
+/* One dropdown panel (Product / Resources / Company). Opens on hover (desktop)
+   or click (touch); the parent tracks which group is open so only one shows at
+   a time. The panel is a slogan header + one or two labelled columns of
+   icon/label/description items + a call-to-action strip along the bottom. */
 function NavGroup({ group, open, onOpen, onClose, onNavigate }) {
   const go = (path) => (e) => { e.preventDefault(); onClose(); onNavigate(path); };
   return (
@@ -490,21 +589,55 @@ function NavGroup({ group, open, onOpen, onClose, onNavigate }) {
       <button
         className="lp-navtrigger"
         aria-expanded={open}
+        aria-haspopup="true"
         onClick={() => (open ? onClose() : onOpen())}
       >
         {group.label}
         <Icon name="chevDown" size={15} />
       </button>
-      <div className="lp-megamenu" role="menu">
-        {group.items.map((it, i) => (
-          <a className="lp-megaitem" href={`#${it.path}`} onClick={go(it.path)} key={i} role="menuitem">
-            <span className="lp-megaitem-icon"><Icon name={it.icon} size={18} /></span>
-            <span className="lp-megaitem-text">
-              <span className="lp-megaitem-label">{it.label}</span>
-              <span className="lp-megaitem-desc">{it.desc}</span>
-            </span>
-          </a>
-        ))}
+      {/* --mega-cols drives both the panel width and the column count, so a
+          group can gain or lose a column without touching the CSS. */}
+      <div className="lp-megamenu" style={{ "--mega-cols": group.cols.length }} role="menu">
+        <div className="lp-megahead">
+          <span className="lp-megahead-eyebrow">{group.label}</span>
+          <p className="lp-megahead-tagline">{group.tagline}</p>
+        </div>
+
+        <div className="lp-megacols">
+          {group.cols.map((col) => (
+            <div className="lp-megacol" key={col.key}>
+              <div className="lp-megacol-h">{col.heading}</div>
+              {col.items.map((it, i) => (
+                <a className="lp-megaitem" href={`#${it.path}`} onClick={go(it.path)} key={i} role="menuitem">
+                  <span className="lp-megaitem-icon"><Icon name={it.icon} size={19} /></span>
+                  <span className="lp-megaitem-text">
+                    <span className="lp-megaitem-label">{it.label}</span>
+                    <span className="lp-megaitem-desc">{it.desc}</span>
+                  </span>
+                  <span className="lp-megaitem-arrow" aria-hidden="true"><Icon name="chevRight" size={15} /></span>
+                </a>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {group.cta && (
+          <div className="lp-megacta">
+            <div className="lp-megacta-text">
+              <span className="lp-megacta-title">{group.cta.title}</span>
+              <span className="lp-megacta-sub">{group.cta.sub}</span>
+            </div>
+            <div className="lp-megacta-actions">
+              <a className="btn btn-primary lp-megacta-primary" href={`#${group.cta.primary.path}`} onClick={go(group.cta.primary.path)}>
+                {group.cta.primary.label}
+              </a>
+              <a className="lp-megacta-secondary" href={`#${group.cta.secondary.path}`} onClick={go(group.cta.secondary.path)}>
+                {group.cta.secondary.label}
+                <Icon name="chevRight" size={14} />
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -512,7 +645,7 @@ function NavGroup({ group, open, onOpen, onClose, onNavigate }) {
 
 export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, children }) {
   const f = FOOTER[lang] || FOOTER.en;
-  const n = NAV[lang] || NAV.en;
+  const n = useMemo(() => buildNav(lang), [lang]);
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);   // mobile drawer
   const [openGroup, setOpenGroup] = useState(null);  // desktop dropdown
@@ -549,13 +682,15 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
           </a>
 
           <nav className={`lp-links${menuOpen ? " is-open" : ""}`}>
-            <NavGroup group={n.product} open={openGroup === "product"}
-              onOpen={() => setOpenGroup("product")} onClose={() => setOpenGroup(null)} onNavigate={navigate} />
+            {/* What it is, then whether it fits your situation, then the two
+                high-intent flat links. */}
+            {n.groups.map((g) => (
+              <NavGroup key={g.key} group={g} open={openGroup === g.key}
+                onOpen={() => setOpenGroup(g.key)} onClose={() => setOpenGroup(null)} onNavigate={navigate} />
+            ))}
             {n.flat.map((l, i) => (
               <a className="lp-navlink" href={`#${l.path}`} onClick={go(l.path)} key={i}>{l.label}</a>
             ))}
-            <NavGroup group={n.company} open={openGroup === "company"}
-              onOpen={() => setOpenGroup("company")} onClose={() => setOpenGroup(null)} onNavigate={navigate} />
           </nav>
 
           <div className="lp-nav-actions">

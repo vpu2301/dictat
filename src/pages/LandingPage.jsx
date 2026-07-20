@@ -50,6 +50,14 @@ const COPY = {
         points: ["Шаблони звітів і голосові команди", "Порівняння змін та амендменти", "Експорт, друк і підписання"],
       },
     ],
+    settingsTitle: "Один скрайб — будь-яка ситуація",
+    settingsSub: "Очний прийом, відеоконсультація, обхід чи операційна — Klarnote слухає й документує всюди.",
+    settings: [
+      { icon: "users", t: "Очні прийоми", d: "Розмова з пацієнтом у кабінеті — скрайб працює у фоні.", path: "/templates/consultation-note" },
+      { icon: "video", t: "Телемедицина та відео", d: "Дистанційні консультації: спосіб зв’язку, згода й межі огляду фіксуються автоматично.", path: "/templates/telehealth-visit" },
+      { icon: "heart", t: "Обхід і біля ліжка", d: "Щоденні записи про стан пацієнта в стаціонарі.", path: "/templates/progress-note" },
+      { icon: "scalpel", t: "Процедури та операційна", d: "Протоколи втручань і операцій без пауз на друк.", path: "/templates/procedure-note" },
+    ],
     featuresTitle: "Усе для впевненої документації",
     featuresSub: "Від розпізнавання мови до підпису — повний цикл в одному застосунку.",
     features: [
@@ -126,6 +134,14 @@ const COPY = {
         body: "Classic dictation for radiology, pathology and discharge summaries with templates, voice commands and version diffs.",
         points: ["Report templates and voice commands", "Change diffs and amendments", "Export, print and sign"],
       },
+    ],
+    settingsTitle: "One scribe, every setting",
+    settingsSub: "In the room, on a video call, on the ward round or in theatre — Klarnote listens and documents everywhere.",
+    settings: [
+      { icon: "users", t: "In-person visits", d: "The patient conversation in the room, with the scribe running in the background.", path: "/templates/consultation-note" },
+      { icon: "video", t: "Telehealth & video", d: "Remote consultations: modality, consent and examination limits captured automatically.", path: "/templates/telehealth-visit" },
+      { icon: "heart", t: "Ward round & bedside", d: "Daily inpatient progress notes as you move between beds.", path: "/templates/progress-note" },
+      { icon: "scalpel", t: "Procedures & theatre", d: "Procedure and operative records without stopping to type.", path: "/templates/procedure-note" },
     ],
     featuresTitle: "Everything for confident documentation",
     featuresSub: "From speech recognition to signature — the full cycle in one app.",
@@ -204,6 +220,14 @@ const COPY = {
         points: ["Szablony raportów i polecenia głosowe", "Porównywanie zmian i korekty", "Eksport, druk i podpis"],
       },
     ],
+    settingsTitle: "Jeden skryba, każda sytuacja",
+    settingsSub: "W gabinecie, na wideorozmowie, na obchodzie czy na bloku — Klarnote słucha i dokumentuje wszędzie.",
+    settings: [
+      { icon: "users", t: "Wizyty osobiste", d: "Rozmowa z pacjentem w gabinecie, skryba działa w tle.", path: "/templates/consultation-note" },
+      { icon: "video", t: "Telemedycyna i wideo", d: "Konsultacje zdalne: sposób kontaktu, zgoda i granice badania zapisywane automatycznie.", path: "/templates/telehealth-visit" },
+      { icon: "heart", t: "Obchód i przy łóżku", d: "Codzienne wpisy o stanie pacjenta w szpitalu.", path: "/templates/progress-note" },
+      { icon: "scalpel", t: "Zabiegi i blok operacyjny", d: "Protokoły zabiegów i operacji bez przerw na pisanie.", path: "/templates/procedure-note" },
+    ],
     featuresTitle: "Wszystko dla pewnej dokumentacji",
     featuresSub: "Od rozpoznawania mowy po podpis — pełny cykl w jednej aplikacji.",
     features: [
@@ -280,6 +304,14 @@ const COPY = {
         body: "Klassisches Diktieren für Radiologie, Pathologie und Entlassbriefe mit Vorlagen, Sprachbefehlen und Versionsvergleich.",
         points: ["Befundvorlagen und Sprachbefehle", "Änderungsvergleich und Nachträge", "Exportieren, Drucken und Signieren"],
       },
+    ],
+    settingsTitle: "Ein Scribe, jede Situation",
+    settingsSub: "Im Sprechzimmer, im Videogespräch, bei der Visite oder im OP — Klarnote hört zu und dokumentiert überall.",
+    settings: [
+      { icon: "users", t: "Präsenztermine", d: "Das Patientengespräch vor Ort, der Scribe läuft im Hintergrund.", path: "/templates/consultation-note" },
+      { icon: "video", t: "Telemedizin & Video", d: "Fernkonsultationen: Modalität, Einwilligung und Untersuchungsgrenzen werden automatisch erfasst.", path: "/templates/telehealth-visit" },
+      { icon: "heart", t: "Visite & am Krankenbett", d: "Tägliche Verlaufsnotizen auf dem Weg von Bett zu Bett.", path: "/templates/progress-note" },
+      { icon: "scalpel", t: "Eingriffe & OP", d: "Eingriffs- und OP-Berichte, ohne zum Tippen zu unterbrechen.", path: "/templates/procedure-note" },
     ],
     featuresTitle: "Alles für eine verlässliche Dokumentation",
     featuresSub: "Von der Spracherkennung bis zur Signatur — der komplette Zyklus in einer Anwendung.",
@@ -358,6 +390,14 @@ const COPY = {
         points: ["Șabloane de rapoarte și comenzi vocale", "Compararea modificărilor și amendamente", "Export, tipărire și semnare"],
       },
     ],
+    settingsTitle: "Un singur scrib, orice context",
+    settingsSub: "În cabinet, în apel video, la vizită sau în sala de operație — Klarnote ascultă și documentează peste tot.",
+    settings: [
+      { icon: "users", t: "Consultații în cabinet", d: "Conversația cu pacientul la fața locului, cu scribul rulând în fundal.", path: "/templates/consultation-note" },
+      { icon: "video", t: "Telemedicină și video", d: "Consultații la distanță: modalitatea, consimțământul și limitele examinării captate automat.", path: "/templates/telehealth-visit" },
+      { icon: "heart", t: "Vizită și la patul bolnavului", d: "Note zilnice de evoluție pe măsură ce treceți de la un pat la altul.", path: "/templates/progress-note" },
+      { icon: "scalpel", t: "Proceduri și sală de operație", d: "Protocoale de procedură și operatorii fără pauze pentru tastare.", path: "/templates/procedure-note" },
+    ],
     featuresTitle: "Totul pentru o documentație sigură",
     featuresSub: "De la recunoașterea vorbirii până la semnătură — ciclul complet într-o singură aplicație.",
     features: [
@@ -434,6 +474,14 @@ const COPY = {
         body: "Klasické diktování pro radiologii, patologii a propouštěcí zprávy se šablonami, hlasovými příkazy a porovnáváním verzí.",
         points: ["Šablony zpráv a hlasové příkazy", "Porovnání změn a dodatky", "Export, tisk a podpis"],
       },
+    ],
+    settingsTitle: "Jeden zapisovatel, každá situace",
+    settingsSub: "V ordinaci, na videohovoru, na vizitě i na sále — Klarnote naslouchá a dokumentuje všude.",
+    settings: [
+      { icon: "users", t: "Osobní návštěvy", d: "Rozhovor s pacientem v ordinaci, zapisovatel běží na pozadí.", path: "/templates/consultation-note" },
+      { icon: "video", t: "Telemedicína a video", d: "Vzdálené konzultace: způsob kontaktu, souhlas i meze vyšetření se zaznamenají automaticky.", path: "/templates/telehealth-visit" },
+      { icon: "heart", t: "Vizita a u lůžka", d: "Denní záznamy o průběhu při přechodu mezi lůžky.", path: "/templates/progress-note" },
+      { icon: "scalpel", t: "Výkony a operační sál", d: "Zápisy výkonů a operací bez přerušování psaním.", path: "/templates/procedure-note" },
     ],
     featuresTitle: "Vše pro spolehlivou dokumentaci",
     featuresSub: "Od rozpoznávání řeči po podpis — celý cyklus v jedné aplikaci.",
@@ -512,6 +560,14 @@ const COPY = {
         points: ["Šabloni izveštaja i glasovne komande", "Poređenje izmena i amandmani", "Izvoz, štampanje i potpisivanje"],
       },
     ],
+    settingsTitle: "Jedan skrajb, svaka situacija",
+    settingsSub: "U ordinaciji, na video pozivu, u viziti ili u operacionoj sali — Klarnote sluša i dokumentuje svuda.",
+    settings: [
+      { icon: "users", t: "Pregledi uživo", d: "Razgovor sa pacijentom u ordinaciji, skrajb radi u pozadini.", path: "/templates/consultation-note" },
+      { icon: "video", t: "Telemedicina i video", d: "Konsultacije na daljinu: način kontakta, saglasnost i granice pregleda beleže se automatski.", path: "/templates/telehealth-visit" },
+      { icon: "heart", t: "Vizita i uz krevet", d: "Dnevne beleške o toku lečenja dok prelazite od kreveta do kreveta.", path: "/templates/progress-note" },
+      { icon: "scalpel", t: "Procedure i operaciona sala", d: "Zapisi procedura i operacija bez pauze za kucanje.", path: "/templates/procedure-note" },
+    ],
     featuresTitle: "Sve za pouzdanu dokumentaciju",
     featuresSub: "Od prepoznavanja govora do potpisa — ceo ciklus u jednoj aplikaciji.",
     features: [
@@ -588,6 +644,14 @@ const COPY = {
         body: "Klasszikus diktálás radiológiához, patológiához és zárójelentésekhez, sablonokkal, hangparancsokkal és verzió-összehasonlítással.",
         points: ["Leletsablonok és hangparancsok", "Változások összehasonlítása és módosítások", "Exportálás, nyomtatás és aláírás"],
       },
+    ],
+    settingsTitle: "Egy írnok, minden helyzet",
+    settingsSub: "A rendelőben, videohíváson, viziten vagy a műtőben — a Klarnote mindenhol figyel és dokumentál.",
+    settings: [
+      { icon: "users", t: "Személyes vizitek", d: "A beteggel folytatott beszélgetés a rendelőben, az írnok a háttérben fut.", path: "/templates/consultation-note" },
+      { icon: "video", t: "Telemedicina és videó", d: "Távkonzultációk: a kapcsolat módja, a beleegyezés és a vizsgálat korlátai automatikusan rögzülnek.", path: "/templates/telehealth-visit" },
+      { icon: "heart", t: "Vizit és betegágy mellett", d: "Napi kórlefolyás-jegyzetek, ahogy ágytól ágyig halad.", path: "/templates/progress-note" },
+      { icon: "scalpel", t: "Beavatkozások és műtő", d: "Beavatkozási és műtéti leírások gépelési szünetek nélkül.", path: "/templates/procedure-note" },
     ],
     featuresTitle: "Minden a megbízható dokumentációhoz",
     featuresSub: "A beszédfelismeréstől az aláírásig — a teljes ciklus egyetlen alkalmazásban.",
@@ -936,8 +1000,26 @@ export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
           </div>
         </section>
 
+        {/* ── Where it works ───────────────────────────────── */}
+        <section className="lp-section lp-section-alt" id="settings">
+          <div className="lp-head">
+            <h2 className="lp-h2">{c.settingsTitle}</h2>
+            <p className="lp-sub">{c.settingsSub}</p>
+          </div>
+          <div className="lp-grid lp-grid-4">
+            {c.settings.map((st, i) => (
+              <a className="lp-feature mk-feature-link" href={`#${st.path}`} onClick={go(st.path)} key={i}>
+                <div className="lp-feature-icon"><Icon name={st.icon} size={18} /></div>
+                <h3 className="lp-feature-t">{st.t}</h3>
+                <p className="lp-feature-d">{st.d}</p>
+                <span className="mk-card-more">{tr(lang, "Шаблон", "See the template")} <Icon name="arrowRight" size={14} /></span>
+              </a>
+            ))}
+          </div>
+        </section>
+
         {/* ── Features ─────────────────────────────────────── */}
-        <section className="lp-section lp-section-alt" id="features">
+        <section className="lp-section" id="features">
           <div className="lp-head">
             <h2 className="lp-h2">{c.featuresTitle}</h2>
             <p className="lp-sub">{c.featuresSub}</p>
@@ -958,7 +1040,7 @@ export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
         </section>
 
         {/* ── Workflow ─────────────────────────────────────── */}
-        <section className="lp-section" id="workflow">
+        <section className="lp-section lp-section-alt" id="workflow">
           <div className="lp-head">
             <h2 className="lp-h2">{c.workflowTitle}</h2>
           </div>
@@ -974,7 +1056,7 @@ export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
         </section>
 
         {/* ── Security ─────────────────────────────────────── */}
-        <section className="lp-section lp-section-alt" id="security">
+        <section className="lp-section" id="security">
           <div className="lp-head">
             <h2 className="lp-h2">{c.securityTitle}</h2>
             <p className="lp-sub">{c.securitySub}</p>

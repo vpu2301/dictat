@@ -1787,3 +1787,174 @@
   .exec-report { position: absolute; inset: 0 auto auto 0; width: 100%; border: none; }
   .exec-report-print { display: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   Sprint 12 — notifications: bell, panel, toasts, preferences.
+   ══════════════════════════════════════════════════════════════════ */
+
+.nb-wrap { position: relative; display: inline-flex; }
+.nb-btn { position: relative; }
+
+/* Unread badge. Hidden at zero by the component, never by CSS — a badge
+   the user can't see but a screen reader can announce is a bug. */
+.nb-badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 8px;
+  background: var(--danger, #dc2626); color: #fff;
+  font-size: 10px; font-weight: 600; line-height: 16px;
+  text-align: center;
+}
+/* Socket degraded: live updates paused, nothing lost. */
+.nb-dot {
+  position: absolute; bottom: -1px; right: -1px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-3, #9ca3af);
+  border: 1.5px solid var(--surface, #fff);
+}
+
+.nb-panel {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: min(380px, calc(100vw - 32px));
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  box-shadow: var(--shadow-3, 0 12px 32px rgba(0,0,0,.14));
+  z-index: 300;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.nb-panel-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  font-size: 13px;
+}
+.nb-link {
+  background: none; border: none; cursor: pointer;
+  color: var(--accent, #0a8a7a); font-size: 12px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.nb-banner {
+  padding: 8px 12px; font-size: 12px;
+  background: #fef3c7; color: #92400e;
+}
+
+.nb-list { max-height: 60vh; overflow-y: auto; outline: none; }
+.nb-group { padding-bottom: 4px; }
+.nb-day {
+  position: sticky; top: 0; z-index: 1;
+  margin: 0; padding: 6px 12px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-2, #6b7280);
+  background: var(--surface-2, #f9fafb);
+}
+
+.nb-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px; cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle, #f3f4f6);
+}
+.nb-row:hover { background: var(--surface-2, #f9fafb); }
+.nb-row:focus-visible { outline: 2px solid var(--accent, #0a8a7a); outline-offset: -2px; }
+.nb-row.unread { background: color-mix(in srgb, var(--accent, #0a8a7a) 5%, transparent); }
+
+.nb-sev { flex: none; margin-top: 1px; color: var(--text-3, #9ca3af); }
+.nb-sev.sev-warning  { color: #d97706; }
+.nb-sev.sev-critical { color: var(--danger, #dc2626); }
+
+.nb-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.nb-title { font-size: 13px; font-weight: 500; }
+.nb-text  { font-size: 12px; color: var(--text-2, #6b7280); }
+.nb-time  { font-size: 11px; color: var(--text-3, #9ca3af); }
+.nb-warn  { font-size: 11px; color: #92400e; }
+
+.nb-mark { flex: none; background: none; border: none; cursor: pointer; padding: 4px; }
+.nb-unread-dot {
+  display: block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent, #0a8a7a);
+}
+
+.nb-empty { padding: 32px 16px; text-align: center; color: var(--text-3, #9ca3af); }
+.nb-empty p { margin: 8px 0 0; font-size: 13px; }
+.nb-loading, .nb-end {
+  padding: 10px 12px; text-align: center;
+  font-size: 12px; color: var(--text-3, #9ca3af);
+}
+
+/* ── toasts ─────────────────────────────────────────────────────── */
+/* Stacked above the singleton .toast (bottom: 22px) so a notification
+   and a "Saved" confirmation can coexist. */
+.nt-stack {
+  position: fixed; bottom: 72px; right: 22px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 210;
+  max-width: min(380px, calc(100vw - 44px));
+}
+.nt-toast {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px;
+  background: var(--text-1, #111827); color: var(--surface, #fff);
+  border-radius: 10px;
+  box-shadow: var(--shadow-3, 0 12px 32px rgba(0,0,0,.2));
+  font-size: 13px;
+  animation: toast-in .2s ease;
+  border-left: 3px solid #d97706;
+}
+/* The default rail is amber (warning). Info is routine — accent, not alarm. */
+.nt-toast.sev-info     { border-left-color: var(--accent, #0a8a7a); }
+.nt-toast.sev-critical { border-left-color: var(--danger, #dc2626); }
+.nt-toast.nt-overflow  { border-left-color: var(--text-3, #9ca3af); opacity: .9; }
+.nt-sev { flex: none; margin-top: 1px; }
+.nt-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.nt-title { font-weight: 500; }
+.nt-text  { font-size: 12px; opacity: .82; }
+.nt-action {
+  flex: none; background: none; border: none; cursor: pointer;
+  color: var(--accent, #6ee7d5); font-weight: 500; font-size: 12px;
+}
+.nt-close { flex: none; background: none; border: none; cursor: pointer; color: inherit; opacity: .6; }
+.nt-close:hover { opacity: 1; }
+
+/* ── preferences ─────────────────────────────────────────────────────
+   The page rides the shared .settings-page shell (side nav + cards), so
+   these rules only cover what's specific to the matrix. */
+.np-page .settings-card { padding: 14px 16px; margin-bottom: 14px; }
+.np-intro { margin: 0 0 6px; }
+.np-matrix { width: 100%; border-collapse: collapse; font-size: 13px; }
+.np-matrix th, .np-matrix td {
+  text-align: left; padding: 10px 0;
+  border-top: 1px dashed var(--line);
+}
+.np-matrix thead th {
+  border-top: 0;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); font-weight: 600;
+}
+.np-matrix tbody th { font-weight: 500; font-size: 13px; color: var(--text-1); }
+.np-matrix td { width: 76px; }
+.np-matrix td:last-child { width: 180px; }
+.np-matrix th:not(:first-child), .np-matrix td:not(:first-child) { text-align: right; }
+/* The email cell holds a MenuSelect. The cell is narrower than the menu, and
+   it sits at the right edge of the card — anchor the menu to that edge so it
+   opens inward instead of off the card. */
+.np-matrix td .menu-select { min-width: 160px; }
+.np-matrix td .spec-menu { left: auto; right: 0; }
+.np-cat { margin-right: 6px; }
+.np-default {
+  font-size: 10px; padding: 1px 5px; border-radius: 6px;
+  background: var(--surface-2); color: var(--muted);
+}
+/* Quiet-hours inputs sit in .settings-row-control — match the width of the
+   dropdowns on /settings so the right edge lines up. */
+.np-page .settings-row-control input[type="time"] { min-width: 170px; }
+.np-actions { margin-top: 4px; display: flex; align-items: center; gap: 10px; }
+.np-saved { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--accent, #0a8a7a); }
+.np-error { color: var(--danger, #dc2626); font-size: 12px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
