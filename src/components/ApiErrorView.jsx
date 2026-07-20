@@ -12,6 +12,13 @@ export function ApiErrorView({ error, lang = "en" }) {
   const instance = p.instance || "";
   const showRef = status >= 500 && instance;
 
+  // A 422 body carries `errors: [{ loc, msg, ... }]`. Without these the card
+  // reads "Unprocessable Content — Request validation failed." and the user
+  // has no way to know WHICH field the server rejected.
+  const fieldErrors = Array.isArray(p.errors) ? p.errors : [];
+  const fieldName = (loc) =>
+    Array.isArray(loc) ? loc.filter((s) => s !== "body" && s !== "query").join(".") : "";
+
   const copy = () => {
     if (!instance) return;
     try { navigator.clipboard.writeText(instance); } catch {}
@@ -37,6 +44,17 @@ export function ApiErrorView({ error, lang = "en" }) {
           {title} {status ? <span style={{ color: "var(--muted)", fontWeight: 400 }}>({status})</span> : null}
         </div>
         {detail && <div style={{ marginTop: 4, fontSize: 13, color: "var(--text-2)" }}>{detail}</div>}
+        {fieldErrors.length > 0 && (
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 13, color: "var(--text-2)" }}>
+            {fieldErrors.map((fe, i) => (
+              <li key={i}>
+                {fieldName(fe.loc) && <code style={{ fontFamily: "var(--mono)", fontSize: 12 }}>{fieldName(fe.loc)}</code>}
+                {fieldName(fe.loc) ? " — " : ""}
+                {fe.msg}
+              </li>
+            ))}
+          </ul>
+        )}
         {showRef && (
           <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)", display: "flex", gap: 6, alignItems: "center" }}>
             <span>{tr(lang, "Код підтримки:", "Support reference:")}</span>

@@ -10,6 +10,7 @@
 import React from "react";
 import { Icon } from "../components/UI.jsx";
 import { MenuSelect } from "../components/MenuSelect.jsx";
+import { Row, Section, SettingsNav, Toggle, useSettingsSections } from "../components/SettingsLayout.jsx";
 import { LANGS , tr } from "../i18n.js";
 
 // ── Section registry (drives both the side nav and the rendered order) ────────
@@ -23,55 +24,6 @@ const SECTIONS = [
   { id: "about",         icon: "help",     uk: "Про застосунок",  en: "About" },
 ];
 
-// ── Scroll-spy: report which section is currently in view ─────────────────────
-function useScrollSpy(ids) {
-  const [active, setActive] = React.useState(ids[0]);
-  React.useEffect(() => {
-    const els = ids.map((id) => document.getElementById(id)).filter(Boolean);
-    if (!els.length) return undefined;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        // The topmost section intersecting the upper band of the viewport wins.
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActive(visible[0].target.id);
-      },
-      // Top inset clears the sticky topbar; bottom inset makes a section "active"
-      // once its heading reaches roughly the top third of the viewport.
-      { rootMargin: "-72px 0px -55% 0px", threshold: 0 },
-    );
-    els.forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
-  }, [ids.join(",")]);
-  return [active, setActive];
-}
-
-// ── Layout primitives ─────────────────────────────────────────────────────────
-function Section({ id, icon, title, children }) {
-  return (
-    <section id={id} className="card settings-card settings-section">
-      <header className="settings-card-h">
-        <Icon name={icon} size={14} />
-        <h2>{title}</h2>
-      </header>
-      <div className="settings-card-body">{children}</div>
-    </section>
-  );
-}
-
-function Row({ label, hint, children }) {
-  return (
-    <div className="settings-row">
-      <div>
-        <div className="settings-row-label">{label}</div>
-        {hint && <div className="settings-row-hint">{hint}</div>}
-      </div>
-      <div className="settings-row-control">{children}</div>
-    </div>
-  );
-}
-
 // ── Reusable controls ─────────────────────────────────────────────────────────
 // Multi-option pickers are dropdowns (MenuSelect); binary on/off settings stay
 // switches.
@@ -82,21 +34,6 @@ function Seg({ value, options, onChange }) {
   return <MenuSelect value={value} options={opts} onChange={onChange} />;
 }
 
-function Toggle({ on, onChange, label }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={!!on}
-      aria-label={label}
-      className={"toggle" + (on ? " on" : "")}
-      onClick={() => onChange(!on)}
-    >
-      <span />
-    </button>
-  );
-}
-
 function SoonBtn({ children }) {
   return (
     <button type="button" className="btn ghost sm" disabled>
@@ -105,15 +42,9 @@ function SoonBtn({ children }) {
   );
 }
 
-export function SettingsPage({ lang = "en", tweaks, setTweak }) {
+export function SettingsPage({ lang = "en", tweaks, setTweak, navigate }) {
   const T = (uk, en) => tr(lang, uk, en);
-  const ids = SECTIONS.map((s) => s.id);
-  const [active, setActive] = useScrollSpy(ids);
-
-  const jump = (id) => () => {
-    setActive(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const { active, jump } = useSettingsSections(SECTIONS);
 
   // Defaults applied inline so the page works before these land in TWEAK_DEFAULTS.
   const g = (key, fallback) => (tweaks[key] === undefined ? fallback : tweaks[key]);
@@ -129,19 +60,12 @@ export function SettingsPage({ lang = "en", tweaks, setTweak }) {
 
       <div className="settings-layout">
         {/* ── Sticky scroll-spy side menu ─────────────────────────────── */}
-        <nav className="settings-nav" aria-label={T("Розділи налаштувань", "Settings sections")}>
-          {SECTIONS.map((s) => (
-            <button
-              key={s.id}
-              className={"settings-nav-item" + (active === s.id ? " on" : "")}
-              onClick={jump(s.id)}
-              aria-current={active === s.id ? "true" : undefined}
-            >
-              <Icon name={s.icon} size={14} />
-              <span>{T(s.uk, s.en)}</span>
-            </button>
-          ))}
-        </nav>
+        <SettingsNav
+          sections={SECTIONS.map((s) => ({ id: s.id, icon: s.icon, label: T(s.uk, s.en) }))}
+          active={active}
+          onJump={jump}
+          label={T("Розділи налаштувань", "Settings sections")}
+        />
 
         {/* ── Sections ────────────────────────────────────────────────── */}
         <div className="settings-main">
@@ -202,6 +126,14 @@ export function SettingsPage({ lang = "en", tweaks, setTweak }) {
             </Row>
             <Row label={T("Нагадування про підпис", "Signature reminders")} hint={T("Нагадувати про непідписані звіти", "Remind about unsigned reports")}>
               <Toggle on={g("notifySignReminder", false)} onChange={(v) => setTweak("notifySignReminder", v)} label={T("Нагадування про підпис", "Signature reminders")} />
+            </Row>
+            <Row
+              label={T("Сповіщення за подіями", "Per-event notifications")}
+              hint={T("Канали для кожного типу події, тихі години та підсумок", "Channels per event type, quiet hours and digest")}
+            >
+              <button type="button" className="btn ghost sm" onClick={() => navigate?.("/settings/notifications")}>
+                {T("Налаштувати", "Configure")} <Icon name="chevRight" size={13} />
+              </button>
             </Row>
           </Section>
 

@@ -21,11 +21,21 @@ export const SERVICES = {
   // Clinical / EHR endpoints not yet covered by the integration guide
   // (patients, encounters, consents, anamnesis, clinical notes, scribe).
   core:      env.VITE_CORE_SERVICE_URL      || env.VITE_CORE_URL || "http://localhost:8003",
+  // Sprint 12 — notification feed, WebSocket push, preferences.
+  notification: env.VITE_NOTIFICATION_SERVICE_URL || env.VITE_NOTIFICATION_URL || "http://localhost:8004",
 };
 
 // Derive the WS base from the dictation HTTP base. Always upgrade scheme.
 export function dictationWsBase() {
-  const http = SERVICES.dictation;
+  return wsBase(SERVICES.dictation);
+}
+
+// Sprint 12 — same derivation for the notification socket.
+export function notificationWsBase() {
+  return wsBase(SERVICES.notification);
+}
+
+function wsBase(http) {
   return http.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
 }
 
@@ -50,6 +60,7 @@ export const FEATURES = {
   notes:         flag("VITE_FEAT_NOTES"),          // core-service notes + scribe (doc 01 M4/M5)
   anamnesis:     flag("VITE_FEAT_ANAMNESIS"),      // core-service anamnesis + privacy (doc 01 M3/M6)
   mfaEnrolment:  flag("VITE_FEAT_MFA_ENROLMENT"),  // backend /auth/mfa/* (future sprint)
+  notifications: flag("VITE_FEAT_NOTIFICATIONS"),  // notification-service :8004 (sprint 12)
 };
 
 // /signup "Request access" leads (doc 03 §4.1). Admin-invite-only platform —

@@ -6,6 +6,10 @@ import {
 } from './components/TweaksPanel.jsx';
 import { Icon, TopBar, Toast, Empty } from './components/UI.jsx';
 import { Sidebar } from './components/Sidebar.jsx';
+import { NotificationsProvider } from './notifications/store.jsx';
+import { NotificationBell } from './components/NotificationBell.jsx';
+import { NotificationToasts } from './components/NotificationToasts.jsx';
+import NotificationPreferencesPage from './pages/NotificationPreferencesPage.jsx';
 import { DictationStudio } from './components/Studio.jsx';
 import { DictateToday } from './components/DictateHome.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
@@ -349,8 +353,16 @@ function App() {
   }
   // ── settings ───────────────────────────────────────────────
   else if (r === "/settings") {
-    view = <SettingsPage lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    view = <SettingsPage lang={lang} tweaks={tweaks} setTweak={setTweak} navigate={navigate} />;
     crumbs = [{ label: tr(lang, "Налаштування", "Settings") }];
+  }
+  // ── notifications (sprint 12) ──────────────────────────────
+  else if (r === "/settings/notifications" || r === "/notifications") {
+    view = <NotificationPreferencesPage lang={lang} navigate={navigate} />;
+    crumbs = [
+      { label: tr(lang, "Налаштування", "Settings"), path: "/settings", onClick: () => navigate("/settings") },
+      { label: tr(lang, "Сповіщення", "Notifications") },
+    ];
   }
   // ── business-owner dashboard (tenant_admin) ────────────────
   else if (r === "/dashboard") {
@@ -461,6 +473,10 @@ function App() {
 
   return (
     <I18nProvider lang={lang}>
+      {/* Sprint 12. Mounted only on the authenticated shell: the socket
+          needs a session, and the marketing/login shells (fullBleed,
+          above) have no chrome to hang a bell off. */}
+      <NotificationsProvider>
       <div className={`app${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <Sidebar
           route={route}
@@ -485,9 +501,20 @@ function App() {
               navigate={navigate}
             />
           )}
-          {showTopbar && <TopBar crumbs={crumbs} title={title} lang={lang} />}
+          {showTopbar && (
+            <TopBar
+              crumbs={crumbs}
+              title={title}
+              lang={lang}
+              right={<NotificationBell lang={lang} navigate={navigate} />}
+            />
+          )}
           {view}
           {toast && <Toast message={toast.msg} action={toast.action} onAction={toast.onAction} onClose={() => setToast(null)} />}
+          {/* Rendered irrespective of showTopbar: focused routes (Studio,
+              note editor, consult) hide the chrome and therefore the
+              bell, but a signing failure still has to reach the user. */}
+          <NotificationToasts lang={lang} navigate={navigate} />
           {tweaksPanel}
         </main>
         {quickNoteOpen && (
@@ -498,6 +525,7 @@ function App() {
           />
         )}
       </div>
+      </NotificationsProvider>
     </I18nProvider>
   );
 }
