@@ -116,6 +116,14 @@ async function installMocks(page, calls, opts = {}) {
       return json(200, next);
     }
     if (/^\/privacy-requests\/[0-9a-z-]+\/download$/.test(path)) {
+      calls.downloads.push(req.url());
+      // mirror the backend: no HMAC token → 403 download_link_expired
+      if (!url.searchParams.get("t")) {
+        return json(403, {
+          title: "Forbidden", status: 403, code: "download_link_expired",
+          detail: "download link missing or expired (900s TTL) — re-fetch the request status for a fresh link",
+        });
+      }
       return route.fulfill({ status: 200, contentType: "application/zip", body: Buffer.from("PK\x03\x04dsar") });
     }
 
@@ -124,7 +132,7 @@ async function installMocks(page, calls, opts = {}) {
   return ctl;
 }
 
-function newCalls() { return { dsar: [], erasure: [], actions: [], statusGet: [] }; }
+function newCalls() { return { dsar: [], erasure: [], actions: [], statusGet: [], downloads: [] }; }
 
 async function login(page) {
   await page.goto("/#/login");
@@ -279,8 +287,18 @@ test("DSAR: fresh mint per click, visible expiry, real download; expired → re-
     requests: [dsarDone, dsarExpired],
     detail: {
       [dsarDone.id]: {
-        download: { url: `/privacy-requests/${dsarDone.id}/download`, expires_at: "2026-07-30T10:00:00Z" },
-        manifest_summary: { package_sha256: "ab", item_count: 12, excluded: ["raw_audio"], inventory_counts: {} },
+        // `t` is the 15-minute HMAC token the status endpoint mints; the client
+        // MUST carry it through to /download or the backend 403s.
+        download: { url: `/privacy-requests/${dsarDone.id}/download?t=9999999999.deadbeef`, expires_at: "2026-07-30T10:00:00Z" },
+        manifest_summary: {
+          package_sha256: "ab", item_count: 12, package_bytes: 2048, inventory_counts: {},
+          // as-built shape: objects, not strings (a legacy string is kept in the
+          // list so the normaliser's tolerance stays covered end-to-end)
+          excluded: [
+            { kind: "recording_audio", reason: "raw audio excluded by policy (DSAR_INCLUDE_RAW_AUDIO=false)" },
+            "raw_audio",
+          ],
+        },
       },
       [dsarExpired.id]: { package_expired: true },
     },
@@ -295,9 +313,15 @@ test("DSAR: fresh mint per click, visible expiry, real download; expired → re-
   await page.getByTestId("dsar-download").click();
   await dl; // the zip actually downloaded
   expect(calls.statusGet.length).toBeGreaterThan(before); // fresh mint per click
+  // the freshly minted HMAC token must reach /download — without it the real
+  // backend answers 403 download_link_expired
+  expect(calls.downloads.at(-1)).toContain("t=9999999999.deadbeef");
   await expect(page.locator(".privacy-download em")).toContainText(/дійсне до|valid until/);
   await expect(page.locator(".privacy-manifest")).toContainText("12");
-  await expect(page.locator(".privacy-manifest")).toContainText("raw_audio");
+  // excluded artefacts render one per line, reason included — never [object Object]
+  await expect(page.locator(".privacy-manifest")).not.toContainText("[object Object]");
+  await expect(page.locator(".privacy-excluded")).toContainText(/Аудіозаписи|Raw audio/);
+  await expect(page.locator(".privacy-excluded")).toContainText(/DSAR_INCLUDE_RAW_AUDIO/);
 
   await rows.nth(1).locator(".privacy-row-main").click();
   await expect(page.getByTestId("dsar-expired")).toContainText(/запросіть експорт повторно|request the export again/);

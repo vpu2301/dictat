@@ -71,6 +71,14 @@ const FEATURE_DETAIL = {
         { icon: "eye", title: "Átlátható modell", desc: "A bizonytalan szavak azonnal láthatók — az ellenőrzés gyorsabb." },
         { icon: "home", title: "Szuverén", desc: "A modell helyben fut; a hang soha nem hagyja el az Ön környezetét." },
       ] },
+    ar: { eyebrow: "الميزة", title: "التعرّف في الوقت الفعلي",
+      sub: "يحوّل نظام ASR المتدفق العامل على faster-whisper المستضاف ذاتيًا الكلام إلى نص بأدنى زمن استجابة — ويُبرز الكلمات التي لا يكون النموذج متأكدًا منها.",
+      points: ["نافذة مدتها 4 ثوانٍ بتداخل ثانيتين تُبقي النص المنسوخ متواصلًا", "يتعامل مع التبديل اللغوي بين الأوكرانية والروسية", "يوجّه القسم النشط من الملاحظة التعرّف نحو المفردات ذات الصلة", "يعمل بالكامل على أجهزتك الخاصة — دون واجهات API خارجية"],
+      cards: [
+        { icon: "clock", title: "زمن استجابة أدنى", desc: "يظهر النص أثناء حديثك لا بعده؛ إذ تُمهّد الرموز الأخيرة لكل نافذة تالية." },
+        { icon: "eye", title: "شفافية النموذج", desc: "الكلمات غير المؤكدة مرئية فورًا — والمراجعة أسرع." },
+        { icon: "home", title: "سيادة كاملة", desc: "يُنشر النموذج محليًا؛ والصوت لا يغادر محيطك أبدًا." },
+      ] },
   },
   autocomplete: {
     icon: "sparkle",
@@ -137,6 +145,14 @@ const FEATURE_DETAIL = {
         { icon: "book", title: "Orvosi szókincs", desc: "Az Ön szakterületének pontos kifejezéseit javasolja." },
         { icon: "keyboard", title: "Kevesebb gépelés", desc: "Egyetlen mozdulattal egészíthet ki fordulatokat." },
         { icon: "layers", title: "Kontextusérzékeny", desc: "A javaslatok igazodnak a jegyzet szerkezetéhez." },
+      ] },
+    ar: { eyebrow: "الميزة", title: "الإكمال التلقائي الذكي",
+      sub: "اقتراحات مدركة للسياق للمصطلحات والتشخيصات والعبارات أثناء الإملاء — تكرار أقل وسرعة أكبر.",
+      points: ["اقتراحات المصطلحات الطبية", "العبارات والتشخيصات المتكررة", "يتعلّم من قوالبك"],
+      cards: [
+        { icon: "book", title: "المفردات الطبية", desc: "يقترح المصطلحات الدقيقة لتخصصك." },
+        { icon: "keyboard", title: "كتابة أقل", desc: "أكمل العبارات بحركة واحدة." },
+        { icon: "layers", title: "مدرك للسياق", desc: "تحترم الاقتراحات بنية الملاحظة." },
       ] },
   },
   templates: {
@@ -205,6 +221,14 @@ const FEATURE_DETAIL = {
         { icon: "edit", title: "Klónozás és testreszabás", desc: "Az intézmények klónozzák a rendszersablonokat, és sajátjaikat szabják testre." },
         { icon: "history", title: "Verziókezelés", desc: "A kozmetikai módosítások helyben frissülnek; a szerkezetiek új verziót hoznak létre." },
       ] },
+    ar: { eyebrow: "الميزة", title: "القوالب والبنى",
+      sub: "16 قالبًا نظاميًا إضافةً إلى قوالب مؤسستك الخاصة ذات الإصدارات — مستندات متسقة عبر الفريق.",
+      points: ["16 قالبًا نظاميًا كفهرس أساسي", "مستندات JSONB بحقول مُصنَّفة (نص حر، تشخيص، تاريخ، رقم مع وحدة)", "التعديلات البنيوية تُنشئ إصدارًا جديدًا — وتُسجّل الملاحظات المنهاة القالب الذي أنتجها بدقة"],
+      cards: [
+        { icon: "fileText", title: "حقول مُصنَّفة", desc: "نص حر، وتشخيص مُهيكل، وتاريخ، ورقم مع وحدة، والمزيد." },
+        { icon: "edit", title: "استنساخ وتخصيص", desc: "تستنسخ المؤسسات القوالب النظامية وتخصّص قوالبها الخاصة." },
+        { icon: "history", title: "إدارة الإصدارات", desc: "التعديلات الشكلية تُحدَّث في مكانها؛ والبنيوية تُنشئ إصدارًا جديدًا." },
+      ] },
   },
   versions: {
     icon: "history",
@@ -271,6 +295,14 @@ const FEATURE_DETAIL = {
         { icon: "diff", title: "Változások összehasonlítása", desc: "Pontosan látja, mi változott a verziók között." },
         { icon: "history", title: "Előzmények", desc: "Minden szerkesztés tárolva és követve van." },
         { icon: "edit", title: "Módosítások", desc: "Aláírás után is szabályosan módosíthat." },
+      ] },
+    ar: { eyebrow: "الميزة", title: "الإصدارات والتعديلات",
+      sub: "سجل تغييرات كامل، ومقارنة الفروق، ومسار تعديل صحيح — لا يضيع أي شيء.",
+      points: ["سجل كامل لكل مستند", "مقارنة فروق الإصدارات", "تعديلات صحيحة بعد التوقيع"],
+      cards: [
+        { icon: "diff", title: "مقارنة التغييرات", desc: "شاهد بالضبط ما الذي تغيّر بين الإصدارات." },
+        { icon: "history", title: "السجل", desc: "يُحفظ كل تعديل ويُتتبَّع." },
+        { icon: "edit", title: "التعديلات", desc: "أجرِ التعديلات بعد التوقيع وفق القواعد." },
       ] },
   },
   signature: {
@@ -339,6 +371,14 @@ const FEATURE_DETAIL = {
         { icon: "eye", title: "Nyilvános ellenőrzés", desc: "Minden aláírt dokumentum hitelesítés nélküli linket kap az eredetiség igazolására." },
         { icon: "shield", title: "Integritás", desc: "A kanonikus JSON be van ágyazva a PDF-be; az aláírt dokumentum védett a módosításokkal szemben." },
       ] },
+    ar: { eyebrow: "الميزة", title: "التوقيع الإلكتروني عبر Дія / ІІТ",
+      sub: "توقيع إلكتروني مؤهَّل (КЕП) عبر Дія (الهاتف المحمول) أو ІІТ (البطاقة الذكية) بموجب القانون الأوكراني 2155-VIII — ذو قيمة قانونية وشفاف.",
+      points: ["توقيع مؤهَّل عبر Дія أو ІІТ", "المُخرَج الموقَّع هو ملف PADES PDF مع تضمين JSON القياسي للملاحظة", "رابط تحقق عام لا يتطلب حسابًا لكل مستند موقَّع"],
+      cards: [
+        { icon: "sign", title: "Дія و ІІТ", desc: "وقّع من الهاتف المحمول عبر Дія أو ببطاقة ذكية عبر ІІТ." },
+        { icon: "eye", title: "تحقق عام", desc: "يحصل كل مستند موقَّع على رابط غير مُصادَق عليه لتأكيد الأصالة." },
+        { icon: "shield", title: "السلامة", desc: "يُضمَّن JSON القياسي في ملف PDF؛ والمستند الموقَّع محمي من التغييرات." },
+      ] },
   },
   audit: {
     icon: "shield",
@@ -405,6 +445,14 @@ const FEATURE_DETAIL = {
         { icon: "history", title: "Hash-lánc", desc: "Minden esemény az előzőhöz kapcsolódik — a manipuláció azonnal látható." },
         { icon: "check", title: "Éjszakai egyeztetés", desc: "A lánc integritása minden éjjel automatikusan ellenőrzésre kerül." },
         { icon: "users", title: "Szerepkör-alapú hozzáférés", desc: "Alapértelmezett tiltás és a legkisebb jogosultság elve mindenütt." },
+      ] },
+    ar: { eyebrow: "الميزة", title: "التدقيق والامتثال",
+      sub: "سجل أحداث مقاوم للتلاعب ومترابط بسلسلة تجزئة، ومطابقة سلامة ليلية، ووصول قائم على الأدوار — شفافية كاملة للامتثال.",
+      points: ["سجل بالإضافة فقط ومترابط بسلسلة تجزئة مع فرض عدم القابلية للتغيير على مستوى قاعدة البيانات", "أداة مطابقة ليلية تمرّ عبر السلسلة وتنبّه عند حدوث تباعد", "لا تحمل الإدخالات سوى المعرّفات، ولا تحمل أبدًا محتوى سريريًا"],
+      cards: [
+        { icon: "history", title: "سلسلة التجزئة", desc: "يرتبط كل حدث بالحدث السابق — فيصبح التلاعب مرئيًا فورًا." },
+        { icon: "check", title: "مطابقة ليلية", desc: "يُتحقَّق من سلامة السلسلة تلقائيًا كل ليلة." },
+        { icon: "users", title: "وصول قائم على الأدوار", desc: "الرفض افتراضيًا ومبدأ الحد الأدنى من الامتيازات في كل مكان." },
       ] },
   },
   normalization: {
@@ -473,6 +521,14 @@ const FEATURE_DETAIL = {
         { icon: "check", title: "Kritikus értékek", desc: "A dózisokat, mértékegységeket és a vérnyomást explicit, auditálható szabályok kezelik." },
         { icon: "shield", title: "Alapból biztonságos", desc: "Ami nem ismerhető fel mennyiségként, érintetlen marad." },
       ] },
+    ar: { eyebrow: "الميزة", title: "تطبيع النص الطبي",
+      sub: "تُحوَّل الصياغة السريرية المنطوقة إلى صورة قياسية بشكل حتمي: ضغط الدم، ومعدل النبض، والجرعات، والوحدات، والنطاقات، والأوقات، والترددات.",
+      points: ["«مئة وعشرون على ثمانين» → «120/80»", "قائم على قواعد لا صندوق أسود — تبقى القيم الحرجة قابلة للتحقق", "الأرقام غير المُعلَّمة تمرّ دون تغيير"],
+      cards: [
+        { icon: "sliders", title: "قواعد حتمية", desc: "التحويل شفاف وقابل لإعادة الإنتاج — دون تخمين من النموذج في الجرعات وضغط الدم." },
+        { icon: "check", title: "القيم الحرجة", desc: "تُعالَج الجرعات والوحدات وضغط الدم بقواعد صريحة قابلة للتدقيق." },
+        { icon: "shield", title: "آمن افتراضيًا", desc: "كل ما لا يُتعرَّف عليه كمقدار يبقى دون مساس." },
+      ] },
   },
   commands: {
     icon: "keyboard",
@@ -540,6 +596,14 @@ const FEATURE_DETAIL = {
         { icon: "shield", title: "Óvatosság mindenekelőtt", desc: "A rendszer inkább nem aktiválódik, mint hogy téves parancsot hajtson végre." },
         { icon: "refresh", title: "Idióma-védelem", desc: "A „pontot tesz az i-re” nem szúr be pontot; az azonnali visszavonás fedezi a tévesztéseket." },
       ] },
+    ar: { eyebrow: "الميزة", title: "الأوامر الصوتية",
+      sub: "تحكّم في المستند دون لمس لوحة المفاتيح: فقرة جديدة، وعلامات ترقيم، والانتقال إلى قسم، وحفظ المسودة، والتراجع، والإيقاف.",
+      points: ["فهرس من 30 نيّة — 15 أوكرانية و15 إنجليزية", "يجتاز كل أمر ثلاث بوابات: وقفة، وثقة التعرّف، وتسامح مسافة التحرير", "نافذة تراجع مدتها 600 مللي ثانية تغطي التفعيلات الخاطئة"],
+      cards: [
+        { icon: "keyboard", title: "أوامر طبيعية", desc: "«قسم التشخيص»، فقرة جديدة، نقطة — دون مغادرة الإملاء." },
+        { icon: "shield", title: "الحذر أولًا", desc: "يميل النظام إلى عدم التفعيل بدلًا من تنفيذ أمر خاطئ." },
+        { icon: "refresh", title: "حماية من التعابير الاصطلاحية", desc: "«النقطة على الحرف» لا تُدرج نقطة؛ والتراجع الفوري يغطي أي تفعيل خاطئ." },
+      ] },
   },
 };
 
@@ -548,14 +612,14 @@ export function buildFeatureDetail(slug, lang, cta) {
   if (!d) return null;
   const t = d[lang] ?? d.en;
   const L = (m) => m[lang] ?? m.en;
-  const SIGN_UP = { uk: "Зареєструватися", en: "Sign up", pl: "Zarejestruj się", de: "Registrieren", ro: "Înregistrare", cs: "Zaregistrovat se", sr: "Registrujte se", hu: "Regisztráció" };
-  const ALL_FEATURES = { uk: "Усі можливості", en: "All features", pl: "Wszystkie funkcje", de: "Alle Funktionen", ro: "Toate funcționalitățile", cs: "Všechny funkce", sr: "Sve funkcije", hu: "Minden funkció" };
+  const SIGN_UP = { uk: "Зареєструватися", en: "Sign up", pl: "Zarejestruj się", de: "Registrieren", ro: "Înregistrare", cs: "Zaregistrovat se", sr: "Registrujte se", hu: "Regisztráció", ar: "إنشاء حساب" };
+  const ALL_FEATURES = { uk: "Усі можливості", en: "All features", pl: "Wszystkie funkcje", de: "Alle Funktionen", ro: "Toate funcționalitățile", cs: "Všechny funkce", sr: "Sve funkcije", hu: "Minden funkció", ar: "جميع الميزات" };
   /* The templates feature page doubles as the entry point to the public
      catalogue, so it gets one extra card that links there. */
   const MARKETPLACE_CARD = {
     icon: "grid",
-    title: L({ uk: "Каталог шаблонів", en: "Template library", pl: "Biblioteka szablonów", de: "Vorlagenbibliothek", ro: "Biblioteca de șabloane", cs: "Knihovna šablon", sr: "Biblioteka šablona", hu: "Sablonkönyvtár" }),
-    desc: L({ uk: "Перегляньте готові структури документів за спеціальностями.", en: "Browse ready-made note structures by specialty.", pl: "Przeglądaj gotowe struktury notatek według specjalności.", de: "Fertige Notizstrukturen nach Fachrichtung durchsuchen.", ro: "Răsfoiți structuri de note gata făcute pe specialități.", cs: "Procházejte hotové struktury záznamů podle odbornosti.", sr: "Pregledajte gotove strukture zapisa po specijalnostima.", hu: "Böngésszen kész jegyzetstruktúrákat szakterület szerint." }),
+    title: L({ uk: "Каталог шаблонів", en: "Template library", pl: "Biblioteka szablonów", de: "Vorlagenbibliothek", ro: "Biblioteca de șabloane", cs: "Knihovna šablon", sr: "Biblioteka šablona", hu: "Sablonkönyvtár", ar: "مكتبة القوالب" }),
+    desc: L({ uk: "Перегляньте готові структури документів за спеціальностями.", en: "Browse ready-made note structures by specialty.", pl: "Przeglądaj gotowe struktury notatek według specjalności.", de: "Fertige Notizstrukturen nach Fachrichtung durchsuchen.", ro: "Răsfoiți structuri de note gata făcute pe specialități.", cs: "Procházejte hotové struktury záznamů podle odbornosti.", sr: "Pregledajte gotove strukture zapisa po specijalnostima.", hu: "Böngésszen kész jegyzetstruktúrákat szakterület szerint.", ar: "تصفّح بنى الملاحظات الجاهزة حسب التخصص." }),
     path: "/templates",
   };
   const cards = slug === "templates" ? [...t.cards, MARKETPLACE_CARD] : t.cards;

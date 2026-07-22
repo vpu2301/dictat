@@ -49,8 +49,17 @@ export async function inviteUser({ email, display_name, role, first_name, last_n
   });
 }
 
+// POST /admin/users/{sub}/deactivate — disables login in Keycloak AND revokes
+// every active session. Platform-wide, not scoped to one clinic. tenant_admin
+// + MFA only. Reversible via reactivateUser().
 export async function deactivateUser(sub) {
   return api(`/admin/users/${encodeURIComponent(sub)}/deactivate`, { method: "POST" });
+}
+
+// POST /admin/users/{sub}/reactivate — re-enables login (users.status → active).
+// Does NOT restore sessions; the user has to sign in again.
+export async function reactivateUser(sub) {
+  return api(`/admin/users/${encodeURIComponent(sub)}/reactivate`, { method: "POST" });
 }
 
 export async function listAuditEvents(params = {}) {

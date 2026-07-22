@@ -246,6 +246,28 @@ const NAV_TEXT = {
     },
     flat: { pricing: "Árak", security: "Biztonság" },
   },
+  ar: {
+    groups: {
+      product:   { label: "المنتج", tagline: "من الكلمة المنطوقة إلى تقرير موقّع." },
+      solutions: { label: "الحلول", tagline: "كاتب واحد لكل موقف — في الغرفة أو عبر الفيديو." },
+    },
+    cols: { platform: "المنصة", settings: "أين تعمل" },
+    items: {
+      scribe:       ["Scribe", "كاتب محيطي للمقابلات"],
+      dictate:      ["Dictate", "إملاء التقارير بالقوالب"],
+      templates:    ["القوالب", "قوالب الملاحظات حسب التخصص"],
+      features:     ["جميع الميزات", "دورة التوثيق الكاملة"],
+      inperson:     ["الزيارات الحضورية", "محادثة المريض داخل الغرفة"],
+      telehealth:   ["الطب عن بُعد والفيديو", "استشارات عن بُعد عبر الإنترنت"],
+      wardround:    ["الجولة الطبية وبجانب السرير", "ملاحظات التقدم اليومية للمرضى الداخليين"],
+      procedures:   ["الإجراءات وغرفة العمليات", "سجلات الإجراءات والعمليات"],
+    },
+    cta: {
+      product:   ["جرّبه على ملاحظاتك الخاصة", "ابدأ مجانًا. بدون بطاقة، بدون تثبيت.", "ابدأ مجانًا", "احجز عرضًا توضيحيًا"],
+      solutions: ["غير متأكد أين يناسبك Klarnote؟", "سنرشدك عبر سير عملك.", "احجز عرضًا توضيحيًا", "تصفّح القوالب"],
+    },
+    flat: { pricing: "الأسعار", security: "الأمان" },
+  },
 };
 
 /* Resolve NAV_STRUCT against one language, falling back to English per key so
@@ -334,6 +356,12 @@ const RESOURCE_LINKS = {
     { label: "API Docs", path: "/developers/api" },
     { label: "Fejlesztőknek", path: "/developers" },
     { label: "Blog", path: "/blog" },
+  ],
+  ar: [
+    { label: "التوثيق", path: "/docs" },
+    { label: "وثائق API", path: "/developers/api" },
+    { label: "للمطوّرين", path: "/developers" },
+    { label: "المدونة", path: "/blog" },
   ],
 };
 
@@ -572,6 +600,35 @@ export const FOOTER = {
     start: "Regisztráció",
     nav: { product: "Termék", features: "Funkciók", workflow: "Hogyan működik", security: "Biztonság" },
   },
+  ar: {
+    tag: "إملاء طبي بالصوت. لا تغادر البيانات بيئتك أبدًا.",
+    cols: [
+      { h: "المنتج", links: [
+        { label: "Scribe", path: "/product/scribe" },
+        { label: "Dictate", path: "/product/dictate" },
+        { label: "الميزات", path: "/features" },
+        { label: "القوالب", path: "/templates" },
+        { label: "الأسعار", path: "/pricing" },
+        { label: "الأمان", path: "/security" },
+      ] },
+      { h: "الموارد", links: RESOURCE_LINKS.ar },
+      { h: "الشركة", links: [
+        { label: "من نحن", path: "/about" },
+        { label: "تواصل معنا", path: "/contact" },
+        { label: "الوظائف", path: "/careers" },
+      ] },
+      { h: "الشؤون القانونية", links: [
+        { label: "الخصوصية", path: "/legal/privacy" },
+        { label: "الشروط", path: "/legal/terms" },
+        { label: "معالجة البيانات", path: "/legal/data" },
+        { label: "الموافقة", path: "/legal/consent" },
+      ] },
+    ],
+    rights: "جميع الحقوق محفوظة.",
+    signin: "تسجيل الدخول",
+    start: "إنشاء حساب",
+    nav: { product: "المنتج", features: "الميزات", workflow: "كيف يعمل", security: "الأمان" },
+  },
 };
 
 /* One dropdown panel (Product / Resources / Company). Opens on hover (desktop)
@@ -643,6 +700,60 @@ function NavGroup({ group, open, onOpen, onClose, onNavigate }) {
   );
 }
 
+/* Language switcher — a custom listbox instead of a bare <select> so the menu
+   matches the mega-menu's look: each language shown in its own script, the
+   active one accented and checked. Self-contained: owns its open state plus
+   outside-click / Escape handling, and closes on choose. */
+function LangSwitcher({ lang, setTweak }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const current = LANGS.find((l) => l.code === lang) || LANGS[1];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("mousedown", onDown); window.removeEventListener("keydown", onKey); };
+  }, [open]);
+
+  const pick = (code) => { setTweak && setTweak("lang", code); setOpen(false); };
+
+  return (
+    <div className={`lp-lang-menu${open ? " is-open" : ""}`} ref={ref}>
+      <button
+        type="button"
+        className="lp-lang-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Language"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Icon name="globe" size={15} />
+        <span className="lp-lang-current">{current.short}</span>
+        <Icon name="chevDown" size={12} />
+      </button>
+      <div className="lp-lang-pop" role="listbox" aria-label="Language" tabIndex={-1}>
+        {LANGS.map((l) => (
+          <button
+            type="button"
+            key={l.code}
+            role="option"
+            aria-selected={l.code === lang}
+            className={`lp-lang-opt${l.code === lang ? " is-active" : ""}`}
+            onClick={() => pick(l.code)}
+          >
+            <span className="lp-lang-opt-label" dir={l.rtl ? "rtl" : "ltr"}>{l.label}</span>
+            <span className="lp-lang-opt-short">{l.short}</span>
+            <Icon name="check" size={15} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, children }) {
   const f = FOOTER[lang] || FOOTER.en;
   const n = useMemo(() => buildNav(lang), [lang]);
@@ -694,19 +805,7 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
           </nav>
 
           <div className="lp-nav-actions">
-            <label className="lp-lang-select" title="Language">
-              <span aria-hidden="true">{(LANGS.find((l) => l.code === lang) || LANGS[1]).short}</span>
-              <Icon name="chevDown" size={12} />
-              <select
-                aria-label="Language"
-                value={lang}
-                onChange={(e) => setTweak && setTweak("lang", e.target.value)}
-              >
-                {LANGS.map((l) => (
-                  <option key={l.code} value={l.code}>{l.label}</option>
-                ))}
-              </select>
-            </label>
+            <LangSwitcher lang={lang} setTweak={setTweak} />
             <a className="btn btn-ghost lp-signin" href="#/login" onClick={go("/login")}>{f.signin}</a>
             <a className="btn btn-primary lp-nav-cta" href="#/signup" onClick={go("/signup")}>{f.start}</a>
             <button className="lp-burger" onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }} aria-label="Menu">

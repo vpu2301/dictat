@@ -5,5 +5,6 @@ import ro from "./platform.ro.js";
 import cs from "./platform.cs.js";
 import sr from "./platform.sr.js";
 import hu from "./platform.hu.js";
+import ar from "./platform.ar.js";
 
-export const PLATFORM_TR = { pl, de, ro, cs, sr, hu };
+export const PLATFORM_TR = { pl, de, ro, cs, sr, hu, ar };

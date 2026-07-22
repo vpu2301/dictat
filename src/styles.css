@@ -407,6 +407,73 @@ kbd {
 .sb-user-menu .sb-user-menu-item.on svg { color: var(--accent); }
 
 .sb-controls { display: flex; align-items: center; gap: 4px; padding: 0 4px; }
+
+/* ── Backend health pill + diagnostic panel (sidebar footer) ───────────── */
+.health-wrap { position: relative; }
+.health-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 8px; border: 0; border-radius: 999px;
+  font: inherit; font-size: 11px; font-weight: 500; line-height: 1.3;
+  cursor: pointer;
+}
+.health-pill:hover { filter: brightness(.96); }
+.health-dot { width: 6px; height: 6px; border-radius: 999px; flex: none; }
+
+/* Portalled to <body> (the sidebar clips overflow), positioned from JS above
+   the pill — hence `position: fixed` with left/bottom set inline. */
+.health-panel {
+  position: fixed;
+  z-index: 120; width: min(420px, calc(100vw - 24px));
+  max-height: min(72vh, 620px); overflow: auto;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.22);
+  padding: 14px 16px;
+}
+.health-panel-h { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.health-panel-h strong { font-size: 13.5px; }
+.health-panel-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.health-recheck { margin-left: auto; font-size: 11.5px; padding: 4px 9px; gap: 5px; flex: none; }
+.health-summary {
+  font-size: 12px; line-height: 1.5; color: var(--rec, #dc2626);
+  background: var(--rec-soft, rgba(220,38,38,.08));
+  border-radius: 8px; padding: 8px 10px; margin-bottom: 10px;
+}
+.health-summary strong { display: block; font-size: 12px; }
+.health-summary div { color: var(--text-2); margin-top: 3px; }
+.health-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.health-row {
+  display: grid;
+  grid-template-columns: 8px auto minmax(0, 1fr) auto;
+  gap: 2px 10px; align-items: baseline;
+  padding: 9px 0; border-top: 1px solid var(--line-2); font-size: 12.5px;
+}
+.health-row:first-child { border-top: 0; padding-top: 2px; }
+.health-name { font-weight: 600; color: var(--text-1); }
+.health-role { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.health-state { font-size: 11.5px; text-align: right; white-space: nowrap; }
+.health-meta {
+  grid-column: 2 / -1;
+  font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis;
+}
+.health-detail {
+  grid-column: 2 / -1; margin-top: 4px;
+  font-size: 11.5px; color: var(--text-2); line-height: 1.5;
+  background: var(--surface-2); border-radius: 7px; padding: 7px 9px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.health-hint { color: var(--muted); font-size: 11px; }
+.health-hint code {
+  font-family: var(--mono); font-size: 10.5px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 5px; padding: 1px 5px;
+}
+.health-foot {
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-2);
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; color: var(--muted);
+}
+.health-copy { margin-left: auto; font-size: 11px; padding: 3px 8px; gap: 5px; flex: none; }
 .lang-pill {
   display: inline-flex;
   background: var(--surface-2);

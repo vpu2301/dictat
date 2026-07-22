@@ -21,9 +21,9 @@ function ContactForm({ lang }) {
   const onSubmit = (e) => {
     e.preventDefault();
     const next = {};
-    if (!form.name.trim()) next.name = L({ uk: "Вкажіть ім'я.", en: "Enter your name.", pl: "Podaj imię.", de: "Geben Sie Ihren Namen ein.", ro: "Introduceți numele.", cs: "Zadejte své jméno.", sr: "Unesite svoje ime.", hu: "Adja meg a nevét." });
-    if (!EMAIL_RE.test(form.email)) next.email = L({ uk: "Невірна пошта.", en: "Enter a valid email.", pl: "Podaj poprawny adres e-mail.", de: "Geben Sie eine gültige E-Mail-Adresse ein.", ro: "Introduceți un e-mail valid.", cs: "Zadejte platný e-mail.", sr: "Unesite ispravnu e-adresu.", hu: "Adjon meg érvényes e-mail-címet." });
-    if (!form.message.trim()) next.message = L({ uk: "Напишіть повідомлення.", en: "Write a message.", pl: "Napisz wiadomość.", de: "Schreiben Sie eine Nachricht.", ro: "Scrieți un mesaj.", cs: "Napište zprávu.", sr: "Napišite poruku.", hu: "Írjon üzenetet." });
+    if (!form.name.trim()) next.name = L({ uk: "Вкажіть ім'я.", en: "Enter your name.", pl: "Podaj imię.", de: "Geben Sie Ihren Namen ein.", ro: "Introduceți numele.", cs: "Zadejte své jméno.", sr: "Unesite svoje ime.", hu: "Adja meg a nevét.", ar: "أدخل اسمك." });
+    if (!EMAIL_RE.test(form.email)) next.email = L({ uk: "Невірна пошта.", en: "Enter a valid email.", pl: "Podaj poprawny adres e-mail.", de: "Geben Sie eine gültige E-Mail-Adresse ein.", ro: "Introduceți un e-mail valid.", cs: "Zadejte platný e-mail.", sr: "Unesite ispravnu e-adresu.", hu: "Adjon meg érvényes e-mail-címet.", ar: "أدخل بريدًا إلكترونيًا صالحًا." });
+    if (!form.message.trim()) next.message = L({ uk: "Напишіть повідомлення.", en: "Write a message.", pl: "Napisz wiadomość.", de: "Schreiben Sie eine Nachricht.", ro: "Scrieți un mesaj.", cs: "Napište zprávu.", sr: "Napišite poruku.", hu: "Írjon üzenetet.", ar: "اكتب رسالة." });
     setErrors(next);
     if (Object.keys(next).length) return;
     setSent(true); // TODO(backend): wire to a real contact endpoint.
@@ -33,33 +33,33 @@ function ContactForm({ lang }) {
     return (
       <div className="mk-form mk-form-done" role="status">
         <span className="mk-form-mark"><Icon name="check" size={22} /></span>
-        <h3>{L({ uk: "Повідомлення надіслано", en: "Message sent", pl: "Wiadomość wysłana", de: "Nachricht gesendet", ro: "Mesaj trimis", cs: "Zpráva odeslána", sr: "Poruka je poslata", hu: "Üzenet elküldve" })}</h3>
-        <p>{L({ uk: "Дякуємо! Ми відповімо найближчим часом.", en: "Thanks! We'll get back to you shortly.", pl: "Dziękujemy! Wkrótce się odezwiemy.", de: "Danke! Wir melden uns in Kürze.", ro: "Mulțumim! Vă vom răspunde în curând.", cs: "Děkujeme! Brzy se vám ozveme.", sr: "Hvala! Javićemo vam se uskoro.", hu: "Köszönjük! Hamarosan jelentkezünk." })}</p>
+        <h3>{L({ uk: "Повідомлення надіслано", en: "Message sent", pl: "Wiadomość wysłana", de: "Nachricht gesendet", ro: "Mesaj trimis", cs: "Zpráva odeslána", sr: "Poruka je poslata", hu: "Üzenet elküldve", ar: "تم إرسال الرسالة" })}</h3>
+        <p>{L({ uk: "Дякуємо! Ми відповімо найближчим часом.", en: "Thanks! We'll get back to you shortly.", pl: "Dziękujemy! Wkrótce się odezwiemy.", de: "Danke! Wir melden uns in Kürze.", ro: "Mulțumim! Vă vom răspunde în curând.", cs: "Děkujeme! Brzy se vám ozveme.", sr: "Hvala! Javićemo vam se uskoro.", hu: "Köszönjük! Hamarosan jelentkezünk.", ar: "شكرًا! سنعاود التواصل معك قريبًا." })}</p>
       </div>
     );
   }
 
   return (
     <form className="mk-form" onSubmit={onSubmit} noValidate>
-      <h3 className="mk-form-title">{L({ uk: "Напишіть нам", en: "Send us a message", pl: "Napisz do nas", de: "Schreiben Sie uns", ro: "Trimiteți-ne un mesaj", cs: "Napište nám", sr: "Pošaljite nam poruku", hu: "Írjon nekünk" })}</h3>
+      <h3 className="mk-form-title">{L({ uk: "Напишіть нам", en: "Send us a message", pl: "Napisz do nas", de: "Schreiben Sie uns", ro: "Trimiteți-ne un mesaj", cs: "Napište nám", sr: "Pošaljite nam poruku", hu: "Írjon nekünk", ar: "أرسل لنا رسالة" })}</h3>
       <div className="mk-form-row">
         <label className="login-field">
-          <span>{L({ uk: "Ім'я", en: "Name", pl: "Imię", de: "Name", ro: "Nume", cs: "Jméno", sr: "Ime", hu: "Név" })}</span>
+          <span>{L({ uk: "Ім'я", en: "Name", pl: "Imię", de: "Name", ro: "Nume", cs: "Jméno", sr: "Ime", hu: "Név", ar: "الاسم" })}</span>
           <input value={form.name} onChange={set("name")} aria-invalid={errors.name ? "true" : undefined} />
           {errors.name && <span className="field-error">{errors.name}</span>}
         </label>
         <label className="login-field">
-          <span>{L({ uk: "Електронна пошта", en: "Email", pl: "E-mail", de: "E-Mail", ro: "E-mail", cs: "E-mail", sr: "E-adresa", hu: "E-mail" })}</span>
+          <span>{L({ uk: "Електронна пошта", en: "Email", pl: "E-mail", de: "E-Mail", ro: "E-mail", cs: "E-mail", sr: "E-adresa", hu: "E-mail", ar: "البريد الإلكتروني" })}</span>
           <input type="email" value={form.email} onChange={set("email")} placeholder="you@clinic.example" aria-invalid={errors.email ? "true" : undefined} />
           {errors.email && <span className="field-error">{errors.email}</span>}
         </label>
       </div>
       <label className="login-field">
-        <span>{L({ uk: "Повідомлення", en: "Message", pl: "Wiadomość", de: "Nachricht", ro: "Mesaj", cs: "Zpráva", sr: "Poruka", hu: "Üzenet" })}</span>
+        <span>{L({ uk: "Повідомлення", en: "Message", pl: "Wiadomość", de: "Nachricht", ro: "Mesaj", cs: "Zpráva", sr: "Poruka", hu: "Üzenet", ar: "الرسالة" })}</span>
         <textarea rows={5} value={form.message} onChange={set("message")} aria-invalid={errors.message ? "true" : undefined} />
         {errors.message && <span className="field-error">{errors.message}</span>}
       </label>
-      <button type="submit" className="btn btn-primary lp-cta-lg">{L({ uk: "Надіслати", en: "Send", pl: "Wyślij", de: "Senden", ro: "Trimite", cs: "Odeslat", sr: "Pošalji", hu: "Küldés" })}</button>
+      <button type="submit" className="btn btn-primary lp-cta-lg">{L({ uk: "Надіслати", en: "Send", pl: "Wyślij", de: "Senden", ro: "Trimite", cs: "Odeslat", sr: "Pošalji", hu: "Küldés", ar: "إرسال" })}</button>
     </form>
   );
 }
@@ -101,7 +101,7 @@ function Block({ block, lang, navigate }) {
           <div className="lp-feature-icon"><Icon name={it.icon} size={18} /></div>
           <h3 className="lp-feature-t">{it.title}</h3>
           <p className="lp-feature-d">{it.desc}</p>
-          {it.path && <span className="mk-card-more">{L({ uk: "Докладніше", en: "Learn more", pl: "Dowiedz się więcej", de: "Mehr erfahren", ro: "Aflați mai multe", cs: "Zjistit více", sr: "Saznajte više", hu: "Tudjon meg többet" })} <Icon name="arrowRight" size={14} /></span>}
+          {it.path && <span className="mk-card-more">{L({ uk: "Докладніше", en: "Learn more", pl: "Dowiedz się więcej", de: "Mehr erfahren", ro: "Aflați mai multe", cs: "Zjistit více", sr: "Saznajte više", hu: "Tudjon meg többet", ar: "اعرف المزيد" })} <Icon name="arrowRight" size={14} /></span>}
         </>
       );
       return (
@@ -171,7 +171,7 @@ function Block({ block, lang, navigate }) {
                     <span><Icon name="clock" size={13} /> {r.type}</span>
                   </div>
                 </div>
-                <span className="mk-role-apply">{L({ uk: "Відгукнутися", en: "Apply", pl: "Aplikuj", de: "Bewerben", ro: "Aplică", cs: "Odpovědět", sr: "Prijavi se", hu: "Jelentkezés" })} <Icon name="arrowRight" size={15} /></span>
+                <span className="mk-role-apply">{L({ uk: "Відгукнутися", en: "Apply", pl: "Aplikuj", de: "Bewerben", ro: "Aplică", cs: "Odpovědět", sr: "Prijavi se", hu: "Jelentkezés", ar: "التقديم" })} <Icon name="arrowRight" size={15} /></span>
               </a>
             ))}
           </div>
@@ -248,8 +248,8 @@ export function ContentPage({ slug, navigate, lang = "en", tweaks, setTweak }) {
     return (
       <MarketingShell navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak}>
         <div className="mk-page">
-          <Empty icon="search" title={L({ uk: "Сторінку не знайдено", en: "Page not found", pl: "Nie znaleziono strony", de: "Seite nicht gefunden", ro: "Pagina nu a fost găsită", cs: "Stránka nenalezena", sr: "Stranica nije pronađena", hu: "Az oldal nem található" })} body={slug}
-            action={<button className="btn btn-primary" onClick={() => navigate("/welcome")}>{L({ uk: "На головну", en: "Go home", pl: "Strona główna", de: "Zur Startseite", ro: "Pagina principală", cs: "Na hlavní stránku", sr: "Na početnu", hu: "Vissza a főoldalra" })}</button>} />
+          <Empty icon="search" title={L({ uk: "Сторінку не знайдено", en: "Page not found", pl: "Nie znaleziono strony", de: "Seite nicht gefunden", ro: "Pagina nu a fost găsită", cs: "Stránka nenalezena", sr: "Stranica nije pronađena", hu: "Az oldal nem található", ar: "الصفحة غير موجودة" })} body={slug}
+            action={<button className="btn btn-primary" onClick={() => navigate("/welcome")}>{L({ uk: "На головну", en: "Go home", pl: "Strona główna", de: "Zur Startseite", ro: "Pagina principală", cs: "Na hlavní stránku", sr: "Na početnu", hu: "Vissza a főoldalra", ar: "الذهاب إلى الرئيسية" })}</button>} />
         </div>
       </MarketingShell>
     );

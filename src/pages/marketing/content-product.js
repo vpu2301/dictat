@@ -17,6 +17,7 @@ export function buildProductPages(lang, cta) {
           cs: "Funkce",
           sr: "Funkcije",
           hu: "Funkciók",
+          ar: "الميزات",
         }),
         title: t({
           uk: "Усе для впевненої документації",
@@ -27,6 +28,7 @@ export function buildProductPages(lang, cta) {
           cs: "Vše pro spolehlivou dokumentaci",
           sr: "Sve za pouzdanu dokumentaciju",
           hu: "Minden a magabiztos dokumentációhoz",
+          ar: "كل ما يلزم لتوثيق واثق",
         }),
         sub: t({
           uk: "Від розпізнавання мови до підпису — повний цикл в одному застосунку.",
@@ -37,6 +39,7 @@ export function buildProductPages(lang, cta) {
           cs: "Od rozpoznávání řeči po podpis — celý cyklus v jedné aplikaci.",
           sr: "Od prepoznavanja govora do potpisa — ceo ciklus u jednoj aplikaciji.",
           hu: "A beszédfelismeréstől az aláírásig — a teljes ciklus egyetlen alkalmazásban.",
+          ar: "من التعرّف على الكلام إلى التوقيع — الدورة الكاملة في تطبيق واحد.",
         }),
       },
       blocks: [
@@ -121,6 +124,16 @@ export function buildProductPages(lang, cta) {
               { icon: "sign", title: "Дія / ІІТ e-aláírás", desc: "Minősített aláírás Дія vagy ІІТ útján, aláírt PADES PDF, nyilvános ellenőrzés.", path: "/features/signature" },
               { icon: "shield", title: "Audit és megfelelőség", desc: "Hash-láncolt napló, éjszakai integritás-egyeztetés, szerepkör-alapú hozzáférés.", path: "/features/audit" },
             ],
+          ar: [
+              { icon: "mic", title: "التعرّف في الوقت الفعلي", desc: "نظام ASR متدفق على Whisper مستضاف ذاتيًا مع إبراز الكلمات منخفضة الثقة.", path: "/features/recognition" },
+              { icon: "keyboard", title: "الأوامر الصوتية", desc: "أكثر من 30 نيّة: فقرة جديدة، وعلامات ترقيم، والتنقل بين الأقسام، وحفظ المسودة.", path: "/features/commands" },
+              { icon: "sliders", title: "تطبيع النص الطبي", desc: "ضغط الدم ومعدل النبض والجرعات والوحدات تُحوَّل بشكل حتمي: «مئة وعشرون على ثمانين» → «120/80».", path: "/features/normalization" },
+              { icon: "sparkle", title: "الإكمال التلقائي الذكي", desc: "اقتراحات مدركة للسياق للمصطلحات والتشخيصات والعبارات.", path: "/features/autocomplete" },
+              { icon: "layers", title: "القوالب والبنى", desc: "16 قالبًا نظاميًا إضافةً إلى قوالب مؤسستك الخاصة ذات الإصدارات.", path: "/features/templates" },
+              { icon: "history", title: "الإصدارات والتعديلات", desc: "سجل بالإضافة فقط، ومقارنة الفروق، وتعديلات بعد التوقيع.", path: "/features/versions" },
+              { icon: "sign", title: "التوقيع الإلكتروني عبر Дія / ІІТ", desc: "توقيع مؤهَّل عبر Дія أو ІІТ، وملف PADES PDF موقَّع، وتحقق عام.", path: "/features/signature" },
+              { icon: "shield", title: "التدقيق والامتثال", desc: "سجل مترابط بسلسلة تجزئة، ومطابقة سلامة ليلية، ووصول قائم على الأدوار.", path: "/features/audit" },
+            ],
           }) },
         cta,
       ],
@@ -137,6 +150,7 @@ export function buildProductPages(lang, cta) {
           cs: "Bezpečnost",
           sr: "Bezbednost",
           hu: "Biztonság",
+          ar: "الأمان",
         }),
         title: t({
           uk: "Безпека та приватність за замовчуванням",
@@ -147,6 +161,7 @@ export function buildProductPages(lang, cta) {
           cs: "Bezpečnost a soukromí ve výchozím nastavení",
           sr: "Bezbednost i privatnost podrazumevano",
           hu: "Biztonság és adatvédelem alapértelmezésben",
+          ar: "الأمان والخصوصية افتراضيًا",
         }),
         sub: t({
           uk: "Дані пацієнтів захищені на кожному етапі — від запису до архіву. Не на словах, а конструктивно: ізоляція тенантів у базі даних, незмінний хеш-ланцюговий аудит і моделі, що працюють лише на вашому обладнанні.",
@@ -157,6 +172,7 @@ export function buildProductPages(lang, cta) {
           cs: "Data pacientů jsou chráněna v každém kroku — od nahrávky po archiv. Ne jen politikou, ale konstrukčně: izolace tenantů v databázi, neměnný hashově řetězený audit a modely běžící výhradně na vašem vlastním hardwaru.",
           sr: "Podaci pacijenata zaštićeni su u svakom koraku — od snimka do arhive. Ne samo politikom, već konstrukcijom: izolacija tenanata u bazi podataka, nepromenljiva heš-lančana revizija i modeli koji rade isključivo na vašem hardveru.",
           hu: "A betegadatok minden lépésben védettek — a felvételtől az archívumig. Nem csupán szabályzattal, hanem felépítésből adódóan: tenant-izoláció az adatbázisban, megváltoztathatatlan hash-láncolt audit, és kizárólag a saját hardverén futó modellek.",
+          ar: "بيانات المرضى محمية في كل خطوة — من التسجيل إلى الأرشفة. ليس بالسياسات وحدها بل بالتصميم: عزل المستأجرين في قاعدة البيانات، وتدقيق غير قابل للتغيير مترابط بسلسلة تجزئة، ونماذج تعمل على أجهزتك الخاصة فقط.",
         }),
       },
       blocks: [
@@ -169,6 +185,7 @@ export function buildProductPages(lang, cta) {
             cs: "Nepodkročitelné zásady",
             sr: "Principi bez kompromisa",
             hu: "Meg nem alkuvó alapelvek",
+            ar: "مبادئ غير قابلة للتفاوض",
           }), cols: 3, items: t({
           uk: [
               { icon: "home", title: "Суверенітет даних", desc: "Жодне аудіо, транскрипт чи нотатка не надсилаються до сторонніх пропрієтарних API. Усе ASR і генерація працюють на self-hosted відкритих моделях." },
@@ -226,6 +243,13 @@ export function buildProductPages(lang, cta) {
               { icon: "history", title: "Manipulációt jelző audit", desc: "Append-only, hash-láncolt napló; a megváltoztathatatlanságot az adatbázis szintjén kényszeríti ki, és minden éjjel egyezteti." },
               { icon: "save", title: "Titkosítás", desc: "A hang és az átiratok átvitel közben és tárolás alatt is titkosítva vannak." },
             ],
+          ar: [
+              { icon: "home", title: "سيادة البيانات", desc: "لا يُرسَل أي صوت أو نص منسوخ أو ملاحظة إلى أي واجهة API خاصة تابعة لطرف خارجي. جميع عمليات ASR والتوليد تعمل على نماذج مستضافة ذاتيًا ومفتوحة الترخيص." },
+              { icon: "user", title: "الطبيب ضمن الحلقة", desc: "يُعِدّ النظام المسودة، ولا يُشخّص، ولا يُنهي أي مستند تلقائيًا أبدًا." },
+              { icon: "layers", title: "عزل المستأجرين", desc: "لا يُصفّي كود التطبيق حسب المستأجر أبدًا — بل تفعل ذلك قاعدة البيانات عبر أمان مستوى الصفوف. لذا لا يمكن لغياب مُرشّح أن يُسرّب البيانات." },
+              { icon: "history", title: "تدقيق يكشف التلاعب", desc: "سجل بالإضافة فقط ومترابط بسلسلة تجزئة، مع فرض عدم القابلية للتغيير على مستوى قاعدة البيانات ومطابقته كل ليلة." },
+              { icon: "save", title: "التشفير", desc: "الصوت والنصوص المنسوخة مُشفَّرة أثناء النقل وفي حالة السكون." },
+            ],
           }) },
         { type: "grid", heading: t({
             uk: "Ролі та доступ",
@@ -236,6 +260,7 @@ export function buildProductPages(lang, cta) {
             cs: "Role a přístup",
             sr: "Uloge i pristup",
             hu: "Szerepkörök és hozzáférés",
+            ar: "الأدوار والوصول",
           }), sub: t({
             uk: "Доступ — заборонено за замовчуванням і перевіряється за явною матрицею дозволів на кожному ендпоінті. Свідомо немає крос-тенантної ролі суперадміністратора.",
             en: "Access is deny-by-default and checked against an explicit permission matrix on every endpoint. There is deliberately no cross-tenant super-admin role.",
@@ -245,6 +270,7 @@ export function buildProductPages(lang, cta) {
             cs: "Přístup je ve výchozím stavu odepřen a na každém endpointu se ověřuje proti explicitní matici oprávnění. Záměrně neexistuje role superadministrátora napříč tenanty.",
             sr: "Pristup je podrazumevano odbijen i na svakom endpointu se proverava prema eksplicitnoj matrici dozvola. Namerno ne postoji superadministratorska uloga koja obuhvata više tenanata.",
             hu: "A hozzáférés alapértelmezetten tiltott, és minden endpointon explicit jogosultsági mátrix alapján ellenőrzött. Szándékosan nincs tenantokon átívelő szuperadmin szerepkör.",
+            ar: "الوصول مرفوض افتراضيًا ويُتحقَّق منه مقابل مصفوفة صلاحيات صريحة في كل نقطة نهاية. ولا يوجد عمدًا دور مسؤول أعلى يمتد عبر المستأجرين.",
           }),
           cols: 3, items: t({
           uk: [
@@ -303,6 +329,13 @@ export function buildProductPages(lang, cta) {
               { icon: "eye", title: "Auditor", desc: "Csak olvasható audit és tenant-kontextus — sehol semmilyen írás." },
               { icon: "bot", title: "Szolgáltatás (service)", desc: "Gépi identitás a belső szolgáltatásokhoz; emberi műveletek nélkül." },
             ],
+          ar: [
+              { icon: "user", title: "طبيب", desc: "إملاء الملاحظات وتوليدها وتحريرها وإنهاؤها وتوقيعها." },
+              { icon: "heart", title: "ممرّض", desc: "نفس الواجهة السريرية للطبيب، باستثناء توقيع التقارير." },
+              { icon: "settings", title: "مسؤول المستأجر", desc: "إعداد المستخدمين وتعطيلهم، وإعادة ضبط MFA، والإعدادات، وقراءة التدقيق." },
+              { icon: "eye", title: "مدقّق", desc: "تدقيق وسياق مستأجر للقراءة فقط — دون أي كتابة في أي مكان." },
+              { icon: "bot", title: "خدمة", desc: "هوية آلية للخدمات الداخلية؛ دون عمليات موجَّهة للبشر." },
+            ],
           }) },
         { type: "prose", heading: t({
             uk: "Доступ до чужих записів",
@@ -313,6 +346,7 @@ export function buildProductPages(lang, cta) {
             cs: "Přístup k záznamům kolegů",
             sr: "Pristup zapisima kolega",
             hu: "Hozzáférés kollégák dokumentumaihoz",
+            ar: "الوصول إلى سجلات الزملاء",
           }),
           paragraphs: t({
             uk: ["Доступ до звіту іншого лікаря вимагає явно задекларованої мети — клінічна спадковість, аудит, юридична потреба, контроль якості чи консультація. Ця мета фіксується в журналі аудиту.",
@@ -331,6 +365,8 @@ export function buildProductPages(lang, cta) {
                "Isečci prikazani bilo kome van tima koji leči pacijenta očišćeni su od ličnih podataka — kao druga linija odbrane iza provere uloga. Revizorski zapisi sadrže samo identifikatore, nikada klinički sadržaj, pa sam revizorski trag ne može postati izvor curenja podataka."],
             hu: ["Egy kolléga leletének megnyitásához kifejezetten megjelölt cél szükséges — klinikai folytonosság, audit, jogi szükséglet, minőség-ellenőrzés vagy konzultáció. Ez a cél bekerül az auditnaplóba.",
                "A kezelőcsapaton kívül bárkinek megjelenített részletekből eltávolítjuk a személyes adatokat — második védelmi vonalként a szerepkör-ellenőrzés mögött. Az auditbejegyzések csak azonosítókat tartalmaznak, klinikai tartalmat soha, így maga az auditnapló sem válhat adatszivárgás forrásává."],
+            ar: ["يتطلب فتح تقرير زميل غرضًا مُعلَنًا صراحةً — الاستمرارية السريرية، أو التدقيق، أو الأسباب القانونية، أو مراجعة ضمان الجودة، أو الاستشارة. ويُسجَّل هذا الغرض في سجل التدقيق.",
+               "المقتطفات المعروضة لأي شخص خارج فريق العلاج تُحجب منها البيانات الشخصية كخط دفاع ثانٍ خلف فحص الأدوار. ولا تحمل إدخالات التدقيق سوى المعرّفات، ولا تحمل أبدًا محتوى سريريًا، لذا لا يمكن لسجل التدقيق نفسه أن يصبح مصدر تسرّب للبيانات."],
           }) },
         { type: "faq", heading: t({
             uk: "Часті запитання",
@@ -341,6 +377,7 @@ export function buildProductPages(lang, cta) {
             cs: "Časté dotazy",
             sr: "Česta pitanja",
             hu: "Gyakori kérdések",
+            ar: "الأسئلة الشائعة",
           }), items: t({
           uk: [
               { q: "Чи надсилаються дані пацієнтів до зовнішніх AI-сервісів?", a: "Ні. Усе розпізнавання мови та генерація нотаток виконуються на self-hosted моделях з відкритими ліцензіями. Жодне аудіо, транскрипт чи нотатка не залишають вашого розгортання." },
@@ -406,6 +443,14 @@ export function buildProductPages(lang, cta) {
               { q: "Mi a helyzet a többfaktoros hitelesítéssel?", a: "Az MFA már be van építve. A pilot szabályzata szerint jelenleg ki van kapcsolva; az újbóli bekapcsolás egy konfiguráció és egy regisztrációs folyamat." },
               { q: "Ki férhet hozzá a dokumentumokhoz?", a: "Csak az intézményen belüli jogosult szerepkörök, a legkisebb jogosultság elve alapján; egy kolléga dokumentumának megnyitásához megjelölt cél szükséges." },
             ],
+          ar: [
+              { q: "هل تُرسَل بيانات المرضى إلى خدمات ذكاء اصطناعي خارجية؟", a: "لا. تعمل جميع عمليات التعرّف على الكلام وتوليد الملاحظات على نماذج مستضافة ذاتيًا ومفتوحة الترخيص. ولا يغادر أي صوت أو نص منسوخ أو ملاحظة بيئة النشر لديك." },
+              { q: "أين تُخزَّن بيانات المرضى؟", a: "ضمن الولايات القضائية المتفق عليها مع مؤسستك (منطقة الاتحاد الأوروبي/أوكرانيا أو استضافة سيادية)، مُشفَّرة أثناء النقل وفي حالة السكون." },
+              { q: "كيف يُفرَض العزل بين العيادات؟", a: "عبر أمان مستوى الصفوف في قاعدة البيانات لا في كود التطبيق. كل عيادة مستأجر منفصل بعزل صارم على مستوى قاعدة البيانات." },
+              { q: "هل يمكن التحقق من سلامة التدقيق؟", a: "نعم. السجل بالإضافة فقط ومترابط بسلسلة تجزئة؛ وتمرّ أداة مطابقة ليلية عبر السلسلة وتنبّه عند أي تباعد. كما يمكن فحص السلامة في صفحة التحقق." },
+              { q: "ماذا عن المصادقة متعددة العوامل؟", a: "إن المصادقة متعددة العوامل (MFA) مدمجة بالفعل. وهي مُعطَّلة اليوم بموجب سياسة التجربة؛ وإعادة تفعيلها مسألة تهيئة إضافةً إلى مسار تسجيل." },
+              { q: "من يمكنه الوصول إلى السجلات؟", a: "فقط الأدوار المصرَّح لها داخل مؤسستك، وفق مبدأ الحد الأدنى من الامتيازات؛ ويتطلب الوصول إلى سجل زميل غرضًا مُعلَنًا." },
+            ],
           }) },
         cta,
       ],
@@ -424,6 +469,7 @@ export function buildProductPages(lang, cta) {
           cs: "Ambientní zapisovatel",
           sr: "Ambijentalni zapisničar",
           hu: "Ambiens írnok",
+          ar: "المدوّن المحيطي",
         }),
         sub: t({
           uk: "Веде прийом разом з вами: фіксує розмову з пацієнтом, формує структуровану нотатку та підказує наступні кроки.",
@@ -434,6 +480,7 @@ export function buildProductPages(lang, cta) {
           cs: "Vede návštěvu s vámi: zachycuje rozhovor s pacientem, sestavuje strukturovanou poznámku a navrhuje další kroky.",
           sr: "Vodi pregled zajedno sa vama: beleži razgovor sa pacijentom, gradi strukturiranu belešku i predlaže sledeće korake.",
           hu: "Önnel együtt viszi a vizitet: rögzíti a beteggel folytatott beszélgetést, strukturált jegyzetet készít, és javaslatot tesz a következő lépésekre.",
+          ar: "يدير الزيارة معك: يلتقط محادثة المريض، ويبني ملاحظة مُهيكلة، ويقترح الخطوات التالية.",
         }),
         cta: { label: t({
           uk: "Зареєструватися",
@@ -444,6 +491,7 @@ export function buildProductPages(lang, cta) {
           cs: "Zaregistrovat se",
           sr: "Registrujte se",
           hu: "Regisztráció",
+          ar: "إنشاء حساب",
         }), path: "/signup" },
       },
       blocks: [
@@ -512,6 +560,14 @@ export function buildProductPages(lang, cta) {
               { icon: "eye", title: "Bizonytalanság jelölése", desc: "A modell által bizonytalannak ítélt szavak kiemelve jelennek meg a gyors ellenőrzéshez." },
               { icon: "save", title: "Automatikus mentés", desc: "A módosítások automatikusan mentődnek, eszközök közötti ütközésfelismeréssel." },
             ],
+          ar: [
+              { icon: "check", title: "الموافقة والمؤشّر", desc: "موافقة صريحة من المريض ومؤشّر تسجيل مرئي طوال الزيارة." },
+              { icon: "mic", title: "نص منسوخ مباشر", desc: "إملاء متدفق عبر WebSocket: يظهر نص منسوخ جزئي أثناء حديثك." },
+              { icon: "users", title: "ملفات المرضى", desc: "بطاقات المرضى وخط زمني للزيارات في مكان واحد." },
+              { icon: "layers", title: "هيكلة تلقائية", desc: "تُرتَّب الملاحظة في أقسام القالب تلقائيًا." },
+              { icon: "eye", title: "إشارات الثقة المنخفضة", desc: "تُبرَز الكلمات التي لا يكون النموذج متأكدًا منها لمراجعة سريعة." },
+              { icon: "save", title: "حفظ تلقائي", desc: "تُحفظ التعديلات تلقائيًا مع كشف التعارضات بين الأجهزة." },
+            ],
           }) },
         { type: "steps", heading: t({
             uk: "Як проходить прийом",
@@ -522,6 +578,7 @@ export function buildProductPages(lang, cta) {
             cs: "Jak probíhá návštěva",
             sr: "Kako teče pregled",
             hu: "Így zajlik egy vizit",
+            ar: "كيف تسير الزيارة",
           }), items: t({
           uk: [
               { n: "01", title: "Згода", desc: "Зафіксуйте згоду пацієнта на екрані згоди." },
@@ -571,6 +628,12 @@ export function buildProductPages(lang, cta) {
               { n: "03", title: "Jegyzet", desc: "Kapjon strukturált jegyzetet, ellenőrzésre készen." },
               { n: "04", title: "Aláírás", desc: "Ellenőrizze, írja alá és mentse a beteg kartonjába." },
             ],
+          ar: [
+              { n: "01", title: "الموافقة", desc: "سجّل موافقة المريض على شاشة الموافقة." },
+              { n: "02", title: "المحادثة", desc: "أدر الزيارة — يستمع Klarnote ويتعرّف على الكلام." },
+              { n: "03", title: "الملاحظة", desc: "احصل على ملاحظة مُهيكلة جاهزة للمراجعة." },
+              { n: "04", title: "التوقيع", desc: "راجِع ووقّع واحفظ في سجل المريض." },
+            ],
           }) },
         cta,
       ],
@@ -588,6 +651,7 @@ export function buildProductPages(lang, cta) {
           cs: "Diktování zpráv",
           sr: "Diktiranje izveštaja",
           hu: "Leletdiktálás",
+          ar: "إملاء التقارير",
         }),
         sub: t({
           uk: "Класичне диктування для радіології, патології та виписок із шаблонами, голосовими командами та порівнянням версій.",
@@ -598,6 +662,7 @@ export function buildProductPages(lang, cta) {
           cs: "Klasické diktování pro radiologii, patologii a propouštěcí zprávy se šablonami, hlasovými příkazy a porovnáním verzí.",
           sr: "Klasično diktiranje za radiologiju, patologiju i otpusne liste, sa šablonima, glasovnim komandama i poređenjem verzija.",
           hu: "Klasszikus diktálás radiológiához, patológiához és zárójelentésekhez, sablonokkal, hangparancsokkal és verzió-összehasonlítással.",
+          ar: "إملاء كلاسيكي لطب الأشعة وعلم الأمراض وملخصات الخروج، مع القوالب والأوامر الصوتية ومقارنات الإصدارات.",
         }),
         cta: { label: t({
           uk: "Зареєструватися",
@@ -608,6 +673,7 @@ export function buildProductPages(lang, cta) {
           cs: "Zaregistrovat se",
           sr: "Registrujte se",
           hu: "Regisztráció",
+          ar: "إنشاء حساب",
         }), path: "/signup" },
       },
       blocks: [
@@ -675,6 +741,14 @@ export function buildProductPages(lang, cta) {
               { icon: "check", title: "Véglegesítési ellenőrzések", desc: "A kötelező szakaszok és az érvényes BNO-10 kód a verzió zárolása előtt kerülnek ellenőrzésre." },
               { icon: "diff", title: "Verzió-összehasonlítás", desc: "Append-only előzmények: minden változás látható, és szabályos módosítások vihetők be." },
               { icon: "sign", title: "Aláírás", desc: "Minősített aláírás Дія vagy ІІТ útján, aláírt PADES PDF nyilvános ellenőrzéssel." },
+            ],
+          ar: [
+              { icon: "layers", title: "قوالب التقارير", desc: "16 بنية نظامية لكل تخصص إضافةً إلى قوالب مؤسستك ذات الإصدارات." },
+              { icon: "keyboard", title: "الأوامر الصوتية", desc: "أكثر من 30 نيّة للتحكم في بنية المستند بصوتك." },
+              { icon: "inbox", title: "الرفع الدُّفعي", desc: "ارفع صوتًا مسجَّلًا في مكان آخر — يُشفَّر ويُنسَخ نصيًا بشكل غير متزامن." },
+              { icon: "check", title: "فحوصات الإنهاء", desc: "تُتحقَّق الأقسام المطلوبة ورمز ICD-10 صالح قبل قفل الإصدار." },
+              { icon: "diff", title: "مقارنات الإصدارات", desc: "سجل بالإضافة فقط: شاهد كل تغيير وأجرِ التعديلات الصحيحة." },
+              { icon: "sign", title: "التوقيع", desc: "توقيع مؤهَّل عبر Дія أو ІІТ، وملف PADES PDF موقَّع مع تحقق عام." },
             ],
           }) },
         cta,

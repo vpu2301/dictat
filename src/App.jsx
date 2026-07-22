@@ -1,6 +1,6 @@
 // App.jsx — App shell, hash router, Tweaks
 import React, { useState, useEffect, useMemo } from 'react';
-import { I18nProvider, LANGS , tr } from "./i18n.js";
+import { I18nProvider, LANGS , tr, isRtl } from "./i18n.js";
 import {
   useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor, TweakSelect, TweakToggle,
 } from './components/TweaksPanel.jsx';
@@ -152,6 +152,8 @@ function App() {
     document.documentElement.dataset.density = tweaks.density;
     document.documentElement.style.setProperty("--accent", tweaks.accent);
     document.documentElement.lang = tweaks.lang;
+    // Arabic (and any future RTL language) flips the whole document.
+    document.documentElement.dir = isRtl(tweaks.lang) ? "rtl" : "ltr";
   }, [tweaks.theme, tweaks.density, tweaks.accent, tweaks.lang]);
 
   // Keyboard: N → new consultation in scribe; D → studio
@@ -173,6 +175,11 @@ function App() {
   let fullBleed = false; // /login uses no sidebar
 
   const r = route;
+  // Path/query split for routes that deep-link with a hash query string, e.g.
+  // "/audit/events?from_seq=42". NOTE: `r` deliberately keeps the query — the
+  // studio route regex-matches patient/template/report/encounter out of it.
+  const [routePath, routeSearch] = route.split("?");
+  const routeQuery = new URLSearchParams(routeSearch || "");
 
   // ── auth gate (render the right view synchronously to avoid a flash) ─
   if (gateToLogin) {
@@ -409,17 +416,17 @@ function App() {
     crumbs = [{ label: tr(lang, "Клініка", "Clinic") }, { label: tr(lang, "Учасники", "Members") }];
   }
   // ── audit ──────────────────────────────────────────────────
-  else if (r === "/audit/events") {
+  else if (routePath === "/audit/events") {
     view = (
       <RequireRole any={["auditor", "tenant_admin"]} navigate={navigate}>
-        <AuditEventsPage lang={lang} />
+        <AuditEventsPage lang={lang} initialFromSeq={routeQuery.get("from_seq") || ""} />
       </RequireRole>
     );
     crumbs = [{ label: tr(lang, "Аудит", "Audit") }, { label: tr(lang, "Події", "Events") }];
   } else if (r === "/audit/verify") {
     view = (
       <RequireRole any={["auditor", "tenant_admin"]} navigate={navigate}>
-        <AuditVerifyPage lang={lang} />
+        <AuditVerifyPage lang={lang} navigate={navigate} />
       </RequireRole>
     );
     crumbs = [{ label: tr(lang, "Аудит", "Audit") }, { label: tr(lang, "Перевірка", "Verify") }];
