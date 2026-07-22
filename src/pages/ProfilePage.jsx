@@ -10,10 +10,22 @@
 // The technical token/claims inspector lives separately at /me.
 import React, { useEffect, useState } from "react";
 import { Icon, Empty } from "../components/UI.jsx";
+import { Row, Section, SettingsNav, useSettingsSections } from "../components/SettingsLayout.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { me as apiMe } from "../api/endpoints.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { tr } from "../i18n.js";
+
+// Drives the sticky side menu and the section order — same registry pattern as
+// /settings and /tenant/settings.
+const NAV = [
+  { id: "personal",    icon: "user",    uk: "Особисті дані",       en: "Personal information" },
+  { id: "clinic",      icon: "users",   uk: "Клініка та роль",     en: "Clinic & role" },
+  { id: "signature",   icon: "sign",    uk: "Електронний підпис",  en: "E-signature" },
+  { id: "security",    icon: "shield",  uk: "Безпека",             en: "Security" },
+  { id: "preferences", icon: "sliders", uk: "Налаштування",        en: "Preferences" },
+  { id: "danger",      icon: "flag",    uk: "Небезпечна зона",     en: "Danger zone" },
+];
 
 // Friendly, bilingual role labels (roles arrive as raw slugs).
 const ROLE_LABELS = {
@@ -36,6 +48,7 @@ export function ProfilePage({ lang = "en", navigate }) {
   const { state, setState } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { active, jump } = useSettingsSections(NAV);
 
   const refresh = async () => {
     setLoading(true); setError(null);
@@ -80,6 +93,15 @@ export function ProfilePage({ lang = "en", navigate }) {
 
       {error && <ApiErrorView error={error} lang={lang} />}
 
+      <div className="settings-layout">
+        <SettingsNav
+          sections={NAV.map((s) => ({ id: s.id, icon: s.icon, label: T(s.uk, s.en) }))}
+          active={active}
+          onJump={jump}
+          label={T("Розділи профілю", "Profile sections")}
+        />
+
+        <div className="settings-main">
       {/* ── Hero: avatar + identity ─────────────────────────────────── */}
       <section className="card profile-hero">
         <div className="profile-avatar-lg">{initialsOf(name, email)}</div>
@@ -101,7 +123,7 @@ export function ProfilePage({ lang = "en", navigate }) {
       </section>
 
       {/* ── Personal information ────────────────────────────────────── */}
-      <Section icon="user" title={T("Особисті дані", "Personal information")}
+      <Section id="personal" icon="user" title={T("Особисті дані", "Personal information")}
         action={<button className="btn ghost sm" disabled>{T("Редагувати", "Edit")} <SoonPill lang={lang} /></button>}>
         <InfoRow label={T("Імʼя", "Display name")} value={name} />
         <InfoRow label="Email" value={email} />
@@ -111,7 +133,7 @@ export function ProfilePage({ lang = "en", navigate }) {
       </Section>
 
       {/* ── Clinic / organization ──────────────────────────────────── */}
-      <Section icon="users" title={T("Клініка та роль", "Clinic & role")}>
+      <Section id="clinic" icon="users" title={T("Клініка та роль", "Clinic & role")}>
         <InfoRow label={T("Клініка (tenant)", "Clinic (tenant)")} value={c.tid} mono />
         <InfoRow label={T("Ролі", "Roles")}
           value={roles.map((r) => (ROLE_LABELS[r] ? T(ROLE_LABELS[r][0], ROLE_LABELS[r][1]) : r)).join(", ")} />
@@ -119,7 +141,7 @@ export function ProfilePage({ lang = "en", navigate }) {
       </Section>
 
       {/* ── E-signature (clinician report signing) ─────────────────── */}
-      <Section icon="sign" title={T("Електронний підпис", "E-signature")}>
+      <Section id="signature" icon="sign" title={T("Електронний підпис", "E-signature")}>
         <Row label={T("Підпис для звітів", "Signature for reports")}
           hint={T("Налаштуйте підпис, який додається до підписаних звітів.", "Set up the signature applied to signed reports.")}>
           <button className="btn ghost sm" disabled>{T("Налаштувати", "Set up")} <SoonPill lang={lang} /></button>
@@ -127,7 +149,7 @@ export function ProfilePage({ lang = "en", navigate }) {
       </Section>
 
       {/* ── Security ───────────────────────────────────────────────── */}
-      <Section icon="shield" title={T("Безпека", "Security")}>
+      <Section id="security" icon="shield" title={T("Безпека", "Security")}>
         <InfoRow label={T("Останній вхід", "Last login")} value={u.last_login_at} mono />
         <Row label={T("Пароль", "Password")} hint={T("Змінити пароль облікового запису", "Change your account password")}>
           <button className="btn ghost sm" disabled>{T("Змінити", "Change")} <SoonPill lang={lang} /></button>
@@ -142,7 +164,7 @@ export function ProfilePage({ lang = "en", navigate }) {
       </Section>
 
       {/* ── Preferences (real links into Settings) ─────────────────── */}
-      <Section icon="sliders" title={T("Налаштування", "Preferences")}>
+      <Section id="preferences" icon="sliders" title={T("Налаштування", "Preferences")}>
         <Row label={T("Сповіщення", "Notifications")} hint={T("Email та нагадування", "Email and reminders")}>
           <button className="btn ghost sm" onClick={() => go("/settings")}>{T("Відкрити", "Open")} <Icon name="chevRight" size={12} /></button>
         </Row>
@@ -155,18 +177,14 @@ export function ProfilePage({ lang = "en", navigate }) {
       </Section>
 
       {/* ── Danger zone ────────────────────────────────────────────── */}
-      <section className="card settings-card profile-danger">
-        <header className="settings-card-h">
-          <Icon name="flag" size={14} />
-          <h2>{T("Небезпечна зона", "Danger zone")}</h2>
-        </header>
-        <div className="settings-card-body">
-          <Row label={T("Деактивувати акаунт", "Deactivate account")}
-            hint={T("Тимчасово вимкнути доступ до облікового запису.", "Temporarily disable access to your account.")}>
-            <button className="btn danger sm" disabled>{T("Деактивувати", "Deactivate")} <SoonPill lang={lang} /></button>
-          </Row>
+      <Section id="danger" icon="flag" className="profile-danger" title={T("Небезпечна зона", "Danger zone")}>
+        <Row label={T("Деактивувати акаунт", "Deactivate account")}
+          hint={T("Тимчасово вимкнути доступ до облікового запису.", "Temporarily disable access to your account.")}>
+          <button className="btn danger sm" disabled>{T("Деактивувати", "Deactivate")} <SoonPill lang={lang} /></button>
+        </Row>
+      </Section>
         </div>
-      </section>
+      </div>
     </div>
   );
 }
@@ -174,31 +192,6 @@ export function ProfilePage({ lang = "en", navigate }) {
 // ── Primitives ────────────────────────────────────────────────────────────────
 function SoonPill({ lang }) {
   return <span className="soon-pill">{tr(lang, "Незабаром", "Coming soon")}</span>;
-}
-
-function Section({ icon, title, action, children }) {
-  return (
-    <section className="card settings-card">
-      <header className="settings-card-h">
-        <Icon name={icon} size={14} />
-        <h2>{title}</h2>
-        {action && <div className="settings-card-h-action">{action}</div>}
-      </header>
-      <div className="settings-card-body">{children}</div>
-    </section>
-  );
-}
-
-function Row({ label, hint, children }) {
-  return (
-    <div className="settings-row">
-      <div>
-        <div className="settings-row-label">{label}</div>
-        {hint && <div className="settings-row-hint">{hint}</div>}
-      </div>
-      <div className="settings-row-control">{children}</div>
-    </div>
-  );
 }
 
 // A read-only field; when `soon` and empty, it shows a Coming-soon affordance.

@@ -26,9 +26,13 @@ function isoLocalToIso(s) {
   try { return new Date(s).toISOString(); } catch { return s; }
 }
 
-export function AuditEventsPage({ lang = "en" }) {
-  const [filters, setFilters] = useState(initialFilters);
-  const [draft, setDraft] = useState(initialFilters);
+// `initialFromSeq` arrives from /audit/verify's "show the event" link
+// (/audit/events?from_seq=<first_divergence_seq>) — verify and events share the
+// same per-tenant seq space, so the number can be used as-is.
+export function AuditEventsPage({ lang = "en", initialFromSeq = "" }) {
+  const seeded = initialFromSeq ? { ...initialFilters, from_seq: initialFromSeq } : initialFilters;
+  const [filters, setFilters] = useState(seeded);
+  const [draft, setDraft] = useState(seeded);
   const [expanded, setExpanded] = useState({});
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 

@@ -1,6 +1,7 @@
 // AdminUsersPage.jsx — /admin/users. Invite + recent actions + deactivate.
 import React, { useEffect, useState } from "react";
 import { Icon, Modal } from "../components/UI.jsx";
+import { MenuSelect } from "../components/MenuSelect.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { inviteUser, deactivateUser } from "../api/endpoints.js";
 import { tr } from "../i18n.js";
@@ -8,12 +9,35 @@ import { tr } from "../i18n.js";
 const STORAGE_KEY = "mdx_recent_invites_v1";
 const ROLES = ["tenant_admin", "clinician", "nurse", "auditor"];
 
+// Platform RBAC roles (distinct from the clinic management roles on
+// /tenant/members). The sub line spells out what each one unlocks.
+function roleOptions(lang) {
+  const SUBS = {
+    tenant_admin: { uk: "Керує користувачами й клінікою", en: "Manages users and the clinic" },
+    clinician:    { uk: "Диктує та підписує звіти",       en: "Dictates and signs reports" },
+    nurse:        { uk: "Готує звіти без підпису",        en: "Prepares reports, cannot sign" },
+    auditor:      { uk: "Лише читання та аудит-журнал",   en: "Read-only plus the audit log" },
+  };
+  return ROLES.map((r) => ({
+    value: r,
+    label: r,
+    sub: SUBS[r] ? tr(lang, SUBS[r].uk, SUBS[r].en) : undefined,
+  }));
+}
+
 function loadRecent() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
   catch { return []; }
 }
 function saveRecent(list) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+}
+
+// Two-letter monogram for the confirmation avatar.
+function initialsOf(u) {
+  const src = (u.display_name || u.email || "?").trim();
+  const parts = src.split(/[\s@._-]+/).filter(Boolean);
+  return ((parts[0] || "?").charAt(0) + (parts.length > 1 ? parts[1].charAt(0) : "")).toUpperCase();
 }
 
 export function AdminUsersPage({ lang = "en", onToast }) {
@@ -113,12 +137,17 @@ export function AdminUsersPage({ lang = "en", onToast }) {
               disabled={submitting}
             />
           </label>
-          <label className="admin-field">
+          <div className="admin-field">
             <span>{tr(lang, "Роль", "Role")}</span>
-            <select value={form.role} onChange={(e) => set("role", e.target.value)} disabled={submitting}>
-              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </label>
+            <MenuSelect
+              block
+              value={form.role}
+              options={roleOptions(lang)}
+              onChange={(v) => set("role", v)}
+              disabled={submitting}
+              ariaLabel={tr(lang, "Роль", "Role")}
+            />
+          </div>
           <label className="admin-field">
             <span>{tr(lang, "Імʼя", "First name")}</span>
             <input
@@ -179,7 +208,7 @@ export function AdminUsersPage({ lang = "en", onToast }) {
                   <td><code style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{(r.sub || "").slice(0, 8)}…</code></td>
                   <td>
                     {r.status !== "deactivated" && (
-                      <button className="btn btn-ghost" onClick={() => setConfirm({ sub: r.sub, email: r.email })}>
+                      <button className="btn btn-ghost" onClick={() => setConfirm(r)}>
                         {tr(lang, "Деактивувати", "Deactivate")}
                       </button>
                     )}
@@ -192,14 +221,26 @@ export function AdminUsersPage({ lang = "en", onToast }) {
       </section>
 
       {confirm && (
-        <Modal onClose={() => setConfirm(null)}>
-          <h3 style={{ margin: 0 }}>{tr(lang, "Деактивувати користувача?", "Deactivate user?")}</h3>
-          <p style={{ color: "var(--muted)" }}>
-            {lang === "uk"
-              ? `Це відкличе всі сесії та заблокує вхід для ${confirm.email}.`
-              : `This will revoke all sessions and disable login for ${confirm.email}.`}
-          </p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+        <Modal onClose={() => { if (!deactivating) setConfirm(null); }} className="dialog-modal">
+          <div className="modal-h">
+            <h2>{tr(lang, "Деактивувати користувача?", "Deactivate user?")}</h2>
+            <p>
+              {tr(lang,
+                "Вхід буде заблоковано на всій платформі, а всі активні сесії — завершено негайно. Доступ можна відновити пізніше.",
+                "Sign-in is blocked across the whole platform and every active session ends immediately. Access can be restored later.")}
+            </p>
+          </div>
+          <div className="modal-body">
+            <div className="confirm-person">
+              <span className="person-avatar">{initialsOf(confirm)}</span>
+              <span className="person-text">
+                <span className="person-name">{confirm.display_name || confirm.email || "—"}</span>
+                <span className="muted">{confirm.email}</span>
+              </span>
+              {confirm.role && <span className="chip">{confirm.role}</span>}
+            </div>
+          </div>
+          <div className="modal-foot">
             <button className="btn" onClick={() => setConfirm(null)} disabled={deactivating}>
               {tr(lang, "Скасувати", "Cancel")}
             </button>

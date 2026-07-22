@@ -172,31 +172,43 @@ export function CreateClinicModal({ lang = "en", onClose, onCreated }) {
   };
 
   return (
-    <Modal onClose={() => { if (!submitting) onClose(); }}>
-      <form className="admin-form" onSubmit={submit} style={{ minWidth: 320 }}>
-        <h3 style={{ margin: "0 0 4px" }}>{tr(lang, "Нова клініка", "New clinic")}</h3>
-        {error && <ApiErrorView error={error} lang={lang} />}
-        <label className="admin-field">
-          <span>{tr(lang, "Код (name)", "Name (identifier)")}</span>
-          <input value={form.name} onChange={(e) => set("name", e.target.value)}
-                 placeholder="kyiv-clinic" required disabled={submitting} />
-        </label>
-        <label className="admin-field">
-          <span>{tr(lang, "Назва для показу", "Display name")}</span>
-          <input value={form.display_name} onChange={(e) => set("display_name", e.target.value)}
-                 placeholder="Kyiv Family Clinic" required disabled={submitting} />
-        </label>
-        <label className="admin-field">
-          <span>Slug <span className="muted">({tr(lang, "необовʼязково", "optional")})</span></span>
-          <input value={form.slug} onChange={(e) => set("slug", e.target.value)}
-                 placeholder="kyiv-clinic" disabled={submitting} />
-          {slugErr && <small className="field-error">{slugErr}</small>}
-        </label>
-        <div className="admin-form-actions" style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={submitting}>
+    <Modal onClose={() => { if (!submitting) onClose(); }} className="dialog-modal">
+      <form onSubmit={submit}>
+        <div className="modal-h">
+          <h2>{tr(lang, "Нова клініка", "New clinic")}</h2>
+          <p>{tr(lang, "Ви станете власником нової клініки.", "You become the owner of the new clinic.")}</p>
+        </div>
+
+        <div className="modal-body tenant-form-body">
+          {error && <ApiErrorView error={error} lang={lang} />}
+          <label className="admin-field">
+            <span>{tr(lang, "Код (name)", "Name (identifier)")}</span>
+            <input value={form.name} onChange={(e) => set("name", e.target.value)}
+                   placeholder="kyiv-clinic" required disabled={submitting} autoFocus />
+            <small className="field-hint">
+              {tr(lang, "Внутрішній ідентифікатор, який не змінюється.", "Internal identifier — it does not change later.")}
+            </small>
+          </label>
+          <label className="admin-field">
+            <span>{tr(lang, "Назва для показу", "Display name")}</span>
+            <input value={form.display_name} onChange={(e) => set("display_name", e.target.value)}
+                   placeholder="Kyiv Family Clinic" required disabled={submitting} />
+          </label>
+          <label className="admin-field">
+            <span>Slug <span className="muted">({tr(lang, "необовʼязково", "optional")})</span></span>
+            <input value={form.slug} onChange={(e) => set("slug", e.target.value)}
+                   placeholder="kyiv-clinic" disabled={submitting} />
+            {slugErr
+              ? <small className="field-error">{slugErr}</small>
+              : <small className="field-hint">{tr(lang, "Малі літери, цифри та дефіси.", "Lowercase letters, digits and hyphens.")}</small>}
+          </label>
+        </div>
+
+        <div className="modal-foot">
+          <button type="button" className="btn" onClick={onClose} disabled={submitting}>
             {tr(lang, "Скасувати", "Cancel")}
           </button>
-          <button type="submit" className="btn btn-primary" disabled={submitting}>
+          <button type="submit" className="btn accent" disabled={submitting || !form.name.trim() || !form.display_name.trim()}>
             {submitting ? (tr(lang, "Створення…", "Creating…")) : (tr(lang, "Створити", "Create"))}
           </button>
         </div>

@@ -273,6 +273,9 @@
 }
 .admin-field input:focus,
 .admin-field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* A MenuSelect standing in for a native <select> must match the inputs it sits
+   next to in the same form grid — the shared trigger is a touch taller. */
+.admin-field .menu-select-trigger { padding: 8px 10px; border-radius: 7px; font-size: 13px; }
 .admin-form-actions { grid-column: 1/-1; display: flex; justify-content: flex-end; }
 .admin-empty { padding: 14px; color: var(--muted); text-align: center; font-size: 13px; }
 .admin-table {
@@ -354,8 +357,12 @@
 .verify-result header { display: flex; align-items: center; gap: 12px; }
 .verify-result header strong { font-size: 16px; }
 .verify-result header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.verify-result header { flex-wrap: wrap; }
 .verify-result.ok header svg { color: var(--ok); }
 .verify-result.fail header svg { color: var(--rec); }
+/* Empty range: the API calls it ok, but it verified nothing — neutral, not green. */
+.verify-result.warn header svg { color: var(--warn, #b45309); }
+.verify-result.warn { border-color: var(--warn, #b45309); }
 .verify-grid {
   display: grid; gap: 8px 18px; margin-top: 14px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -420,7 +427,9 @@
   gap: 28px;
   align-items: start;
 }
-.settings-main { min-width: 0; }
+/* Tail room so the LAST section can still scroll up into the spy's band —
+   without it, jumping to the final section leaves the previous one highlighted. */
+.settings-main { min-width: 0; padding-bottom: 22vh; }
 /* Offset so a jumped-to section clears the sticky topbar. */
 .settings-section { scroll-margin-top: calc(var(--topbar-h) + 16px); }
 
@@ -746,18 +755,60 @@
   transition: background .12s, border-color .12s;
 }
 .lp-lang:hover { background: var(--surface-2); }
-.lp-lang-select {
-  position: relative; display: inline-flex; align-items: center; gap: 4px;
+/* ── Language switcher (custom listbox) ────────────────────── */
+.lp-lang-menu { position: relative; display: inline-flex; }
+.lp-lang-trigger {
+  display: inline-flex; align-items: center; gap: 6px;
   height: 34px; padding: 0 10px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--surface);
-  font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer;
-  transition: background .12s, border-color .12s;
+  font-size: 12.5px; font-weight: 600; color: var(--text-2); cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
 }
-.lp-lang-select:hover { background: var(--surface-2); }
-.lp-lang-select select {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  opacity: 0; cursor: pointer; appearance: none;
+.lp-lang-trigger:hover { background: var(--surface-2); color: var(--text-1); }
+.lp-lang-menu.is-open .lp-lang-trigger {
+  background: var(--surface-2); color: var(--text-1);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 }
+.lp-lang-trigger > svg:first-child { color: var(--muted); }
+.lp-lang-current { letter-spacing: .04em; }
+/* chevron flips up when the menu is open */
+.lp-lang-trigger > svg:last-child { transition: transform .16s ease; }
+.lp-lang-menu.is-open .lp-lang-trigger > svg:last-child { transform: rotate(180deg); }
+
+.lp-lang-pop {
+  position: absolute; top: calc(100% + 10px); inset-inline-end: 0;
+  min-width: 208px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: var(--shadow-3);
+  opacity: 0; visibility: hidden; transform: translateY(-6px) scale(.98);
+  transform-origin: top var(--pop-origin, right); z-index: 70;
+  transition: opacity .16s ease, transform .16s ease, visibility .16s;
+}
+:root[dir="rtl"] .lp-lang-pop { --pop-origin: left; }
+.lp-lang-menu.is-open .lp-lang-pop { opacity: 1; visibility: visible; transform: none; }
+/* hover bridge so the gap between trigger and menu doesn't drop the pointer */
+.lp-lang-pop::before { content: ""; position: absolute; top: -12px; left: 0; right: 0; height: 12px; }
+
+.lp-lang-opt {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; border: 0; border-radius: 9px; background: none;
+  text-align: start; cursor: pointer; color: var(--text-2);
+  transition: background .12s, color .12s;
+}
+.lp-lang-opt:hover { background: var(--nav-hover); color: var(--text-1); }
+.lp-lang-opt-label { flex: 1; font-size: 13.5px; font-weight: 500; }
+.lp-lang-opt-short {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  color: var(--muted); font-family: var(--mono, ui-monospace, monospace);
+}
+.lp-lang-opt > svg { color: var(--accent); opacity: 0; flex-shrink: 0; }
+.lp-lang-opt.is-active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-text, var(--accent));
+}
+.lp-lang-opt.is-active .lp-lang-opt-label { font-weight: 650; }
+.lp-lang-opt.is-active .lp-lang-opt-short { color: color-mix(in srgb, var(--accent) 70%, var(--muted)); }
+.lp-lang-opt.is-active > svg { opacity: 1; }
 .lp-burger { display: none; background: none; border: 0; color: var(--text-1); cursor: pointer; padding: 6px; }
 
 /* ── Layout helpers ────────────────────────────────────────── */
@@ -1231,16 +1282,37 @@
 .tsw-note-body { font-size: 12px; color: var(--muted); margin: 4px 0 8px; line-height: 1.45; }
 
 /* Settings + members pages */
-.tenant-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-@media (max-width: 900px) { .tenant-grid { grid-template-columns: 1fr; } }
-.tenant-main { display: flex; flex-direction: column; gap: 14px; }
-.tenant-side { display: flex; flex-direction: column; gap: 14px; }
-.tenant-card { padding: 14px 16px; }
-.tenant-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 560px) { .tenant-fields { grid-template-columns: 1fr; } }
 .admin-field-toggle { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 10px; }
 .admin-field-toggle input { width: auto; }
 .admin-field-toggle small { margin-left: auto; }
+
+/* Clinic settings rides the shared settings chrome (SettingsLayout), so the
+   only page-specific styling is the text inputs inside a settings row and the
+   two branding rows. */
+.tenant-settings .settings-row-control input[type="text"],
+.tenant-settings .settings-row-control input[type="email"],
+.tenant-settings .settings-row-control input[type="url"] {
+  width: 260px; max-width: 100%;
+  border: 1px solid var(--line); background: var(--surface);
+  border-radius: 7px; padding: 7px 10px;
+  font: inherit; font-size: 13px; color: var(--text-1);
+  transition: border-color .12s, box-shadow .12s;
+}
+.tenant-settings .settings-row-control input:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none;
+}
+.tenant-settings .settings-row-control input:disabled { opacity: .7; cursor: default; }
+.tenant-settings .settings-row-hint .field-error { margin-top: 0; }
+.tenant-meta-code { font-family: var(--mono); font-size: 11.5px; color: var(--text-2); }
+
+/* Branding rows stack their control under the label on narrow viewports. */
+.tenant-logo-row, .tenant-letterhead-row { align-items: flex-start; }
+.tenant-logo-control { flex-direction: column; align-items: stretch; gap: 10px; width: 260px; max-width: 100%; }
+.tenant-logo-error { padding-bottom: 10px; }
+@media (max-width: 640px) {
+  .tenant-logo-row, .tenant-letterhead-row { flex-direction: column; align-items: stretch; }
+  .tenant-logo-control { width: 100%; }
+}
 
 .tenant-readonly-note {
   display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
@@ -1250,7 +1322,15 @@
 .tenant-meta-grid { display: flex; flex-wrap: wrap; gap: 18px; }
 .tenant-meta-grid > div { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
 .tenant-meta-grid code { font-family: var(--mono); font-size: 11px; color: var(--text-2); }
-.tenant-save-bar { display: flex; align-items: center; gap: 12px; position: sticky; bottom: 0; padding: 10px 0; }
+.tenant-save-bar {
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  position: sticky; bottom: 0; z-index: 2;
+  padding: 12px 16px; margin-bottom: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: var(--shadow-1);
+}
+.tenant-settings .tenant-logo-preview { margin-bottom: 0; }
+.tenant-settings .tenant-letterhead { margin-bottom: 0; width: 260px; max-width: 100%; }
 
 .tenant-logo-preview {
   display: grid; place-items: center; height: 120px; border-radius: 10px;
@@ -1271,10 +1351,70 @@
 .tenant-letterhead-sub { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
 .tenant-letterhead-line { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
 
-.tenant-members-table select { padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); font: inherit; font-size: 12.5px; }
 .tenant-row-error td { padding-top: 0 !important; }
 .tenant-row-error .field-error { display: inline-flex; align-items: center; gap: 6px; }
 .tenant-members-table tr.row-busy { opacity: .6; }
+
+/* Members page — stat row, person cell, row actions */
+.tenant-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.tenant-stats .stat-card { min-height: 0; gap: 6px; }
+.tenant-stats .stat-card-value { font-size: 24px; }
+
+.tenant-members .ptable-toolbar { padding-left: 0; padding-right: 0; }
+.tenant-members-table td { vertical-align: middle; }
+
+.tm-person { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.person-avatar {
+  display: grid; place-items: center; width: 28px; height: 28px; flex: none;
+  border-radius: 8px; background: var(--accent-soft); color: var(--accent-text, var(--accent));
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
+}
+.person-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; line-height: 1.25; }
+.person-name { display: flex; align-items: center; gap: 6px; font-weight: 500; color: var(--text-1); }
+.tm-you { font-size: 10px; padding: 1px 6px; }
+.tm-sub { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+
+/* Role dropdown in a row: compact trigger, menu wide enough for the sub lines. */
+.tenant-members-table .menu-select { min-width: 132px; }
+.tenant-members-table .menu-select-trigger { padding: 5px 9px; font-size: 12.5px; }
+.tenant-members-table .spec-menu { right: auto; min-width: 240px; max-height: 300px; overflow: auto; }
+
+.tenant-members-table .tm-actions { text-align: right; white-space: nowrap; }
+.tm-menu-wrap { position: relative; display: inline-flex; }
+.tm-menu-wrap .row-actions-menu { min-width: 250px; }
+.row-action-h {
+  padding: 6px 10px 2px; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+}
+.row-action-note { padding: 4px 10px 8px; font-size: 12px; color: var(--muted); }
+.row-action-sep { height: 1px; background: var(--line); margin: 6px 4px; }
+.tm-stat-warn { border-color: var(--warn, #b45309); }
+
+/* Members dialogs — standard modal-h / modal-body / modal-foot shell. The
+   shared .modal clips overflow, which would cut off the role dropdown, so this
+   variant lets the menu escape and re-rounds the footer corners by hand. */
+.dialog-modal { overflow: visible; }
+.dialog-modal .modal-foot { border-radius: 0 0 14px 14px; }
+.dialog-modal .modal-h + .modal-body { padding-top: 14px; }
+/* Stacked form body shared by the add-member and new-clinic dialogs — the
+   .admin-form auto-fit grid squeezes two fields into odd columns at this width. */
+.tenant-form-body { display: flex; flex-direction: column; gap: 14px; }
+.tenant-form-body .admin-field { gap: 6px; }
+.tenant-form-body .admin-field input { width: 100%; }
+.tenant-form-body .seg { align-self: flex-start; }
+.tenant-form-body .field-hint { font-size: 11.5px; color: var(--muted); }
+.confirm-person {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.confirm-person .muted { font-size: 12px; }
+.confirm-person .chip { margin-left: auto; }
+.tm-remove { color: var(--muted); gap: 5px; }
+.tm-remove:hover:not(:disabled) { color: var(--rec, #dc2626); background: rgba(220,38,38,.08); }
 
 /* ════════════════════════════════════════════════════════════════════════
    MARKETING — Heidi Health-style redesign (July 2026)
@@ -2004,4 +2144,28 @@
   .tpl-chips { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
   .tpl-chip { white-space: nowrap; }
   .tpl-section { gap: 12px; }
+}
+
+/* ── RTL (Arabic) ──────────────────────────────────────────────
+   Arabic is the first right-to-left UI language. `document.dir` is
+   set to "rtl" in App.jsx when the UI language is RTL, which flips
+   text direction, flex/grid flow and logical text-alignment for
+   free. The rules below cover the few things that do NOT mirror on
+   their own: horizontally-directional glyphs (chevrons / arrows),
+   which must point the other way, and a handful of spots that pin an
+   icon to a physical side. */
+[dir="rtl"] svg[data-icon="chevRight"],
+[dir="rtl"] svg[data-icon="chevLeft"],
+[dir="rtl"] svg[data-icon="arrowRight"],
+[dir="rtl"] svg[data-icon="arrowLeft"] {
+  transform: scaleX(-1);
+}
+
+/* Numbers, codes and the Latin-script product names stay LTR even
+   inside RTL runs so "98%", "SpO₂ 98%", "Klarnote", "24/7" don't get
+   visually reordered. */
+[dir="rtl"] .lp-brand-name,
+[dir="rtl"] .sb-brand-mark {
+  direction: ltr;
+  unicode-bidi: isolate;
 }

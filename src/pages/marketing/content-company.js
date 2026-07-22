@@ -8,7 +8,7 @@ export function buildCompanyLegal(lang, cta) {
   return {
     about: {
       hero: {
-        eyebrow: t({ uk: "Про Klarnote", en: "About Klarnote", pl: "O Klarnote", de: "Über Klarnote", ro: "Despre Klarnote", cs: "O Klarnote", sr: "O Klarnoteu", hu: "A Klarnote-ról" }),
+        eyebrow: t({ uk: "Про Klarnote", en: "About Klarnote", pl: "O Klarnote", de: "Über Klarnote", ro: "Despre Klarnote", cs: "O Klarnote", sr: "O Klarnoteu", hu: "A Klarnote-ról", ar: "حول Klarnote" }),
         title: t({
           uk: "Ми повертаємо лікарям час для пацієнтів",
           en: "We give clinicians their time back",
@@ -18,6 +18,7 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Vracíme lékařům jejich čas",
           sr: "Vraćamo lekarima njihovo vreme",
           hu: "Visszaadjuk az orvosok idejét",
+          ar: "نُعيد للأطباء وقتهم",
         }),
         sub: t({
           uk: "Klarnote народився з простого спостереження: лікарі витрачають години на документацію замість того, щоб лікувати. Ми будуємо голосову платформу, яка пише нотатки за них.",
@@ -28,6 +29,7 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Klarnote vznikl z prostého pozorování: lékaři tráví hodiny papírováním místo péče o pacienty. Stavíme hlasovou platformu, která poznámky píše za ně.",
           sr: "Klarnote je nastao iz jednostavnog zapažanja: lekari provode sate na papirologiji umesto na lečenju. Gradimo glasovnu platformu koja beleške piše umesto njih.",
           hu: "A Klarnote egy egyszerű megfigyelésből született: az orvosok órákat töltenek papírmunkával a gyógyítás helyett. Olyan hangalapú platformot építünk, amely megírja helyettük a jegyzeteket.",
+          ar: "بدأت Klarnote من ملاحظة بسيطة: يقضي الأطباء ساعات في الأعمال الورقية بدلاً من رعاية المرضى. نحن نبني المنصة الصوتية التي تكتب الملاحظات نيابةً عنهم.",
         }),
       },
       blocks: [
@@ -40,8 +42,9 @@ export function buildCompanyLegal(lang, cta) {
           cs: [{ v: "2024", l: "rok založení" }, { v: "98%", l: "přesnost rozpoznávání" }, { v: "2 jazyky", l: "ukrajinština a angličtina" }, { v: "12+", l: "klinických oborů" }],
           sr: [{ v: "2024", l: "godina osnivanja" }, { v: "98%", l: "tačnost prepoznavanja" }, { v: "2 jezika", l: "ukrajinski i engleski" }, { v: "12+", l: "kliničkih specijalnosti" }],
           hu: [{ v: "2024", l: "alapítás éve" }, { v: "98%", l: "felismerési pontosság" }, { v: "2 nyelv", l: "ukrán és angol" }, { v: "12+", l: "klinikai szakterület" }],
+          ar: [{ v: "2024", l: "سنة التأسيس" }, { v: "98%", l: "دقة التعرّف" }, { v: "لغتان", l: "الأوكرانية والإنجليزية" }, { v: "12+", l: "تخصصاً سريرياً" }],
         }) },
-        { type: "prose", heading: t({ uk: "Наша місія", en: "Our mission", pl: "Nasza misja", de: "Unsere Mission", ro: "Misiunea noastră", cs: "Naše mise", sr: "Naša misija", hu: "Küldetésünk" }),
+        { type: "prose", heading: t({ uk: "Наша місія", en: "Our mission", pl: "Nasza misja", de: "Unsere Mission", ro: "Misiunea noastră", cs: "Naše mise", sr: "Naša misija", hu: "Küldetésünk", ar: "مهمتنا" }),
           paragraphs: t({
             uk: ["Кожна хвилина, яку лікар витрачає на друк, — це хвилина, відібрана у пацієнта. Ми хочемо, щоб документація відбувалася сама собою — точно, безпечно та зрозумілою мовою.",
                  "Klarnote поєднує потокове розпізнавання медичної мови, структуровані шаблони та електронний підпис в одному робочому процесі, створеному разом із лікарями.",
@@ -67,8 +70,11 @@ export function buildCompanyLegal(lang, cta) {
             hu: ["Minden perc, amelyet az orvos gépeléssel tölt, a betegtől elvett perc. Azt szeretnénk, hogy a dokumentáció magától készüljön el — pontosan, biztonságosan és közérthető nyelven.",
                  "A Klarnote a valós idejű orvosi beszédfelismerést, a strukturált sablonokat és az elektronikus aláírást egyetlen munkafolyamatba egyesíti, amelyet orvosokkal közösen építettünk.",
                  "Alapelvünk változatlan: a rendszer vázlatot készít, nem diagnosztizál. Semmi sem véglegesíthető orvos nélkül — és minden felismerő és generáló modell saját, self-hosted hardveren fut, így a betegadatok soha nem hagyják el az Ön környezetét."],
+            ar: ["كل دقيقة يقضيها الطبيب في الكتابة هي دقيقة مأخوذة من المريض. نريد أن تتم عملية التوثيق من تلقاء نفسها — بدقة وأمان وبلغة واضحة.",
+                 "تجمع Klarnote بين التعرّف المتدفق على الكلام الطبي والقوالب المنظَّمة والتوقيع الإلكتروني في سير عمل واحد، بُني بالتعاون مع الأطباء.",
+                 "مبدؤنا الأساسي لا يتغير: النظام يُعدّ المسودة، لكنه لا يُشخّص. لا يُعتمد أي مستند دون طبيب — وتعمل جميع نماذج التعرّف والتوليد على عتاد ذاتي الاستضافة (self-hosted)، لذا لا تغادر بيانات المرضى بيئة تشغيلك أبداً."],
           }) },
-        { type: "grid", heading: t({ uk: "Наші цінності", en: "Our values", pl: "Nasze wartości", de: "Unsere Werte", ro: "Valorile noastre", cs: "Naše hodnoty", sr: "Naše vrednosti", hu: "Értékeink" }), cols: 3, items: t({
+        { type: "grid", heading: t({ uk: "Наші цінності", en: "Our values", pl: "Nasze wartości", de: "Unsere Werte", ro: "Valorile noastre", cs: "Naše hodnoty", sr: "Naše vrednosti", hu: "Értékeink", ar: "قيمنا" }), cols: 3, items: t({
           uk: [
               { icon: "heart", title: "Пацієнт понад усе", desc: "Кожне рішення оцінюємо за тим, чи дає воно лікарю більше часу з пацієнтом." },
               { icon: "shield", title: "Безпека за замовчуванням", desc: "Дані пацієнтів захищені на кожному етапі — від запису до архіву." },
@@ -133,8 +139,16 @@ export function buildCompanyLegal(lang, cta) {
               { icon: "check", title: "Átláthatóság", desc: "Világosan elmondjuk, hogyan dolgozzuk fel az adatokat és hogyan működik a modell." },
               { icon: "history", title: "Megbízhatóság", desc: "Megmásíthatatlan audit és teljes változásnapló minden dokumentumhoz." },
             ],
+          ar: [
+              { icon: "heart", title: "المريض أولاً", desc: "يُقاس كل قرار بمدى منحه الأطباء وقتاً أطول مع المرضى." },
+              { icon: "shield", title: "آمن افتراضياً", desc: "بيانات المرضى محمية في كل خطوة — من التسجيل إلى الأرشيف." },
+              { icon: "sparkle", title: "الدقة قبل الضجيج", desc: "نقيس جودة التعرّف الحقيقية، لا الوعود." },
+              { icon: "users", title: "بُني مع الأطباء", desc: "يشكّل المنتجَ من يُجرون المعاينات كل يوم." },
+              { icon: "check", title: "الشفافية", desc: "وضوح في كيفية معالجة البيانات وكيفية عمل النموذج." },
+              { icon: "history", title: "الموثوقية", desc: "سجل تدقيق غير قابل للتغيير وتاريخ تغييرات كامل لكل مستند." },
+            ],
         }) },
-        { type: "prose", heading: t({ uk: "Наша історія", en: "Our story", pl: "Nasza historia", de: "Unsere Geschichte", ro: "Povestea noastră", cs: "Náš příběh", sr: "Naša priča", hu: "Történetünk" }),
+        { type: "prose", heading: t({ uk: "Наша історія", en: "Our story", pl: "Nasza historia", de: "Unsere Geschichte", ro: "Povestea noastră", cs: "Náš příběh", sr: "Naša priča", hu: "Történetünk", ar: "قصتنا" }),
           paragraphs: t({
             uk: ["Команда Klarnote складається з інженерів та лікарів, які втомилися від нескінченної паперової роботи. Ми почали з прототипу для радіологів і швидко зрозуміли, що проблема — універсальна.",
                  "Сьогодні Klarnote обслуговує амбулаторні прийоми та класичне диктування звітів, підтримує українську та англійську мови й інтегрується з електронним підписом Дія."],
@@ -152,6 +166,8 @@ export function buildCompanyLegal(lang, cta) {
                  "Danas Klarnote pokreće ambijentalne preglede i klasično diktiranje izveštaja, podržava ukrajinski i engleski i integriše se sa elektronskim potpisom Дія (Diia)."],
             hu: ["A Klarnote csapata mérnökökből és orvosokból áll, akik belefáradtak a végtelen papírmunkába. Egy radiológusoknak készült prototípussal indultunk, és hamar láttuk, hogy a probléma egyetemes.",
                  "Ma a Klarnote az ambient vizitek és a klasszikus leletdiktálás motorja, támogatja az ukrán és az angol nyelvet, és integrálódik a Дія (Diia) elektronikus aláírással."],
+            ar: ["يتكوّن فريق Klarnote من مهندسين وأطباء سئموا الأعمال الورقية التي لا تنتهي. بدأنا بنموذج أولي لأطباء الأشعة وسرعان ما أدركنا أن المشكلة عامة.",
+                 "اليوم تُشغّل Klarnote المعاينات المحيطية والإملاء الكلاسيكي للتقارير، وتدعم الأوكرانية والإنجليزية، وتتكامل مع التوقيع الإلكتروني Дія."],
           }) },
         cta,
       ],
@@ -159,8 +175,8 @@ export function buildCompanyLegal(lang, cta) {
 
     contact: {
       hero: {
-        eyebrow: t({ uk: "Контакти", en: "Contact", pl: "Kontakt", de: "Kontakt", ro: "Contact", cs: "Kontakt", sr: "Kontakt", hu: "Kapcsolat" }),
-        title: t({ uk: "Поговоримо", en: "Let's talk", pl: "Porozmawiajmy", de: "Sprechen wir", ro: "Să vorbim", cs: "Pojďme si promluvit", sr: "Razgovarajmo", hu: "Beszéljünk" }),
+        eyebrow: t({ uk: "Контакти", en: "Contact", pl: "Kontakt", de: "Kontakt", ro: "Contact", cs: "Kontakt", sr: "Kontakt", hu: "Kapcsolat", ar: "التواصل" }),
+        title: t({ uk: "Поговоримо", en: "Let's talk", pl: "Porozmawiajmy", de: "Sprechen wir", ro: "Să vorbim", cs: "Pojďme si promluvit", sr: "Razgovarajmo", hu: "Beszéljünk", ar: "لنتحدث" }),
         sub: t({
           uk: "Питання про продукт, демо для вашої клініки чи партнерство — ми відповідаємо швидко.",
           en: "Product questions, a demo for your clinic, or a partnership — we reply fast.",
@@ -170,6 +186,7 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Dotazy k produktu, demo pro vaši kliniku nebo partnerství — odpovídáme rychle.",
           sr: "Pitanja o proizvodu, demo za vašu kliniku ili partnerstvo — odgovaramo brzo.",
           hu: "Kérdések a termékről, demó a klinikájának vagy partnerség — gyorsan válaszolunk.",
+          ar: "أسئلة عن المنتج، أو عرض توضيحي لعيادتك، أو شراكة — نردّ بسرعة.",
         }),
       },
       blocks: [
@@ -222,9 +239,15 @@ export function buildCompanyLegal(lang, cta) {
               { icon: "shield", title: "Biztonság és adatvédelem", value: "security@klarnote.example", note: "Adatkezeléssel kapcsolatos kérdések." },
               { icon: "help", title: "Támogatás", value: "support@klarnote.example", note: "Meglévő ügyfeleinknek." },
             ],
+          ar: [
+              { icon: "inbox", title: "استفسارات عامة", value: "hello@klarnote.example", note: "نردّ خلال يوم عمل واحد." },
+              { icon: "users", title: "المبيعات والعروض التوضيحية", value: "sales@klarnote.example", note: "عروض توضيحية للعيادات والمستشفيات." },
+              { icon: "shield", title: "الأمان والخصوصية", value: "security@klarnote.example", note: "أسئلة حول معالجة البيانات." },
+              { icon: "help", title: "الدعم", value: "support@klarnote.example", note: "للعملاء الحاليين." },
+            ],
         }) },
         { type: "form" },
-        { type: "grid", heading: t({ uk: "Офіси", en: "Offices", pl: "Biura", de: "Standorte", ro: "Birouri", cs: "Kanceláře", sr: "Kancelarije", hu: "Irodák" }), cols: 2, items: t({
+        { type: "grid", heading: t({ uk: "Офіси", en: "Offices", pl: "Biura", de: "Standorte", ro: "Birouri", cs: "Kanceláře", sr: "Kancelarije", hu: "Irodák", ar: "المكاتب" }), cols: 2, items: t({
           uk: [
               { icon: "home", title: "Київ", desc: "вул. Хрещатик, 1 · Україна" },
               { icon: "home", title: "Львів", desc: "пл. Ринок, 1 · Україна" },
@@ -257,13 +280,17 @@ export function buildCompanyLegal(lang, cta) {
               { icon: "home", title: "Kijev", desc: "Hrescsatik utca 1. · Ukrajna" },
               { icon: "home", title: "Lviv", desc: "Rinok tér 1. · Ukrajna" },
             ],
+          ar: [
+              { icon: "home", title: "كييف", desc: "شارع خريشاتيك 1 · أوكرانيا" },
+              { icon: "home", title: "لفيف", desc: "ساحة رينوك 1 · أوكرانيا" },
+            ],
         }) },
       ],
     },
 
     careers: {
       hero: {
-        eyebrow: t({ uk: "Кар'єра", en: "Careers", pl: "Kariera", de: "Karriere", ro: "Cariere", cs: "Kariéra", sr: "Karijera", hu: "Karrier" }),
+        eyebrow: t({ uk: "Кар'єра", en: "Careers", pl: "Kariera", de: "Karriere", ro: "Cariere", cs: "Kariéra", sr: "Karijera", hu: "Karrier", ar: "الوظائف" }),
         title: t({
           uk: "Будуйте майбутнє медичної документації",
           en: "Build the future of medical documentation",
@@ -273,6 +300,7 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Budujte budoucnost lékařské dokumentace",
           sr: "Gradite budućnost medicinske dokumentacije",
           hu: "Építsd velünk az orvosi dokumentáció jövőjét",
+          ar: "ابنِ مستقبل التوثيق الطبي",
         }),
         sub: t({
           uk: "Ми невелика команда з великою місією. Якщо вам близька ідея повернути лікарям час — приєднуйтесь.",
@@ -283,10 +311,11 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Jsme malý tým s velkou misí. Pokud vám myšlenka vrátit lékařům čas dává smysl — přidejte se k nám.",
           sr: "Mali smo tim sa velikom misijom. Ako vam je bliska ideja da lekarima vratimo vreme — pridružite nam se.",
           hu: "Kis csapat vagyunk nagy küldetéssel. Ha közel áll hozzád a gondolat, hogy visszaadjuk az orvosok idejét — csatlakozz hozzánk.",
+          ar: "نحن فريق صغير بمهمة كبيرة. إن كانت فكرة إعادة الوقت للأطباء تلقى صدى لديك — انضمّ إلينا.",
         }),
       },
       blocks: [
-        { type: "grid", heading: t({ uk: "Чому Klarnote", en: "Why Klarnote", pl: "Dlaczego Klarnote", de: "Warum Klarnote", ro: "De ce Klarnote", cs: "Proč Klarnote", sr: "Zašto Klarnote", hu: "Miért a Klarnote" }), cols: 3, items: t({
+        { type: "grid", heading: t({ uk: "Чому Klarnote", en: "Why Klarnote", pl: "Dlaczego Klarnote", de: "Warum Klarnote", ro: "De ce Klarnote", cs: "Proč Klarnote", sr: "Zašto Klarnote", hu: "Miért a Klarnote", ar: "لماذا Klarnote" }), cols: 3, items: t({
           uk: [
               { icon: "heart", title: "Реальний вплив", desc: "Ваша робота щодня економить години лікарям." },
               { icon: "home", title: "Віддалено", desc: "Гнучкий графік і робота з будь-якої точки." },
@@ -351,8 +380,16 @@ export function buildCompanyLegal(lang, cta) {
               { icon: "calendar", title: "Szabadság", desc: "Elég idő az igazi feltöltődéshez." },
               { icon: "users", title: "Remek csapat", desc: "Mérnökök és orvosok, akik tisztelik egymást." },
             ],
+          ar: [
+              { icon: "heart", title: "أثر حقيقي", desc: "عملك يوفّر على الأطباء ساعات كل يوم." },
+              { icon: "home", title: "العمل عن بُعد أولاً", desc: "ساعات مرنة وعمل من أي مكان." },
+              { icon: "sparkle", title: "بنية تقنية حديثة", desc: "نماذج كلام متطورة وشيفرة نظيفة." },
+              { icon: "book", title: "التعلّم", desc: "ميزانية للمؤتمرات والكتب والدورات." },
+              { icon: "calendar", title: "إجازات", desc: "وقت كافٍ لاستعادة النشاط فعلاً." },
+              { icon: "users", title: "فريق رائع", desc: "مهندسون وأطباء يحترم بعضهم بعضاً." },
+            ],
         }) },
-        { type: "roles", heading: t({ uk: "Відкриті вакансії", en: "Open roles", pl: "Otwarte stanowiska", de: "Offene Stellen", ro: "Poziții deschise", cs: "Otevřené pozice", sr: "Otvorene pozicije", hu: "Nyitott pozíciók" }), items: t({
+        { type: "roles", heading: t({ uk: "Відкриті вакансії", en: "Open roles", pl: "Otwarte stanowiska", de: "Offene Stellen", ro: "Poziții deschise", cs: "Otevřené pozice", sr: "Otvorene pozicije", hu: "Nyitott pozíciók", ar: "الوظائف الشاغرة" }), items: t({
           uk: [
               { title: "Senior ML Engineer (Speech)", team: "Дослідження", location: "Віддалено", type: "Повна зайнятість" },
               { title: "Full-Stack Engineer (React)", team: "Продукт", location: "Київ / Віддалено", type: "Повна зайнятість" },
@@ -401,8 +438,14 @@ export function buildCompanyLegal(lang, cta) {
               { title: "Clinical Product Specialist", team: "Termék", location: "Távmunka", type: "Teljes munkaidő" },
               { title: "Security Engineer", team: "Platform", location: "Távmunka", type: "Teljes munkaidő" },
             ],
+          ar: [
+              { title: "Senior ML Engineer (Speech)", team: "الأبحاث", location: "عن بُعد", type: "دوام كامل" },
+              { title: "Full-Stack Engineer (React)", team: "المنتج", location: "كييف / عن بُعد", type: "دوام كامل" },
+              { title: "Clinical Product Specialist", team: "المنتج", location: "عن بُعد", type: "دوام كامل" },
+              { title: "Security Engineer", team: "المنصة", location: "عن بُعد", type: "دوام كامل" },
+            ],
         }) },
-        { type: "prose", heading: t({ uk: "Не бачите своєї ролі?", en: "Don't see your role?", pl: "Nie widzisz swojej roli?", de: "Ihre Rolle ist nicht dabei?", ro: "Nu îți găsești rolul?", cs: "Nevidíte svou roli?", sr: "Ne vidite svoju ulogu?", hu: "Nem találod a szerepkörödet?" }),
+        { type: "prose", heading: t({ uk: "Не бачите своєї ролі?", en: "Don't see your role?", pl: "Nie widzisz swojej roli?", de: "Ihre Rolle ist nicht dabei?", ro: "Nu îți găsești rolul?", cs: "Nevidíte svou roli?", sr: "Ne vidite svoju ulogu?", hu: "Nem találod a szerepkörödet?", ar: "لا تجد وظيفتك؟" }),
           paragraphs: t({
             uk: ["Ми завжди раді талановитим людям. Напишіть нам на careers@klarnote.example — розкажіть, чим хочете займатися."],
             en: ["We're always glad to meet talented people. Write to careers@klarnote.example and tell us what you'd love to work on."],
@@ -412,6 +455,7 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Talentované lidi rádi poznáme kdykoli. Napište nám na careers@klarnote.example a řekněte, čemu byste se chtěli věnovat."],
             sr: ["Uvek nam je drago da upoznamo talentovane ljude. Pišite nam na careers@klarnote.example i recite nam na čemu biste voleli da radite."],
             hu: ["Mindig örülünk a tehetséges embereknek. Írj a careers@klarnote.example címre, és meséld el, min dolgoznál szívesen."],
+            ar: ["يسعدنا دائماً لقاء الموهوبين. راسلنا على careers@klarnote.example وأخبرنا بما تودّ العمل عليه."],
           }) },
         cta,
       ],
@@ -419,7 +463,7 @@ export function buildCompanyLegal(lang, cta) {
 
     blog: {
       hero: {
-        eyebrow: t({ uk: "Блог", en: "Blog", pl: "Blog", de: "Blog", ro: "Blog", cs: "Blog", sr: "Blog", hu: "Blog" }),
+        eyebrow: t({ uk: "Блог", en: "Blog", pl: "Blog", de: "Blog", ro: "Blog", cs: "Blog", sr: "Blog", hu: "Blog", ar: "المدوّنة" }),
         title: t({
           uk: "Ідеї, оновлення та дослідження",
           en: "Ideas, updates and research",
@@ -429,6 +473,7 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Nápady, novinky a výzkum",
           sr: "Ideje, novosti i istraživanja",
           hu: "Ötletek, hírek és kutatás",
+          ar: "أفكار وتحديثات وأبحاث",
         }),
         sub: t({
           uk: "Як ми будуємо голосову документацію для медицини — без води.",
@@ -439,6 +484,7 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Jak stavíme hlasovou dokumentaci pro zdravotnictví — bez omáčky.",
           sr: "Kako gradimo glasovnu dokumentaciju za zdravstvo — bez praznih priča.",
           hu: "Így építünk hangalapú dokumentációt az egészségügynek — felesleges körítés nélkül.",
+          ar: "كيف نبني التوثيق الصوتي للرعاية الصحية — دون حشو.",
         }),
       },
       blocks: [
@@ -507,6 +553,14 @@ export function buildCompanyLegal(lang, cta) {
               { tag: "Termék", title: "Sablonok, amelyek órákat spórolnak", excerpt: "Hogyan igazodnak a jegyzetstruktúrák a szakterületedhez.", date: "2026. márc. 3.", read: "4 perc" },
               { tag: "Cég", title: "Miért a radiológiával kezdtük", excerpt: "A Klarnote első prototípusának története, és hogy miért működött.", date: "2026. febr. 15.", read: "7 perc" },
             ],
+          ar: [
+              { tag: "المنتج", title: "كيف يغيّر المدوّن المحيطي المعاينة", excerpt: "ما يحدث من كلمة المريض الأولى إلى ملاحظة منظَّمة.", date: "12 مايو 2026", read: "6 دقائق" },
+              { tag: "الأبحاث", title: "لماذا نُبرز الكلمات منخفضة الثقة", excerpt: "شفافية النموذج تجعل المراجعة أسرع وأكثر أماناً.", date: "28 أبريل 2026", read: "8 دقائق" },
+              { tag: "الأمان", title: "التدقيق غير القابل للتغيير في الممارسة العملية", excerpt: "كيف نضمن سلامة كل إدخال في سجل الأحداث.", date: "9 أبريل 2026", read: "5 دقائق" },
+              { tag: "الهندسة", title: "ASR متدفق منخفض الكمون", excerpt: "البنية وراء التعرّف الفوري دون فقدان الدقة.", date: "21 مارس 2026", read: "10 دقائق" },
+              { tag: "المنتج", title: "قوالب توفّر ساعات", excerpt: "كيف تتكيّف بنى الملاحظات مع تخصصك.", date: "3 مارس 2026", read: "4 دقائق" },
+              { tag: "الشركة", title: "لماذا بدأنا بالأشعة", excerpt: "قصة أول نموذج أولي من Klarnote ولماذا نجح.", date: "15 فبراير 2026", read: "7 دقائق" },
+            ],
         }) },
       ],
     },
@@ -514,8 +568,8 @@ export function buildCompanyLegal(lang, cta) {
     /* ───────────────────────── Legal ───────────────────────── */
     "legal/privacy": {
       hero: {
-        eyebrow: t({ uk: "Правове", en: "Legal", pl: "Informacje prawne", de: "Rechtliches", ro: "Legal", cs: "Právní informace", sr: "Pravno", hu: "Jogi információk" }),
-        title: t({ uk: "Політика конфіденційності", en: "Privacy Policy", pl: "Polityka prywatności", de: "Datenschutzerklärung", ro: "Politica de confidențialitate", cs: "Zásady ochrany osobních údajů", sr: "Politika privatnosti", hu: "Adatvédelmi szabályzat" }),
+        eyebrow: t({ uk: "Правове", en: "Legal", pl: "Informacje prawne", de: "Rechtliches", ro: "Legal", cs: "Právní informace", sr: "Pravno", hu: "Jogi információk", ar: "معلومات قانونية" }),
+        title: t({ uk: "Політика конфіденційності", en: "Privacy Policy", pl: "Polityka prywatności", de: "Datenschutzerklärung", ro: "Politica de confidențialitate", cs: "Zásady ochrany osobních údajů", sr: "Politika privatnosti", hu: "Adatvédelmi szabályzat", ar: "سياسة الخصوصية" }),
         sub: t({
           uk: "Як Klarnote збирає, використовує та захищає дані.",
           en: "How Klarnote collects, uses and protects data.",
@@ -525,11 +579,12 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Jak Klarnote shromažďuje, používá a chrání data.",
           sr: "Kako Klarnote prikuplja, koristi i štiti podatke.",
           hu: "Hogyan gyűjti, használja és védi az adatokat a Klarnote.",
+          ar: "كيف تجمع Klarnote البيانات وتستخدمها وتحميها.",
         }),
-        updated: t({ uk: "Оновлено: 1 червня 2026", en: "Last updated: June 1, 2026", pl: "Ostatnia aktualizacja: 1 czerwca 2026", de: "Zuletzt aktualisiert: 1. Juni 2026", ro: "Ultima actualizare: 1 iunie 2026", cs: "Poslední aktualizace: 1. června 2026", sr: "Poslednje ažuriranje: 1. jun 2026.", hu: "Utolsó frissítés: 2026. június 1." }),
+        updated: t({ uk: "Оновлено: 1 червня 2026", en: "Last updated: June 1, 2026", pl: "Ostatnia aktualizacja: 1 czerwca 2026", de: "Zuletzt aktualisiert: 1. Juni 2026", ro: "Ultima actualizare: 1 iunie 2026", cs: "Poslední aktualizace: 1. června 2026", sr: "Poslednje ažuriranje: 1. jun 2026.", hu: "Utolsó frissítés: 2026. június 1.", ar: "آخر تحديث: 1 يونيو 2026" }),
       },
       blocks: [
-        { type: "prose", heading: t({ uk: "1. Які дані ми обробляємо", en: "1. Data we process", pl: "1. Jakie dane przetwarzamy", de: "1. Welche Daten wir verarbeiten", ro: "1. Ce date prelucrăm", cs: "1. Jaká data zpracováváme", sr: "1. Koje podatke obrađujemo", hu: "1. Milyen adatokat kezelünk" }),
+        { type: "prose", heading: t({ uk: "1. Які дані ми обробляємо", en: "1. Data we process", pl: "1. Jakie dane przetwarzamy", de: "1. Welche Daten wir verarbeiten", ro: "1. Ce date prelucrăm", cs: "1. Jaká data zpracováváme", sr: "1. Koje podatke obrađujemo", hu: "1. Milyen adatokat kezelünk", ar: "1. البيانات التي نعالجها" }),
           paragraphs: t({
             uk: ["Klarnote обробляє аудіозаписи прийомів, транскрипти, структуровані медичні нотатки та облікові дані користувачів. Дані пацієнтів обробляються виключно за дорученням медичного закладу."],
             en: ["Klarnote processes encounter audio, transcripts, structured medical notes and user account data. Patient data is processed solely on behalf of the healthcare organization."],
@@ -539,8 +594,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Klarnote zpracovává audiozáznamy vyšetření, přepisy, strukturované lékařské poznámky a údaje uživatelských účtů. Data pacientů jsou zpracovávána výhradně z pověření zdravotnického zařízení."],
             sr: ["Klarnote obrađuje audio-snimke pregleda, transkripte, strukturirane medicinske beleške i podatke korisničkih naloga. Podaci pacijenata obrađuju se isključivo u ime zdravstvene ustanove."],
             hu: ["A Klarnote a vizitek hangfelvételeit, átiratokat, strukturált orvosi jegyzeteket és felhasználói fiókadatokat kezel. A betegadatokat kizárólag az egészségügyi intézmény megbízásából dolgozzuk fel."],
+            ar: ["تعالج Klarnote الصوت المسجَّل للمعاينات والنصوص المفرَّغة والملاحظات الطبية المنظَّمة وبيانات حسابات المستخدمين. تُعالَج بيانات المرضى حصراً نيابةً عن المؤسسة الصحية."],
           }) },
-        { type: "prose", heading: t({ uk: "2. Мета обробки", en: "2. Purpose", pl: "2. Cel przetwarzania", de: "2. Zweck", ro: "2. Scopul prelucrării", cs: "2. Účel zpracování", sr: "2. Svrha obrade", hu: "2. Az adatkezelés célja" }),
+        { type: "prose", heading: t({ uk: "2. Мета обробки", en: "2. Purpose", pl: "2. Cel przetwarzania", de: "2. Zweck", ro: "2. Scopul prelucrării", cs: "2. Účel zpracování", sr: "2. Svrha obrade", hu: "2. Az adatkezelés célja", ar: "2. الغرض" }),
           bullets: t({
             uk: ["Перетворення мови на структуровані нотатки", "Зберігання та пошук документів", "Аудит дій та забезпечення безпеки", "Покращення якості розпізнавання у знеособленому вигляді"],
             en: ["Turning speech into structured notes", "Storing and retrieving documents", "Auditing actions and ensuring security", "Improving recognition quality in de-identified form"],
@@ -550,8 +606,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Převod řeči na strukturované poznámky", "Ukládání a vyhledávání dokumentů", "Audit akcí a zajištění bezpečnosti", "Zlepšování kvality rozpoznávání v anonymizované podobě"],
             sr: ["Pretvaranje govora u strukturirane beleške", "Čuvanje i pretraga dokumenata", "Revizija radnji i obezbeđivanje sigurnosti", "Poboljšanje kvaliteta prepoznavanja u anonimizovanom obliku"],
             hu: ["A beszéd strukturált jegyzetekké alakítása", "Dokumentumok tárolása és visszakeresése", "A műveletek auditálása és a biztonság garantálása", "A felismerés minőségének javítása anonimizált formában"],
+            ar: ["تحويل الكلام إلى ملاحظات منظَّمة", "تخزين المستندات واستعادتها", "تدقيق الإجراءات وضمان الأمان", "تحسين جودة التعرّف في صورة مجهولة الهوية"],
           }) },
-        { type: "prose", heading: t({ uk: "3. Правова підстава", en: "3. Legal basis", pl: "3. Podstawa prawna", de: "3. Rechtsgrundlage", ro: "3. Temeiul legal", cs: "3. Právní základ", sr: "3. Pravni osnov", hu: "3. Jogalap" }),
+        { type: "prose", heading: t({ uk: "3. Правова підстава", en: "3. Legal basis", pl: "3. Podstawa prawna", de: "3. Rechtsgrundlage", ro: "3. Temeiul legal", cs: "3. Právní základ", sr: "3. Pravni osnov", hu: "3. Jogalap", ar: "3. الأساس القانوني" }),
           paragraphs: t({
             uk: ["Обробка здійснюється на підставі договору з медичним закладом та згоди пацієнта, отриманої перед записом."],
             en: ["Processing is based on the agreement with the healthcare organization and the patient consent captured before recording."],
@@ -561,8 +618,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Zpracování probíhá na základě smlouvy se zdravotnickým zařízením a souhlasu pacienta získaného před nahráváním."],
             sr: ["Obrada se vrši na osnovu ugovora sa zdravstvenom ustanovom i saglasnosti pacijenta pribavljene pre snimanja."],
             hu: ["Az adatkezelés az egészségügyi intézménnyel kötött szerződésen és a felvétel előtt rögzített betegbeleegyezésen alapul."],
+            ar: ["تستند المعالجة إلى الاتفاق مع المؤسسة الصحية وموافقة المريض المُسجَّلة قبل التسجيل."],
           }) },
-        { type: "prose", heading: t({ uk: "4. Зберігання та видалення", en: "4. Retention & deletion", pl: "4. Przechowywanie i usuwanie", de: "4. Aufbewahrung & Löschung", ro: "4. Păstrarea și ștergerea datelor", cs: "4. Uchovávání a mazání", sr: "4. Čuvanje i brisanje", hu: "4. Megőrzés és törlés" }),
+        { type: "prose", heading: t({ uk: "4. Зберігання та видалення", en: "4. Retention & deletion", pl: "4. Przechowywanie i usuwanie", de: "4. Aufbewahrung & Löschung", ro: "4. Păstrarea și ștergerea datelor", cs: "4. Uchovávání a mazání", sr: "4. Čuvanje i brisanje", hu: "4. Megőrzés és törlés", ar: "4. الاحتفاظ والحذف" }),
           paragraphs: t({
             uk: ["Дані зберігаються стільки, скільки вимагає медичний заклад або законодавство. Ви можете запросити видалення даних, що не підпадають під обов'язкове зберігання."],
             en: ["Data is retained for as long as the organization or law requires. You can request deletion of data not subject to mandatory retention."],
@@ -572,8 +630,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Data jsou uchovávána tak dlouho, jak vyžaduje zařízení nebo zákon. Můžete požádat o smazání dat, na která se nevztahuje povinné uchovávání."],
             sr: ["Podaci se čuvaju onoliko dugo koliko to zahteva ustanova ili zakon. Možete zatražiti brisanje podataka koji ne podležu obaveznom čuvanju."],
             hu: ["Az adatokat addig őrizzük meg, ameddig az intézmény vagy a jogszabály előírja. Kérheti azon adatok törlését, amelyekre nem vonatkozik kötelező megőrzés."],
+            ar: ["يُحتفظ بالبيانات طوال المدة التي تتطلبها المؤسسة أو القانون. يمكنك طلب حذف البيانات غير الخاضعة للاحتفاظ الإلزامي."],
           }) },
-        { type: "prose", heading: t({ uk: "5. Ваші права", en: "5. Your rights", pl: "5. Twoje prawa", de: "5. Ihre Rechte", ro: "5. Drepturile dumneavoastră", cs: "5. Vaše práva", sr: "5. Vaša prava", hu: "5. Az Ön jogai" }),
+        { type: "prose", heading: t({ uk: "5. Ваші права", en: "5. Your rights", pl: "5. Twoje prawa", de: "5. Ihre Rechte", ro: "5. Drepturile dumneavoastră", cs: "5. Vaše práva", sr: "5. Vaša prava", hu: "5. Az Ön jogai", ar: "5. حقوقك" }),
           bullets: t({
             uk: ["Доступ до своїх даних", "Виправлення неточних даних", "Видалення там, де це дозволено", "Перенесення даних", "Скарга до наглядового органу"],
             en: ["Access your data", "Correct inaccurate data", "Deletion where permitted", "Data portability", "Complaint to a supervisory authority"],
@@ -583,8 +642,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Přístup ke svým datům", "Oprava nepřesných dat", "Výmaz tam, kde je to povoleno", "Přenositelnost dat", "Stížnost u dozorového úřadu"],
             sr: ["Pristup svojim podacima", "Ispravka netačnih podataka", "Brisanje tamo gde je dozvoljeno", "Prenosivost podataka", "Pritužba nadzornom organu"],
             hu: ["Hozzáférés a saját adataihoz", "A pontatlan adatok helyesbítése", "Törlés, ahol megengedett", "Adathordozhatóság", "Panasz a felügyeleti hatóságnál"],
+            ar: ["الوصول إلى بياناتك", "تصحيح البيانات غير الدقيقة", "الحذف حيثما يُسمح به", "قابلية نقل البيانات", "تقديم شكوى إلى سلطة رقابية"],
           }) },
-        { type: "prose", heading: t({ uk: "6. Контакт", en: "6. Contact", pl: "6. Kontakt", de: "6. Kontakt", ro: "6. Contact", cs: "6. Kontakt", sr: "6. Kontakt", hu: "6. Kapcsolat" }),
+        { type: "prose", heading: t({ uk: "6. Контакт", en: "6. Contact", pl: "6. Kontakt", de: "6. Kontakt", ro: "6. Contact", cs: "6. Kontakt", sr: "6. Kontakt", hu: "6. Kapcsolat", ar: "6. التواصل" }),
           paragraphs: t({
             uk: ["З питань конфіденційності пишіть на privacy@klarnote.example."],
             en: ["For privacy questions write to privacy@klarnote.example."],
@@ -594,14 +654,15 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["S dotazy k ochraně osobních údajů pište na privacy@klarnote.example."],
             sr: ["Za pitanja o privatnosti pišite na privacy@klarnote.example."],
             hu: ["Adatvédelmi kérdésekben írjon a privacy@klarnote.example címre."],
+            ar: ["لأي أسئلة تتعلق بالخصوصية راسلنا على privacy@klarnote.example."],
           }) },
       ],
     },
 
     "legal/terms": {
       hero: {
-        eyebrow: t({ uk: "Правове", en: "Legal", pl: "Informacje prawne", de: "Rechtliches", ro: "Legal", cs: "Právní informace", sr: "Pravno", hu: "Jogi információk" }),
-        title: t({ uk: "Умови використання", en: "Terms of Service", pl: "Warunki korzystania z usługi", de: "Nutzungsbedingungen", ro: "Termeni și condiții", cs: "Podmínky služby", sr: "Uslovi korišćenja", hu: "Felhasználási feltételek" }),
+        eyebrow: t({ uk: "Правове", en: "Legal", pl: "Informacje prawne", de: "Rechtliches", ro: "Legal", cs: "Právní informace", sr: "Pravno", hu: "Jogi információk", ar: "معلومات قانونية" }),
+        title: t({ uk: "Умови використання", en: "Terms of Service", pl: "Warunki korzystania z usługi", de: "Nutzungsbedingungen", ro: "Termeni și condiții", cs: "Podmínky služby", sr: "Uslovi korišćenja", hu: "Felhasználási feltételek", ar: "شروط الخدمة" }),
         sub: t({
           uk: "Правила користування платформою Klarnote.",
           en: "The rules for using the Klarnote platform.",
@@ -611,11 +672,12 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Pravidla používání platformy Klarnote.",
           sr: "Pravila korišćenja platforme Klarnote.",
           hu: "A Klarnote platform használatának szabályai.",
+          ar: "قواعد استخدام منصة Klarnote.",
         }),
-        updated: t({ uk: "Оновлено: 1 червня 2026", en: "Last updated: June 1, 2026", pl: "Ostatnia aktualizacja: 1 czerwca 2026", de: "Zuletzt aktualisiert: 1. Juni 2026", ro: "Ultima actualizare: 1 iunie 2026", cs: "Poslední aktualizace: 1. června 2026", sr: "Poslednje ažuriranje: 1. jun 2026.", hu: "Utolsó frissítés: 2026. június 1." }),
+        updated: t({ uk: "Оновлено: 1 червня 2026", en: "Last updated: June 1, 2026", pl: "Ostatnia aktualizacja: 1 czerwca 2026", de: "Zuletzt aktualisiert: 1. Juni 2026", ro: "Ultima actualizare: 1 iunie 2026", cs: "Poslední aktualizace: 1. června 2026", sr: "Poslednje ažuriranje: 1. jun 2026.", hu: "Utolsó frissítés: 2026. június 1.", ar: "آخر تحديث: 1 يونيو 2026" }),
       },
       blocks: [
-        { type: "prose", heading: t({ uk: "1. Прийняття умов", en: "1. Acceptance", pl: "1. Akceptacja warunków", de: "1. Zustimmung", ro: "1. Acceptarea condițiilor", cs: "1. Přijetí podmínek", sr: "1. Prihvatanje uslova", hu: "1. A feltételek elfogadása" }),
+        { type: "prose", heading: t({ uk: "1. Прийняття умов", en: "1. Acceptance", pl: "1. Akceptacja warunków", de: "1. Zustimmung", ro: "1. Acceptarea condițiilor", cs: "1. Přijetí podmínek", sr: "1. Prihvatanje uslova", hu: "1. A feltételek elfogadása", ar: "1. القبول" }),
           paragraphs: t({
             uk: ["Користуючись Klarnote, ви погоджуєтеся з цими умовами. Якщо ви не згодні — не використовуйте сервіс."],
             en: ["By using Klarnote you agree to these terms. If you do not agree, do not use the service."],
@@ -625,8 +687,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Používáním Klarnote souhlasíte s těmito podmínkami. Pokud nesouhlasíte, službu nepoužívejte."],
             sr: ["Korišćenjem Klarnotea prihvatate ove uslove. Ako se ne slažete, nemojte koristiti uslugu."],
             hu: ["A Klarnote használatával elfogadja ezeket a feltételeket. Ha nem ért egyet velük, ne használja a szolgáltatást."],
+            ar: ["باستخدامك Klarnote فإنك توافق على هذه الشروط. إن لم توافق، فلا تستخدم الخدمة."],
           }) },
-        { type: "prose", heading: t({ uk: "2. Обліковий запис", en: "2. Accounts", pl: "2. Konta", de: "2. Konten", ro: "2. Conturi", cs: "2. Účty", sr: "2. Nalozi", hu: "2. Fiókok" }),
+        { type: "prose", heading: t({ uk: "2. Обліковий запис", en: "2. Accounts", pl: "2. Konta", de: "2. Konten", ro: "2. Conturi", cs: "2. Účty", sr: "2. Nalozi", hu: "2. Fiókok", ar: "2. الحسابات" }),
           paragraphs: t({
             uk: ["Доступ надається через запрошення адміністратора закладу. Ви відповідаєте за збереження своїх облікових даних."],
             en: ["Access is granted by your organization's admin via invitation. You are responsible for safeguarding your credentials."],
@@ -636,8 +699,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Přístup uděluje administrátor vašeho zařízení prostřednictvím pozvánky. Za ochranu svých přihlašovacích údajů odpovídáte vy."],
             sr: ["Pristup dodeljuje administrator vaše ustanove putem pozivnice. Vi ste odgovorni za čuvanje svojih pristupnih podataka."],
             hu: ["A hozzáférést az intézmény adminisztrátora biztosítja meghívással. A belépési adatai megőrzéséért Ön felel."],
+            ar: ["يُمنح الوصول عن طريق مسؤول مؤسستك من خلال دعوة. أنت مسؤول عن حماية بيانات اعتمادك."],
           }) },
-        { type: "prose", heading: t({ uk: "3. Допустиме використання", en: "3. Acceptable use", pl: "3. Dozwolone użycie", de: "3. Zulässige Nutzung", ro: "3. Utilizare acceptabilă", cs: "3. Přijatelné použití", sr: "3. Dozvoljena upotreba", hu: "3. Megengedett használat" }),
+        { type: "prose", heading: t({ uk: "3. Допустиме використання", en: "3. Acceptable use", pl: "3. Dozwolone użycie", de: "3. Zulässige Nutzung", ro: "3. Utilizare acceptabilă", cs: "3. Přijatelné použití", sr: "3. Dozvoljena upotreba", hu: "3. Megengedett használat", ar: "3. الاستخدام المقبول" }),
           bullets: t({
             uk: ["Використовуйте сервіс лише в законних медичних цілях", "Не намагайтеся обійти контроль доступу", "Не завантажуйте шкідливий код", "Поважайте права пацієнтів і колег"],
             en: ["Use the service only for lawful medical purposes", "Do not attempt to bypass access controls", "Do not upload malicious code", "Respect the rights of patients and colleagues"],
@@ -647,8 +711,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Používejte službu pouze k zákonným lékařským účelům", "Nepokoušejte se obcházet řízení přístupu", "Nenahrávejte škodlivý kód", "Respektujte práva pacientů a kolegů"],
             sr: ["Koristite uslugu samo u zakonite medicinske svrhe", "Ne pokušavajte da zaobiđete kontrolu pristupa", "Ne otpremajte zlonamerni kod", "Poštujte prava pacijenata i kolega"],
             hu: ["A szolgáltatást kizárólag jogszerű orvosi célokra használja", "Ne próbálja megkerülni a hozzáférés-vezérlést", "Ne töltsön fel rosszindulatú kódot", "Tartsa tiszteletben a betegek és a kollégák jogait"],
+            ar: ["استخدم الخدمة لأغراض طبية مشروعة فقط", "لا تحاول تجاوز ضوابط الوصول", "لا تُحمّل شيفرة خبيثة", "احترم حقوق المرضى والزملاء"],
           }) },
-        { type: "prose", heading: t({ uk: "4. Доступність сервісу", en: "4. Service availability", pl: "4. Dostępność usługi", de: "4. Verfügbarkeit des Dienstes", ro: "4. Disponibilitatea serviciului", cs: "4. Dostupnost služby", sr: "4. Dostupnost usluge", hu: "4. A szolgáltatás rendelkezésre állása" }),
+        { type: "prose", heading: t({ uk: "4. Доступність сервісу", en: "4. Service availability", pl: "4. Dostępność usługi", de: "4. Verfügbarkeit des Dienstes", ro: "4. Disponibilitatea serviciului", cs: "4. Dostupnost služby", sr: "4. Dostupnost usluge", hu: "4. A szolgáltatás rendelkezésre állása", ar: "4. توافر الخدمة" }),
           paragraphs: t({
             uk: ["Ми прагнемо до високої доступності, але не гарантуємо безперебійну роботу. Планові роботи анонсуються заздалегідь."],
             en: ["We aim for high availability but do not guarantee uninterrupted operation. Planned maintenance is announced in advance."],
@@ -658,8 +723,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Usilujeme o vysokou dostupnost, ale nezaručujeme nepřetržitý provoz. Plánovaná údržba je oznamována předem."],
             sr: ["Težimo visokoj dostupnosti, ali ne garantujemo neprekidan rad. Planirani radovi se najavljuju unapred."],
             hu: ["Magas rendelkezésre állásra törekszünk, de nem garantáljuk a megszakítás nélküli működést. A tervezett karbantartást előre bejelentjük."],
+            ar: ["نسعى إلى توافر عالٍ لكننا لا نضمن التشغيل دون انقطاع. يُعلَن عن الصيانة المخطط لها مسبقاً."],
           }) },
-        { type: "prose", heading: t({ uk: "5. Відповідальність", en: "5. Liability", pl: "5. Odpowiedzialność", de: "5. Haftung", ro: "5. Răspunderea", cs: "5. Odpovědnost", sr: "5. Odgovornost", hu: "5. Felelősség" }),
+        { type: "prose", heading: t({ uk: "5. Відповідальність", en: "5. Liability", pl: "5. Odpowiedzialność", de: "5. Haftung", ro: "5. Răspunderea", cs: "5. Odpovědnost", sr: "5. Odgovornost", hu: "5. Felelősség", ar: "5. المسؤولية" }),
           paragraphs: t({
             uk: ["Klarnote — інструмент підтримки документації. Остаточна відповідальність за зміст медичних записів лежить на лікарі."],
             en: ["Klarnote is a documentation support tool. Final responsibility for the content of medical records rests with the clinician."],
@@ -669,8 +735,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Klarnote je nástroj na podporu dokumentace. Konečnou odpovědnost za obsah zdravotnických záznamů nese lékař."],
             sr: ["Klarnote je alat za podršku dokumentaciji. Krajnja odgovornost za sadržaj medicinske dokumentacije leži na lekaru."],
             hu: ["A Klarnote a dokumentációt támogató eszköz. Az orvosi feljegyzések tartalmáért a végső felelősség az orvost terheli."],
+            ar: ["Klarnote أداة لدعم التوثيق. تقع المسؤولية النهائية عن محتوى السجلات الطبية على عاتق الطبيب."],
           }) },
-        { type: "prose", heading: t({ uk: "6. Зміни умов", en: "6. Changes", pl: "6. Zmiany warunków", de: "6. Änderungen", ro: "6. Modificări", cs: "6. Změny podmínek", sr: "6. Izmene uslova", hu: "6. A feltételek módosítása" }),
+        { type: "prose", heading: t({ uk: "6. Зміни умов", en: "6. Changes", pl: "6. Zmiany warunków", de: "6. Änderungen", ro: "6. Modificări", cs: "6. Změny podmínek", sr: "6. Izmene uslova", hu: "6. A feltételek módosítása", ar: "6. التعديلات" }),
           paragraphs: t({
             uk: ["Ми можемо оновлювати ці умови; про суттєві зміни повідомимо заздалегідь."],
             en: ["We may update these terms; we will notify you of material changes in advance."],
@@ -680,14 +747,15 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Tyto podmínky můžeme aktualizovat; o podstatných změnách vás budeme informovat předem."],
             sr: ["Možemo ažurirati ove uslove; o bitnim izmenama obavestićemo vas unapred."],
             hu: ["Ezeket a feltételeket frissíthetjük; a lényeges változásokról előre értesítjük."],
+            ar: ["قد نُحدّث هذه الشروط؛ وسنُخطرك بأي تغييرات جوهرية مسبقاً."],
           }) },
       ],
     },
 
     "legal/data": {
       hero: {
-        eyebrow: t({ uk: "Правове", en: "Legal", pl: "Informacje prawne", de: "Rechtliches", ro: "Legal", cs: "Právní informace", sr: "Pravno", hu: "Jogi információk" }),
-        title: t({ uk: "Обробка даних", en: "Data Processing", pl: "Przetwarzanie danych", de: "Datenverarbeitung", ro: "Prelucrarea datelor", cs: "Zpracování dat", sr: "Obrada podataka", hu: "Adatfeldolgozás" }),
+        eyebrow: t({ uk: "Правове", en: "Legal", pl: "Informacje prawne", de: "Rechtliches", ro: "Legal", cs: "Právní informace", sr: "Pravno", hu: "Jogi információk", ar: "معلومات قانونية" }),
+        title: t({ uk: "Обробка даних", en: "Data Processing", pl: "Przetwarzanie danych", de: "Datenverarbeitung", ro: "Prelucrarea datelor", cs: "Zpracování dat", sr: "Obrada podataka", hu: "Adatfeldolgozás", ar: "معالجة البيانات" }),
         sub: t({
           uk: "Як ми діємо як обробник даних для медичних закладів.",
           en: "How we act as a data processor for healthcare organizations.",
@@ -697,11 +765,12 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Jak působíme jako zpracovatel dat pro zdravotnická zařízení.",
           sr: "Kako postupamo kao obrađivač podataka za zdravstvene ustanove.",
           hu: "Hogyan járunk el adatfeldolgozóként egészségügyi intézmények számára.",
+          ar: "كيف نعمل كمُعالِج للبيانات لصالح المؤسسات الصحية.",
         }),
-        updated: t({ uk: "Оновлено: 1 червня 2026", en: "Last updated: June 1, 2026", pl: "Ostatnia aktualizacja: 1 czerwca 2026", de: "Zuletzt aktualisiert: 1. Juni 2026", ro: "Ultima actualizare: 1 iunie 2026", cs: "Poslední aktualizace: 1. června 2026", sr: "Poslednje ažuriranje: 1. jun 2026.", hu: "Utolsó frissítés: 2026. június 1." }),
+        updated: t({ uk: "Оновлено: 1 червня 2026", en: "Last updated: June 1, 2026", pl: "Ostatnia aktualizacja: 1 czerwca 2026", de: "Zuletzt aktualisiert: 1. Juni 2026", ro: "Ultima actualizare: 1 iunie 2026", cs: "Poslední aktualizace: 1. června 2026", sr: "Poslednje ažuriranje: 1. jun 2026.", hu: "Utolsó frissítés: 2026. június 1.", ar: "آخر تحديث: 1 يونيو 2026" }),
       },
       blocks: [
-        { type: "prose", heading: t({ uk: "Ролі сторін", en: "Roles", pl: "Role stron", de: "Rollen der Parteien", ro: "Rolurile părților", cs: "Role stran", sr: "Uloge strana", hu: "A felek szerepei" }),
+        { type: "prose", heading: t({ uk: "Ролі сторін", en: "Roles", pl: "Role stron", de: "Rollen der Parteien", ro: "Rolurile părților", cs: "Role stran", sr: "Uloge strana", hu: "A felek szerepei", ar: "الأدوار" }),
           paragraphs: t({
             uk: ["Медичний заклад є контролером даних. Klarnote діє як обробник і обробляє дані виключно за документованими інструкціями закладу."],
             en: ["The healthcare organization is the data controller. Klarnote acts as a processor and processes data only on the organization's documented instructions."],
@@ -711,8 +780,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Zdravotnické zařízení je správcem dat. Klarnote působí jako zpracovatel a zpracovává data výhradně podle dokumentovaných pokynů zařízení."],
             sr: ["Zdravstvena ustanova je rukovalac podacima. Klarnote deluje kao obrađivač i obrađuje podatke isključivo prema dokumentovanim uputstvima ustanove."],
             hu: ["Az egészségügyi intézmény az adatkezelő. A Klarnote adatfeldolgozóként jár el, és az adatokat kizárólag az intézmény dokumentált utasításai szerint dolgozza fel."],
+            ar: ["المؤسسة الصحية هي المتحكم في البيانات. تعمل Klarnote كمُعالِج وتعالج البيانات وفقاً لتعليمات المؤسسة الموثَّقة فقط."],
           }) },
-        { type: "grid", heading: t({ uk: "Заходи захисту", en: "Safeguards", pl: "Środki ochrony", de: "Schutzmaßnahmen", ro: "Măsuri de protecție", cs: "Ochranná opatření", sr: "Mere zaštite", hu: "Védelmi intézkedések" }), cols: 3, items: t({
+        { type: "grid", heading: t({ uk: "Заходи захисту", en: "Safeguards", pl: "Środki ochrony", de: "Schutzmaßnahmen", ro: "Măsuri de protecție", cs: "Ochranná opatření", sr: "Mere zaštite", hu: "Védelmi intézkedések", ar: "تدابير الحماية" }), cols: 3, items: t({
           uk: [
               { icon: "shield", title: "Шифрування", desc: "Дані шифруються під час передачі та зберігання." },
               { icon: "users", title: "Рольовий доступ", desc: "Доступ за принципом найменших привілеїв." },
@@ -777,8 +847,16 @@ export function buildCompanyLegal(lang, cta) {
               { icon: "scan", title: "Anonimizálás", desc: "A modell fejlesztéséhez használt adatokat anonimizáljuk." },
               { icon: "check", title: "Al-adatfeldolgozók", desc: "Az al-adatfeldolgozók listája kérésre elérhető." },
             ],
+          ar: [
+              { icon: "shield", title: "التشفير", desc: "تُشفَّر البيانات أثناء النقل وفي حالة السكون." },
+              { icon: "users", title: "الوصول القائم على الأدوار", desc: "وصول بأقل قدر من الامتيازات في كل مكان." },
+              { icon: "history", title: "التدقيق", desc: "يُسجَّل كل إجراء على البيانات بشكل غير قابل للتغيير." },
+              { icon: "archive", title: "النسخ الاحتياطي", desc: "نسخ احتياطي منتظم مع فحوص السلامة." },
+              { icon: "scan", title: "إزالة الهوية", desc: "تُزال هوية البيانات المستخدمة لتحسين النموذج." },
+              { icon: "check", title: "المعالِجون الفرعيون", desc: "تتوفر قائمة بالمعالِجين الفرعيين عند الطلب." },
+            ],
         }) },
-        { type: "prose", heading: t({ uk: "Передача даних", en: "Data transfers", pl: "Przekazywanie danych", de: "Datenübermittlungen", ro: "Transferuri de date", cs: "Předávání dat", sr: "Prenos podataka", hu: "Adattovábbítás" }),
+        { type: "prose", heading: t({ uk: "Передача даних", en: "Data transfers", pl: "Przekazywanie danych", de: "Datenübermittlungen", ro: "Transferuri de date", cs: "Předávání dat", sr: "Prenos podataka", hu: "Adattovábbítás", ar: "نقل البيانات" }),
           paragraphs: t({
             uk: ["Дані обробляються в межах узгоджених юрисдикцій. Будь-яка транскордонна передача супроводжується належними гарантіями."],
             en: ["Data is processed within agreed jurisdictions. Any cross-border transfer is covered by appropriate safeguards."],
@@ -788,8 +866,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Data jsou zpracovávána v dohodnutých jurisdikcích. Každé přeshraniční předání je kryto vhodnými zárukami."],
             sr: ["Podaci se obrađuju u okviru dogovorenih jurisdikcija. Svaki prekogranični prenos prate odgovarajuće mere zaštite."],
             hu: ["Az adatokat a megállapodás szerinti joghatóságokon belül dolgozzuk fel. Minden határon átnyúló továbbítást megfelelő garanciák kísérnek."],
+            ar: ["تُعالَج البيانات ضمن الولايات القضائية المتفق عليها. يخضع أي نقل عبر الحدود لتدابير حماية مناسبة."],
           }) },
-        { type: "prose", heading: t({ uk: "Інциденти", en: "Incidents", pl: "Incydenty", de: "Vorfälle", ro: "Incidente", cs: "Incidenty", sr: "Incidenti", hu: "Incidensek" }),
+        { type: "prose", heading: t({ uk: "Інциденти", en: "Incidents", pl: "Incydenty", de: "Vorfälle", ro: "Incidente", cs: "Incidenty", sr: "Incidenti", hu: "Incidensek", ar: "الحوادث" }),
           paragraphs: t({
             uk: ["У разі інциденту безпеки ми повідомляємо заклад без невиправданих затримок і надаємо інформацію для оцінки впливу."],
             en: ["In the event of a security incident we notify the organization without undue delay and provide information to assess impact."],
@@ -799,14 +878,15 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["V případě bezpečnostního incidentu informujeme zařízení bez zbytečného odkladu a poskytneme informace pro posouzení dopadu."],
             sr: ["U slučaju bezbednosnog incidenta obaveštavamo ustanovu bez nepotrebnog odlaganja i pružamo informacije za procenu uticaja."],
             hu: ["Biztonsági incidens esetén indokolatlan késedelem nélkül értesítjük az intézményt, és információt adunk a hatás felméréséhez."],
+            ar: ["في حال وقوع حادث أمني، نُخطر المؤسسة دون تأخير لا مبرر له ونقدّم المعلومات اللازمة لتقييم الأثر."],
           }) },
       ],
     },
 
     "legal/consent": {
       hero: {
-        eyebrow: t({ uk: "Правове", en: "Legal", pl: "Informacje prawne", de: "Rechtliches", ro: "Legal", cs: "Právní informace", sr: "Pravno", hu: "Jogi információk" }),
-        title: t({ uk: "Згода пацієнта", en: "Patient Consent", pl: "Zgoda pacjenta", de: "Patienteneinwilligung", ro: "Consimțământul pacientului", cs: "Souhlas pacienta", sr: "Saglasnost pacijenta", hu: "Betegbeleegyezés" }),
+        eyebrow: t({ uk: "Правове", en: "Legal", pl: "Informacje prawne", de: "Rechtliches", ro: "Legal", cs: "Právní informace", sr: "Pravno", hu: "Jogi információk", ar: "معلومات قانونية" }),
+        title: t({ uk: "Згода пацієнта", en: "Patient Consent", pl: "Zgoda pacjenta", de: "Patienteneinwilligung", ro: "Consimțământul pacientului", cs: "Souhlas pacienta", sr: "Saglasnost pacijenta", hu: "Betegbeleegyezés", ar: "موافقة المريض" }),
         sub: t({
           uk: "Як Klarnote фіксує та поважає згоду перед записом.",
           en: "How Klarnote captures and respects consent before recording.",
@@ -816,11 +896,12 @@ export function buildCompanyLegal(lang, cta) {
           cs: "Jak Klarnote zaznamenává a respektuje souhlas před nahráváním.",
           sr: "Kako Klarnote beleži i poštuje saglasnost pre snimanja.",
           hu: "Hogyan rögzíti és tartja tiszteletben a Klarnote a beleegyezést a felvétel előtt.",
+          ar: "كيف تُسجّل Klarnote الموافقة وتحترمها قبل التسجيل.",
         }),
-        updated: t({ uk: "Оновлено: 1 червня 2026", en: "Last updated: June 1, 2026", pl: "Ostatnia aktualizacja: 1 czerwca 2026", de: "Zuletzt aktualisiert: 1. Juni 2026", ro: "Ultima actualizare: 1 iunie 2026", cs: "Poslední aktualizace: 1. června 2026", sr: "Poslednje ažuriranje: 1. jun 2026.", hu: "Utolsó frissítés: 2026. június 1." }),
+        updated: t({ uk: "Оновлено: 1 червня 2026", en: "Last updated: June 1, 2026", pl: "Ostatnia aktualizacja: 1 czerwca 2026", de: "Zuletzt aktualisiert: 1. Juni 2026", ro: "Ultima actualizare: 1 iunie 2026", cs: "Poslední aktualizace: 1. června 2026", sr: "Poslednje ažuriranje: 1. jun 2026.", hu: "Utolsó frissítés: 2026. június 1.", ar: "آخر تحديث: 1 يونيو 2026" }),
       },
       blocks: [
-        { type: "prose", heading: t({ uk: "Згода перед записом", en: "Consent before recording", pl: "Zgoda przed nagraniem", de: "Einwilligung vor der Aufnahme", ro: "Consimțământ înainte de înregistrare", cs: "Souhlas před nahráváním", sr: "Saglasnost pre snimanja", hu: "Beleegyezés a felvétel előtt" }),
+        { type: "prose", heading: t({ uk: "Згода перед записом", en: "Consent before recording", pl: "Zgoda przed nagraniem", de: "Einwilligung vor der Aufnahme", ro: "Consimțământ înainte de înregistrare", cs: "Souhlas před nahráváním", sr: "Saglasnost pre snimanja", hu: "Beleegyezés a felvétel előtt", ar: "الموافقة قبل التسجيل" }),
           paragraphs: t({
             uk: ["Жоден запис не починається без явної згоди пацієнта. Лікар фіксує згоду на екрані згоди, а прозорий індикатор показує стан запису протягом усього прийому."],
             en: ["No recording starts without the patient's explicit consent. The clinician captures consent on the consent screen, and a transparent indicator shows the recording state throughout the visit."],
@@ -830,8 +911,9 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Žádné nahrávání nezačne bez výslovného souhlasu pacienta. Lékař zaznamená souhlas na obrazovce souhlasu a transparentní indikátor ukazuje stav nahrávání po celou dobu vyšetření."],
             sr: ["Nijedno snimanje ne počinje bez izričite saglasnosti pacijenta. Lekar beleži saglasnost na ekranu za saglasnost, a transparentni indikator prikazuje status snimanja tokom celog pregleda."],
             hu: ["Egyetlen felvétel sem indul a beteg kifejezett beleegyezése nélkül. Az orvos a beleegyezést a beleegyezési képernyőn rögzíti, és egy jól látható jelző mutatja a felvétel állapotát a vizit teljes ideje alatt."],
+            ar: ["لا يبدأ أي تسجيل دون موافقة صريحة من المريض. يُسجّل الطبيب الموافقة على شاشة الموافقة، ويعرض مؤشر واضح حالة التسجيل طوال المعاينة."],
           }) },
-        { type: "steps", heading: t({ uk: "Як це працює", en: "How it works", pl: "Jak to działa", de: "So funktioniert es", ro: "Cum funcționează", cs: "Jak to funguje", sr: "Kako funkcioniše", hu: "Így működik" }), items: t({
+        { type: "steps", heading: t({ uk: "Як це працює", en: "How it works", pl: "Jak to działa", de: "So funktioniert es", ro: "Cum funcționează", cs: "Jak to funguje", sr: "Kako funkcioniše", hu: "Így működik", ar: "كيف يعمل" }), items: t({
           uk: [
               { n: "01", title: "Пояснення", desc: "Лікар пояснює, що прийом записуватиметься для документації." },
               { n: "02", title: "Згода", desc: "Пацієнт надає згоду, яка фіксується разом із часом." },
@@ -880,8 +962,14 @@ export function buildCompanyLegal(lang, cta) {
               { n: "03", title: "Jelzés", desc: "Jól látható jelző mutatja, hogy felvétel van folyamatban." },
               { n: "04", title: "Visszavonás", desc: "A beteg bármikor visszavonhatja a beleegyezését — a felvétel leáll." },
             ],
+          ar: [
+              { n: "01", title: "الشرح", desc: "يشرح الطبيب أن المعاينة ستُسجَّل لأغراض التوثيق." },
+              { n: "02", title: "الموافقة", desc: "يمنح المريض موافقته، وتُسجَّل مع طابع زمني." },
+              { n: "03", title: "المؤشر", desc: "يُظهر مؤشر مرئي أن التسجيل جارٍ." },
+              { n: "04", title: "السحب", desc: "يمكن للمريض سحب موافقته في أي وقت — فيتوقف التسجيل." },
+            ],
         }) },
-        { type: "prose", heading: t({ uk: "Зберігання згоди", en: "Consent records", pl: "Przechowywanie zgody", de: "Einwilligungsnachweise", ro: "Evidența consimțământului", cs: "Záznamy o souhlasu", sr: "Evidencija saglasnosti", hu: "A beleegyezés nyilvántartása" }),
+        { type: "prose", heading: t({ uk: "Зберігання згоди", en: "Consent records", pl: "Przechowywanie zgody", de: "Einwilligungsnachweise", ro: "Evidența consimțământului", cs: "Záznamy o souhlasu", sr: "Evidencija saglasnosti", hu: "A beleegyezés nyilvántartása", ar: "سجلات الموافقة" }),
           paragraphs: t({
             uk: ["Факт згоди зберігається разом із нотаткою та фіксується в незмінному журналі аудиту."],
             en: ["The fact of consent is stored alongside the note and recorded in the immutable audit log."],
@@ -891,6 +979,7 @@ export function buildCompanyLegal(lang, cta) {
             cs: ["Udělený souhlas je uložen spolu s poznámkou a zaznamenán v neměnném auditním protokolu."],
             sr: ["Činjenica saglasnosti čuva se uz belešku i beleži u nepromenljivom dnevniku revizije."],
             hu: ["A beleegyezés tényét a jegyzettel együtt tároljuk, és a megmásíthatatlan auditnaplóban rögzítjük."],
+            ar: ["تُخزَّن واقعة الموافقة مع الملاحظة وتُسجَّل في سجل التدقيق غير القابل للتغيير."],
           }) },
       ],
     },

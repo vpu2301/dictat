@@ -78,11 +78,21 @@ export async function rejectPrivacyRequest(id, { rejection_reason }) {
 }
 
 // GET /privacy-requests/{id}/download — the authenticated DSAR zip.
-// Raw fetch (not the JSON wrapper): the body is binary. 410 = package
-// past TTL and deleted. Returns a Blob for an object-URL download.
-export async function downloadDsarPackage(id) {
+// Raw fetch (not the JSON wrapper): the body is binary.
+//
+// The endpoint needs BOTH the bearer token and the short-lived HMAC token the
+// status endpoint mints into `download.url` ("/privacy-requests/{id}/download
+// ?t={exp}.{hmac}", 900 s TTL, ADR-0028). Calling it without `t` always fails
+// with 403 code=download_link_expired, so the caller must pass the freshly
+// fetched `download.url` — hence `linkPath`.
+//   403 download_link_expired → re-fetch the status for a new link
+//   410 package_expired       → the zip itself aged out (14-day TTL)
+export async function downloadDsarPackage(id, linkPath) {
+  const path = (typeof linkPath === "string" && linkPath.startsWith("/privacy-requests/"))
+    ? linkPath
+    : `/privacy-requests/${encodeURIComponent(id)}/download`;
   const token = getAccessToken();
-  const r = await fetch(`${SERVICES.core}/privacy-requests/${encodeURIComponent(id)}/download`, {
+  const r = await fetch(`${SERVICES.core}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     credentials: "include",
   });

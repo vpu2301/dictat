@@ -10,11 +10,16 @@ import { Icon } from "./UI.jsx";
 // ── Scroll-spy: report which section is currently in view ─────────────────────
 export function useScrollSpy(ids) {
   const [active, setActive] = React.useState(ids[0]);
+  // A click-to-jump pins the highlight briefly: the smooth scroll fires many
+  // observer callbacks on the way, and the last one would otherwise land on
+  // whichever section is topmost mid-flight rather than the one asked for.
+  const pinnedUntil = React.useRef(0);
   React.useEffect(() => {
     const els = ids.map((id) => document.getElementById(id)).filter(Boolean);
     if (!els.length) return undefined;
     const obs = new IntersectionObserver(
       (entries) => {
+        if (Date.now() < pinnedUntil.current) return;
         // The topmost section intersecting the upper band of the viewport wins.
         const visible = entries
           .filter((e) => e.isIntersecting)
@@ -28,16 +33,19 @@ export function useScrollSpy(ids) {
     els.forEach((el) => obs.observe(el));
     return () => obs.disconnect();
   }, [ids.join(",")]);
-  return [active, setActive];
+  return [active, setActive, pinnedUntil];
 }
 
 // ── Layout primitives ─────────────────────────────────────────────────────────
-export function Section({ id, icon, title, children }) {
+// `action` renders on the right of the header (an Edit button, a badge…);
+// `className` lets a page tint one section (e.g. the profile danger zone).
+export function Section({ id, icon, title, action, className, children }) {
   return (
-    <section id={id} className="card settings-card settings-section">
+    <section id={id} className={"card settings-card settings-section" + (className ? " " + className : "")}>
       <header className="settings-card-h">
         <Icon name={icon} size={14} />
         <h2>{title}</h2>
+        {action && <div className="settings-card-h-action">{action}</div>}
       </header>
       <div className="settings-card-body">{children}</div>
     </section>
@@ -82,8 +90,11 @@ export function SettingsNav({ sections, active, onJump, label }) {
 /** Wire a section list to the scroll-spy + smooth-scroll jump behaviour. */
 export function useSettingsSections(sections) {
   const ids = sections.map((s) => s.id);
-  const [active, setActive] = useScrollSpy(ids);
+  const [active, setActive, pinnedUntil] = useScrollSpy(ids);
   const jump = (id) => {
+    // Hold the highlight for the length of the smooth scroll. Matters most for
+    // the last section, which can never become the topmost intersecting one.
+    pinnedUntil.current = Date.now() + 900;
     setActive(id);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };

@@ -67,10 +67,12 @@ export const Icon = ({ name, size = 16, ...rest }) => {
     grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />,
     star: <path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.3l-5.8 3.05 1.11-6.46-4.7-4.58 6.49-.94z" />,
     diff: <><path d="M12 5v14M5 12h14M3 3l18 18M3 21 21 3" stroke="none" /><path d="M17 7H7v4h10V7zM7 13h10v4H7z" /></>,
+    copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
+    globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" strokeWidth="1.75"
+         stroke="currentColor" strokeWidth="1.75" data-icon={name}
          strokeLinecap="round" strokeLinejoin="round" {...rest}>
       {paths[name] || <circle cx="12" cy="12" r="8" />}
     </svg>
