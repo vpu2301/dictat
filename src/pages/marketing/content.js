@@ -26,6 +26,8 @@ const CTA = {
   sr: { type: "cta", title: "Spremni da isprobate Klarnote?", sub: "Registrujte se i vratite lekarima njihovo vreme.", primary: { label: "Registrujte se", path: "/signup" }, secondary: { label: "Razgovarajte sa nama", path: "/contact" } },
   hu: { type: "cta", title: "Készen áll a Klarnote kipróbálására?", sub: "Regisztráljon, és adja vissza az orvosok idejét.", primary: { label: "Regisztráció", path: "/signup" }, secondary: { label: "Beszéljen velünk", path: "/contact" } },
   ar: { type: "cta", title: "هل أنت مستعد لتجربة Klarnote؟", sub: "سجّل الآن وأعِد للأطباء وقتهم.", primary: { label: "التسجيل", path: "/signup" }, secondary: { label: "تحدّث إلينا", path: "/contact" } },
+  es: { type: "cta", title: "¿Listo para probar Klarnote?", sub: "Regístrese y devuelva a los médicos su tiempo.", primary: { label: "Registrarse", path: "/signup" }, secondary: { label: "Hable con nosotros", path: "/contact" } },
+  pt: { type: "cta", title: "Pronto para experimentar o Klarnote?", sub: "Registe-se e devolva aos médicos o seu tempo.", primary: { label: "Registar-se", path: "/signup" }, secondary: { label: "Fale connosco", path: "/contact" } },
 };
 
 import { buildCompanyLegal } from "./content-company.js";
