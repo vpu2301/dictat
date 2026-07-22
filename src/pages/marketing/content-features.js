@@ -79,6 +79,22 @@ const FEATURE_DETAIL = {
         { icon: "eye", title: "شفافية النموذج", desc: "الكلمات غير المؤكدة مرئية فورًا — والمراجعة أسرع." },
         { icon: "home", title: "سيادة كاملة", desc: "يُنشر النموذج محليًا؛ والصوت لا يغادر محيطك أبدًا." },
       ] },
+    es: { eyebrow: "Función", title: "Reconocimiento en tiempo real",
+      sub: "El ASR en streaming sobre faster-whisper autoalojado convierte la voz en texto con una latencia mínima y resalta las palabras de las que el modelo no está seguro.",
+      points: ["Una ventana de 4 segundos con 2 de solapamiento mantiene la transcripción continua", "Gestiona la alternancia de código ucraniano/ruso", "La sección activa de la nota orienta el reconocimiento hacia el vocabulario relevante", "Se ejecuta íntegramente en su propio hardware, sin API de terceros"],
+      cards: [
+        { icon: "clock", title: "Latencia mínima", desc: "El texto aparece mientras habla, no después; los últimos tokens preparan cada ventana siguiente." },
+        { icon: "eye", title: "Transparencia del modelo", desc: "Las palabras dudosas se ven al instante: la revisión es más rápida." },
+        { icon: "home", title: "Soberanía", desc: "El modelo se despliega localmente; el audio nunca sale de su perímetro." },
+      ] },
+    pt: { eyebrow: "Funcionalidade", title: "Reconhecimento em tempo real",
+      sub: "O ASR em streaming sobre faster-whisper auto-alojado transforma a fala em texto com latência mínima — e destaca as palavras de que o modelo não tem a certeza.",
+      points: ["Uma janela de 4 segundos com 2 de sobreposição mantém a transcrição contínua", "Lida com a alternância de código ucraniano/russo", "A secção ativa da nota orienta o reconhecimento para o vocabulário relevante", "Corre inteiramente no seu próprio hardware — sem APIs de terceiros"],
+      cards: [
+        { icon: "clock", title: "Latência mínima", desc: "O texto surge enquanto fala, não depois; os últimos tokens preparam cada janela seguinte." },
+        { icon: "eye", title: "Transparência do modelo", desc: "As palavras incertas ficam visíveis de imediato — a revisão é mais rápida." },
+        { icon: "home", title: "Soberania", desc: "O modelo é instalado localmente; o áudio nunca sai do seu perímetro." },
+      ] },
   },
   autocomplete: {
     icon: "sparkle",
@@ -153,6 +169,22 @@ const FEATURE_DETAIL = {
         { icon: "book", title: "المفردات الطبية", desc: "يقترح المصطلحات الدقيقة لتخصصك." },
         { icon: "keyboard", title: "كتابة أقل", desc: "أكمل العبارات بحركة واحدة." },
         { icon: "layers", title: "مدرك للسياق", desc: "تحترم الاقتراحات بنية الملاحظة." },
+      ] },
+    es: { eyebrow: "Función", title: "Autocompletado inteligente",
+      sub: "Sugerencias contextuales de términos, diagnósticos y frases mientras dicta: menos repeticiones, más velocidad.",
+      points: ["Sugerencias de terminología médica", "Frases y diagnósticos frecuentes", "Aprende de sus plantillas"],
+      cards: [
+        { icon: "book", title: "Vocabulario médico", desc: "Sugiere los términos exactos de su especialidad." },
+        { icon: "keyboard", title: "Menos teclado", desc: "Complete frases enteras en un solo gesto." },
+        { icon: "layers", title: "Sensible al contexto", desc: "Las sugerencias respetan la estructura de la nota." },
+      ] },
+    pt: { eyebrow: "Funcionalidade", title: "Preenchimento automático inteligente",
+      sub: "Sugestões contextuais de termos, diagnósticos e frases enquanto dita — menos repetições, mais rapidez.",
+      points: ["Sugestões de terminologia médica", "Frases e diagnósticos frequentes", "Aprende com os seus modelos"],
+      cards: [
+        { icon: "book", title: "Vocabulário médico", desc: "Sugere os termos exatos da sua especialidade." },
+        { icon: "keyboard", title: "Menos teclado", desc: "Complete frases inteiras num só gesto." },
+        { icon: "layers", title: "Sensível ao contexto", desc: "As sugestões respeitam a estrutura da nota." },
       ] },
   },
   templates: {
@@ -229,6 +261,22 @@ const FEATURE_DETAIL = {
         { icon: "edit", title: "استنساخ وتخصيص", desc: "تستنسخ المؤسسات القوالب النظامية وتخصّص قوالبها الخاصة." },
         { icon: "history", title: "إدارة الإصدارات", desc: "التعديلات الشكلية تُحدَّث في مكانها؛ والبنيوية تُنشئ إصدارًا جديدًا." },
       ] },
+    es: { eyebrow: "Función", title: "Plantillas y estructuras",
+      sub: "16 plantillas del sistema más las plantillas versionadas de su propia organización: documentos coherentes en todo el equipo.",
+      points: ["16 plantillas del sistema como catálogo base", "Documentos JSONB con campos tipados (texto libre, diagnóstico, fecha, numérico con unidad)", "Las ediciones estructurales crean una versión nueva: las notas finalizadas registran con qué plantilla exacta se produjeron"],
+      cards: [
+        { icon: "fileText", title: "Campos tipados", desc: "Texto libre, diagnóstico estructurado, fecha, numérico con unidad y más." },
+        { icon: "edit", title: "Clonar y personalizar", desc: "Las organizaciones clonan las plantillas del sistema y las adaptan." },
+        { icon: "history", title: "Versionado", desc: "Los cambios cosméticos se aplican in situ; los estructurales crean una versión nueva." },
+      ] },
+    pt: { eyebrow: "Funcionalidade", title: "Modelos e estruturas",
+      sub: "16 modelos do sistema mais os modelos versionados da sua organização — documentos coerentes em toda a equipa.",
+      points: ["16 modelos do sistema como catálogo base", "Documentos JSONB com campos tipados (texto livre, diagnóstico, data, numérico com unidade)", "As edições estruturais criam uma nova versão — as notas finalizadas registam exatamente que modelo as produziu"],
+      cards: [
+        { icon: "fileText", title: "Campos tipados", desc: "Texto livre, diagnóstico estruturado, data, numérico com unidade e mais." },
+        { icon: "edit", title: "Clonar e personalizar", desc: "As organizações clonam os modelos do sistema e adaptam-nos." },
+        { icon: "history", title: "Versionamento", desc: "As alterações cosméticas aplicam-se no lugar; as estruturais criam uma nova versão." },
+      ] },
   },
   versions: {
     icon: "history",
@@ -303,6 +351,22 @@ const FEATURE_DETAIL = {
         { icon: "diff", title: "مقارنة التغييرات", desc: "شاهد بالضبط ما الذي تغيّر بين الإصدارات." },
         { icon: "history", title: "السجل", desc: "يُحفظ كل تعديل ويُتتبَّع." },
         { icon: "edit", title: "التعديلات", desc: "أجرِ التعديلات بعد التوقيع وفق القواعد." },
+      ] },
+    es: { eyebrow: "Función", title: "Versiones y enmiendas",
+      sub: "Historial completo de cambios, comparación de diferencias y un flujo de enmienda correcto: nada se pierde.",
+      points: ["Historial completo de cada documento", "Comparación de diferencias entre versiones", "Enmiendas correctas después de la firma"],
+      cards: [
+        { icon: "diff", title: "Comparación de cambios", desc: "Vea exactamente qué cambió entre versiones." },
+        { icon: "history", title: "Historial", desc: "Cada edición queda guardada y trazada." },
+        { icon: "edit", title: "Enmiendas", desc: "Edite después de la firma siguiendo las reglas." },
+      ] },
+    pt: { eyebrow: "Funcionalidade", title: "Versões e retificações",
+      sub: "Histórico completo de alterações, comparação de diferenças e um fluxo de retificação correto — nada se perde.",
+      points: ["Histórico completo de cada documento", "Comparação de diferenças entre versões", "Retificações corretas após a assinatura"],
+      cards: [
+        { icon: "diff", title: "Comparação de alterações", desc: "Veja exatamente o que mudou entre versões." },
+        { icon: "history", title: "Histórico", desc: "Cada edição é guardada e rastreada." },
+        { icon: "edit", title: "Retificações", desc: "Edite após a assinatura de acordo com as regras." },
       ] },
   },
   signature: {
@@ -379,6 +443,22 @@ const FEATURE_DETAIL = {
         { icon: "eye", title: "تحقق عام", desc: "يحصل كل مستند موقَّع على رابط غير مُصادَق عليه لتأكيد الأصالة." },
         { icon: "shield", title: "السلامة", desc: "يُضمَّن JSON القياسي في ملف PDF؛ والمستند الموقَّع محمي من التغييرات." },
       ] },
+    es: { eyebrow: "Función", title: "Firma electrónica Дія / ІІТ",
+      sub: "Firma electrónica cualificada (КЕП) mediante Дія (móvil) o ІІТ (tarjeta inteligente) al amparo de la ley ucraniana 2155-VIII: con valor legal y transparente.",
+      points: ["Firma cualificada mediante Дія o ІІТ", "El artefacto firmado es un PDF PAdES con el JSON canónico de la nota incrustado", "Un enlace de verificación público y sin cuenta para cada documento firmado"],
+      cards: [
+        { icon: "sign", title: "Дія e ІІТ", desc: "Firme desde el móvil con Дія o con tarjeta inteligente mediante ІІТ." },
+        { icon: "eye", title: "Verificación pública", desc: "Cada documento firmado recibe un enlace sin autenticación para confirmar su autenticidad." },
+        { icon: "shield", title: "Integridad", desc: "El JSON canónico va incrustado en el PDF; un documento firmado queda protegido frente a cambios." },
+      ] },
+    pt: { eyebrow: "Funcionalidade", title: "Assinatura eletrónica Дія / ІІТ",
+      sub: "Assinatura eletrónica qualificada (КЕП) através da Дія (telemóvel) ou do ІІТ (cartão inteligente), ao abrigo da lei ucraniana 2155-VIII — com valor legal e transparente.",
+      points: ["Assinatura qualificada através da Дія ou do ІІТ", "O artefacto assinado é um PDF PAdES com o JSON canónico da nota incorporado", "Uma ligação de verificação pública e sem conta para cada documento assinado"],
+      cards: [
+        { icon: "sign", title: "Дія e ІІТ", desc: "Assine a partir do telemóvel com a Дія ou com cartão inteligente através do ІІТ." },
+        { icon: "eye", title: "Verificação pública", desc: "Cada documento assinado recebe uma ligação sem autenticação para confirmar a autenticidade." },
+        { icon: "shield", title: "Integridade", desc: "O JSON canónico é incorporado no PDF; um documento assinado fica protegido contra alterações." },
+      ] },
   },
   audit: {
     icon: "shield",
@@ -453,6 +533,22 @@ const FEATURE_DETAIL = {
         { icon: "history", title: "سلسلة التجزئة", desc: "يرتبط كل حدث بالحدث السابق — فيصبح التلاعب مرئيًا فورًا." },
         { icon: "check", title: "مطابقة ليلية", desc: "يُتحقَّق من سلامة السلسلة تلقائيًا كل ليلة." },
         { icon: "users", title: "وصول قائم على الأدوار", desc: "الرفض افتراضيًا ومبدأ الحد الأدنى من الامتيازات في كل مكان." },
+      ] },
+    es: { eyebrow: "Función", title: "Auditoría y cumplimiento",
+      sub: "Un registro de eventos encadenado por hash y a prueba de manipulaciones, reconciliación de integridad nocturna y acceso por roles: transparencia total para el cumplimiento.",
+      points: ["Registro de solo anexado, encadenado por hash, con la inmutabilidad impuesta en la base de datos", "Un reconciliador nocturno recorre la cadena y alerta ante cualquier divergencia", "Las entradas contienen solo identificadores, nunca contenido clínico"],
+      cards: [
+        { icon: "history", title: "Cadena de hashes", desc: "Cada evento se enlaza con el anterior: cualquier manipulación es visible de inmediato." },
+        { icon: "check", title: "Reconciliación nocturna", desc: "La integridad de la cadena se verifica automáticamente cada noche." },
+        { icon: "users", title: "Acceso por roles", desc: "Denegación por defecto y mínimo privilegio en todo el sistema." },
+      ] },
+    pt: { eyebrow: "Funcionalidade", title: "Auditoria e conformidade",
+      sub: "Um registo de eventos encadeado por hash e à prova de adulteração, reconciliação de integridade noturna e acesso por funções — transparência total para a conformidade.",
+      points: ["Registo apenas de anexação, encadeado por hash, com imutabilidade imposta ao nível da base de dados", "Um reconciliador noturno percorre a cadeia e alerta em caso de divergência", "As entradas contêm apenas identificadores, nunca conteúdo clínico"],
+      cards: [
+        { icon: "history", title: "Cadeia de hashes", desc: "Cada evento é ligado ao anterior — qualquer adulteração é imediatamente visível." },
+        { icon: "check", title: "Reconciliação noturna", desc: "A integridade da cadeia é verificada automaticamente todas as noites." },
+        { icon: "users", title: "Acesso por funções", desc: "Negação por predefinição e privilégio mínimo em todo o sistema." },
       ] },
   },
   normalization: {
@@ -529,6 +625,22 @@ const FEATURE_DETAIL = {
         { icon: "check", title: "القيم الحرجة", desc: "تُعالَج الجرعات والوحدات وضغط الدم بقواعد صريحة قابلة للتدقيق." },
         { icon: "shield", title: "آمن افتراضيًا", desc: "كل ما لا يُتعرَّف عليه كمقدار يبقى دون مساس." },
       ] },
+    es: { eyebrow: "Función", title: "Normalización del texto clínico",
+      sub: "El lenguaje clínico hablado se lleva a una forma canónica de manera determinista: presión arterial, frecuencia cardíaca, dosis, unidades, rangos, horas y frecuencias.",
+      points: ["\"ciento veinte sobre ochenta\" → \"120/80\"", "Basado en reglas, no en una caja negra: los valores críticos siguen siendo verificables", "Los números sin contexto pasan intactos"],
+      cards: [
+        { icon: "sliders", title: "Reglas deterministas", desc: "La transformación es transparente y reproducible: nada de conjeturas del modelo con dosis y tensiones." },
+        { icon: "check", title: "Valores críticos", desc: "Dosis, unidades y tensión arterial se tratan con reglas explícitas y auditables." },
+        { icon: "shield", title: "Seguro por defecto", desc: "Todo lo que no se reconoce como una magnitud se deja intacto." },
+      ] },
+    pt: { eyebrow: "Funcionalidade", title: "Normalização do texto clínico",
+      sub: "A linguagem clínica falada é convertida para uma forma canónica de modo determinista: pressão arterial, frequência cardíaca, doses, unidades, intervalos, horas e frequências.",
+      points: ["\"cento e vinte sobre oitenta\" → \"120/80\"", "Baseado em regras, não numa caixa negra — os valores críticos continuam verificáveis", "Os números sem contexto passam intactos"],
+      cards: [
+        { icon: "sliders", title: "Regras deterministas", desc: "A transformação é transparente e reproduzível — sem adivinhações do modelo em doses e tensões." },
+        { icon: "check", title: "Valores críticos", desc: "Doses, unidades e pressão arterial são tratadas por regras explícitas e auditáveis." },
+        { icon: "shield", title: "Seguro por predefinição", desc: "Tudo o que não é reconhecido como grandeza fica intacto." },
+      ] },
   },
   commands: {
     icon: "keyboard",
@@ -604,6 +716,22 @@ const FEATURE_DETAIL = {
         { icon: "shield", title: "الحذر أولًا", desc: "يميل النظام إلى عدم التفعيل بدلًا من تنفيذ أمر خاطئ." },
         { icon: "refresh", title: "حماية من التعابير الاصطلاحية", desc: "«النقطة على الحرف» لا تُدرج نقطة؛ والتراجع الفوري يغطي أي تفعيل خاطئ." },
       ] },
+    es: { eyebrow: "Función", title: "Comandos de voz",
+      sub: "Controle el documento sin tocar el teclado: nuevo párrafo, puntuación, saltar a una sección, guardar el borrador, deshacer, parar.",
+      points: ["Un catálogo de 30 intenciones: 15 en ucraniano y 15 en inglés", "Cada comando supera tres filtros: una pausa, la confianza del reconocimiento y una tolerancia de distancia de edición", "Una ventana de deshacer de 600 ms cubre los disparos en falso"],
+      cards: [
+        { icon: "keyboard", title: "Comandos naturales", desc: "\"sección diagnóstico\", nuevo párrafo, punto — sin salir del dictado." },
+        { icon: "shield", title: "Prudencia ante todo", desc: "El sistema prefiere no disparar antes que ejecutar un comando falso." },
+        { icon: "refresh", title: "Protección ante modismos", desc: "\"poner los puntos sobre las íes\" no inserta un punto; deshacer al instante cubre cualquier disparo en falso." },
+      ] },
+    pt: { eyebrow: "Funcionalidade", title: "Comandos de voz",
+      sub: "Controle o documento sem tocar no teclado: novo parágrafo, pontuação, saltar para uma secção, guardar o rascunho, anular, parar.",
+      points: ["Um catálogo de 30 intenções — 15 em ucraniano e 15 em inglês", "Cada comando passa por três filtros: uma pausa, a confiança do reconhecimento e uma tolerância de distância de edição", "Uma janela de anulação de 600 ms cobre os disparos falsos"],
+      cards: [
+        { icon: "keyboard", title: "Comandos naturais", desc: "\"secção diagnóstico\", novo parágrafo, ponto final — sem sair do ditado." },
+        { icon: "shield", title: "Prudência primeiro", desc: "O sistema prefere não disparar a executar um comando falso." },
+        { icon: "refresh", title: "Proteção contra expressões", desc: "\"pôr os pontos nos is\" não insere um ponto; a anulação imediata cobre qualquer disparo falso." },
+      ] },
   },
 };
 
@@ -612,14 +740,14 @@ export function buildFeatureDetail(slug, lang, cta) {
   if (!d) return null;
   const t = d[lang] ?? d.en;
   const L = (m) => m[lang] ?? m.en;
-  const SIGN_UP = { uk: "Зареєструватися", en: "Sign up", pl: "Zarejestruj się", de: "Registrieren", ro: "Înregistrare", cs: "Zaregistrovat se", sr: "Registrujte se", hu: "Regisztráció", ar: "إنشاء حساب" };
-  const ALL_FEATURES = { uk: "Усі можливості", en: "All features", pl: "Wszystkie funkcje", de: "Alle Funktionen", ro: "Toate funcționalitățile", cs: "Všechny funkce", sr: "Sve funkcije", hu: "Minden funkció", ar: "جميع الميزات" };
+  const SIGN_UP = { uk: "Зареєструватися", en: "Sign up", pl: "Zarejestruj się", de: "Registrieren", ro: "Înregistrare", cs: "Zaregistrovat se", sr: "Registrujte se", hu: "Regisztráció", ar: "إنشاء حساب", es: "Registrarse", pt: "Registar-se" };
+  const ALL_FEATURES = { uk: "Усі можливості", en: "All features", pl: "Wszystkie funkcje", de: "Alle Funktionen", ro: "Toate funcționalitățile", cs: "Všechny funkce", sr: "Sve funkcije", hu: "Minden funkció", ar: "جميع الميزات", es: "Todas las funciones", pt: "Todas as funcionalidades" };
   /* The templates feature page doubles as the entry point to the public
      catalogue, so it gets one extra card that links there. */
   const MARKETPLACE_CARD = {
     icon: "grid",
-    title: L({ uk: "Каталог шаблонів", en: "Template library", pl: "Biblioteka szablonów", de: "Vorlagenbibliothek", ro: "Biblioteca de șabloane", cs: "Knihovna šablon", sr: "Biblioteka šablona", hu: "Sablonkönyvtár", ar: "مكتبة القوالب" }),
-    desc: L({ uk: "Перегляньте готові структури документів за спеціальностями.", en: "Browse ready-made note structures by specialty.", pl: "Przeglądaj gotowe struktury notatek według specjalności.", de: "Fertige Notizstrukturen nach Fachrichtung durchsuchen.", ro: "Răsfoiți structuri de note gata făcute pe specialități.", cs: "Procházejte hotové struktury záznamů podle odbornosti.", sr: "Pregledajte gotove strukture zapisa po specijalnostima.", hu: "Böngésszen kész jegyzetstruktúrákat szakterület szerint.", ar: "تصفّح بنى الملاحظات الجاهزة حسب التخصص." }),
+    title: L({ uk: "Каталог шаблонів", en: "Template library", pl: "Biblioteka szablonów", de: "Vorlagenbibliothek", ro: "Biblioteca de șabloane", cs: "Knihovna šablon", sr: "Biblioteka šablona", hu: "Sablonkönyvtár", ar: "مكتبة القوالب", es: "Biblioteca de plantillas", pt: "Biblioteca de modelos" }),
+    desc: L({ uk: "Перегляньте готові структури документів за спеціальностями.", en: "Browse ready-made note structures by specialty.", pl: "Przeglądaj gotowe struktury notatek według specjalności.", de: "Fertige Notizstrukturen nach Fachrichtung durchsuchen.", ro: "Răsfoiți structuri de note gata făcute pe specialități.", cs: "Procházejte hotové struktury záznamů podle odbornosti.", sr: "Pregledajte gotove strukture zapisa po specijalnostima.", hu: "Böngésszen kész jegyzetstruktúrákat szakterület szerint.", ar: "تصفّح بنى الملاحظات الجاهزة حسب التخصص.", es: "Explore estructuras de nota listas para usar por especialidad.", pt: "Explore estruturas de nota prontas a usar por especialidade." }),
     path: "/templates",
   };
   const cards = slug === "templates" ? [...t.cards, MARKETPLACE_CARD] : t.cards;

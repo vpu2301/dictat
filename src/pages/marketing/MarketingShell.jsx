@@ -268,6 +268,50 @@ const NAV_TEXT = {
     },
     flat: { pricing: "الأسعار", security: "الأمان" },
   },
+  es: {
+    groups: {
+      product:   { label: "Producto", tagline: "De la palabra dicha al informe firmado." },
+      solutions: { label: "Soluciones", tagline: "Un escriba para cada situación: en consulta o por vídeo." },
+    },
+    cols: { platform: "Plataforma", settings: "Dónde funciona" },
+    items: {
+      scribe:       ["Scribe", "Escriba ambiental para las consultas"],
+      dictate:      ["Dictate", "Dictado de informes con plantillas"],
+      templates:    ["Plantillas", "Plantillas de informe por especialidad"],
+      features:     ["Todas las funciones", "El ciclo completo de documentación"],
+      inperson:     ["Consultas presenciales", "La conversación con el paciente en la consulta"],
+      telehealth:   ["Telemedicina y vídeo", "Consultas a distancia en línea"],
+      wardround:    ["Pase de visita y cabecera", "Notas de evolución diarias"],
+      procedures:   ["Procedimientos y quirófano", "Registros de procedimientos y cirugías"],
+    },
+    cta: {
+      product:   ["Pruébelo con sus propios informes", "Empiece gratis. Sin tarjeta ni instalación.", "Empezar gratis", "Reservar una demo"],
+      solutions: ["¿No sabe qué encaja con usted?", "Se lo mostramos sobre su propio flujo de trabajo.", "Reservar una demo", "Ver las plantillas"],
+    },
+    flat: { pricing: "Precios", security: "Seguridad" },
+  },
+  pt: {
+    groups: {
+      product:   { label: "Produto", tagline: "Da palavra dita ao relatório assinado." },
+      solutions: { label: "Soluções", tagline: "Um escriba para cada situação — na consulta ou por vídeo." },
+    },
+    cols: { platform: "Plataforma", settings: "Onde funciona" },
+    items: {
+      scribe:       ["Scribe", "Escriba ambiental para as consultas"],
+      dictate:      ["Dictate", "Ditado de relatórios com modelos"],
+      templates:    ["Modelos", "Modelos de relatório por especialidade"],
+      features:     ["Todas as funcionalidades", "O ciclo completo de documentação"],
+      inperson:     ["Consultas presenciais", "A conversa com o doente no consultório"],
+      telehealth:   ["Telemedicina e vídeo", "Consultas à distância online"],
+      wardround:    ["Visita e cabeceira", "Notas de evolução diárias"],
+      procedures:   ["Procedimentos e bloco operatório", "Registos de procedimentos e cirurgias"],
+    },
+    cta: {
+      product:   ["Experimente com os seus próprios relatórios", "Comece gratuitamente. Sem cartão nem instalação.", "Começar gratuitamente", "Marcar uma demonstração"],
+      solutions: ["Não sabe o que se adequa a si?", "Mostramos-lhe no seu próprio fluxo de trabalho.", "Marcar uma demonstração", "Ver os modelos"],
+    },
+    flat: { pricing: "Preços", security: "Segurança" },
+  },
 };
 
 /* Resolve NAV_STRUCT against one language, falling back to English per key so
@@ -362,6 +406,18 @@ const RESOURCE_LINKS = {
     { label: "وثائق API", path: "/developers/api" },
     { label: "للمطوّرين", path: "/developers" },
     { label: "المدونة", path: "/blog" },
+  ],
+  es: [
+    { label: "Documentación", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
+    { label: "Para desarrolladores", path: "/developers" },
+    { label: "Blog", path: "/blog" },
+  ],
+  pt: [
+    { label: "Documentação", path: "/docs" },
+    { label: "API Docs", path: "/developers/api" },
+    { label: "Para programadores", path: "/developers" },
+    { label: "Blogue", path: "/blog" },
   ],
 };
 
@@ -628,6 +684,64 @@ export const FOOTER = {
     signin: "تسجيل الدخول",
     start: "إنشاء حساب",
     nav: { product: "المنتج", features: "الميزات", workflow: "كيف يعمل", security: "الأمان" },
+  },
+  es: {
+    tag: "Dictado médico por voz. Los datos nunca salen de su entorno.",
+    cols: [
+      { h: "Producto", links: [
+        { label: "Scribe", path: "/product/scribe" },
+        { label: "Dictate", path: "/product/dictate" },
+        { label: "Funciones", path: "/features" },
+        { label: "Plantillas", path: "/templates" },
+        { label: "Precios", path: "/pricing" },
+        { label: "Seguridad", path: "/security" },
+      ] },
+      { h: "Recursos", links: RESOURCE_LINKS.es },
+      { h: "Empresa", links: [
+        { label: "Quiénes somos", path: "/about" },
+        { label: "Contacto", path: "/contact" },
+        { label: "Empleo", path: "/careers" },
+      ] },
+      { h: "Legal", links: [
+        { label: "Privacidad", path: "/legal/privacy" },
+        { label: "Términos", path: "/legal/terms" },
+        { label: "Tratamiento de datos", path: "/legal/data" },
+        { label: "Consentimiento", path: "/legal/consent" },
+      ] },
+    ],
+    rights: "Todos los derechos reservados.",
+    signin: "Iniciar sesión",
+    start: "Registrarse",
+    nav: { product: "Producto", features: "Funciones", workflow: "Cómo funciona", security: "Seguridad" },
+  },
+  pt: {
+    tag: "Ditado médico por voz. Os dados nunca saem do seu ambiente.",
+    cols: [
+      { h: "Produto", links: [
+        { label: "Scribe", path: "/product/scribe" },
+        { label: "Dictate", path: "/product/dictate" },
+        { label: "Funcionalidades", path: "/features" },
+        { label: "Modelos", path: "/templates" },
+        { label: "Preços", path: "/pricing" },
+        { label: "Segurança", path: "/security" },
+      ] },
+      { h: "Recursos", links: RESOURCE_LINKS.pt },
+      { h: "Empresa", links: [
+        { label: "Sobre nós", path: "/about" },
+        { label: "Contacto", path: "/contact" },
+        { label: "Carreiras", path: "/careers" },
+      ] },
+      { h: "Informação legal", links: [
+        { label: "Privacidade", path: "/legal/privacy" },
+        { label: "Termos", path: "/legal/terms" },
+        { label: "Tratamento de dados", path: "/legal/data" },
+        { label: "Consentimento", path: "/legal/consent" },
+      ] },
+    ],
+    rights: "Todos os direitos reservados.",
+    signin: "Iniciar sessão",
+    start: "Registar-se",
+    nav: { product: "Produto", features: "Funcionalidades", workflow: "Como funciona", security: "Segurança" },
   },
 };
 
