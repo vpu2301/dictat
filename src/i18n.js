@@ -73,6 +73,21 @@ export const STRINGS = {
     "mic.error_unsupported.help": "Потрібен Chrome, Edge або Safari",
     "mic.lang": "Мова диктування",
 
+    // Mic device picker
+    "mic.device": "Мікрофон",
+    "mic.device.system": "Системний за замовчуванням",
+    "mic.device.refresh": "Оновити список пристроїв",
+    "mic.device.unnamed": "Мікрофон {n}",
+    "mic.device.unlock": "Дозвольте доступ до мікрофона, щоб побачити назви пристроїв.",
+    "mic.device.unlock.cta": "Дозволити",
+    "mic.device.none": "Мікрофонів не знайдено.",
+    "mic.device.unavailable": "«{device}» зараз недоступний — запис із системного мікрофона.",
+    "mic.device.notDefault": "Розпізнавання завжди слухає системний вхід ({device}). Щоб диктувати через «{selected}», зробіть його вхідним пристроєм у {path}.",
+    "mic.device.notDefault.plain": "Розпізнавання завжди слухає системний вхід. Щоб диктувати через «{selected}», зробіть його вхідним пристроєм у {path}.",
+    "mic.device.iphoneHint": "iPhone як мікрофон: розблокуйте його поруч із Mac — він з’явиться тут як «Мікрофон iPhone».",
+    "mic.device.path.mac": "Системних параметрах → Звук → Вхід",
+    "mic.device.path.other": "налаштуваннях звуку системи",
+
     // Editor
     "editor.placeholder": "Натисніть мікрофон або почніть друкувати…",
     "editor.section.empty": "Натисніть, щоб додати текст або диктуйте «{anchor}»",
@@ -241,6 +256,21 @@ export const STRINGS = {
     "mic.error_unsupported.help": "Use Chrome, Edge, or Safari",
     "mic.lang": "Dictation language",
 
+    // Mic device picker
+    "mic.device": "Microphone",
+    "mic.device.system": "System default",
+    "mic.device.refresh": "Refresh device list",
+    "mic.device.unnamed": "Microphone {n}",
+    "mic.device.unlock": "Allow microphone access to see device names.",
+    "mic.device.unlock.cta": "Allow",
+    "mic.device.none": "No microphones found.",
+    "mic.device.unavailable": "“{device}” is unavailable right now — recording from the system microphone.",
+    "mic.device.notDefault": "Recognition always listens to the system input ({device}). To dictate through “{selected}”, make it the input device in {path}.",
+    "mic.device.notDefault.plain": "Recognition always listens to the system input. To dictate through “{selected}”, make it the input device in {path}.",
+    "mic.device.iphoneHint": "iPhone as a microphone: unlock it near your Mac and it appears here as “iPhone Microphone”.",
+    "mic.device.path.mac": "System Settings → Sound → Input",
+    "mic.device.path.other": "your system sound settings",
+
     "editor.placeholder": "Press the microphone or start typing…",
     "editor.section.empty": "Click to type or say \"{anchor}\"",
 
@@ -399,6 +429,21 @@ export const STRINGS = {
     "mic.error_unsupported.help": "Użyj Chrome, Edge lub Safari",
     "mic.lang": "Język dyktowania",
 
+    // Mic device picker
+    "mic.device": "Mikrofon",
+    "mic.device.system": "Domyślny systemowy",
+    "mic.device.refresh": "Odśwież listę urządzeń",
+    "mic.device.unnamed": "Mikrofon {n}",
+    "mic.device.unlock": "Zezwól na dostęp do mikrofonu, aby zobaczyć nazwy urządzeń.",
+    "mic.device.unlock.cta": "Zezwól",
+    "mic.device.none": "Nie znaleziono mikrofonów.",
+    "mic.device.unavailable": "„{device}” jest teraz niedostępny — nagrywanie z mikrofonu systemowego.",
+    "mic.device.notDefault": "Rozpoznawanie zawsze słucha wejścia systemowego ({device}). Aby dyktować przez „{selected}”, ustaw je jako urządzenie wejściowe w {path}.",
+    "mic.device.notDefault.plain": "Rozpoznawanie zawsze słucha wejścia systemowego. Aby dyktować przez „{selected}”, ustaw je jako urządzenie wejściowe w {path}.",
+    "mic.device.iphoneHint": "iPhone jako mikrofon: odblokuj go obok Maca, a pojawi się tutaj jako „Mikrofon iPhone”.",
+    "mic.device.path.mac": "Ustawieniach systemowych → Dźwięk → Wejście",
+    "mic.device.path.other": "ustawieniach dźwięku systemu",
+
     "editor.placeholder": "Naciśnij mikrofon lub zacznij pisać…",
     "editor.section.empty": "Kliknij, aby pisać, lub powiedz „{anchor}”",
 
@@ -546,6 +591,21 @@ export const STRINGS = {
     "mic.error_unsupported": "Browser nicht unterstützt",
     "mic.error_unsupported.help": "Chrome, Edge oder Safari verwenden",
     "mic.lang": "Diktatsprache",
+
+    // Mic device picker
+    "mic.device": "Mikrofon",
+    "mic.device.system": "Systemstandard",
+    "mic.device.refresh": "Geräteliste aktualisieren",
+    "mic.device.unnamed": "Mikrofon {n}",
+    "mic.device.unlock": "Mikrofonzugriff erlauben, um Gerätenamen zu sehen.",
+    "mic.device.unlock.cta": "Erlauben",
+    "mic.device.none": "Keine Mikrofone gefunden.",
+    "mic.device.unavailable": "„{device}“ ist derzeit nicht verfügbar – Aufnahme über das Systemmikrofon.",
+    "mic.device.notDefault": "Die Erkennung hört immer den Systemeingang ({device}). Um über „{selected}“ zu diktieren, legen Sie es in {path} als Eingabegerät fest.",
+    "mic.device.notDefault.plain": "Die Erkennung hört immer den Systemeingang. Um über „{selected}“ zu diktieren, legen Sie es in {path} als Eingabegerät fest.",
+    "mic.device.iphoneHint": "iPhone als Mikrofon: Entsperren Sie es in der Nähe Ihres Macs – es erscheint hier als „iPhone-Mikrofon“.",
+    "mic.device.path.mac": "Systemeinstellungen → Ton → Eingabe",
+    "mic.device.path.other": "den Toneinstellungen des Systems",
 
     "editor.placeholder": "Mikrofon drücken oder mit der Eingabe beginnen…",
     "editor.section.empty": "Zum Tippen klicken oder „{anchor}“ sagen",
@@ -695,6 +755,21 @@ export const STRINGS = {
     "mic.error_unsupported.help": "Folosiți Chrome, Edge sau Safari",
     "mic.lang": "Limba dictării",
 
+    // Mic device picker
+    "mic.device": "Microfon",
+    "mic.device.system": "Implicit de sistem",
+    "mic.device.refresh": "Reîmprospătează lista de dispozitive",
+    "mic.device.unnamed": "Microfon {n}",
+    "mic.device.unlock": "Permiteți accesul la microfon pentru a vedea numele dispozitivelor.",
+    "mic.device.unlock.cta": "Permite",
+    "mic.device.none": "Niciun microfon găsit.",
+    "mic.device.unavailable": "„{device}” nu este disponibil acum — se înregistrează de la microfonul de sistem.",
+    "mic.device.notDefault": "Recunoașterea ascultă întotdeauna intrarea de sistem ({device}). Pentru a dicta prin „{selected}”, setați-l ca dispozitiv de intrare în {path}.",
+    "mic.device.notDefault.plain": "Recunoașterea ascultă întotdeauna intrarea de sistem. Pentru a dicta prin „{selected}”, setați-l ca dispozitiv de intrare în {path}.",
+    "mic.device.iphoneHint": "iPhone ca microfon: deblocați-l lângă Mac și va apărea aici ca „Microfon iPhone”.",
+    "mic.device.path.mac": "Setări de sistem → Sunet → Intrare",
+    "mic.device.path.other": "setările de sunet ale sistemului",
+
     "editor.placeholder": "Apăsați microfonul sau începeți să tastați…",
     "editor.section.empty": "Faceți clic pentru a tasta sau spuneți „{anchor}”",
 
@@ -842,6 +917,21 @@ export const STRINGS = {
     "mic.error_unsupported": "Nepodporovaný prohlížeč",
     "mic.error_unsupported.help": "Použijte Chrome, Edge nebo Safari",
     "mic.lang": "Jazyk diktování",
+
+    // Mic device picker
+    "mic.device": "Mikrofon",
+    "mic.device.system": "Výchozí systémový",
+    "mic.device.refresh": "Obnovit seznam zařízení",
+    "mic.device.unnamed": "Mikrofon {n}",
+    "mic.device.unlock": "Povolte přístup k mikrofonu, abyste viděli názvy zařízení.",
+    "mic.device.unlock.cta": "Povolit",
+    "mic.device.none": "Nebyly nalezeny žádné mikrofony.",
+    "mic.device.unavailable": "„{device}“ není momentálně dostupný — nahrává se ze systémového mikrofonu.",
+    "mic.device.notDefault": "Rozpoznávání vždy poslouchá systémový vstup ({device}). Chcete-li diktovat přes „{selected}“, nastavte jej jako vstupní zařízení v {path}.",
+    "mic.device.notDefault.plain": "Rozpoznávání vždy poslouchá systémový vstup. Chcete-li diktovat přes „{selected}“, nastavte jej jako vstupní zařízení v {path}.",
+    "mic.device.iphoneHint": "iPhone jako mikrofon: odemkněte jej poblíž Macu a objeví se zde jako „Mikrofon iPhone“.",
+    "mic.device.path.mac": "Nastavení systému → Zvuk → Vstup",
+    "mic.device.path.other": "nastavení zvuku systému",
 
     "editor.placeholder": "Stiskněte mikrofon nebo začněte psát…",
     "editor.section.empty": "Klikněte pro psaní nebo řekněte \"{anchor}\"",
@@ -991,6 +1081,21 @@ export const STRINGS = {
     "mic.error_unsupported.help": "Koristite Chrome, Edge ili Safari",
     "mic.lang": "Jezik diktiranja",
 
+    // Mic device picker
+    "mic.device": "Mikrofon",
+    "mic.device.system": "Podrazumevani sistemski",
+    "mic.device.refresh": "Osveži listu uređaja",
+    "mic.device.unnamed": "Mikrofon {n}",
+    "mic.device.unlock": "Dozvolite pristup mikrofonu da biste videli nazive uređaja.",
+    "mic.device.unlock.cta": "Dozvoli",
+    "mic.device.none": "Nije pronađen nijedan mikrofon.",
+    "mic.device.unavailable": "„{device}“ trenutno nije dostupan — snima se sa sistemskog mikrofona.",
+    "mic.device.notDefault": "Prepoznavanje uvek sluša sistemski ulaz ({device}). Da biste diktirali preko „{selected}“, postavite ga kao ulazni uređaj u {path}.",
+    "mic.device.notDefault.plain": "Prepoznavanje uvek sluša sistemski ulaz. Da biste diktirali preko „{selected}“, postavite ga kao ulazni uređaj u {path}.",
+    "mic.device.iphoneHint": "iPhone kao mikrofon: otključajte ga pored Mac-a i pojaviće se ovde kao „iPhone mikrofon“.",
+    "mic.device.path.mac": "Sistemska podešavanja → Zvuk → Ulaz",
+    "mic.device.path.other": "sistemskim podešavanjima zvuka",
+
     "editor.placeholder": "Pritisnite mikrofon ili počnite da kucate…",
     "editor.section.empty": "Kliknite da kucate ili recite \"{anchor}\"",
 
@@ -1139,6 +1244,21 @@ export const STRINGS = {
     "mic.error_unsupported.help": "Használjon Chrome-ot, Edge-et vagy Safarit",
     "mic.lang": "Diktálás nyelve",
 
+    // Mic device picker
+    "mic.device": "Mikrofon",
+    "mic.device.system": "Rendszer alapértelmezett",
+    "mic.device.refresh": "Eszközlista frissítése",
+    "mic.device.unnamed": "{n}. mikrofon",
+    "mic.device.unlock": "Engedélyezze a mikrofonhozzáférést az eszköznevek megjelenítéséhez.",
+    "mic.device.unlock.cta": "Engedélyezés",
+    "mic.device.none": "Nem található mikrofon.",
+    "mic.device.unavailable": "A(z) „{device}” jelenleg nem érhető el — a rendszermikrofonról rögzítünk.",
+    "mic.device.notDefault": "A felismerés mindig a rendszerbemenetet hallgatja ({device}). Ha a(z) „{selected}” eszközzel szeretne diktálni, állítsa be bemeneti eszköznek itt: {path}.",
+    "mic.device.notDefault.plain": "A felismerés mindig a rendszerbemenetet hallgatja. Ha a(z) „{selected}” eszközzel szeretne diktálni, állítsa be bemeneti eszköznek itt: {path}.",
+    "mic.device.iphoneHint": "iPhone mikrofonként: oldja fel a Mac közelében, és itt „iPhone mikrofon” néven jelenik meg.",
+    "mic.device.path.mac": "Rendszerbeállítások → Hang → Bemenet",
+    "mic.device.path.other": "a rendszer hangbeállításai",
+
     "editor.placeholder": "Nyomja meg a mikrofont, vagy kezdjen el gépelni…",
     "editor.section.empty": "Kattintson a gépeléshez, vagy mondja: \"{anchor}\"",
 
@@ -1286,6 +1406,21 @@ export const STRINGS = {
     "mic.error_unsupported": "المتصفح غير مدعوم",
     "mic.error_unsupported.help": "استخدم Chrome أو Edge أو Safari",
     "mic.lang": "لغة الإملاء",
+
+    // Mic device picker
+    "mic.device": "الميكروفون",
+    "mic.device.system": "الإعداد الافتراضي للنظام",
+    "mic.device.refresh": "تحديث قائمة الأجهزة",
+    "mic.device.unnamed": "ميكروفون {n}",
+    "mic.device.unlock": "اسمح بالوصول إلى الميكروفون لعرض أسماء الأجهزة.",
+    "mic.device.unlock.cta": "السماح",
+    "mic.device.none": "لم يتم العثور على أي ميكروفون.",
+    "mic.device.unavailable": "«{device}» غير متاح حاليًا — يتم التسجيل من ميكروفون النظام.",
+    "mic.device.notDefault": "يستمع التعرف دائمًا إلى مدخل النظام ({device}). للإملاء عبر «{selected}»، اجعله جهاز الإدخال في {path}.",
+    "mic.device.notDefault.plain": "يستمع التعرف دائمًا إلى مدخل النظام. للإملاء عبر «{selected}»، اجعله جهاز الإدخال في {path}.",
+    "mic.device.iphoneHint": "استخدام iPhone كميكروفون: افتح قفله بالقرب من جهاز Mac ليظهر هنا باسم «ميكروفون iPhone».",
+    "mic.device.path.mac": "إعدادات النظام → الصوت → الإدخال",
+    "mic.device.path.other": "إعدادات الصوت في النظام",
 
     "editor.placeholder": "اضغط على الميكروفون أو ابدأ الكتابة…",
     "editor.section.empty": "انقر للكتابة أو قل «{anchor}»",
@@ -1445,6 +1580,21 @@ export const STRINGS = {
     "mic.error_unsupported.help": "Use Chrome, Edge o Safari",
     "mic.lang": "Idioma de dictado",
 
+    // Mic device picker
+    "mic.device": "Micrófono",
+    "mic.device.system": "Predeterminado del sistema",
+    "mic.device.refresh": "Actualizar lista de dispositivos",
+    "mic.device.unnamed": "Micrófono {n}",
+    "mic.device.unlock": "Permite el acceso al micrófono para ver los nombres de los dispositivos.",
+    "mic.device.unlock.cta": "Permitir",
+    "mic.device.none": "No se encontraron micrófonos.",
+    "mic.device.unavailable": "«{device}» no está disponible ahora — se graba desde el micrófono del sistema.",
+    "mic.device.notDefault": "El reconocimiento siempre escucha la entrada del sistema ({device}). Para dictar con «{selected}», selecciónalo como dispositivo de entrada en {path}.",
+    "mic.device.notDefault.plain": "El reconocimiento siempre escucha la entrada del sistema. Para dictar con «{selected}», selecciónalo como dispositivo de entrada en {path}.",
+    "mic.device.iphoneHint": "iPhone como micrófono: desbloquéalo cerca de tu Mac y aparecerá aquí como «Micrófono del iPhone».",
+    "mic.device.path.mac": "Ajustes del Sistema → Sonido → Entrada",
+    "mic.device.path.other": "los ajustes de sonido del sistema",
+
     "editor.placeholder": "Pulse el micrófono o empiece a escribir…",
     "editor.section.empty": "Haga clic para escribir o diga «{anchor}»",
 
@@ -1602,6 +1752,21 @@ export const STRINGS = {
     "mic.error_unsupported": "Navegador não suportado",
     "mic.error_unsupported.help": "Use o Chrome, o Edge ou o Safari",
     "mic.lang": "Idioma do ditado",
+
+    // Mic device picker
+    "mic.device": "Microfone",
+    "mic.device.system": "Padrão do sistema",
+    "mic.device.refresh": "Atualizar lista de dispositivos",
+    "mic.device.unnamed": "Microfone {n}",
+    "mic.device.unlock": "Permita o acesso ao microfone para ver os nomes dos dispositivos.",
+    "mic.device.unlock.cta": "Permitir",
+    "mic.device.none": "Nenhum microfone encontrado.",
+    "mic.device.unavailable": "«{device}» está indisponível no momento — a gravar pelo microfone do sistema.",
+    "mic.device.notDefault": "O reconhecimento ouve sempre a entrada do sistema ({device}). Para ditar através de «{selected}», defina-o como dispositivo de entrada em {path}.",
+    "mic.device.notDefault.plain": "O reconhecimento ouve sempre a entrada do sistema. Para ditar através de «{selected}», defina-o como dispositivo de entrada em {path}.",
+    "mic.device.iphoneHint": "iPhone como microfone: desbloqueie-o perto do seu Mac e ele aparece aqui como «Microfone do iPhone».",
+    "mic.device.path.mac": "Definições do Sistema → Som → Entrada",
+    "mic.device.path.other": "as definições de som do sistema",
 
     "editor.placeholder": "Prima o microfone ou comece a escrever…",
     "editor.section.empty": "Clique para escrever ou diga «{anchor}»",

@@ -11,6 +11,8 @@
 // uncompressed PCM as a degraded path (sufficient for protocol tests in
 // the FE; backend will not accept it in prod).
 
+import { openMicStream } from "./micDevices.js";
+
 const TARGET_RATE = 16000;
 const FRAME_MS = 20;
 export const FRAME_SAMPLES = (TARGET_RATE * FRAME_MS) / 1000; // 320
@@ -103,14 +105,10 @@ export function startCapture({ stream, onFrame, onLevel } = {}) {
 }
 
 // Best-effort getUserMedia with the constraints backend cares about
-// (echo cancellation + noise suppression on; mono).
-export async function requestMic() {
-  return navigator.mediaDevices.getUserMedia({
-    audio: {
-      channelCount: 1,
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  });
+// (echo cancellation + noise suppression on; mono), pinned to the mic the
+// user picked in Studio. Omit `deviceId` to follow that stored choice; pass
+// "" to force the OS default. Falls back to the default if the chosen device
+// has gone away — see micDevices.openMicStream.
+export async function requestMic(deviceId) {
+  return openMicStream(deviceId);
 }
