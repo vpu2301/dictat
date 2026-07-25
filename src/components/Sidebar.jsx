@@ -6,6 +6,7 @@ import { HealthBadge } from "./HealthBadge.jsx";
 import { ClinicMenuSection, CreateClinicModal } from "./TenantSwitcher.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
 import { hasClinicalAccess } from "../auth/permissions.js";
+import { isPlatformOwner } from "../company/ownerAccess.js";
 import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
 import { useAsync } from "../api/useAsync.js";
@@ -137,6 +138,7 @@ export function Sidebar({
   const dbUser = state?.dbUser;
   const isAdmin = hasAnyRole(claims, ["tenant_admin"]);
   const isAuditor = hasAnyRole(claims, ["auditor", "tenant_admin"]);
+  const isOwner = isPlatformOwner(state);
   // S14 — an administrator holds no clinical permission, so the notes,
   // dictation and report surfaces would 403 on every call. Hiding them is
   // not the security boundary (the server is); it is the difference
@@ -232,6 +234,18 @@ export function Sidebar({
   // above these. Each section is role-gated.
   const navSections = useMemo(() => {
     const secs = [];
+    // Klarnote's own console — the vendor view, above the customer's own admin
+    // section because it is a different job entirely. Gated on the platform-owner
+    // allowlist (there is no server-side platform role to check yet).
+    if (isOwner) {
+      secs.push({
+        title: tr(lang, "Klarnote", "Klarnote"),
+        icon: "building",
+        items: [
+          { icon: "building", label: tr(lang, "Компанія", "Company"), path: "/company", prefix: "/company" },
+        ],
+      });
+    }
     if (isAdmin) {
       secs.push({
         title: tr(lang, "Адмін", "Admin"),
@@ -254,7 +268,7 @@ export function Sidebar({
       });
     }
     return secs;
-  }, [isAdmin, isAuditor, lang]);
+  }, [isOwner, isAdmin, isAuditor, lang]);
 
   return (
     <>

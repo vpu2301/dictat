@@ -42,6 +42,8 @@ import { MfaPage } from './pages/MfaPage.jsx';
 import { MePage } from './pages/MePage.jsx';
 import { ProfilePage } from './pages/ProfilePage.jsx';
 import { DashboardPage } from './pages/DashboardPage.jsx';
+import { CompanyPage } from './company/CompanyPage.jsx';
+import { CompanyLoginPage } from './company/CompanyLoginPage.jsx';
 import { AdminUsersPage } from './pages/AdminUsersPage.jsx';
 import { TenantSettingsPage } from './pages/TenantSettingsPage.jsx';
 import { TenantMembersPage } from './pages/TenantMembersPage.jsx';
@@ -129,7 +131,15 @@ function App() {
     || route.startsWith("/templates/")
     || route.startsWith("/blog/") || route === "/developers" || route === "/developers/api"
     || route.startsWith("/developers/api/") || route === "/docs" || route.startsWith("/docs/");
-  const isPublicRoute = isAuthRoute || isLanding || isMarketing || route.startsWith("/verify/");
+  // The Klarnote staff console self-gates. It is listed here not because it is
+  // public — it is the most private surface in the app — but because the shared
+  // gate below redirects to /login, and bouncing our own team to the clinic's
+  // front desk is the one thing this console must never do. CompanyPage and
+  // CompanyLoginPage own the redirect, and send unauthenticated visitors to
+  // /company/login instead.
+  const isCompanyRoute = route === "/company" || route.startsWith("/company/");
+  const isPublicRoute = isAuthRoute || isLanding || isMarketing || isCompanyRoute
+    || route.startsWith("/verify/");
   const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
   const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
 
@@ -381,6 +391,26 @@ function App() {
       </RequireRole>
     );
     crumbs = [{ label: tr(lang, "Панель", "Dashboard") }];
+  }
+  // ── Klarnote platform-owner console (vendor, not customer) ──
+  // The staff door. Public like /login — it IS a login — and deliberately not
+  // the clinic's: /company must never bounce our own team to the tenant sign-in.
+  else if (r === "/company/login") {
+    view = <CompanyLoginPage lang={lang} navigate={navigate} />;
+    fullBleed = true;
+  }
+  // The console itself. No RequireAuth wrapper: that redirects to /login, which
+  // is exactly the bounce we are avoiding. CompanyPage owns its own gate and
+  // sends an unauthenticated visitor to /company/login instead — the backend is
+  // still the authority on every byte it renders (see company/ownerAccess.js).
+  // Full-bleed on purpose: a Klarnote staff console framed by a clinician's
+  // sidebar ("New consultation", "Patients", "Notes") reads as a tenant screen,
+  // which is the confusion the separate door exists to remove. The console
+  // carries its own sign-out and its own way back to the clinical workspace.
+  else if (r === "/company" || r.startsWith("/company/")) {
+    const tab = r.split("/")[2] || "overview";
+    view = <CompanyPage lang={lang} navigate={navigate} tab={tab} />;
+    fullBleed = true;
   }
   // ── account / profile ──────────────────────────────────────
   else if (r === "/profile") {

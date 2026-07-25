@@ -35,6 +35,8 @@ import { focusViolationTarget } from '../reports/finalizeViolations.js';
 import { applyChoiceOp, voiceOpErrorMessage, revealSection, ICD10_SEED_EVENT } from '../reports/applyChoiceOp.js';
 import { sectionProgress, countComplete, gapLabel } from '../reports/sectionCompleteness.js';
 import { applyOperations } from '../dictation/operations.js';
+import { openMicStream, isMacPlatform, looksLikeIPhone } from '../dictation/micDevices.js';
+import { useMicDevices } from '../dictation/useMicDevices.js';
 
 // Coerce arbitrary text into a backend slug: ^[a-z][a-z0-9_]*$.
 function slugify(input, fallback = "item") {
@@ -135,7 +137,12 @@ function conflictCurrentVersion(e) {
 // ── Web Speech wrapper ─────────────────────────────────────────────────
 // Exported so the report view can reuse the same recognizer for voice
 // amendments (Reports.jsx) — one dictation engine across the app.
-export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
+//
+// `deviceId` pins the level meter to a specific system microphone (undefined →
+// whatever the user last picked in Studio; "" → OS default). Note it does NOT
+// steer recognition: the Web Speech API exposes no device selection and always
+// records from the OS default input. MicCard surfaces that mismatch.
+export function useSpeechRecognition({ lang, onPartial, onFinal, enabled, deviceId }) {
   const [state, setState] = useState("idle");
   const [level, setLevel] = useState(0);
   // The running recognizer instance is built once per start() — route its
@@ -162,9 +169,7 @@ export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
 
   const startMeter = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
-      });
+      const stream = await openMicStream(deviceId);
       streamRef.current = stream;
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const src = ctx.createMediaStreamSource(stream);
@@ -189,7 +194,7 @@ export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
       loop();
       return true;
     } catch { return false; }
-  }, []);
+  }, [deviceId]);
 
   const stopMeter = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -268,6 +273,17 @@ export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
     setState("paused");
   }, []);
 
+  // Switching microphone mid-session re-opens the meter on the new device
+  // without interrupting the recogniser (which we can't re-point anyway).
+  const prevDeviceRef = useRef(deviceId);
+  useEffect(() => {
+    const changed = prevDeviceRef.current !== deviceId;
+    prevDeviceRef.current = deviceId;
+    if (!changed || !wantRef.current) return;
+    stopMeter();
+    startMeter();
+  }, [deviceId, startMeter, stopMeter]);
+
   useEffect(() => () => {
     wantRef.current = false;
     if (recogRef.current) try { recogRef.current.stop(); } catch {}
@@ -278,8 +294,83 @@ export function useSpeechRecognition({ lang, onPartial, onFinal, enabled }) {
   return { state, level, supported, start, stop, pause, setState };
 }
 
+// ── System microphone picker ───────────────────────────────────────────
+// Lets the clinician dictate through any system input — including an iPhone
+// paired as a Continuity Microphone. The picker steers every stream we open
+// (level meter, capture pipeline); the Web Speech recogniser can't be
+// re-pointed by any browser API, so when the choice isn't the OS default we
+// say so and give the one-time settings fix instead of silently misleading.
+function MicDevicePicker({ mic }) {
+  const { t } = useI18n();
+  if (!mic || !mic.supported) return null;
+
+  const options = [
+    {
+      value: "",
+      label: t("mic.device.system"),
+      sub: mic.defaultLabel || undefined,
+    },
+    ...mic.devices.map((d, i) => ({
+      value: d.deviceId,
+      label: d.label || t("mic.device.unnamed", { n: i + 1 }),
+    })),
+  ];
+
+  const settingsPath = isMacPlatform() ? t("mic.device.path.mac") : t("mic.device.path.other");
+  const chosenLabel = mic.selected?.label || mic.selectedLabel;
+  // Only worth hinting when the phone isn't already in the list.
+  const showIPhoneHint = isMacPlatform() && !mic.devices.some((d) => looksLikeIPhone(d.label));
+
+  return (
+    <div className="mic-device">
+      <div className="lang-tag">
+        <Icon name="mic" size={11} />
+        <span>{t("mic.device")}</span>
+        <button type="button" className="mic-device-refresh" onClick={mic.refresh}
+                title={t("mic.device.refresh")} aria-label={t("mic.device.refresh")}>
+          <Icon name="refresh" size={11} />
+        </button>
+      </div>
+      <MenuSelect
+        block
+        value={mic.selectedId}
+        options={options}
+        onChange={mic.select}
+        ariaLabel={t("mic.device")}
+        placeholder={t("mic.device.system")}
+      />
+      {mic.labelsHidden && (
+        <div className="mic-device-note">
+          {t("mic.device.unlock")}{" "}
+          <button type="button" className="mic-device-link" onClick={mic.grantAccess}>
+            {t("mic.device.unlock.cta")}
+          </button>
+        </div>
+      )}
+      {!mic.labelsHidden && mic.devices.length === 0 && (
+        <div className="mic-device-note">{t("mic.device.none")}</div>
+      )}
+      {mic.unavailable && (
+        <div className="mic-device-note warn">
+          {t("mic.device.unavailable", { device: mic.selectedLabel || t("mic.device.system") })}
+        </div>
+      )}
+      {!mic.unavailable && !mic.followsDefault && (
+        <div className="mic-device-note warn">
+          {mic.defaultLabel
+            ? t("mic.device.notDefault", { device: mic.defaultLabel, selected: chosenLabel, path: settingsPath })
+            : t("mic.device.notDefault.plain", { selected: chosenLabel, path: settingsPath })}
+        </div>
+      )}
+      {showIPhoneHint && !mic.labelsHidden && (
+        <div className="mic-device-note">{t("mic.device.iphoneHint")}</div>
+      )}
+    </div>
+  );
+}
+
 // ── Mic card ───────────────────────────────────────────────────────────
-function MicCard({ state, level, dictLang, setDictLang, onClick, hotkey }) {
+function MicCard({ state, level, dictLang, setDictLang, onClick, hotkey, mic }) {
   const { t } = useI18n();
   const labels = {
     idle: t("mic.idle"), connecting: t("mic.connecting"), listening: t("mic.listening"),
@@ -301,6 +392,7 @@ function MicCard({ state, level, dictLang, setDictLang, onClick, hotkey }) {
     connecting: "refresh", error_permission: "micOff", error_network: "micOff", error_unsupported: "micOff" }[state] || "mic";
   return (
     <div className="mic-card">
+      <MicDevicePicker mic={mic} />
       <div className="lang-tag" style={{ width: "100%" }}>
         <Icon name="flag" size={11} />
         <span>{t("mic.lang")}</span>
@@ -1448,7 +1540,12 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     }
   }, [activeId, dictLang, triggerSave, findSectionByPhrase, pickSection]);
 
-  const speech = useSpeechRecognition({ lang: dictLang, enabled: true, onPartial: onPartialCb, onFinal: onFinalCb });
+  // System microphone choice (persisted; live-updates as devices come and go).
+  const mic = useMicDevices();
+  const speech = useSpeechRecognition({
+    lang: dictLang, enabled: true, onPartial: onPartialCb, onFinal: onFinalCb,
+    deviceId: mic.selectedId,
+  });
 
   // ── Complete dictation / draft export ──────────────────────────────
   // Stop the mic, persist the draft (creating the report if needed), then open
@@ -2003,6 +2100,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
             setDictLang={setDictLang}
             onClick={toggleMic}
             hotkey="Space"
+            mic={mic}
           />
           <SuggestionsPanel
             suggestions={acVisible}
