@@ -52,7 +52,7 @@ import { SettingsPage } from './pages/SettingsPage.jsx';
 import { AsrSubmitPage } from './pages/AsrSubmitPage.jsx';
 import { AsrJobsListPage } from './pages/AsrJobsListPage.jsx';
 import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
-import { RequireAuth, RequireRole } from './auth/RequireRole.jsx';
+import { RequireAuth, RequireRole, RequireClinical } from './auth/RequireRole.jsx';
 import { useAuth, hasAnyRole } from './auth/AuthContext.jsx';
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
@@ -247,7 +247,9 @@ function App() {
   }
   // ── scribe ─────────────────────────────────────────────────
   else if (r === "/scribe" || r === "/" || r === "") {
-    view = <ScribeToday navigate={navigate} lang={lang} />;
+    // S14 — the day's clinical queue. Admin-only accounts get the standard
+    // forbidden state rather than a page of failing requests.
+    view = <RequireClinical navigate={navigate}><ScribeToday navigate={navigate} lang={lang} /></RequireClinical>;
     title = tr(lang, "Сьогодні", "Today");
   } else if (r === "/scribe/patients" || r === "/patients") {
     // /patients is the sprint-11 canonical alias; both render the directory.
@@ -294,7 +296,7 @@ function App() {
     view = <ScribeConsult id={idMatch?.[1]} patientHint={m?.[1]} navigate={navigate} lang={lang} onRecordingChange={setActiveRecording} />;
     showTopbar = false;
   } else if (r === "/scribe/notes") {
-    view = <ScribeNotes navigate={navigate} lang={lang} />;
+    view = <RequireClinical navigate={navigate}><ScribeNotes navigate={navigate} lang={lang} /></RequireClinical>;
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: tr(lang, "Нотатки", "Notes") }];
   } else if (r === "/scribe/templates") {
     view = <ScribeNoteStructures lang={lang} />;
@@ -304,7 +306,7 @@ function App() {
   // /dictate is the product landing (overview); the recording Studio lives at
   // /dictate/studio so switching products doesn't drop straight into recording.
   else if (r === "/dictate" || r === "/dictate/") {
-    view = <DictateToday lang={lang} navigate={navigate} />;
+    view = <RequireClinical navigate={navigate}><DictateToday lang={lang} navigate={navigate} /></RequireClinical>;
     title = tr(lang, "Диктування", "Dictation");
   } else if (r === "/dictate/studio" || r.startsWith("/dictate/studio?") || r.startsWith("/dictate?")) {
     const pm = r.match(/patient=([\w-]+)/);
@@ -317,7 +319,7 @@ function App() {
              onRetryTemplates={templatesReq.reload} />;
     showTopbar = false;
   } else if (r === "/dictate/reports") {
-    view = <ReportsList lang={lang} navigate={navigate} />;
+    view = <RequireClinical navigate={navigate}><ReportsList lang={lang} navigate={navigate} /></RequireClinical>;
     crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: tr(lang, "Звіти", "Reports") }];
   } else if (r.startsWith("/dictate/reports/")) {
     const id = r.split("/")[3];
@@ -330,16 +332,16 @@ function App() {
   // ── asr (batch transcription) ──────────────────────────────
   else if (r === "/asr" || r === "/asr/jobs") {
     view = (
-      <RequireAuth navigate={navigate}>
+      <RequireClinical navigate={navigate}>
         <AsrJobsListPage lang={lang} navigate={navigate} />
-      </RequireAuth>
+      </RequireClinical>
     );
     crumbs = [{ label: tr(lang, "Транскрипція", "Transcription") }, { label: tr(lang, "Завдання", "Jobs") }];
   } else if (r === "/asr/new") {
     view = (
-      <RequireAuth navigate={navigate}>
+      <RequireClinical navigate={navigate}>
         <AsrSubmitPage lang={lang} navigate={navigate} onToast={fireToast} />
-      </RequireAuth>
+      </RequireClinical>
     );
     crumbs = [
       { label: tr(lang, "Транскрипція", "Transcription"), path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },

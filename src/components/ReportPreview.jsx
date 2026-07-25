@@ -15,6 +15,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Icon } from "./UI.jsx";
 import { synthesizeReport, downloadReportPdf } from "../api/reports.js";
+import { ViolationNotice } from "../reports/finalizeViolations.js";
+import { DiagnosisBody } from "../reports/renderers/DiagnosisBody.js";
 import { tr } from "../i18n.js";
 
 const T = (lang, uk, en) => tr(lang, uk, en);
@@ -54,20 +56,24 @@ function LowConf({ text }) {
   );
 }
 
-// Map a backend finalize `reason` to a localized message (guide §4).
-function finalizeReason(reason, lang) {
-  switch (reason) {
-    case "required_empty":  return T(lang, "Обов'язковий розділ не заповнено", "Required section is empty");
-    case "below_min_chars": return T(lang, "Замало тексту в розділі", "Section text is too short");
-    case "missing_icd10":   return T(lang, "Відсутній код МКХ-10", "Missing ICD-10 code");
-    default:                return reason || T(lang, "Помилка перевірки", "Validation error");
-  }
-}
+// Finalize violation copy + rendering + routing moved to
+// src/reports/finalizeViolations.js (Sprint 13 step 06): keyed on the
+// backend's `code` (choice_not_selected / numeric_not_filled /
+// date_not_filled / diagnosis_not_confirmed / missing_icd10) with the
+// sprint-08 `reason` values as the unchanged fallback. The backend
+// validator stays the ONLY source of block reasons.
 
 // ── On-screen preview modal ───────────────────────────────────────────────────
 export function ReportPreview({
   open, lang = "en", template, body = {}, patient, author,
   reportId, sectionLabels, onClose, onSign, onApplySynthesis, onFinalize,
+  // Sprint 13 step 06: typed-field state (for the soft hint only — never a
+  // gate) + the jump-to-violation router supplied by Studio.
+  // 2026-07-24: onSectionMetaChange added — the ICD-10 picker moved OUT of
+  // the dictation Studio into THIS review stage (product decision:
+  // dictation stays free of coding chrome), so the preview needs the write
+  // path for confirmed codes.
+  sectionMeta = {}, onJumpToViolation, onSectionMetaChange,
 }) {
   // Synthesis state.
   const [synthState, setSynthState] = useState("idle"); // idle | loading | ready | error
@@ -121,7 +127,18 @@ export function ReportPreview({
     (acc[p.section_key] = acc[p.section_key] || []).push(p);
     return acc;
   }, {});
-  const missingRequired = sections.filter((s) => s.required && !(body[s.id] || "").trim());
+  // Violations the backend addressed to no on-screen section (absent or
+  // unknown section_key) still render — report-level, above the sections.
+  const unmatchedProblems = (problems || []).filter(
+    (p) => !sections.some((s) => s.id === p.section_key));
+  // Soft pre-check HINT only (§4.2): prose-empty required sections, minus
+  // any section that carries typed metadata or confirmed codes (a confirmed
+  // choice with no prose is NOT empty — only the server truly knows).
+  // Never gates the finalize button; the 422 round-trip is the authority.
+  const missingRequired = sections.filter((s) =>
+    s.required && !(body[s.id] || "").trim() &&
+    !(sectionMeta[s.id] && (sectionMeta[s.id].icd10?.length ||
+      Object.keys(sectionMeta[s.id].field_specific_metadata || {}).length)));
   const title = template.name?.[lang] || template.name?.en || template.code;
 
   // Apply one section's synthesized prose back to the draft.
@@ -151,11 +168,14 @@ export function ReportPreview({
     }
   };
 
-  const handleFinalize = async () => {
-    if (!onFinalize) return;
+  // Shared gate for finalize AND sign (2026-07-24): signing finalizes first,
+  // so both actions can surface the same 422 violations / 409 conflict here
+  // instead of letting a doomed signing modal open.
+  const runGated = async (fn) => {
+    if (!fn) return;
     setFinalizing(true); setProblems(null); setFinalErr(null);
     try {
-      await onFinalize();
+      await fn();
     } catch (e) {
       if (Array.isArray(e?.problems)) {
         setProblems(e.problems);
@@ -170,6 +190,8 @@ export function ReportPreview({
       setFinalizing(false);
     }
   };
+  const handleFinalize = () => runGated(onFinalize);
+  const handleSign = () => runGated(onSign);
 
   const changedCount = Object.entries(proposed)
     .filter(([k, v]) => v?.text != null && v.text !== (body[k] || "") && !accepted[k]).length;
@@ -243,10 +265,14 @@ export function ReportPreview({
             {missingRequired.length > 0 && (
               <div className="rp-warn" role="alert">
                 <Icon name="flag" size={13} />
-                {T(lang, "Не заповнені обов'язкові розділи:", "Required sections still empty:")}{" "}
+                {T(lang,
+                  "Попередня перевірка — можливо, не заповнені обов'язкові розділи:",
+                  "Pre-check hint — required sections that may still be empty:")}{" "}
                 {missingRequired.map((s) => labelFor(s, lang, labelMap)).join(", ")}
               </div>
             )}
+
+            <ViolationNotice problems={unmatchedProblems} lang={lang} />
 
             {sections.map((s) => {
               const text = (body[s.id] || "").trim();
@@ -286,13 +312,38 @@ export function ReportPreview({
                     ? <div className="rp-sec-body"><LowConf text={text} /></div>
                     : <div className="rp-sec-empty">{T(lang, "— не заповнено —", "— not filled —")}</div>}
 
-                  {secProblems && (
-                    <div className="rp-sec-problem" role="alert">
-                      {secProblems.map((p, i) => (
-                        <div key={i}><Icon name="flag" size={11} /> {finalizeReason(p.reason, lang)}</div>
-                      ))}
+                  {/* Sprint 13 (moved here 2026-07-24): diagnosis CODING lives
+                      at this review stage, not in the dictation editor — the
+                      full picker (confirmed chips, extractor proposals, search)
+                      mounts per diagnosis section, exactly where finalize
+                      demands the codes. Prose above stays untouched by it. */}
+                  {s.field_type === "structured_diagnosis" && onSectionMetaChange && (
+                    <div className="rp-icd-picker">
+                      {(sectionMeta[s.id]?.icd10?.length || 0) === 0 && s.required && (
+                        <div className="rp-icd-hint">
+                          <Icon name="flag" size={11} />
+                          {T(lang,
+                            "Додайте код МКХ-10 перед завершенням:",
+                            "Add an ICD-10 code before finalizing:")}
+                        </div>
+                      )}
+                      <DiagnosisBody
+                        section={s}
+                        fieldMeta={sectionMeta[s.id]?.field_specific_metadata || null}
+                        icd10={sectionMeta[s.id]?.icd10 || []}
+                        onChange={(patch) => onSectionMetaChange(s.id, patch)}
+                        lang={lang}
+                      />
                     </div>
                   )}
+
+                  <ViolationNotice
+                    problems={secProblems}
+                    sectionKey={s.id}
+                    lang={lang}
+                    onJump={onJumpToViolation}
+                    hideJumpCodes={["missing_icd10", "diagnosis_not_confirmed"]}
+                  />
                 </section>
               );
             })}
@@ -326,7 +377,7 @@ export function ReportPreview({
               {finalizing ? T(lang, "Завершення…", "Finalizing…") : T(lang, "Завершити", "Finalize")}
             </button>
           )}
-          <button className="btn primary" onClick={onSign}>
+          <button className="btn primary" onClick={handleSign} disabled={finalizing}>
             <Icon name="sign" size={13} /> {T(lang, "Підписати звіт", "Sign report")}
           </button>
         </footer>

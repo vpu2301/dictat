@@ -5,6 +5,7 @@ import { Icon, Logo, Modal } from "./UI.jsx";
 import { HealthBadge } from "./HealthBadge.jsx";
 import { ClinicMenuSection, CreateClinicModal } from "./TenantSwitcher.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
+import { hasClinicalAccess } from "../auth/permissions.js";
 import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
 import { useAsync } from "../api/useAsync.js";
@@ -136,6 +137,13 @@ export function Sidebar({
   const dbUser = state?.dbUser;
   const isAdmin = hasAnyRole(claims, ["tenant_admin"]);
   const isAuditor = hasAnyRole(claims, ["auditor", "tenant_admin"]);
+  // S14 — an administrator holds no clinical permission, so the notes,
+  // dictation and report surfaces would 403 on every call. Hiding them is
+  // not the security boundary (the server is); it is the difference
+  // between a product that says "not for your role" and one that shows a
+  // doctor's nav full of buttons that fail. The patient roster stays —
+  // that one an admin genuinely uses.
+  const clinical = hasClinicalAccess(claims);
 
   const product = route.startsWith("/dictate") ? "dictate" : "scribe";
 
@@ -147,7 +155,9 @@ export function Sidebar({
   const reportsBadgeReq = useAsync(
     () => countReports({ status: "draft" }),
     [claims?.tid],
-    { enabled: !!state && FEATURES.reports && product === "dictate" },
+    // `clinical` gate added in S14: an admin has no report.read, so
+    // this badge fetch would be a guaranteed 403 on every render.
+    { enabled: !!state && clinical && FEATURES.reports && product === "dictate" },
   );
   const draftReportCount = typeof reportsBadgeReq.data === "number" ? reportsBadgeReq.data : 0;
 
@@ -287,15 +297,19 @@ export function Sidebar({
              openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed} defaultOpen>
         {product === "scribe" ? (
           <>
-            <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Сьогодні", "Today")} path="/scribe" exact />
+            {clinical && (
+              <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Сьогодні", "Today")} path="/scribe" exact />
+            )}
             <NavLink {...{ route, navigate, collapsed }} icon="users"
                      label={tr(lang, "Пацієнти", "Patients")}
                      path="/scribe/patients" prefix="/scribe/patients"
                      comingSoon={!FEATURES.patients} />
-            <NavLink {...{ route, navigate, collapsed }} icon="fileText"
-                     label={tr(lang, "Нотатки", "Notes")}
-                     path="/scribe/notes"
-                     comingSoon={!FEATURES.notes} />
+            {clinical && (
+              <NavLink {...{ route, navigate, collapsed }} icon="fileText"
+                       label={tr(lang, "Нотатки", "Notes")}
+                       path="/scribe/notes"
+                       comingSoon={!FEATURES.notes} />
+            )}
             <NavLink {...{ route, navigate, collapsed }} icon="layers"
                      label={tr(lang, "Шаблони нотаток", "Note templates")}
                      path="/scribe/templates"
@@ -303,15 +317,21 @@ export function Sidebar({
           </>
         ) : (
           <>
-            <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Огляд", "Overview")} path="/dictate" exact />
-            <NavLink {...{ route, navigate, collapsed }} icon="mic"
-                     label={tr(lang, "Студія", "Studio")}
-                     path="/dictate/studio" prefix="/dictate/studio" />
-            <NavLink {...{ route, navigate, collapsed }} icon="fileText"
-                     label={tr(lang, "Звіти", "Reports")}
-                     path="/dictate/reports" prefix="/dictate/reports"
-                     badge={FEATURES.reports && draftReportCount > 0 ? String(draftReportCount) : undefined}
-                     comingSoon={!FEATURES.reports} />
+            {clinical && (
+              <>
+                <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Огляд", "Overview")} path="/dictate" exact />
+                <NavLink {...{ route, navigate, collapsed }} icon="mic"
+                         label={tr(lang, "Студія", "Studio")}
+                         path="/dictate/studio" prefix="/dictate/studio" />
+                <NavLink {...{ route, navigate, collapsed }} icon="fileText"
+                         label={tr(lang, "Звіти", "Reports")}
+                         path="/dictate/reports" prefix="/dictate/reports"
+                         badge={FEATURES.reports && draftReportCount > 0 ? String(draftReportCount) : undefined}
+                         comingSoon={!FEATURES.reports} />
+              </>
+            )}
+            {/* Templates are clinical CONTENT, not a clinical RECORD — an
+                admin curates the tenant's template library. */}
             <NavLink {...{ route, navigate, collapsed }} icon="layers"
                      label={tr(lang, "Шаблони", "Templates")}
                      path="/dictate/templates"
@@ -320,8 +340,8 @@ export function Sidebar({
         )}
       </Group>
 
-      {/* ── Transcription (ASR — all authed users) ─────────── */}
-      {state && (
+      {/* ── Transcription (ASR — clinical roles only since S14) ── */}
+      {state && clinical && (
         <Group id="asr" title={tr(lang, "Транскрипція", "Transcription")} icon="bot"
                openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed}>
           <NavLink {...{ route, navigate, collapsed }} icon="inbox"

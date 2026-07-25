@@ -90,3 +90,33 @@ Conventions the S11 suites add:
 - **Zero console errors** is asserted in every case (uncaught JS +
   `console.error`; browser network-log lines and the :8002 CORS gap are
   the two documented exclusions).
+
+## Sprint 13 — typed fields (`typed-fields.spec.js`)
+
+Stack prerequisites beyond the S11 list: report-service must carry the
+S13 template schema (seeded `anamnesis_intake` with `choice`/
+`multi_choice` options — probed automatically) and the
+field_specific_metadata write validation (BE step 02).
+
+Live-capability gates (each case names its own):
+
+- **Runs today:** manual typed flow (chips → tap → confirmed →
+  autosave → SQL assert; prose invariant), free_text regression, voice
+  op via the dev seam `window.__mdxStudioOps` (the labeled WS-fixture
+  variant — real registry → ctx → model path; spoken-command E2E
+  arrives with BE step 07).
+- `E2E_EXTRACTOR=1` — extractor golden path (BE steps 04/05).
+- `E2E_S13_FINALIZE=1` — finalize gating (BE step 06; probed
+  2026-07-23: finalize on a typed draft returns 500 on the current
+  stack — reported to backend).
+- ICD-10 picker — auto-gates on `GET /v1/icd10/search` (404 today) and
+  on the template carrying a `structured_diagnosis` section.
+
+Console-guard exclusions gained one entry: the notification-service
+(:8004) is not in the minimal stack; its WS retry logs a browser
+connection error handled by the app's backoff.
+
+Note: the HERMETIC suites (auth, studio-autocomplete) assume they own
+all routes; running them while the live stack is up produces
+environmental failures (verified identical on a pre-S13 tree) — run
+them with the backend stopped, or rely on CI.

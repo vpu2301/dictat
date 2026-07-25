@@ -86,7 +86,13 @@ export const SYNTHESIS_PROMPT_MAX = 2000;
 export const MAX_SECTIONS = 32;
 export const FIELD_TYPES = [
   "free_text", "structured_diagnosis", "date", "date_with_note", "numeric_with_unit",
+  "choice", "multi_choice", // sprint-13
 ];
+// Sprint-13: field types that require options: [{value, label, voice_aliases}]
+// (2..50 per section; forbidden on every other field_type).
+export const CHOICE_FIELD_TYPES = ["choice", "multi_choice"];
+export const MIN_OPTIONS = 2;
+export const MAX_OPTIONS = 50;
 
 export function isSlug(s) {
   return typeof s === "string" && SLUG_RE.test(s);
@@ -138,6 +144,61 @@ export function validateDefinition(def, lang = "en") {
         aliasSeen.set(alias, i);
       }
     }
+
+    // Sprint-13 options mirror (backend TemplateSection._validate_options):
+    // choice/multi_choice need 2..50 options with slug values, unique values,
+    // case-insensitively unique labels, and per-section unique option
+    // aliases; every other field_type must define none.
+    const opts = Array.isArray(s?.options) ? s.options : [];
+    if (CHOICE_FIELD_TYPES.includes(s?.field_type)) {
+      if (opts.length < MIN_OPTIONS || opts.length > MAX_OPTIONS) {
+        errors[`sec.${i}.options`] = L(
+          `Потрібно ${MIN_OPTIONS}–${MAX_OPTIONS} варіантів`,
+          `${MIN_OPTIONS}–${MAX_OPTIONS} options are required`,
+        );
+      } else {
+        const values = new Set(), labels = new Set(), optAliases = new Set();
+        for (const o of opts) {
+          if (!isSlug(o?.value) || values.has(o.value)) {
+            errors[`sec.${i}.options`] = L(
+              "Значення варіантів мають бути унікальними slug",
+              "Option values must be unique slugs",
+            );
+            break;
+          }
+          values.add(o.value);
+          const lbl = String(o?.label || "").trim().toLowerCase();
+          if (!lbl || labels.has(lbl)) {
+            errors[`sec.${i}.options`] = L(
+              "Назви варіантів мають бути унікальними",
+              "Option labels must be unique (case-insensitive)",
+            );
+            break;
+          }
+          labels.add(lbl);
+          let dup = false;
+          for (const rawA of o?.voice_aliases || []) {
+            const al = String(rawA || "").trim().toLowerCase();
+            if (!al) continue;
+            if (optAliases.has(al)) {
+              errors[`sec.${i}.options`] = L(
+                `Псевдонім «${al}» вже використано іншим варіантом`,
+                `Alias "${al}" is already used by another option`,
+              );
+              dup = true;
+              break;
+            }
+            optAliases.add(al);
+          }
+          if (dup) break;
+        }
+      }
+    } else if (opts.length) {
+      errors[`sec.${i}.options`] = L(
+        "Варіанти дозволені лише для типів choice/multi_choice",
+        "Options are only allowed on choice/multi_choice sections",
+      );
+    }
   });
 
   return { ok: Object.keys(errors).length === 0, errors };
@@ -165,6 +226,14 @@ export function classifyEdit(original, edited) {
     if ((os.field_type || "") !== (es.field_type || "")) return "structural";
     if (!!os.required !== !!es.required) return "structural";
     if ((es.min_chars ?? 0) > (os.min_chars ?? 0)) return "structural"; // raised
+    // Sprint-13: removing (or renaming — remove+add) an option value is
+    // structural: stored selections in report field_specific_metadata would
+    // dangle. Adding options / label / alias edits are cosmetic.
+    const newValues = new Set((es.options || []).map((o) => o?.value));
+    for (const o of os.options || []) {
+      if (!newValues.has(o?.value)) return "structural";
+    }
+    if (JSON.stringify(os.options || []) !== JSON.stringify(es.options || [])) changed = true;
     // Cosmetic-only diffs.
     if (
       (os.name || "") !== (es.name || "") ||
@@ -215,6 +284,10 @@ export function toStudioTemplate(tpl) {
         required: !!s.required,
         field_type: s.field_type,
         voice_aliases: s.voice_aliases || [],
+        // Sprint-13: choice/multi_choice options [{value, label, voice_aliases}]
+        // — chip labels come from `label`, the saved value is `value`.
+        options: s.options || [],
+        min_chars: s.min_chars ?? 0,
         name: { uk: s.name, en: s.name },
         anchor: { uk: alias.toLowerCase(), en: alias.toLowerCase() },
       };
