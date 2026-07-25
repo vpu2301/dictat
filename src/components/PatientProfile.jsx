@@ -7,6 +7,8 @@ import { Loading, asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { useAsync } from '../api/useAsync.js';
 import { useClaims, hasAnyRole } from '../auth/AuthContext.jsx';
+import { hasClinicalAccess } from '../auth/permissions.js';
+import { RequestAccessModal } from './RequestAccessModal.jsx';
 import { getPatient, getPatientTimeline, updatePatient } from '../api/patients.js';
 import { mergeFeed } from '../patients/feed.js';
 import { PatientFormModal } from '../patients/PatientDirectory.jsx';
@@ -384,6 +386,11 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   // Privacy surfaces are admin-only in the UI (menu entries role-gated at
   // render); the backend additionally enforces its scopes on every call.
   const isPrivacyAdmin = hasAnyRole(claims, ["tenant_admin", "super_admin"]);
+  // S14 — only an administrator WITHOUT clinical standing breaks glass. A
+  // clinician already holds report.read, so offering them the button
+  // would be a control that does nothing.
+  const canBreakGlass = isPrivacyAdmin && !hasClinicalAccess(claims);
+  const [accessTarget, setAccessTarget] = useState(null); // timeline report row | null
 
   const cached = pageStateCache.get(id);
   const [tab, setTab] = useState(() => initialTabFromHash() || cached?.tab || "timeline");
@@ -787,6 +794,20 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                   <span className={`chip ${rep.status === "signed" ? "signed" : "draft"}`}>
                     {rep.status === "signed" ? (tr(lang, "підписано", "signed")) : (tr(lang, "чернетка", "draft"))}
                   </span>
+                  {/* S14 — the timeline is metadata only (title, author,
+                      date), which is why an administrator can still see it
+                      and use it to find the ONE report they need. Opening
+                      it is what requires a grant, so the ask lives here. */}
+                  {canBreakGlass && (
+                    <button
+                      className="btn"
+                      title={tr(lang, "Запитати тимчасовий доступ до цього звіту", "Request temporary access to this report")}
+                      onClick={(e) => { e.stopPropagation(); setAccessTarget(rep); }}
+                    >
+                      <Icon name="shield" size={12} />
+                      {tr(lang, "Запит доступу", "Request access")}
+                    </button>
+                  )}
                   <Icon name="chevRight" size={14} />
                 </div>
               ))
@@ -925,6 +946,22 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
       {editOpen && (
         <PatientFormModal lang={lang} patient={patient} onClose={() => setEditOpen(false)}
           onSave={handleEditSave} onOpenExisting={(pid) => { setEditOpen(false); navigate(`/scribe/patients/${pid}`); }} />
+      )}
+      {accessTarget && (
+        <RequestAccessModal
+          lang={lang}
+          reportId={accessTarget.id}
+          reportCode={loc(accessTarget.title, lang)}
+          patientLabel={patientName(patient, lang)}
+          onClose={() => setAccessTarget(null)}
+          onGranted={() => {
+            const reportId = accessTarget.id;
+            setAccessTarget(null);
+            // The grant exists now — take them straight to the thing they
+            // justified reading, rather than back to a list.
+            navigate(`/dictate/reports/${reportId}`);
+          }}
+        />
       )}
       {dsarOpen && (
         <DsarModal lang={lang} patientName={patientName(patient, lang)} onClose={() => setDsarOpen(false)} onSubmit={handleDsar} />

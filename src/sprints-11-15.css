@@ -1558,6 +1558,10 @@
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12.5px; color: var(--text-2); cursor: pointer; user-select: none;
 }
+.pdir-inactive-toggle input {
+  width: 14px; height: 14px; margin: 0; flex: none;
+  cursor: pointer; accent-color: var(--accent);
+}
 .pdir-searching { font-size: 12px; color: var(--muted); }
 
 .pdir-badge {
@@ -1997,4 +2001,242 @@
   position: absolute; width: 1px; height: 1px;
   padding: 0; margin: -1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Sprint 13 — typed field widgets (renderer dispatch, step 01)
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Per-section widget mount, portaled into the ProseMirror section DOM as its
+   first child (after the ::before label). Empty for free_text and
+   not-yet-registered field types — zero layout impact, prose stays
+   pixel-stable. Not editable, not selectable: it is UI, never document. */
+.tiptap-content section.tiptap-section > .field-widget-mount {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tiptap-content section.tiptap-section > .field-widget-mount:empty {
+  display: none;
+}
+.tiptap-content section.tiptap-section > .field-widget-mount:not(:empty) {
+  margin: 0 0 8px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Sprint 13 — the proposal grammar (step 02). ONE visual language for
+   extracted-vs-confirmed, composed by every typed renderer. State is
+   carried by four redundant channels — shape (dashed vs solid), icon
+   (sparkle vs check), text (microcopy + aria), and confidence bars —
+   color alone never distinguishes them (safety-relevant, §4.1).
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Proposal = outlined + dashed; confirmed = solid fill. */
+.pgm-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 8px; border-radius: 14px;
+  font-size: 13px; line-height: 1.4;
+  max-width: 100%;
+}
+.pgm-chip .pgm-chip-label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pgm-chip.pgm-proposal {
+  border: 1.5px dashed var(--accent);
+  background: transparent;
+  color: var(--text-1, inherit);
+}
+.pgm-chip.pgm-confirmed {
+  border: 1.5px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Input-shaped proposal chrome (numeric/date). */
+.pgm-field.pgm-proposal {
+  border: 1.5px dashed var(--accent);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.pgm-field-head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--muted);
+}
+.pgm-field-head .pgm-icon { color: var(--accent); }
+.pgm-field-tag { flex: 1; }
+
+/* Confirm/dismiss — real buttons, keyboard-reachable. */
+.pgm-actions { display: inline-flex; gap: 8px; }
+.pgm-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: inherit;
+  font-size: 12px; padding: 3px 8px; cursor: pointer;
+}
+.pgm-btn:disabled { opacity: .5; cursor: default; }
+.pgm-btn-confirm { border-color: var(--accent); color: var(--accent); }
+.pgm-btn-confirm:hover:not(:disabled) { background: var(--accent-soft); }
+.pgm-btn-dismiss:hover:not(:disabled),
+.pgm-btn-remove:hover:not(:disabled) { background: var(--surface-2); }
+.pgm-btn-icon { padding: 2px 4px; border: none; background: transparent; }
+.pgm-chip.pgm-confirmed .pgm-btn-icon { color: #fff; }
+.pgm-btn-icon:focus-visible,
+.pgm-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Confidence bars — band by SHAPE (1/2/3 bars), number on hover only. */
+.pgm-conf { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 10px; }
+.pgm-conf-bar {
+  width: 3px; border-radius: 1px;
+  background: var(--line);
+  display: inline-block;
+}
+.pgm-conf-bar:nth-child(1) { height: 4px; }
+.pgm-conf-bar:nth-child(2) { height: 7px; }
+.pgm-conf-bar:nth-child(3) { height: 10px; }
+.pgm-conf-low  .pgm-conf-bar.on { background: var(--muted); }
+.pgm-conf-medium .pgm-conf-bar.on { background: var(--accent); opacity: .65; }
+.pgm-conf-high .pgm-conf-bar.on { background: var(--accent); }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Sprint 13 — choice / multi_choice renderers (step 03). Plain option
+   chips only — proposal/confirmed chrome comes exclusively from the
+   pgm- primitives (composition enforced by tripwire test).
+   ────────────────────────────────────────────────────────────────────────── */
+
+.rf-field { display: flex; flex-direction: column; gap: 6px; }
+.rf-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rf-chip {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-1, inherit);
+  font-size: 13px; line-height: 1.4; cursor: pointer;
+}
+.rf-chip:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.rf-chip:disabled { opacity: .55; cursor: default; }
+.rf-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rf-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Sprint 13 step 04 — numeric/date scalar inputs (plain chrome only;
+   proposal/confirmed states come from the pgm- primitives). */
+.rf-scalar { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rf-num, .rf-unit, .rf-date {
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: inherit;
+  font-size: 13px; padding: 4px 8px;
+}
+.rf-num { width: 96px; }
+.rf-unit { width: 72px; }
+.rf-num:focus-visible, .rf-unit:focus-visible, .rf-date:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+.rf-num:disabled, .rf-unit:disabled, .rf-date:disabled { opacity: .55; }
+.rf-num.rf-invalid { border-color: var(--danger, #dc2626); }
+.rf-err { font-size: 11.5px; color: var(--danger, #dc2626); }
+
+/* Sprint 13 step 05 — ICD-10 diagnosis picker. */
+.rf-diagnosis { gap: 8px; }
+.rf-icd-search { position: relative; max-width: 420px; }
+.rf-icd-input {
+  width: 100%; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: inherit;
+  font-size: 13px; padding: 5px 10px;
+}
+.rf-icd-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rf-icd-results {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 4px; list-style: none;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  max-height: 260px; overflow-y: auto;
+}
+.rf-icd-opt {
+  display: flex; gap: 8px; align-items: baseline; width: 100%;
+  border: 0; background: transparent; color: inherit;
+  font-size: 13px; text-align: left; padding: 5px 8px; border-radius: 6px;
+  cursor: pointer;
+}
+.rf-icd-opt:hover, .rf-icd-opt:focus-visible { background: var(--accent-soft); outline: none; }
+.rf-icd-head {
+  display: flex; gap: 8px; align-items: baseline;
+  font-size: 12px; padding: 5px 8px;
+  color: var(--muted); opacity: .8; cursor: default;
+}
+.rf-icd-code { font-family: var(--mono, monospace); font-weight: 600; white-space: nowrap; }
+.rf-icd-display { overflow: hidden; text-overflow: ellipsis; }
+
+/* Sprint 13 step 06 — finalize violation rows (extends sprint-08
+   .rp-sec-problem styling; the «перейти» action reuses .btn ghost sm). */
+.rp-violation { display: flex; align-items: center; gap: 8px; }
+.rp-violation + .rp-violation { margin-top: 4px; }
+.rp-jump { flex-shrink: 0; }
+
+/* Sprint 13 follow-up — the progress rail and the validator tell ONE story:
+   a section whose typed requirement is unmet shows its gap in the rail. */
+.section-item .section-gap {
+  font-size: 10.5px; font-weight: 600; white-space: nowrap;
+  color: var(--warn, #b45309);
+  background: color-mix(in srgb, var(--warn, #b45309) 12%, transparent);
+  padding: 1px 6px; border-radius: 7px;
+}
+
+/* Preview: confirmed ICD-10 codes under a diagnosis section, and the
+   pre-finalize hint when a required diagnosis section has no code yet. */
+.rp-icd-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rp-icd-hint {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  font-size: 12.5px; color: var(--warn, #b45309);
+  background: color-mix(in srgb, var(--warn, #b45309) 8%, transparent);
+  border-radius: 8px; padding: 6px 10px;
+}
+
+/* ── Amend modal (redesign 2026-07-24: was a 520px column taller than the
+   viewport — now wide + capped so the WHOLE flow is visible at once) ─── */
+.modal.amend-modal {
+  display: flex; flex-direction: column;
+  max-height: min(88vh, 900px);
+}
+.amend-modal .amend-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px;
+  flex: 1; min-height: 0; /* lets the panes own their scroll */
+}
+.amend-content {
+  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto; min-height: 0; padding-right: 6px;
+}
+.amend-side {
+  display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto; min-height: 0;
+  border-inline-start: 1px solid var(--line);
+  padding-inline-start: 20px;
+}
+.amend-label { font-size: 13px; font-weight: 600; }
+.amend-field { display: flex; flex-direction: column; gap: 6px; }
+.amend-types { display: flex; gap: 6px; flex-wrap: wrap; }
+.amend-sec { display: flex; flex-direction: column; gap: 4px; }
+.amend-sec textarea { resize: vertical; }
+.amend-sec-h {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em; font-weight: 600;
+}
+.amend-sec.is-edited textarea { border-color: var(--accent); }
+.amend-edited-tag {
+  font-style: normal; font-size: 10.5px; font-weight: 700;
+  color: var(--accent); text-transform: none; letter-spacing: 0;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 1px 6px; border-radius: 7px;
+}
+.amend-summary {
+  display: flex; flex-direction: column; gap: 6px;
+  border-top: 1px solid var(--line); padding-top: 12px;
+}
+.amend-summary-item { font-size: 12.5px; color: var(--text-2); }
+
+/* Narrow screens: stack the panes; the whole body scrolls instead. */
+@media (max-width: 880px) {
+  .amend-modal .amend-grid { display: flex; flex-direction: column; overflow-y: auto; }
+  .amend-content { overflow: visible; padding-right: 0; }
+  .amend-side { overflow: visible; border-inline-start: 0; padding-inline-start: 0; }
 }

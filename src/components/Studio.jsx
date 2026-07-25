@@ -30,6 +30,11 @@ import {
   useBackoff,
 } from './AutocompletePanel.jsx';
 import { telemetry } from '../autocomplete/telemetry.js';
+import { sectionMetaFromContent } from '../reports/fieldContract.js';
+import { focusViolationTarget } from '../reports/finalizeViolations.js';
+import { applyChoiceOp, voiceOpErrorMessage, revealSection, ICD10_SEED_EVENT } from '../reports/applyChoiceOp.js';
+import { sectionProgress, countComplete, gapLabel } from '../reports/sectionCompleteness.js';
+import { applyOperations } from '../dictation/operations.js';
 
 // Coerce arbitrary text into a backend slug: ^[a-z][a-z0-9_]*$.
 function slugify(input, fallback = "item") {
@@ -734,19 +739,17 @@ function TemplatePickerModal({ template, templatesMap, onSelect, onAdd, onClose,
   );
 }
 
-function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTemplate, onAddTemplate }) {
+function SectionNav({ template, body, sectionMeta, activeId, onPick, templatesMap, onSelectTemplate, onAddTemplate }) {
   const { t, lang } = useI18n();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
-  const filled = (id) => {
-    const v = (body[id] || "").trim();
-    if (!v) return "missing";
-    if (v.length < 30) return "partial";
-    return "filled";
-  };
+  // Sprint 13: progress accounts for the validator's typed-field
+  // requirements (a diagnosis without a confirmed ICD-10 code is NOT done)
+  // — the rail must never say 100% while finalize would refuse.
+  const progress = (s) => sectionProgress(s, body, sectionMeta);
   const total = template.sections.length;
-  const done  = template.sections.filter(s => filled(s.id) === "filled").length;
+  const done  = countComplete(template.sections, body, sectionMeta);
 
   return (
     <>
@@ -798,7 +801,7 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
       </div>
       <div className="section-list" role="list" aria-label="Section progress rail">
         {template.sections.map(s => {
-          const state       = filled(s.id);
+          const { state, gap } = progress(s);
           const dotState    = (s.required && state === "missing") ? "missing" : state;
           const wc          = (body[s.id] || "").split(/\s+/).filter(Boolean).length;
           return (
@@ -814,7 +817,9 @@ function SectionNav({ template, body, activeId, onPick, templatesMap, onSelectTe
             >
               <span className="dot" aria-hidden="true" />
               <span className="label">{s.name[lang] || s.name.en}</span>
-              {wc > 0 && <span className="word-count">{wc}</span>}
+              {gap
+                ? <span className="section-gap">{gapLabel(gap, lang)}</span>
+                : wc > 0 && <span className="word-count">{wc}</span>}
               {s.required && state === "missing" && <span className="req" aria-label="Required">!</span>}
             </div>
           );
@@ -1138,6 +1143,11 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   );
 
   const [body,        setBody]        = useState({});
+  // Sprint 13 — everything a section carries besides prose:
+  // { [section_key]: { icd10?, field_specific_metadata? } }. Seeded from a
+  // reopened draft and round-tripped through EVERY save — an autosave that
+  // dropped it would destroy extractor proposals and confirmed diagnoses.
+  const [sectionMeta, setSectionMeta] = useState({});
   const [activeId,    setActiveId]    = useState(null);
   const [dictLang,    setDictLang]    = useState(lang);
   const [partial,     setPartial]     = useState("");
@@ -1150,12 +1160,15 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   const author = auth?.dbUser?.display_name || auth?.claims?.sub || null;
   const reportIdRef = useRef(null);
   const reportVersionRef = useRef(0);  // optimistic-lock version for draft autosave
+  const reportStatusRef = useRef("draft"); // draft | finalized | signed — drives finalize-before-sign
   // Autosave pacing/serialization (see AUTOSAVE_* constants).
   const savingRef = useRef(false);              // a PUT/POST is in flight
   const lastSaveAttemptRef = useRef(0);         // ts of the last network attempt
   const autosaveBackoffUntilRef = useRef(0);    // don't retry before this ts (429)
   const latestBodyRef = useRef(body);           // to detect edits made mid-save
   latestBodyRef.current = body;
+  const latestSectionMetaRef = useRef(sectionMeta); // same, for typed field edits
+  latestSectionMetaRef.current = sectionMeta;
   // Bumped after every save attempt so the autosave effect re-evaluates even
   // when the doc was already "unsaved" (edits that landed mid-save must flush).
   const [saveTick, setSaveTick] = useState(0);
@@ -1175,12 +1188,14 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     // seeding 1 for a v2+ draft would 409 every autosave until the conflict
     // handler re-adopts the server version.
     reportVersionRef.current = rep.current_version_number ?? rep.version_number ?? 1;
+    reportStatusRef.current = rep.status || "draft";
     if (content.template_id) setTemplateId(content.template_id);
     const nextBody = {};
     for (const s of content.sections || []) {
       if (s?.section_key) nextBody[s.section_key] = s.text || "";
     }
     setBody(nextBody);
+    setSectionMeta(sectionMetaFromContent(content));
     setSaveState("saved");
   }, [reportReq.data]);
 
@@ -1232,6 +1247,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     if (newId) {
       setTemplateId(newId);
       setBody({});
+      setSectionMeta({});
       reportIdRef.current = null;
       setActiveId(null); // the detail-load effect sets the first section
     }
@@ -1261,30 +1277,38 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   }, []);
 
   // ── Persistence ────────────────────────────────────────────────────
+  // Returns "saved" (server now holds the latest state), "dirty" (saved,
+  // but edits landed mid-flight — call again), or "failed" (nothing was
+  // persisted this attempt: busy, missing patient, 429 backoff, 409
+  // version adoption, or a real error). finalizeFromPreview relies on
+  // this to never finalize a stale draft.
   const saveDraft = useCallback(async () => {
     // Serialize: never overlap two saves. A slow PUT racing the next autosave
     // tick is what desyncs the optimistic-lock version (→ 409). The autosave
     // effect reschedules once this one finishes if the doc is still dirty.
-    if (savingRef.current) return;
+    if (savingRef.current) return "failed";
     // Never CREATE a report for an empty document. Save triggers with nothing
     // dictated yet (Cmd+S, the footer button, "зберегти" as a voice command,
     // an abandoned session) would otherwise strand an empty orphan draft —
     // each one its own row in the reports list, so a finalized document
     // appeared to coexist with draft twins of itself.
-    if (!reportIdRef.current && !Object.values(body).some(v => (v || "").trim())) {
+    if (!reportIdRef.current &&
+        !Object.values(body).some(v => (v || "").trim()) &&
+        !Object.keys(sectionMeta).length) {
       setSaveState("saved");
-      return;
+      return "saved";
     }
     // No report yet and no patient id: nothing to persist safely. Keep the doc
     // dirty so autosave retries once the patient resolves (the backend
     // hard-requires patient_id — a create without it 422s).
     if (!reportIdRef.current && !(templateId && patient?.id)) {
       setSaveState("unsaved");
-      return;
+      return "failed";
     }
     savingRef.current = true;
     lastSaveAttemptRef.current = Date.now();
     const savedBody = body;  // to detect edits landed while this save was in flight
+    const savedMeta = sectionMeta;
     setSaveState("saving");
     try {
       if (reportIdRef.current) {
@@ -1293,16 +1317,19 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           template_id: templateId,
           template_schema_version: template?.schema_version,
           body,
+          section_meta: sectionMeta,
         });
         if (r?.version_number != null) reportVersionRef.current = r.version_number;
       } else {
-        const r = await createReport({ template_id: templateId, template_schema_version: template?.schema_version, body, patient_id: patient.id });
+        const r = await createReport({ template_id: templateId, template_schema_version: template?.schema_version, body, patient_id: patient.id, section_meta: sectionMeta });
         reportIdRef.current = r?.id ?? null;
         reportVersionRef.current = r?.version_number ?? 1;
       }
       setLastSavedAt(Date.now());
       // If the user kept typing during the save, stay dirty so those edits flush.
-      setSaveState(latestBodyRef.current === savedBody ? "saved" : "unsaved");
+      const clean = latestBodyRef.current === savedBody && latestSectionMetaRef.current === savedMeta;
+      setSaveState(clean ? "saved" : "unsaved");
+      return clean ? "saved" : "dirty";
     } catch (e) {
       // Leave the doc dirty so the next tick retries.
       setSaveState("unsaved");
@@ -1314,7 +1341,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       // silently. No toast (this was the scary "autosave_rate_limited" toast).
       if (status === 429 || code === "autosave_rate_limited") {
         autosaveBackoffUntilRef.current = Date.now() + retryAfterMs(e);
-        return;
+        return "failed";
       }
       // 409 optimistic-lock mismatch — our version is stale (a save raced, or a
       // reopened draft seeded a stale version). Adopt the server's
@@ -1322,7 +1349,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       if (status === 409 || code === "optimistic_lock_mismatch") {
         const cv = conflictCurrentVersion(e);
         if (cv != null) reportVersionRef.current = cv;
-        return;
+        return "failed";
       }
 
       // Genuine, actionable failures still surface.
@@ -1334,13 +1361,32 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           : (tr(lang, "Не вдалося зберегти: ", "Save failed: "))
             + ((e && e.message) || (tr(lang, "спробуйте ще раз", "will retry"))),
       });
+      return "failed";
     } finally {
       savingRef.current = false;
       setSaveTick(n => n + 1);  // re-arm the autosave effect (mid-save edits)
     }
-  }, [body, templateId, template, dictLang, patient, pushToast, lang]);
+  }, [body, sectionMeta, templateId, template, dictLang, patient, pushToast, lang]);
 
   const triggerSave = useCallback(() => { saveDraft(); }, [saveDraft]);
+
+  // Sprint 13 — a typed field widget changed a section's meta (confirm,
+  // override, pick). Merge the patch and mark the draft dirty so the normal
+  // autosave PUT persists it; an empty patch removes the section's entry.
+  const onSectionMetaChange = useCallback((sectionKey, patch) => {
+    setSectionMeta((prev) => {
+      const next = { ...prev };
+      const entry = { ...(next[sectionKey] || {}), ...(patch || {}) };
+      if (entry.icd10 && !entry.icd10.length) delete entry.icd10;
+      if (entry.field_specific_metadata && !Object.keys(entry.field_specific_metadata).length) {
+        delete entry.field_specific_metadata;
+      }
+      if (Object.keys(entry).length) next[sectionKey] = entry;
+      else delete next[sectionKey];
+      return next;
+    });
+    setSaveState("unsaved");
+  }, []);
 
   // (Sprint 10) Right-rail suggestion accepts route through the editor's
   // single-transaction accept (acApiRef) — see the TipTapEditor wiring.
@@ -1428,14 +1474,107 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   // Throws (with .problems on a 422, .status on a 409) for the preview to surface.
   const finalizeFromPreview = useCallback(async () => {
     if (!reportIdRef.current) throw new Error("no_report");
-    await saveDraft();
+    // The server must hold the LATEST draft before it validates: a single
+    // saveDraft() can no-op (another save in flight, 429 pacing, 409 version
+    // adoption) — finalizing then would validate a STALE copy: freshly added
+    // ICD-10 codes would still 422 as missing, and the finalized version
+    // would silently lack the last edits. Retry until clean, bounded.
+    let saved = await saveDraft();
+    for (let attempt = 0; saved !== "saved" && attempt < 6; attempt++) {
+      const wait = Math.max(autosaveBackoffUntilRef.current - Date.now(), 1200);
+      await new Promise((res) => setTimeout(res, Math.min(wait, 6000)));
+      saved = await saveDraft();
+    }
+    if (saved !== "saved") {
+      throw new Error(tr(lang, "Не вдалося зберегти чернетку — спробуйте ще раз", "Could not save the draft — try again"));
+    }
     const r = await finalizeReport(reportIdRef.current, {
       expected_version: reportVersionRef.current,
     });
     if (r?.version_number != null) reportVersionRef.current = r.version_number;
+    reportStatusRef.current = r?.status || "finalized";
     pushToast({ message: tr(lang, "Звіт завершено", "Report finalized") });
     return r;
   }, [saveDraft, lang]);
+
+  // «Підписати звіт» from the preview (2026-07-24): the backend only signs a
+  // FINALIZED report — clicking Sign on a draft used to open the password
+  // modal and reject a perfectly correct password with a raw 409. Now the
+  // draft is finalized first (same validation surface: a 422 renders the
+  // per-section reasons in the preview and signing never opens), and only
+  // then does the signing modal appear.
+  const signFromPreview = useCallback(async () => {
+    if (reportStatusRef.current === "draft" || !reportIdRef.current) {
+      await finalizeFromPreview(); // throws w/ .problems → preview surfaces them
+    }
+    setPreviewOpen(false);
+    setSignOpen(true);
+  }, [finalizeFromPreview]);
+
+  // ── Sprint 13 step 07 — typed-field voice ops (backend step 07) ─────
+  // Server-computed set/add/remove_choice + mark_diagnosis_text arrive as
+  // `final.operations` on the sprint-05 WS channel and route through the
+  // applyOperations registry into THIS ctx. Every mutation goes through the
+  // same onSectionMetaChange → autosave path a tapped chip uses (voice ⇒
+  // source:"manual", rendered confirmed — a spoken command is an explicit
+  // clinician act). NOTHING here calls focus(): chips update model-driven,
+  // the section is revealed by scroll only, the caret never moves.
+  const applyVoiceChoiceOp = useCallback((op) => {
+    const res = applyChoiceOp(op, { template, sectionMeta: latestSectionMetaRef.current });
+    if (res.error) {
+      pushToast({ message: voiceOpErrorMessage(res.error, lang) });
+      return;
+    }
+    if (res.patch) onSectionMetaChange(res.sectionKey, res.patch);
+    revealSection(res.sectionKey);
+  }, [template, onSectionMetaChange, pushToast, lang]);
+
+  const markDiagnosisText = useCallback((text) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    // The hint targets the report's diagnosis section; it seeds the ICD-10
+    // picker's search — never selects a code.
+    const diag = template?.sections?.find((s) => s.field_type === "structured_diagnosis");
+    if (!diag) return;
+    revealSection(diag.id);
+    try {
+      window.dispatchEvent(new CustomEvent(ICD10_SEED_EVENT, { detail: { sectionId: diag.id, text: t } }));
+    } catch {}
+  }, [template]);
+
+  const serverOpsCtx = useMemo(() => ({
+    applyChoiceOp: applyVoiceChoiceOp,
+    markDiagnosisText,
+    choiceOpFailed: (reason, value) =>
+      pushToast({ message: voiceOpErrorMessage({ code: reason, value }, lang) }),
+    warn: (m) => pushToast({ message: m }),
+  }), [applyVoiceChoiceOp, markDiagnosisText, pushToast, lang]);
+
+  // The WS `final` consumer calls this with `final.operations` once the
+  // streaming path is live (missing operations = NLP downgraded — the
+  // registry's existing rule). Also exposed as a dev-only e2e seam (the
+  // __mdxClient convention) so step-08 can drive the REAL op path
+  // (registry → ctx → sectionMeta → chips) before backend step 07 merges.
+  const applyServerOperations = useCallback(
+    (operations) => applyOperations(operations, serverOpsCtx),
+    [serverOpsCtx],
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || !import.meta.env?.DEV) return;
+    window.__mdxStudioOps = applyServerOperations;
+    return () => { if (window.__mdxStudioOps === applyServerOperations) delete window.__mdxStudioOps; };
+  }, [applyServerOperations]);
+
+  // Sprint 13 step 06 — «перейти» from a finalize violation: close the
+  // preview, make the offending section active (existing scroll/caret
+  // mechanics), then focus the most specific fix affordance — for
+  // diagnosis_not_confirmed the first proposal's confirm button (the fix is
+  // one tap away). The delay lets the modal unmount and the editor scroll.
+  const jumpToViolation = useCallback((sectionKey, code) => {
+    setPreviewOpen(false);
+    pickSection(sectionKey, "finalize_violation");
+    setTimeout(() => focusViolationTarget(sectionKey, code), 150);
+  }, [pickSection]);
 
   const downloadDraft = useCallback(async () => {
     if (!reportIdRef.current) { await saveDraft(); }
@@ -1468,7 +1607,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     );
     const id = setTimeout(() => { saveDraft(); }, delay);
     return () => clearTimeout(id);
-  }, [saveState, body, saveDraft, saveTick]);
+  }, [saveState, body, sectionMeta, saveDraft, saveTick]);
 
   // ── Hotkeys ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1749,12 +1888,14 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
         <SectionNav
           template={template}
           body={body}
+          sectionMeta={sectionMeta}
           activeId={activeId}
           onPick={(id) => pickSection(id, "user_click")}
           templatesMap={templatesMap}
           onSelectTemplate={id => {
             setTemplateId(id);
             setBody({});
+            setSectionMeta({});
             reportIdRef.current = null;
             setActiveId(null); // the detail-load effect sets the first section
           }}
@@ -1785,6 +1926,8 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           patientRef={patient?.ref || patient?.mrn}
           body={body}
           onBodyChange={b => { setBody(b); setSaveState("unsaved"); }}
+          sectionMeta={sectionMeta}
+          onSectionMetaChange={onSectionMetaChange}
           activeId={activeId}
           onActiveSectionChange={(id) => pickSection(id, "user_click")}
           partial={partial}
@@ -1823,7 +1966,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
         )}
 
         <StudioFooter
-          done={template.sections.filter(s => (body[s.id] || "").trim().length > 0).length}
+          done={countComplete(template.sections, body, sectionMeta)}
           total={template.sections.length}
           onSaveDraft={triggerSave}
           onDownloadDraft={downloadDraft}
@@ -1881,9 +2024,12 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
         author={author}
         reportId={reportIdRef.current}
         onClose={() => setPreviewOpen(false)}
-        onSign={() => { setPreviewOpen(false); setSignOpen(true); }}
+        onSign={signFromPreview}
         onApplySynthesis={applySynthesis}
         onFinalize={finalizeFromPreview}
+        sectionMeta={sectionMeta}
+        onSectionMetaChange={onSectionMetaChange}
+        onJumpToViolation={jumpToViolation}
       />
 
       {/* Sprint 09: Full signing flow */}
@@ -1903,9 +2049,14 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       )}
       {signOpen && (
         <SigningFlow
+          // BUG FIX 2026-07-24: reportId was never passed here, so the dev
+          // password flow signed /v1/reports/undefined/sign and every
+          // attempt was "rejected" regardless of the password.
+          reportId={reportIdRef.current}
           lang={lang}
           onClose={() => setSignOpen(false)}
           onSigned={() => {
+            reportStatusRef.current = "signed";
             setSignOpen(false);
             pushToast({ message: tr(lang, "Звіт підписано", "Report signed") });
             onSignedNavigate?.();

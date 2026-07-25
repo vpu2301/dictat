@@ -97,3 +97,23 @@ export async function healthz(baseUrl = BASE_URL) {
   if (!r.ok) throw new Error("healthz_failed");
   return r.json();
 }
+
+// ── Step-up re-authentication (S14 break-glass) ──────────────────────────────
+// POST /auth/reauth — re-enter the CURRENT user's password to mint a
+// single-use, short-lived ticket proving they are still at the keyboard.
+// The ticket is then spent on a high-risk action (today: requesting
+// break-glass access to one report).
+//
+// Returns { reauth_ticket, expires_in, purpose }. Throws ApiError 401 when
+// the password is wrong — surface that as "wrong password", never as a
+// session problem: the caller's session is fine, their typing was not.
+//
+// The password is passed straight through and never stored, logged or
+// retained by the SPA; hold the returned ticket in component state only.
+export async function reauth(password, { purpose = "phi_access_request" } = {}) {
+  return api("/auth/reauth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password, purpose }),
+  });
+}

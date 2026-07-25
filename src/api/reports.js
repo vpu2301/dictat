@@ -97,10 +97,19 @@ export async function getReport(id, { includeContent = true, purpose } = {}) {
 
 // Adapt the editor's flat shape to the backend's nested `content` contract.
 // report-service expects { content: { template_id, template_schema_version,
-// sections: [{section_key, text}], ... } } and rejects unknown fields
-// (extra="forbid"). It does NO template/section validation at create — that is
-// deferred to finalize — so a light mapping is enough for drafts.
-export function buildReportContent({ template_id, template_schema_version, body, title, encounter_date }) {
+// sections: [{section_key, text, icd10?, field_specific_metadata?}], ... } }
+// and rejects unknown fields (extra="forbid"). It does NO template/section
+// validation at create — that is deferred to finalize — but since Sprint 13
+// it DOES validate any non-empty field_specific_metadata on the draft PUT.
+//
+// `section_meta` (Sprint 13) is the Studio's parallel map
+// { [section_key]: { icd10?, field_specific_metadata? } } — confirmed
+// diagnosis codes and typed field metadata. It MUST round-trip through every
+// save: dropping it would destroy extractor proposals and confirmed values.
+// A section that carries meta but no prose is still emitted (a confirmed
+// diagnosis with an empty note is real content). Without section_meta the
+// output is exactly the pre-S13 shape.
+export function buildReportContent({ template_id, template_schema_version, body, title, encounter_date, section_meta }) {
   let sections = [];
   if (typeof body === "string") {
     // Free-text editor: park the whole document in a single "note" section.
@@ -110,6 +119,27 @@ export function buildReportContent({ template_id, template_schema_version, body,
     sections = Object.entries(body)
       .filter(([, v]) => v != null && String(v).length > 0)
       .map(([k, v]) => ({ section_key: String(k), text: String(v) }));
+  }
+  if (section_meta && typeof section_meta === "object") {
+    const byKey = new Map(sections.map((s) => [s.section_key, s]));
+    for (const [key, meta] of Object.entries(section_meta)) {
+      if (!meta) continue;
+      let s = byKey.get(String(key));
+      if (!s) {
+        s = { section_key: String(key), text: "" };
+        byKey.set(s.section_key, s);
+        sections.push(s);
+      }
+      if (Array.isArray(meta.icd10) && meta.icd10.length) s.icd10 = meta.icd10;
+      if (meta.field_specific_metadata && Object.keys(meta.field_specific_metadata).length) {
+        s.field_specific_metadata = meta.field_specific_metadata;
+      }
+      // Meta-only entry that resolved to nothing → drop the synthetic section.
+      if (!s.text && !s.icd10 && !s.field_specific_metadata) {
+        byKey.delete(s.section_key);
+        sections = sections.filter((x) => x !== s);
+      }
+    }
   }
   return {
     template_id,
@@ -128,10 +158,10 @@ export function buildReportContent({ template_id, template_schema_version, body,
 export async function createReport(input = {}) {
   const {
     template_id, template_schema_version, body, title, encounter_date,
-    patient_id, source_session_id, co_author_ids,
+    patient_id, source_session_id, co_author_ids, section_meta,
   } = input;
   const payload = {
-    content: buildReportContent({ template_id, template_schema_version, body, title, encounter_date }),
+    content: buildReportContent({ template_id, template_schema_version, body, title, encounter_date, section_meta }),
     ...(patient_id ? { patient_id } : {}),
     ...(source_session_id ? { source_session_id } : {}),
     ...(co_author_ids && co_author_ids.length ? { co_author_ids } : {}),
@@ -148,11 +178,11 @@ export async function createReport(input = {}) {
 export async function updateReport(id, input = {}) {
   const {
     expected_version, template_id, template_schema_version, body,
-    title, encounter_date, dictation_session_id,
+    title, encounter_date, dictation_session_id, section_meta,
   } = input;
   const payload = {
     expected_version,
-    content: buildReportContent({ template_id, template_schema_version, body, title, encounter_date }),
+    content: buildReportContent({ template_id, template_schema_version, body, title, encounter_date, section_meta }),
     ...(dictation_session_id ? { dictation_session_id } : {}),
   };
   return a(`/v1/reports/${encodeURIComponent(id)}/draft`, {
@@ -318,6 +348,28 @@ export async function signReport(id, body = {}) {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+// Classify a signReport() rejection into a translation-free descriptor
+// (2026-07-24 — a correct dev password was "rejected" because the REPORT
+// STATE was unsignable and the FE showed the raw error). The backend's 409
+// carries `{'error': 'report_not_signable', 'current_status': …}` as a
+// Python-repr detail string — parsed via the same pickProblemField as
+// classifyAssignError. Kept pure (no i18n) so it's unit-testable.
+//   { kind: "not_signable", current_status: "draft"|"signed"|"cancelled"|… }
+//   { kind: "wrong_password" } | { kind: "locked" } | { kind: "unavailable" }
+//   { kind: "unknown", message }
+export function classifySignError(err) {
+  const raw = err?.problem || {};
+  const status = err?.status;
+  const code = pickProblemField(raw, "error") || pickProblemField(raw, "code");
+  if (status === 409 && code === "report_not_signable") {
+    return { kind: "not_signable", current_status: pickProblemField(raw, "current_status") || null };
+  }
+  if (status === 401) return { kind: "wrong_password" };
+  if (status === 423) return { kind: "locked" };
+  if (status === 503) return { kind: "unavailable" };
+  return { kind: "unknown", message: err?.message || null };
 }
 
 // ── Assign a batch transcription to a patient (sprint: dictation-assign) ──

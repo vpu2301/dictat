@@ -23,32 +23,14 @@ import { Icon } from './UI.jsx'
 import { useI18n } from '../i18n.js'
 
 // ── Convert body object ↔ TipTap JSON doc ─────────────────────────────────
+// Extracted to reports/sectionDoc.js (Sprint 13) so it's unit-testable and
+// carries the real field_type into the section node's `kind` attribute.
+// Re-exported here because Studio and older code import them from this file.
 
-export function bodyToDoc(template, body, lang) {
-  return {
-    type: 'doc',
-    content: template.sections.map(s => ({
-      type: 'section',
-      attrs: { id: s.id, title: s.name?.[lang] || s.name?.en || s.id, kind: 'free_text', required: !!s.required },
-      content: [{
-        type: 'paragraph',
-        content: body[s.id]
-          ? [{ type: 'text', text: body[s.id] }]
-          : [],
-      }],
-    })),
-  }
-}
-
-export function docToBody(doc) {
-  const body = {}
-  doc.forEach(node => {
-    if (node.type.name === 'section') {
-      body[node.attrs.id] = node.textContent
-    }
-  })
-  return body
-}
+import { bodyToDoc, docToBody } from '../reports/sectionDoc.js'
+import { FieldWidgetsLayer } from '../reports/FieldWidgetsLayer.jsx'
+import '../reports/renderers/register.js' // side effect: typed field renderers → dispatch
+export { bodyToDoc, docToBody }
 
 // ── Paste sanitizer extension ─────────────────────────────────────────────
 // The report body is plain text organized into fixed template sections, so a
@@ -290,6 +272,11 @@ export function TipTapEditor({
   acShowGhost = true,     // Layer A toggle (keyboard protocol stays active)
   acListboxOpen = false,  // pills popup rendered → manage aria-activedescendant
   patientRef,             // optional patient identifier shown in the report meta
+  // Sprint 13 — typed field widgets. sectionMeta is the Studio's
+  // { [section_key]: { icd10?, field_specific_metadata? } } map; changes go
+  // back up via onSectionMetaChange (marks the draft dirty → autosave PUT).
+  sectionMeta,
+  onSectionMetaChange,
 }) {
   const { t } = useI18n()
   const [showFR,  setShowFR]  = useState(false)
@@ -314,6 +301,11 @@ export function TipTapEditor({
   const composingRef = useRef(false)
   const caretCbRef = useRef(onAcCaretContext)
   caretCbRef.current = onAcCaretContext
+  // Set while we move the caret programmatically (setContent / re-anchor after
+  // an external body change, rail-nav). onSelectionUpdate must NOT feed such
+  // mechanical caret moves back into `activeId` — otherwise setContent's
+  // map-to-doc-end silently retargets dictation to the last section.
+  const suppressActiveSyncRef = useRef(false)
 
   // Report the text between the start of the current block and the caret —
   // the ONLY thing the suggest hook needs. Null when composing, selecting a
@@ -457,13 +449,18 @@ export function TipTapEditor({
       reportCaretContext(e)
     },
     onSelectionUpdate: ({ editor: e }) => {
-      const { $anchor } = e.state.selection
-      // Walk up to find closest section node
-      for (let d = $anchor.depth; d >= 0; d--) {
-        const n = $anchor.node(d)
-        if (n?.type.name === 'section') {
-          onActiveSectionChange?.(n.attrs.id)
-          break
+      // Only a USER caret move should change which section dictation targets.
+      // Programmatic moves (setContent re-anchor, rail-nav) set the guard so
+      // they can't retarget `activeId` (e.g. to the doc-end/last section).
+      if (!suppressActiveSyncRef.current) {
+        const { $anchor } = e.state.selection
+        // Walk up to find closest section node
+        for (let d = $anchor.depth; d >= 0; d--) {
+          const n = $anchor.node(d)
+          if (n?.type.name === 'section') {
+            onActiveSectionChange?.(n.attrs.id)
+            break
+          }
         }
       }
       reportCaretContext(e)
@@ -557,17 +554,22 @@ export function TipTapEditor({
   // Navigate to active section when activeId changes externally
   useEffect(() => {
     if (!editor || !activeId) return
-    editor.state.doc.forEach((node, pos) => {
-      if (node.type.name === 'section' && node.attrs.id === activeId) {
-        const firstChild = node.firstChild
-        if (firstChild) {
-          const targetPos = pos + 1 // inside the section node
-          try {
-            editor.chain().setTextSelection(targetPos).scrollIntoView().run()
-          } catch {}
+    suppressActiveSyncRef.current = true
+    try {
+      editor.state.doc.forEach((node, pos) => {
+        if (node.type.name === 'section' && node.attrs.id === activeId) {
+          const firstChild = node.firstChild
+          if (firstChild) {
+            const targetPos = pos + 1 // inside the section node
+            try {
+              editor.chain().setTextSelection(targetPos).scrollIntoView().run()
+            } catch {}
+          }
         }
-      }
-    })
+      })
+    } finally {
+      suppressActiveSyncRef.current = false
+    }
   // Only trigger on explicit activeId changes from outside (e.g. rail click)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId])
@@ -605,31 +607,38 @@ export function TipTapEditor({
       s => (editorBody[s.id] || '') === (body[s.id] || '')
     )
     if (same) return
-    const prevTo = editor.state.selection.to
-    const newDoc = bodyToDoc(tmpl, body, lang)
-    editor.commands.setContent(newDoc, false) // false = don't re-emit onUpdate
+    // Only EXTERNAL body changes reach here — the editor's own edits are caught
+    // by `same` above. An external change is a dictation append / voice op /
+    // draft hydration, and its insertion point is always the END of the ACTIVE
+    // section (voice always appends to body[activeId]). Re-anchor there and
+    // NEVER fall back to the doc end: setContent maps the old selection to the
+    // last section, and clamping to size-1 lands there too — either way the
+    // selection→activeId feedback would retarget dictation to the last section.
+    suppressActiveSyncRef.current = true
     try {
-      if (dictating && activeId) {
-        // Dictation append: park the caret at the insertion point (end of the
-        // active section's text) and keep it in view, so the user always sees
-        // where the next utterance lands.
-        let target = null
+      const prevTo = editor.state.selection.to
+      const newDoc = bodyToDoc(tmpl, body, lang)
+      editor.commands.setContent(newDoc, false) // false = don't re-emit onUpdate
+      let target = null
+      if (activeId) {
         editor.state.doc.forEach((node, pos) => {
           if (node.type.name === 'section' && node.attrs.id === activeId) {
             target = pos + node.nodeSize - 2 // end of the section's last block
           }
         })
-        if (target != null) {
-          editor.chain().setTextSelection(Math.max(1, target)).scrollIntoView().run()
-          return
-        }
       }
-      // Otherwise restore the caret roughly where it was, clamped to the new doc.
       const size = editor.state.doc.content.size
-      editor.commands.setTextSelection(Math.min(prevTo, Math.max(1, size - 1)))
+      // Prefer the active section's end; only if it can't be located, keep the
+      // caret roughly where it was (still clamped INTO the doc, not at its end).
+      const pos = target != null ? target : prevTo
+      editor.chain().setTextSelection(Math.max(1, Math.min(pos, size - 1)))
+        .scrollIntoView().run()
     } catch {}
+    finally {
+      suppressActiveSyncRef.current = false
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body, editor])
+  }, [body, editor, activeId])
 
   // Navigate to a section by title (voice nav)
   const navigateToSection = useCallback((titleQuery) => {
@@ -682,6 +691,16 @@ export function TipTapEditor({
           </div>
 
           <EditorContent editor={editor} className="tiptap-content" />
+          {/* Sprint 13 — typed field widgets, portaled into their section's
+              DOM. free_text sections are untouched by construction. */}
+          <FieldWidgetsLayer
+            editor={editor}
+            template={template}
+            sectionMeta={sectionMeta}
+            onSectionMetaChange={onSectionMetaChange}
+            lang={lang}
+            readOnly={readOnly}
+          />
           {/* Ghost text (Layer A) renders INSIDE the document as a widget
               decoration at the caret — see extensions/AutocompleteGhost.js. */}
         </div>

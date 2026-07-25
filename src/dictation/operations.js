@@ -24,6 +24,10 @@
 //     stopDictation(),
 //     openQuote() / closeQuote(),
 //     warn(message),
+//     // Sprint 13 step 07 — typed-field voice ops:
+//     applyChoiceOp(op),                 // set/add/remove_choice {section_id, value}
+//     markDiagnosisText(text),           // ICD-10 picker seed, never a code
+//     choiceOpFailed(reason, value),     // unresolvable → precise toast
 //   }
 export function applyOperations(operations, ctx, options = {}) {
   if (!Array.isArray(operations) || !ctx) return { applied: 0, skipped: 0 };
@@ -63,6 +67,33 @@ export function applyOperations(operations, ctx, options = {}) {
           if (v === "close") ctx.closeQuote && ctx.closeQuote();
           break;
         }
+        // Sprint 13 step 07 — typed-field voice ops (backend step 07).
+        // The ctx implementation routes these through the SAME draft-save
+        // path a tapped chip uses (src/reports/applyChoiceOp.js): a voice
+        // selection is an explicit clinician act ⇒ source:"manual",
+        // rendered confirmed. No op on this path may touch focus.
+        case "set_choice":
+        case "add_choice":
+        case "remove_choice":
+          ctx.applyChoiceOp && ctx.applyChoiceOp(op);
+          break;
+        case "mark_diagnosis_text":
+          // A diagnosis HINT: seeds the ICD-10 picker's query — never a
+          // code selection (codes only enter via confirm or pick).
+          ctx.markDiagnosisText && ctx.markDiagnosisText(op.arg && op.arg.text);
+          break;
+        case "unknown":
+          // Backend step 07's unresolvable choice utterance: a no-op op
+          // carrying arg.reason (option_not_found / not_a_choice_section).
+          // Precise toast, never a silent drop, never a wrong selection.
+          if (op.arg && op.arg.reason && ctx.choiceOpFailed) {
+            ctx.choiceOpFailed(op.arg.reason, op.arg.value);
+            skipped++;
+            if (onAudit) onAudit({ kind: "voice_command.choice_unresolved", reason: op.arg.reason });
+            continue;
+          }
+          skipped++;
+          continue;
         case "unknown_intent":
           // Backend saw an intent that doesn't map to a known op. Surface
           // softly — common when vocab drifts on the backend side.

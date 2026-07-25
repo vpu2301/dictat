@@ -82,6 +82,10 @@ export function installConsoleGuard(page) {
     // known dev-stack gap (see e2e/README.md): dictation-service :8002
     // ships no CORS headers; its readiness probe noise is not app error
     if (/blocked by CORS policy/.test(msg.text()) && /:8002/.test(msg.text())) return;
+    // known dev-stack gap: notification-service :8004 is not part of the
+    // minimal stack; the bell's WS retry logs a browser connection error
+    // (handled in-app by the socket's backoff — not an app error).
+    if (/WebSocket connection to 'ws:\/\/localhost:8004/.test(msg.text())) return;
     errors.push(`console.error: ${msg.text().slice(0, 200)}`);
   });
   return {

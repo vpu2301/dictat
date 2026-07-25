@@ -123,8 +123,14 @@ export function AmendmentModal({ report, template, lang, onConfirm, onCancel, in
     })
   }
 
+  // Which sections were edited vs the signed version — the right rail lists
+  // them so the clinician sees the amendment's scope at a glance.
+  const editedKeys = seedSections
+    .filter(s => (body[s.section_key] ?? '') !== (s.text || ''))
+    .map(s => s.section_key)
+
   return (
-    <Modal onClose={onCancel}>
+    <Modal onClose={onCancel} className="modal-xl amend-modal">
       <div className="modal-h">
         <h2>{uk ? 'Внести правки' : 'Amend Report'}</h2>
         <p>
@@ -133,72 +139,88 @@ export function AmendmentModal({ report, template, lang, onConfirm, onCancel, in
             : 'A signed report cannot be edited directly. Amendments create a new version; the original signature remains valid for the prior text.'}
         </p>
       </div>
-      <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div className="signed-info-card">
-          <div className="signed-row">
-            <span className="muted">{uk ? 'Поточна версія' : 'Current version'}</span>
-            <span>v{report?.version || 1} · {uk ? 'Підписано' : 'Signed'}</span>
-          </div>
-        </div>
-
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{uk ? 'Тип правки *' : 'Amendment type *'}</span>
-          <div className="seg" style={{ display: 'flex', gap: 6 }}>
-            {AMENDMENT_TYPES.map(ty => (
-              <button
-                key={ty.key}
-                type="button"
-                className={`btn sm${amendmentType === ty.key ? ' accent' : ''}`}
-                onClick={() => setAmendmentType(ty.key)}
-                aria-pressed={amendmentType === ty.key}
-              >
-                {uk ? ty.uk : ty.en}
-              </button>
-            ))}
-          </div>
-        </label>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{uk ? 'Зміст звіту' : 'Report content'}</span>
+      {/* Two panes so the whole flow fits ONE screen: the report text on the
+          left (scrolls internally), type/reason/summary always visible on the
+          right. The modal itself never exceeds the viewport. */}
+      <div className="modal-body amend-grid">
+        <div className="amend-content">
+          <span className="amend-label">{uk ? 'Зміст звіту' : 'Report content'}</span>
           {seedSections.length === 0 ? (
             <span className="muted" style={{ fontSize: 12 }}>{uk ? '— порожній звіт —' : '— empty report —'}</span>
-          ) : seedSections.map(s => (
-            <label key={s.section_key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{sectionLabel(s.section_key)}</span>
-              <textarea
-                className="ti"
-                rows={3}
-                value={body[s.section_key] ?? ''}
-                onChange={e => setSection(s.section_key, e.target.value)}
-                style={{ resize: 'vertical' }}
-              />
-            </label>
-          ))}
+          ) : seedSections.map(s => {
+            const edited = (body[s.section_key] ?? '') !== (s.text || '')
+            return (
+              <label key={s.section_key} className={'amend-sec' + (edited ? ' is-edited' : '')}>
+                <span className="amend-sec-h">
+                  {sectionLabel(s.section_key)}
+                  {edited && <em className="amend-edited-tag">{uk ? 'змінено' : 'edited'}</em>}
+                </span>
+                <textarea
+                  className="ti"
+                  rows={Math.min(6, Math.max(2, Math.ceil((body[s.section_key] ?? '').length / 90)))}
+                  value={body[s.section_key] ?? ''}
+                  onChange={e => setSection(s.section_key, e.target.value)}
+                />
+              </label>
+            )
+          })}
         </div>
 
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>
-            {uk ? 'Причина правок *' : 'Reason for amendment *'}
-          </span>
-          <textarea
-            className="ti"
-            rows={3}
-            placeholder={uk
-              ? 'Опишіть причину правок (мін. 20 символів)…'
-              : 'Describe the reason for this amendment (min. 20 chars)…'}
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            style={{ resize: 'vertical' }}
-          />
-          <span className="muted" style={{ fontSize: 11, textAlign: 'right' }}>
-            {reason.length} / 4000 {!reasonValid && reason.length > 0 && `— ${uk ? 'мін. 20' : 'min. 20'}`}
-          </span>
-        </label>
-        {!changed && reasonValid && (
-          <span className="muted" style={{ fontSize: 11 }}>
-            {uk ? 'Змініть текст звіту, щоб внести правку.' : 'Edit the report text to make an amendment.'}
-          </span>
-        )}
+        <div className="amend-side">
+          <div className="signed-info-card">
+            <div className="signed-row">
+              <span className="muted">{uk ? 'Поточна версія' : 'Current version'}</span>
+              <span>v{report?.version || 1} · {uk ? 'Підписано' : 'Signed'}</span>
+            </div>
+          </div>
+
+          <label className="amend-field">
+            <span className="amend-label">{uk ? 'Тип правки *' : 'Amendment type *'}</span>
+            <div className="seg amend-types">
+              {AMENDMENT_TYPES.map(ty => (
+                <button
+                  key={ty.key}
+                  type="button"
+                  className={`btn sm${amendmentType === ty.key ? ' accent' : ''}`}
+                  onClick={() => setAmendmentType(ty.key)}
+                  aria-pressed={amendmentType === ty.key}
+                >
+                  {uk ? ty.uk : ty.en}
+                </button>
+              ))}
+            </div>
+          </label>
+
+          <label className="amend-field">
+            <span className="amend-label">
+              {uk ? 'Причина правок *' : 'Reason for amendment *'}
+            </span>
+            <textarea
+              className="ti"
+              rows={4}
+              placeholder={uk
+                ? 'Опишіть причину правок (мін. 20 символів)…'
+                : 'Describe the reason for this amendment (min. 20 chars)…'}
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+            />
+            <span className="muted" style={{ fontSize: 11, textAlign: 'right' }}>
+              {reason.length} / 4000 {!reasonValid && reason.length > 0 && `— ${uk ? 'мін. 20' : 'min. 20'}`}
+            </span>
+          </label>
+
+          {/* Live scope summary: what this amendment will change. */}
+          <div className="amend-summary">
+            {editedKeys.length
+              ? <>
+                  <span className="amend-label">{uk ? 'Змінені розділи' : 'Edited sections'}</span>
+                  {editedKeys.map(k => <span key={k} className="amend-summary-item">{sectionLabel(k)}</span>)}
+                </>
+              : <span className="muted" style={{ fontSize: 12 }}>
+                  {uk ? 'Змініть текст звіту, щоб внести правку.' : 'Edit the report text to make an amendment.'}
+                </span>}
+          </div>
+        </div>
       </div>
       <div className="modal-foot">
         <button className="btn" onClick={onCancel}>{uk ? 'Скасувати' : 'Cancel'}</button>

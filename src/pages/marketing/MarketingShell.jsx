@@ -814,14 +814,13 @@ function NavGroup({ group, open, onOpen, onClose, onNavigate }) {
   );
 }
 
-/* Language switcher — a custom listbox instead of a bare <select> so the menu
-   matches the mega-menu's look: each language shown in its own script, the
-   active one accented and checked. Self-contained: owns its open state plus
-   outside-click / Escape handling, and closes on choose. */
-function LangSwitcher({ lang, setTweak }) {
+/* Generic popover listbox — a custom menu instead of a bare <select> so it
+   matches the mega-menu's look; the active option is accented and checked.
+   Self-contained: owns its open state plus outside-click / Escape handling,
+   and closes on choose. Used for the footer's language and country pickers. */
+function PopSwitcher({ ariaLabel, trigger, options, activeKey, onPick }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-  const current = LANGS.find((l) => l.code === lang) || LANGS[1];
 
   useEffect(() => {
     if (!open) return;
@@ -832,7 +831,7 @@ function LangSwitcher({ lang, setTweak }) {
     return () => { window.removeEventListener("mousedown", onDown); window.removeEventListener("keydown", onKey); };
   }, [open]);
 
-  const pick = (code) => { setTweak && setTweak("lang", code); setOpen(false); };
+  const pick = (key) => { onPick(key); setOpen(false); };
 
   return (
     <div className={`lp-lang-menu${open ? " is-open" : ""}`} ref={ref}>
@@ -841,30 +840,90 @@ function LangSwitcher({ lang, setTweak }) {
         className="lp-lang-trigger"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Language"
+        aria-label={ariaLabel}
         onClick={() => setOpen((o) => !o)}
       >
-        <Icon name="globe" size={15} />
-        <span className="lp-lang-current">{current.short}</span>
+        {trigger}
         <Icon name="chevDown" size={12} />
       </button>
-      <div className="lp-lang-pop" role="listbox" aria-label="Language" tabIndex={-1}>
-        {LANGS.map((l) => (
+      <div className="lp-lang-pop" role="listbox" aria-label={ariaLabel} tabIndex={-1}>
+        {options.map((o) => (
           <button
             type="button"
-            key={l.code}
+            key={o.key}
             role="option"
-            aria-selected={l.code === lang}
-            className={`lp-lang-opt${l.code === lang ? " is-active" : ""}`}
-            onClick={() => pick(l.code)}
+            aria-selected={o.key === activeKey}
+            className={`lp-lang-opt${o.key === activeKey ? " is-active" : ""}`}
+            onClick={() => pick(o.key)}
           >
-            <span className="lp-lang-opt-label" dir={l.rtl ? "rtl" : "ltr"}>{l.label}</span>
-            <span className="lp-lang-opt-short">{l.short}</span>
+            {o.lead && <span className="lp-lang-opt-lead" aria-hidden="true">{o.lead}</span>}
+            <span className="lp-lang-opt-label" dir={o.rtl ? "rtl" : "ltr"}>{o.label}</span>
+            {o.short && <span className="lp-lang-opt-short">{o.short}</span>}
             <Icon name="check" size={15} />
           </button>
         ))}
       </div>
     </div>
+  );
+}
+
+/* Language switcher — each language shown in its own script. */
+function LangSwitcher({ lang, setTweak }) {
+  const current = LANGS.find((l) => l.code === lang) || LANGS[1];
+  return (
+    <PopSwitcher
+      ariaLabel="Language"
+      activeKey={lang}
+      onPick={(code) => setTweak && setTweak("lang", code)}
+      trigger={<>
+        <Icon name="globe" size={15} />
+        <span className="lp-lang-current">{current.short}</span>
+      </>}
+      options={LANGS.map((l) => ({ key: l.code, label: l.label, short: l.short, rtl: l.rtl }))}
+    />
+  );
+}
+
+/* Country / region registry for the footer picker. Endonyms on purpose —
+   like the language list, every entry is self-identifying in its own
+   language, so the list needs no translation. Stored as the `country`
+   tweak; until the visitor picks one, the default follows the site
+   language's home market. */
+const COUNTRIES = [
+  { code: "ua", flag: "🇺🇦", label: "Україна" },
+  { code: "pl", flag: "🇵🇱", label: "Polska" },
+  { code: "de", flag: "🇩🇪", label: "Deutschland" },
+  { code: "ro", flag: "🇷🇴", label: "România" },
+  { code: "cz", flag: "🇨🇿", label: "Česko" },
+  { code: "rs", flag: "🇷🇸", label: "Srbija" },
+  { code: "hu", flag: "🇭🇺", label: "Magyarország" },
+  { code: "es", flag: "🇪🇸", label: "España" },
+  { code: "pt", flag: "🇵🇹", label: "Portugal" },
+  { code: "int", flag: "🌐", label: "International" },
+];
+
+const COUNTRY_FOR_LANG = {
+  uk: "ua", pl: "pl", de: "de", ro: "ro", cs: "cz",
+  sr: "rs", hu: "hu", es: "es", pt: "pt",
+};
+
+export function defaultCountry(lang) {
+  return COUNTRY_FOR_LANG[lang] || "int";
+}
+
+function CountrySwitcher({ country, setTweak }) {
+  const current = COUNTRIES.find((c) => c.code === country) || COUNTRIES[COUNTRIES.length - 1];
+  return (
+    <PopSwitcher
+      ariaLabel="Country / Region"
+      activeKey={current.code}
+      onPick={(code) => setTweak && setTweak("country", code)}
+      trigger={<>
+        <span className="lp-lang-flag" aria-hidden="true">{current.flag}</span>
+        <span className="lp-lang-current">{current.label}</span>
+      </>}
+      options={COUNTRIES.map((c) => ({ key: c.code, label: c.label, lead: c.flag }))}
+    />
   );
 }
 
@@ -919,7 +978,6 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
           </nav>
 
           <div className="lp-nav-actions">
-            <LangSwitcher lang={lang} setTweak={setTweak} />
             <a className="btn btn-ghost lp-signin" href="#/login" onClick={go("/login")}>{f.signin}</a>
             <a className="btn btn-primary lp-nav-cta" href="#/signup" onClick={go("/signup")}>{f.start}</a>
             <button className="lp-burger" onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }} aria-label="Menu">
@@ -956,6 +1014,11 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
         </div>
         <div className="lp-footer-bar">
           <span>© 2026 Klarnote. {f.rights}</span>
+          {/* Language + country moved here from the navbar (popups open upward). */}
+          <div className="lp-footer-pickers">
+            <LangSwitcher lang={lang} setTweak={setTweak} />
+            <CountrySwitcher country={tweaks?.country || defaultCountry(lang)} setTweak={setTweak} />
+          </div>
           <div className="lp-footer-bar-links">
             <a href="#/login" onClick={go("/login")}>{f.signin}</a>
             <a href="#/signup" onClick={go("/signup")}>{f.start}</a>

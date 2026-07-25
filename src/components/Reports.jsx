@@ -13,6 +13,8 @@ import { useAsync } from '../api/useAsync.js';
 import { listReports, countReports, reportHits, getReport, listReportVersions, getReportVersion, amendReport, cancelReport, revertReportToDraft } from '../api/reports.js';
 import { listTemplates, getTemplate, toStudioTemplate } from '../api/templates.js';
 import { AmendmentModal, ReportDiffView } from './ReportDiff.jsx';
+import { RequestAccessModal } from './RequestAccessModal.jsx';
+import { isPhiAccessRequired } from '../api/phiAccess.js';
 import { SigningFlow } from './SigningFlow.jsx';
 import { useSpeechRecognition, LevelMeter } from './Studio.jsx';
 import { segmentUtterance, appendUtterance } from '../dictation/voiceCommands.js';
@@ -26,9 +28,16 @@ function loc(v, lang) {
 }
 
 // Map a /v1/reports/search hit onto the flat shape the list row renders.
-// The search endpoint is PHI-minimised: it exposes the patient's redacted
-// initials (not a name) and the template id (not the template object), which
-// we resolve against the loaded templates map at render time.
+//
+// S14: the endpoint now returns `patient_name` — the patient's REAL name,
+// resolved live — to clinicians and nurses, alongside the initials it
+// always sent. Prefer the name; keep the initials as the fallback, because
+// `patient_name` is legitimately absent for a report with no patient and
+// for a patient the caller's RLS scope will not show.
+//
+// A tenant_admin reaching this endpoint gets the stats projection: every
+// one of these PHI fields comes back empty, and the rows render as bare
+// counts. That is the intended shape, not a bug to paper over.
 function hitToReport(h) {
   return {
     id: h.report_id,
@@ -37,11 +46,21 @@ function hitToReport(h) {
     status: h.status,
     template_id: h.template_id,
     patient_id: h.patient_id,
+    patient_name: h.patient_name || null,     // { uk, en } | null
     patient_initials: h.patient_name_redacted || "",
     encounter_date: h.encounter_date,
     modified: h.updated_at,
     primary_author_id: h.primary_author_id,
   };
+}
+
+// What to print in a report row's name cell: full name where we have it,
+// initials where we do not, and a neutral word where we have neither.
+export function reportPatientLabel(r, lang) {
+  const full = loc(r?.patient_name, lang);
+  if (full) return full;
+  if (r?.patient_initials) return r.patient_initials;
+  return tr(lang, "Пацієнт", "Patient");
 }
 
 function encodeFilters(filters) {
@@ -330,7 +349,7 @@ function ReportRow({ r, tpl, onClick, onChanged, lang }) {
       <div className="pcell-name">
         <div className="tpl-icon sm"><Icon name={tpl?.icon || "fileText"} size={14} /></div>
         <div>
-          <div className="pname">{r.patient_initials || (tr(lang, "Пацієнт", "Patient"))}</div>
+          <div className="pname">{reportPatientLabel(r, lang)}</div>
           <div className="psub">{r.code}</div>
         </div>
       </div>
@@ -819,6 +838,7 @@ export function ReportView({ id, navigate, lang }) {
   const [showAmend, setShowAmend] = useState(false);
   const [amendSeed, setAmendSeed] = useState(null); // dictated body → AmendmentModal.initialBody
   const [signOpen, setSignOpen] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false); // S14 break-glass modal
   const [editing, setEditing] = useState(false);
   const [toasts, setToasts] = useState([]);
   const insightsRef = React.useRef(null);
@@ -849,6 +869,47 @@ export function ReportView({ id, navigate, lang }) {
   }, [isDraft, id, navigate]);
 
   if (reportReq.loading || isDraft) return <div className="page"><Loading lang={lang} /></div>;
+  // S14 break-glass. A 403 carrying `phi_access_required` is not a dead
+  // end — it is the backend saying "you may ask for this one report".
+  // Turning it into the request flow, rather than a generic error page,
+  // is the whole point of the code being machine-readable.
+  if (reportReq.error && isPhiAccessRequired(reportReq.error)) {
+    return (
+      <div className="page">
+        <Empty
+          icon="shield"
+          title={tr(lang, "Потрібен дозвіл на доступ", "Access request required")}
+          hint={tr(lang,
+            "Адміністратори не мають постійного доступу до медичних записів. Ви можете запитати тимчасовий доступ саме до цього звіту — авторів буде повідомлено, а подію записано в журнал аудиту.",
+            "Administrators hold no standing access to clinical records. You can request temporary access to this one report — its authors are notified and the event is recorded in the audit trail.")}
+          action={
+            <>
+              <button className="btn accent" onClick={() => setAccessOpen(true)}>
+                <Icon name="shield" size={13} />
+                {tr(lang, "Запитати доступ", "Request access")}
+              </button>
+              <button className="btn" onClick={() => navigate("/patients")}>
+                {tr(lang, "До списку пацієнтів", "Back to patients")}
+              </button>
+            </>
+          }
+        />
+        {accessOpen && (
+          <RequestAccessModal
+            lang={lang}
+            reportId={id}
+            onClose={() => setAccessOpen(false)}
+            onGranted={() => {
+              setAccessOpen(false);
+              // The grant exists now; the same GET succeeds on retry.
+              reportReq.reload();
+              versionsReq.reload?.();
+            }}
+          />
+        )}
+      </div>
+    );
+  }
   if (reportReq.error) return <div className="page"><ApiErrorView error={reportReq.error} lang={lang} /></div>;
 
   const r = reportReq.data;

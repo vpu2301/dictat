@@ -809,6 +809,22 @@
 .lp-lang-opt.is-active .lp-lang-opt-label { font-weight: 650; }
 .lp-lang-opt.is-active .lp-lang-opt-short { color: color-mix(in srgb, var(--accent) 70%, var(--muted)); }
 .lp-lang-opt.is-active > svg { opacity: 1; }
+/* Leading glyph (country flag) in switcher options and triggers. */
+.lp-lang-opt-lead { flex-shrink: 0; font-size: 15px; line-height: 1; }
+.lp-lang-flag { font-size: 15px; line-height: 1; }
+
+/* ── Footer pickers (language + country live in the footer bar) ───── */
+.lp-footer-pickers { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* Popups open UPWARD in the footer — there is no page below them. */
+.lp-footer .lp-lang-pop {
+  top: auto; bottom: calc(100% + 10px);
+  transform: translateY(6px) scale(.98);
+  transform-origin: bottom var(--pop-origin, right);
+}
+.lp-footer .lp-lang-menu.is-open .lp-lang-pop { transform: none; }
+/* hover bridge flips below the popup */
+.lp-footer .lp-lang-pop::before { top: auto; bottom: -12px; }
+
 .lp-burger { display: none; background: none; border: 0; color: var(--text-1); cursor: pointer; padding: 6px; }
 
 /* ── Layout helpers ────────────────────────────────────────── */
@@ -1034,6 +1050,7 @@
   max-width: 1160px; margin: 0 auto; padding: 18px 24px;
   border-top: 1px solid var(--line);
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  flex-wrap: wrap; /* © / pickers / links wrap on narrow screens */
   font-size: 13px; color: var(--muted);
 }
 .lp-footer-bar-links { display: flex; gap: 18px; }
@@ -1729,6 +1746,18 @@
 .mk-auth-field input::placeholder { color: var(--muted); }
 .mk-auth-field input:focus,
 .mk-auth-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.mk-auth-pw { position: relative; display: flex; align-items: center; }
+.mk-auth-pw input { padding-right: 44px; }
+.mk-auth-pw-toggle {
+  position: absolute; right: 6px; display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: color .12s, background .12s;
+}
+.mk-auth-pw-toggle:hover:not(:disabled) { color: var(--text-1); background: var(--accent-soft); }
+.mk-auth-pw-toggle:focus-visible { outline: none; color: var(--text-1); box-shadow: 0 0 0 2px var(--accent-soft); }
+.mk-auth-pw-toggle:disabled { opacity: .5; cursor: not-allowed; }
+
 .mk-auth-input-wrap { position: relative; display: flex; align-items: center; }
 .mk-auth-input-wrap svg { position: absolute; left: 13px; color: var(--muted); pointer-events: none; }
 .mk-auth-input-wrap input { padding-left: 40px; }

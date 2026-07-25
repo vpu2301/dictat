@@ -11,6 +11,7 @@ export function LoginPage({ navigate, lang = "en" }) {
   const { setState } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [phase, setPhase] = useState("idle"); // idle | submitting | success | error
   const [error, setError] = useState(null);
   const [mfaToast, setMfaToast] = useState(false);
@@ -76,14 +77,31 @@ export function LoginPage({ navigate, lang = "en" }) {
 
           <label className="mk-auth-field">
             <span>{tr(lang, "Пароль", "Password")}</span>
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={phase === "submitting"}
-            />
+            <div className="mk-auth-pw">
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={phase === "submitting"}
+              />
+              <button
+                type="button"
+                className="mk-auth-pw-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                disabled={phase === "submitting"}
+                aria-pressed={showPassword}
+                aria-label={showPassword
+                  ? tr(lang, "Сховати пароль", "Hide password")
+                  : tr(lang, "Показати пароль", "Show password")}
+                title={showPassword
+                  ? tr(lang, "Сховати пароль", "Hide password")
+                  : tr(lang, "Показати пароль", "Show password")}
+              >
+                <Icon name={showPassword ? "eyeOff" : "eye"} size={17} />
+              </button>
+            </div>
           </label>
 
           {error && <ApiErrorView error={error} lang={lang} />}
