@@ -8,6 +8,7 @@
 import React from "react";
 import { SparkleIcon, CheckIcon, XIcon } from "./icons.js";
 import { ConfidenceDot } from "./ConfidenceDot.js";
+import { chipClass } from "./grammarClass.js";
 import {
   ariaProposal,
   ariaConfirmAction,
@@ -21,7 +22,7 @@ const h = React.createElement;
 export function ProposalChip({ label, confidence, onConfirm, onDismiss, lang, disabled = false }) {
   return h(
     "span",
-    { className: "pgm-chip pgm-proposal", role: "group", "aria-label": ariaProposal(label, lang) },
+    { className: chipClass({ confirmed: false }), role: "group", "aria-label": ariaProposal(label, lang) },
     h(SparkleIcon, {}),
     h("span", { className: "pgm-chip-label" }, label),
     h(ConfidenceDot, { confidence, lang }),

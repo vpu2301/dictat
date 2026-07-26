@@ -11,6 +11,7 @@ import { NotificationBell } from './components/NotificationBell.jsx';
 import { NotificationToasts } from './components/NotificationToasts.jsx';
 import NotificationPreferencesPage from './pages/NotificationPreferencesPage.jsx';
 import { DictationStudio } from './components/Studio.jsx';
+import { ConversationRoom } from './conversation/ConversationRoom.jsx';
 import { DictateToday } from './components/DictateHome.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
 import { ScribeToday, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
@@ -327,6 +328,19 @@ function App() {
              templatesMap={templatesMap} onAddTemplate={handleAddTemplate}
              templatesLoading={templatesReq.loading} templatesError={templatesReq.error}
              onRetryTemplates={templatesReq.reload} />;
+    showTopbar = false;
+  } else if (r === "/dictate/conversation" || r.startsWith("/dictate/conversation?")) {
+    // S14 conversation mode: its own surface, not a Studio variant. The Studio
+    // is a section editor for a note the clinician dictates; this is a live
+    // two-voice transcript with a review pass, and it hands off to the Studio
+    // only once a draft exists.
+    const pm = r.match(/patient=([\w-]+)/);
+    const em = r.match(/encounter=([\w-]+)/);
+    view = (
+      <RequireClinical navigate={navigate}>
+        <ConversationRoom lang={lang} patientId={pm?.[1]} encounterId={em?.[1]} navigate={navigate} />
+      </RequireClinical>
+    );
     showTopbar = false;
   } else if (r === "/dictate/reports") {
     view = <RequireClinical navigate={navigate}><ReportsList lang={lang} navigate={navigate} /></RequireClinical>;

@@ -3,6 +3,14 @@
 // Conforms to the v1 protocol pinned in the backend-aligned FE spec:
 //   - URL: {DICTATION_WS_BASE}/ws/dictate
 //   - Subprotocol header: 'medical-dictation.v1' (mandatory; backend rejects HTTP 400 otherwise)
+//
+// Sprint 14 adds protocol v2 (conversation mode + speaker diarization) to THIS
+// client rather than forking it — docs/api/dictation-ws-v2.md. v2 is opt-in per
+// connect() call: `mode: "conversation"` offers [v2, v1] (server prefers v2) and
+// puts `mode` on start_session; every other caller keeps offering v1 only and
+// emits a byte-identical v1 start_session. A session is exactly ONE version for
+// its whole lifetime — including across a resume (a resume that negotiates a
+// different subprotocol is uniformly rejected `session_not_found`).
 //   - Auth: ?token=<accessToken> query param (browsers can't set Authorization on WS upgrades)
 //   - Binary frames: [4-byte BE seq][Opus bytes], 5..=8192 bytes
 //   - Text frames: 9 server message types, 6 client message types — see types below
@@ -25,6 +33,22 @@ import { dictationWsBase } from "../api/services.js";
 import { getAccessToken, tryRefresh } from "../api/client.js";
 
 export const SUBPROTOCOL = "medical-dictation.v1";
+export const SUBPROTOCOL_V1 = "medical-dictation.v1";
+export const SUBPROTOCOL_V2 = "medical-dictation.v2";
+export const PROTOCOL_VERSION_V1 = 1;
+export const PROTOCOL_VERSION_V2 = 2;
+
+// What we offer in Sec-WebSocket-Protocol. Conversation mode needs the speaker
+// fields, so it offers v2 first and v1 as the fallback (the server picks by ITS
+// preference — v2 over v1 — so a v2-capable server always lands on v2). Every
+// other mode offers v1 ONLY: dictation must be protocol-stable, and a server
+// that started preferring v2 must never silently upgrade a dictation tab into
+// frames its renderer has no meaning for.
+export function subprotocolsFor(mode) {
+  return mode === "conversation"
+    ? [SUBPROTOCOL_V2, SUBPROTOCOL_V1]
+    : [SUBPROTOCOL_V1];
+}
 
 // ── close-code mapping ────────────────────────────────────────────────
 export const CLOSE_CODE = {
@@ -52,24 +76,77 @@ export function explainCloseCode(code, lang = "en") {
   return lang === "uk" ? row.uk : row.en;
 }
 
+// Protocol `error` frames (the `code` field), as opposed to close codes above.
+// `consent_required` is sprint 14's addition: a conversation start with no
+// encounter, or with no granted `recording` consent for that encounter's
+// patient. Terminal — the fix is the consent flow, not a retry.
+export function explainErrorCode(code, lang = "en") {
+  const map = {
+    consent_required: {
+      uk: "Немає згоди пацієнта на запис розмови",
+      en: "No patient consent to record the conversation",
+    },
+    conversation_unsupported: {
+      uk: "Сервер не підтримує режим розмови",
+      en: "The server does not support conversation mode",
+    },
+    worker_failed: {
+      uk: "Розпізнавання голосів недоступне — спробуйте ще раз",
+      en: "Speaker separation is unavailable — try again",
+    },
+    gpu_full: {
+      uk: "Сервер зайнятий — спробуйте за хвилину",
+      en: "Server busy — retry shortly",
+    },
+    encounter_invalid: { uk: "Прийом не знайдено", en: "Encounter not found" },
+    encounter_closed:  { uk: "Прийом уже завершено", en: "This encounter is closed" },
+  };
+  const row = map[code];
+  if (!row) return lang === "uk" ? `Помилка сесії (${code})` : `Session error (${code})`;
+  return lang === "uk" ? row.uk : row.en;
+}
+
 // ── client → server messages ──────────────────────────────────────────
 //   start_session, refresh_token, end_session, pause, resume, retransmit_range
 // Exported for the S11 step-04 contract test: a session started from an
 // encounter context MUST carry encounter_id (the backend persists it to
 // audio_files and validates it — protocol errors `encounter_invalid` /
 // `encounter_closed` come back on a bad one).
-export function msgStartSession({ promptId, language, targetKind, encounterId, templateId, resumeSessionId }) {
+//
+// `mode` (sprint 14) is a v2-ONLY field: StartSession is extra="forbid", so a
+// `mode` key on a v1 session is a protocol error. It is therefore emitted only
+// when the negotiated protocol is 2, and even then only for conversation —
+// "dictation" is the server default, and omitting it keeps the v1 and v2
+// dictation payloads identical apart from protocol_version.
+export function msgStartSession({
+  promptId, language, targetKind, encounterId, templateId, resumeSessionId,
+  mode, protocolVersion = PROTOCOL_VERSION_V1,
+}) {
   const m = {
     type: "start_session",
-    protocol_version: 1,
+    protocol_version: protocolVersion,
     prompt_id: promptId,
     language,
   };
+  if (protocolVersion >= PROTOCOL_VERSION_V2 && mode === "conversation") m.mode = mode;
   if (targetKind)      m.target_kind = targetKind;
   if (encounterId)     m.encounter_id = encounterId;
   if (templateId)      m.template_id = templateId;
   if (resumeSessionId) m.resume_session_id = resumeSessionId;
   return m;
+}
+
+// set_speaker_mapping — the clinician's manual doctor/patient assignment.
+// Authoritative from the moment the server receives it: inference stops for the
+// rest of the session and the only further speaker_mapping_updated is the
+// manual:true acknowledgement. Roles are exactly "doctor" | "patient"; only
+// labels that HAVE a role are sent (extra="forbid" on the wire model).
+export function msgSetSpeakerMapping(mapping) {
+  const clean = {};
+  for (const [label, role] of Object.entries(mapping || {})) {
+    if (role === "doctor" || role === "patient") clean[label] = role;
+  }
+  return { type: "set_speaker_mapping", mapping: clean };
 }
 
 // ── tab coordination (spec §C sprint 04) ──────────────────────────────
@@ -107,8 +184,9 @@ export async function isSessionHeldElsewhere(sessionId, timeoutMs = 200) {
 //
 // Events emitted via the callbacks the caller passes to connect():
 //   onSessionStarted(payload)      — server `session_started`
-//   onPartial(payload)             — server `partial`
-//   onFinal(payload)               — server `final`
+//   onPartial(payload)             — server `partial` (v2: + speaker fields)
+//   onFinal(payload)               — server `final`   (v2: + speaker fields)
+//   onSpeakerMappingUpdated(payload) — server `speaker_mapping_updated` (v2 only)
 //   onVoiceCommand(payload)        — standalone `voice_command` (sprint-05 backend may emit)
 //   onWarning(payload)             — `warning`
 //   onHeartbeat(payload)           — `heartbeat`
@@ -132,6 +210,11 @@ export class DictationWsClient {
     this.lastCommittedSeq = -1;
     this._heartbeatTimer = null;
     this._tabReleaser = null;
+    // Negotiated protocol for this socket's whole lifetime. Set from the
+    // accepted subprotocol at open; every client frame is stamped with it.
+    this.mode = "dictation";
+    this.protocolVersion = PROTOCOL_VERSION_V1;
+    this.subprotocol = SUBPROTOCOL_V1;
   }
 
   // Connect + send `start_session`. Returns a promise that resolves on
@@ -140,14 +223,26 @@ export class DictationWsClient {
     const {
       promptId, language, targetKind = "generic",
       encounterId, templateId, resumeSessionId,
+      mode = "dictation",
     } = opts;
     const token = getAccessToken();
     if (!token) throw new Error("no_access_token");
 
     const base = dictationWsBase();
     const url = `${base}/ws/dictate?token=${encodeURIComponent(token)}`;
+    this.mode = mode;
     this._setState("connecting");
-    const ws = new WebSocket(url, [SUBPROTOCOL]);
+    const offered = subprotocolsFor(mode);
+    // Dev-only e2e seam (the __mdxClient / __mdxStudioOps convention): record
+    // what we OFFER in Sec-WebSocket-Protocol. A test double for the socket
+    // replaces the WebSocket constructor, so the offer is otherwise
+    // unobservable from the page — and "conversation asks for v2, dictation
+    // never does" is the negotiation guarantee worth asserting.
+    if (typeof window !== "undefined" && import.meta.env?.DEV) {
+      window.__mdxWsOffers = window.__mdxWsOffers || [];
+      window.__mdxWsOffers.push({ url: `${base}/ws/dictate`, protocols: offered, mode });
+    }
+    const ws = new WebSocket(url, offered);
     ws.binaryType = "arraybuffer";
     this.ws = ws;
 
@@ -159,11 +254,40 @@ export class DictationWsClient {
       };
 
       ws.onopen = () => {
+        // Pin the negotiated version before the first frame leaves. `ws.protocol`
+        // is the server's choice; a test double that answers without one is read
+        // as "the highest thing we offered" (the real backend rejects the upgrade
+        // outright rather than accepting with no subprotocol).
+        this.subprotocol = ws.protocol || offered[0];
+        this.protocolVersion = this.subprotocol === SUBPROTOCOL_V2
+          ? PROTOCOL_VERSION_V2
+          : PROTOCOL_VERSION_V1;
+
+        // Conversation that landed on v1 has no speaker fields at all. Fail
+        // LOUDLY rather than record an unlabeled two-person transcript that
+        // looks like a dictation — same principle as the backend's
+        // worker_failed on a diarizer that won't load.
+        if (mode === "conversation" && this.protocolVersion !== PROTOCOL_VERSION_V2) {
+          this._emitError({
+            code: "conversation_unsupported",
+            detail: `server negotiated ${this.subprotocol}`,
+            recoverable: false,
+          });
+          try { ws.close(CLOSE_CODE.BAD_PROTOCOL); } catch {}
+          return;
+        }
+
         this._send(msgStartSession({
           promptId, language, targetKind, encounterId, templateId, resumeSessionId,
+          mode, protocolVersion: this.protocolVersion,
         }));
-        // Wire up steady-state handler.
-        ws.onmessage = (ev) => this._onMessage(ev);
+        // NOTE: onmessage is NOT rebound here. Until sprint 14 this handler
+        // installed the steady-state router at open time, which — because
+        // `open` fires before the first frame — discarded the session_started
+        // waiter below, so connect() never resolved and the caller hung
+        // forever. Nothing caught it because no screen had ever called this
+        // client (the Studio runs browser Web Speech). The waiter hands over
+        // to _onMessage itself, once, after session_started.
       };
 
       // Initial handler waits for session_started.
@@ -215,7 +339,17 @@ export class DictationWsClient {
         if (typeof m.seq === "number") this.lastCommittedSeq = Math.max(this.lastCommittedSeq, m.seq);
         if (this.cb.onFinal) this.cb.onFinal(m);
         break;
+      case "speaker_mapping_updated":
+        // v2 only. Carries no seq and does not advance the partial/final
+        // sequence — never touch lastCommittedSeq here.
+        if (this.cb.onSpeakerMappingUpdated) this.cb.onSpeakerMappingUpdated(m);
+        break;
       case "voice_command":
+        // Conversation mode never produces these (nlp runs with
+        // stages_disabled=["voice_commands"]); if one arrives anyway, drop it.
+        // A patient's words must not reach an editing path — defence in depth
+        // against the server's own defence in depth.
+        if (this.mode === "conversation") break;
         if (this.cb.onVoiceCommand) this.cb.onVoiceCommand(m);
         break;
       case "warning":
@@ -282,6 +416,14 @@ export class DictationWsClient {
     return this._send({ type: "retransmit_range", from_seq, to_seq });
   }
 
+  // Conversation mode: freeze the doctor/patient mapping to the clinician's
+  // choice. Rejected (recoverable bad_message) on a dictation session, so we
+  // never send it from one.
+  setSpeakerMapping(mapping) {
+    if (this.mode !== "conversation") return false;
+    return this._send(msgSetSpeakerMapping(mapping));
+  }
+
   // Section-aware ASR (templates §4). Additive client message — no protocol
   // version bump. The backend validates `section_id` against the template
   // loaded into the session at start (we don't re-send the template), swaps the
@@ -308,6 +450,21 @@ export class DictationWsClient {
     }
     const frame = encodeFrame(this.seq, payload);
     this.ws.send(frame);
+    return this.seq++;
+  }
+
+  // Ship an already-encoded Opus packet. The sprint-04 pushAudio() path assumes
+  // a SYNCHRONOUS encoder; a real browser Opus encoder (WebCodecs AudioEncoder)
+  // delivers packets on its own callback, so the caller pumps them here instead.
+  // Sequence numbering is identical either way — one seq per 20 ms packet, in
+  // emission order — which is what the backend's gap detection and the
+  // retransmit ring both key on.
+  sendEncoded(payload) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return null;
+    if (payload.byteLength > MAX_PAYLOAD_BYTES) {
+      throw new RangeError("encoded_frame_too_large");
+    }
+    this.ws.send(encodeFrame(this.seq, payload));
     return this.seq++;
   }
 

@@ -14,6 +14,16 @@ clinic lead (Volodymyr to route); FE owner: this repo.
   звіти зберігаються; відкликання не скасовує обробку…").
 - `src/components/Studio.jsx` — gate banner ("Потрібна згода пацієнта
   на AI-запис").
+- **S14 conversation mode** — `src/patients/ConsentSheet.jsx`
+  `CONSENT_COPY.recording` ("Записується вся розмова — голос лікаря І
+  голос пацієнта…"), `src/components/PatientProfile.jsx`
+  StartEncounterSheet mode cards ("Записується вся розмова… Потрібна
+  згода пацієнта"), and `src/conversation/ConversationRoom.jsx` intro
+  ("Покладіть пристрій між собою та пацієнтом…" + the three facts).
+  These state what is recorded and are the clinician-facing half of the
+  `recording` consent — same review path as the S11 copy above. The
+  approved consent TEXT itself is backend-side
+  (infra/seeds/consents/recording-v1.md).
 - Approved consent texts themselves live in the BACKEND repo
   (infra/seeds/consents/*.md) — versioning is v1; any wording change
   is a NEW version there, never an edit.
@@ -42,3 +52,36 @@ clinic lead (Volodymyr to route); FE owner: this repo.
 - Diia (QR) signing for consents: the as-built proxy supports
   provider=diia (202 session); the FE consent dialog ships file_key +
   dev scaffold — QR flow reuse from SigningFlow is a follow-up.
+
+## S14 carry-overs (frontend → backend asks)
+
+Found while wiring the first real client of the dictation WebSocket
+(the Studio has always run browser Web Speech, so nothing had driven
+`src/dictation/wsClient.js` end to end before this sprint):
+
+- **`session_terminated` carries no report id**, and report-service has
+  no by-source-session lookup — so a frontend cannot find the draft
+  that dictation-service creates at finalize. Combined with the next
+  item, that is why conversation sessions deliberately start WITHOUT a
+  `template_id` (the documented "clinician creates the report manually"
+  path) and the frontend writes the draft itself. Ask: put
+  `report_id` on `session_terminated`, or add
+  `GET /v1/reports/by-source-session`.
+- **No wire channel for a per-TURN speaker correction.** `finalize`
+  takes no body and the only v2 client message is
+  `set_speaker_mapping`, so a clinician's per-turn ruling can only
+  reach the record through a draft the frontend composes. Ask: accept a
+  reviewed-transcript payload at finalize (or a
+  `set_segment_speaker` client message), so the PERSISTED transcript —
+  not just the draft prose — carries the correction. Sprint-12
+  synthesis reads the persisted transcript, so today it would ground
+  its attribution in the uncorrected labels.
+- **Wire `final` has no segment id.** Segment UUIDs are minted at
+  finalize, so the frontend reads them back from
+  `GET /dictate/sessions/{id}` to fill `transcript_segment_ids`.
+  Putting the id on the `final` frame would remove that round-trip.
+- **`recording` consent has no capture UI outside this repo** — the
+  frontend now captures it (type `recording`, version `v1`). The
+  approved text exists (`infra/seeds/consents/recording-v1.md`); DPO
+  sign-off on that text is still open per the backend sprint-14
+  sign-off.

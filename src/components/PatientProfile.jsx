@@ -192,6 +192,11 @@ export function StartEncounterSheet({ lang, onClose, onStart }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // S14: how the encounter will be captured. "dictation" is the unchanged
+  // sprint-04→13 path (the clinician dictates, protocol v1). "conversation"
+  // records the CONSULTATION — both voices — over protocol v2 and needs its
+  // own patient consent, which is why the choice states what it records.
+  const [mode, setMode] = useState("dictation");
 
   const kindOptions = [
     { value: "visit",    uk: "Візит",                  en: "Visit" },
@@ -204,7 +209,7 @@ export function StartEncounterSheet({ lang, onClose, onStart }) {
   const start = async () => {
     if (busy) return;
     setBusy(true); setError(null);
-    try { await onStart({ kind, reason: reason.trim() }); }
+    try { await onStart({ kind, reason: reason.trim(), mode }); }
     catch (e) { setError(e); setBusy(false); }
   };
 
@@ -212,9 +217,38 @@ export function StartEncounterSheet({ lang, onClose, onStart }) {
     <Modal onClose={onClose}>
       <div className="modal-h">
         <h2>{tr(lang, "Почати прийом", "Start encounter")}</h2>
-        <p>{tr(lang, "Прийом розпочнеться зараз; диктування буде звʼязане з ним.", "The encounter starts now; the dictation will be linked to it.")}</p>
+        <p>{tr(lang, "Прийом розпочнеться зараз; запис буде звʼязаний з ним.", "The encounter starts now; the recording will be linked to it.")}</p>
       </div>
       <div className="encounter-form">
+        <div className="mode-choice" role="radiogroup" data-testid="capture-mode"
+             aria-label={tr(lang, "Спосіб запису", "Capture mode")}>
+          {[
+            {
+              value: "dictation",
+              icon: "mic",
+              title: tr(lang, "Диктування", "Dictation"),
+              body: tr(lang, "Ви диктуєте нотатку. Записується лише ваш голос.",
+                             "You dictate the note. Only your voice is recorded."),
+            },
+            {
+              value: "conversation",
+              icon: "users",
+              title: tr(lang, "Розмова", "Conversation"),
+              // The honest sentence, stated before the choice is made — the
+              // clinician sees the same promise the consent sheet will ask the
+              // patient to agree to.
+              body: tr(lang, "Записується вся розмова — ваш голос і голос пацієнта. Потрібна згода пацієнта.",
+                             "The whole consultation is recorded — your voice and the patient's. Patient consent required."),
+            },
+          ].map((o) => (
+            <label key={o.value} className={"mode-card" + (mode === o.value ? " on" : "")}>
+              <input type="radio" name="capture-mode" value={o.value}
+                checked={mode === o.value} onChange={() => setMode(o.value)} />
+              <span className="mode-card-h"><Icon name={o.icon} size={14} /> {o.title}</span>
+              <span className="mode-card-b">{o.body}</span>
+            </label>
+          ))}
+        </div>
         <label>
           {tr(lang, "Тип прийому", "Visit kind")}
           <select value={kind} onChange={e => setKind(e.target.value)}>
@@ -231,8 +265,12 @@ export function StartEncounterSheet({ lang, onClose, onStart }) {
       <div className="modal-foot">
         <button className="btn" onClick={onClose}>{tr(lang, "Скасувати", "Cancel")}</button>
         <button className="btn accent" disabled={busy} onClick={start}>
-          <Icon name="mic" size={13} />
-          {busy ? (tr(lang, "Створення…", "Starting…")) : (tr(lang, "Почати диктування", "Start dictating"))}
+          <Icon name={mode === "conversation" ? "users" : "mic"} size={13} />
+          {busy
+            ? (tr(lang, "Створення…", "Starting…"))
+            : mode === "conversation"
+              ? (tr(lang, "Почати розмову", "Start the conversation"))
+              : (tr(lang, "Почати диктування", "Start dictating"))}
         </button>
       </div>
     </Modal>
@@ -513,10 +551,13 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   // Golden path: create the encounter live (`in_progress`, datetime = now)
   // and route into the studio with BOTH uuids — the WS start message and the
   // recording linkage hang off ?encounter=.
-  const handleStartEncounter = async ({ kind, reason }) => {
+  const handleStartEncounter = async ({ kind, reason, mode }) => {
     const enc = await createEncounter(id, { kind, reason, status: "in_progress" });
     setStartOpen(false);
-    navigate(`/dictate/studio?patient=${id}&encounter=${enc.id}`);
+    // Both modes carry the same {patient, encounter} context; they differ in
+    // the surface they open (and, downstream, in the protocol they negotiate).
+    const route = mode === "conversation" ? "/dictate/conversation" : "/dictate/studio";
+    navigate(`${route}?patient=${id}&encounter=${enc.id}`);
   };
   const handleEditSave = async (body) => {
     await updatePatient(id, body);

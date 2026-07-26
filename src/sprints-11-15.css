@@ -2240,3 +2240,184 @@
   .amend-content { overflow: visible; padding-right: 0; }
   .amend-side { overflow: visible; border-inline-start: 0; padding-inline-start: 0; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SPRINT 14 — Conversation mode (turns, speaker chips, mapping banner)
+
+   The colour system here carries CLINICAL meaning, so it obeys the same rule
+   as the sprint-13 proposal grammar: colour is never the only channel. Every
+   speaker chip also carries a shape (dashed = proposed, solid = confirmed), a
+   glyph, and an announced label — the colours below are the fifth channel,
+   not the first.
+
+     doctor / voice 1  → blue
+     patient / voice 2 → green
+     UNKNOWN           → grey, deliberately VISIBLE (an unresolved voice must
+                         look unresolved; it is never quietly given to a party)
+     pending           → dashed grey, "the label has not arrived yet"
+   ────────────────────────────────────────────────────────────────────────── */
+
+.cv-room {
+  display: flex; flex-direction: column;
+  height: 100vh; min-height: 0;
+  background: var(--bg);
+}
+
+.cv-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; border-bottom: 1px solid var(--line);
+  background: var(--surface); flex: 0 0 auto;
+}
+.cv-head-name { font-size: 14.5px; font-weight: 650; }
+.cv-head-sub { font-size: 12px; color: var(--muted); font-weight: 400; }
+.cv-rec {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--rec);
+}
+.cv-rec-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--rec); animation: cv-pulse 1.6s ease-in-out infinite;
+}
+@keyframes cv-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.cv-clock { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+
+/* ── intro / mode explanation ─────────────────────────────────────────── */
+.cv-intro {
+  max-width: 620px; margin: 0 auto; padding: 40px 20px;
+  display: flex; flex-direction: column; gap: 16px; overflow-y: auto;
+}
+.cv-intro h1 { font-size: 22px; margin: 0; }
+.cv-intro-lead { font-size: 14.5px; line-height: 1.6; color: var(--text-2); margin: 0; }
+.cv-intro-facts {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.cv-intro-facts li {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13px; color: var(--text-2); line-height: 1.5;
+}
+.cv-intro-facts svg { margin-top: 2px; flex: 0 0 auto; color: var(--muted); }
+.cv-intro-controls { display: flex; gap: 12px; flex-wrap: wrap; }
+.cv-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); flex: 1 1 200px; }
+.cv-field select {
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--text-1); font-size: 13.5px;
+}
+.btn.lg { padding: 11px 18px; font-size: 14.5px; }
+.cv-note { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+/* Mode choice on the encounter sheet. */
+.mode-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mode-card {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; border: 1.5px solid var(--line); border-radius: var(--radius);
+  cursor: pointer; background: var(--surface);
+}
+.mode-card.on { border-color: var(--accent); background: var(--accent-soft); }
+.mode-card input { position: absolute; opacity: 0; pointer-events: none; }
+.mode-card-h { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 650; }
+.mode-card-b { font-size: 12px; color: var(--muted); line-height: 1.45; }
+@media (max-width: 560px) { .mode-choice { grid-template-columns: 1fr; } }
+
+/* ── mapping banner ───────────────────────────────────────────────────── */
+.cv-mapping {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-bottom: 1px solid var(--line);
+  background: var(--surface-2); font-size: 12.5px; flex: 0 0 auto;
+}
+.cv-mapping.is-unknown { background: var(--surface); color: var(--muted); }
+.cv-mapping-text { font-weight: 600; }
+.cv-mapping-why { color: var(--muted); text-decoration: underline dotted; cursor: help; }
+.cv-mapping-frozen {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--accent-text); font-weight: 600;
+}
+/* Exactly one flash per hypothesis change — the clinician must notice that
+   the machine changed its mind, and must not be strobed by re-renders. */
+.cv-mapping.is-pulsing { animation: cv-flash .9s ease-out 1; }
+@keyframes cv-flash {
+  0% { background: var(--accent-soft); }
+  40% { background: var(--accent-soft); }
+  100% { background: var(--surface-2); }
+}
+
+.cv-resuming {
+  padding: 6px 16px; font-size: 12.5px; color: var(--muted);
+  background: var(--surface-2); border-bottom: 1px solid var(--line);
+}
+
+/* ── turns ────────────────────────────────────────────────────────────── */
+.cv-turns {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  scroll-behavior: auto;   /* never smooth: a recolour must not animate */
+}
+.cv-turns-empty { color: var(--muted); font-size: 13.5px; text-align: center; margin: 40px 0; }
+
+.cv-turn {
+  max-width: min(680px, 88%);
+  border-radius: 14px; padding: 10px 14px;
+  border: 1px solid var(--line); background: var(--surface);
+  border-inline-start: 3px solid var(--line);
+}
+.cv-turn-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; position: relative; }
+.cv-turn-text { margin: 0; font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; }
+.cv-turn-more {
+  border: 0; background: transparent; color: var(--muted);
+  cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 6px; border-radius: 6px;
+}
+.cv-turn-more:hover { background: var(--surface-2); color: var(--text-1); }
+
+/* Two-tone layout: the clinician's turns sit left, the patient's right, so
+   the shape of the consultation is readable without reading a word. */
+.cv-turn-doctor  { align-self: flex-start; border-inline-start-color: #2563eb; }
+.cv-turn-patient { align-self: flex-end;   border-inline-start-color: #0a8a7a; }
+.cv-turn-s1      { align-self: flex-start; border-inline-start-color: #2563eb; }
+.cv-turn-s2      { align-self: flex-end;   border-inline-start-color: #0a8a7a; }
+.cv-turn-unknown, .cv-turn-pending, .cv-turn-partial {
+  align-self: center; max-width: min(680px, 94%);
+  border-inline-start-color: var(--muted);
+  background: var(--surface-2);
+}
+.cv-turn-partial { opacity: .78; border-style: dashed; }
+
+/* Speaker chip tones. The chip inherits the sprint-13 dashed/solid shapes
+   from .pgm-proposal/.pgm-confirmed; these only re-point the accent. */
+.cv-chip { cursor: pointer; border-width: 1.5px; }
+.cv-chip:disabled { cursor: default; opacity: .8; }
+.cv-chip.cv-doctor.pgm-proposal,  .cv-chip.cv-voice1.pgm-proposal { border-color: #2563eb; color: #2563eb; }
+.cv-chip.cv-doctor.pgm-confirmed, .cv-chip.cv-voice1.pgm-confirmed { border-color: #2563eb; background: #2563eb; color: #fff; }
+.cv-chip.cv-patient.pgm-proposal,  .cv-chip.cv-voice2.pgm-proposal { border-color: #0a8a7a; color: #0a8a7a; }
+.cv-chip.cv-patient.pgm-confirmed, .cv-chip.cv-voice2.pgm-confirmed { border-color: #0a8a7a; background: #0a8a7a; color: #fff; }
+.cv-chip.cv-unknown.pgm-proposal { border-color: var(--muted); color: var(--muted); }
+.cv-chip.cv-unknown.pgm-confirmed { border-color: var(--muted); background: var(--muted); color: #fff; }
+.cv-chip.cv-pending {
+  border: 1.5px dashed var(--line); color: var(--muted);
+  background: transparent; font-size: 12.5px; padding: 3px 8px; border-radius: 14px;
+}
+
+.cv-menu {
+  position: absolute; top: calc(100% + 4px); inset-inline-start: 0; z-index: 40;
+  display: flex; flex-direction: column; min-width: 170px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: 0 10px 28px rgba(0,0,0,.14); overflow: hidden;
+}
+.cv-menu button {
+  text-align: start; padding: 9px 12px; border: 0; background: transparent;
+  font-size: 13.5px; cursor: pointer; color: var(--text-1);
+}
+.cv-menu button:hover { background: var(--surface-2); }
+
+/* ── footer ───────────────────────────────────────────────────────────── */
+.cv-foot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-top: 1px solid var(--line);
+  background: var(--surface); flex: 0 0 auto;
+}
+.cv-level { width: 120px; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.cv-level i { display: block; height: 100%; background: var(--accent); transition: width .08s linear; }
+.cv-review-note { font-size: 12.5px; color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-rec-dot, .cv-mapping.is-pulsing { animation: none; }
+}
