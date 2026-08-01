@@ -374,6 +374,13 @@
 }
 .turn.clinician .turn-text { background: var(--accent-soft); border-color: transparent; color: var(--text-1); }
 .turn.interim .turn-text { opacity: 0.6; min-width: 60px; }
+/* Unattributed: diarization proposed no role (or abstained). It sits
+   centred, in neither speaker's lane, with a dashed edge — the same
+   "proposed, not confirmed" grammar the live room uses. Never styled
+   as the clinician: that would read as an attribution. */
+.turn.unattributed { align-self: center; align-items: center; max-width: 96%; }
+.turn.unattributed .turn-who { color: var(--muted); font-style: italic; }
+.turn.unattributed .turn-text { background: transparent; border-style: dashed; }
 
 .dots { display: inline-flex; gap: 3px; padding: 4px 0; }
 .dots i {

@@ -13,7 +13,8 @@ import { getPatient, getPatientTimeline, updatePatient } from '../api/patients.j
 import { mergeFeed } from '../patients/feed.js';
 import { PatientFormModal } from '../patients/PatientDirectory.jsx';
 import { ConsentSignDialog } from '../patients/ConsentSheet.jsx';
-import { listEncounters, createEncounter } from '../api/encounters.js';
+import { listEncounters, createEncounter, resumeEncounter, isEncounterOpen } from '../api/encounters.js';
+import { VisitControls, visitStatusLabel, visitStatusChipClass } from '../patients/VisitControls.jsx';
 import { listConsents, withdrawConsent } from '../api/consents.js';
 import { listNotes } from '../api/notes.js';
 import { getAnamnesis } from '../api/anamnesis.js';
@@ -464,6 +465,9 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
 
   const timeline   = asList(tlReq.data);
   const encounters = asList(encReq.data);
+  // The visit this patient still has open, if any. `listEncounters` is
+  // already sorted newest-first, so the first open row is the current one.
+  const openEncounter = encounters.find(e => isEncounterOpen(e.status)) || null;
   const consents   = asList(conReq.data);
   const notes      = asList(notesReq.data);
   const anamnesis  = anamReq.data?.record;
@@ -552,8 +556,18 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   // and route into the studio with BOTH uuids — the WS start message and the
   // recording linkage hang off ?encounter=.
   const handleStartEncounter = async ({ kind, reason, mode }) => {
-    const enc = await createEncounter(id, { kind, reason, status: "in_progress" });
+    // Reuse the visit already open for this patient rather than stacking a
+    // second one on top of it — duplicated open visits are how the pipeline
+    // filled up in the first place. A paused visit is resumed on the way in,
+    // since conversation capture requires an open encounter.
+    let enc = openEncounter;
+    if (enc) {
+      if (enc.status === "paused") enc = await resumeEncounter(enc.id);
+    } else {
+      enc = await createEncounter(id, { kind, reason, status: "in_progress" });
+    }
     setStartOpen(false);
+    encReq.reload();
     // Both modes carry the same {patient, encounter} context; they differ in
     // the surface they open (and, downstream, in the protocol they negotiate).
     const route = mode === "conversation" ? "/dictate/conversation" : "/dictate/studio";
@@ -691,6 +705,37 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
         </div>
       </div>
 
+      {/* Open-visit banner — visible on every tab, because a visit left
+          hanging is the thing the clinician most needs to be told about and
+          the Encounters tab is not where they usually are. */}
+      {openEncounter && (
+        <div
+          className="tl-source-warn"
+          role="status"
+          style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 12 }}
+        >
+          <Icon name={openEncounter.status === "paused" ? "pause" : "mic"} size={13} />
+          <span style={{ flex: 1, minWidth: 180 }}>
+            {openEncounter.status === "paused"
+              ? tr(lang, "Прийом призупинено", "This visit is paused")
+              : tr(lang, "Прийом триває", "A visit is in progress")}
+            {openEncounter.reason ? ` — ${openEncounter.reason}` : ""}
+          </span>
+          <button
+            type="button"
+            className="btn sm"
+            onClick={() => navigate(`/dictate/studio?patient=${id}&encounter=${openEncounter.id}`)}
+          >
+            {tr(lang, "Відкрити", "Open")}
+          </button>
+          <VisitControls
+            encounter={openEncounter}
+            lang={lang}
+            onChanged={() => { encReq.reload(); tlReq.reload(); patientReq.reload(); }}
+          />
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="tabs">
         {tabDefs.map(x => (
@@ -771,10 +816,17 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                       {e.kind} · {fmtDate(e.occurred_at, lang)}, {fmtTime(e.occurred_at, lang)}
                     </div>
                   </div>
-                  <span className={`chip ${e.status === "completed" ? "signed" : e.status === "in_progress" ? "live" : "draft"}`}>
-                    {({ completed: tr(lang, "завершено", "completed"), in_progress: tr(lang, "триває", "in progress"),
-                        scheduled: tr(lang, "заплановано", "scheduled"), cancelled: tr(lang, "скасовано", "cancelled") })[e.status] || e.status}
+                  <span className={`chip ${visitStatusChipClass(e.status)}`}>
+                    {visitStatusLabel(e.status, lang)}
                   </span>
+                  {/* The row that was previously read-only: an open visit is
+                      now closeable from the record it belongs to. */}
+                  <VisitControls
+                    encounter={e}
+                    lang={lang}
+                    compact
+                    onChanged={() => { encReq.reload(); tlReq.reload(); patientReq.reload(); }}
+                  />
                 </div>
               ))
             )}
@@ -905,20 +957,38 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
           {tlReq.error ? <ApiErrorView error={tlReq.error} lang={lang} />
             : tlReq.loading ? <Loading lang={lang} />
             : scribeItems.length === 0 ? (
-              <Empty icon="mic" title={tr(lang, "Розмов немає", "No conversations yet")} />
+              <Empty icon="mic" title={tr(lang, "Розмов немає", "No conversations yet")}
+                body={tr(lang, "Розмови з'являються після прийомів у розмовному режимі", "Conversations appear after encounters recorded in conversation mode")} />
             ) : listShell(
               scribeItems.map((conv, i, arr) => (
+                // Carry the patient: the consult screen is otherwise a
+                // transcript with no idea whose record it belongs to.
                 <div key={conv.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-2)" : "none", cursor: "pointer" }}
-                  onClick={() => navigate(`/scribe/consult/${conv.id}`)}>
+                  onClick={() => navigate(`/scribe/consult/${conv.id}?patient=${id}`)}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--scribe-soft,#e6f4f1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--scribe,#0a8a7a)" }}>
                     <Icon name="mic" size={13} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>{loc(conv.title, lang)}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{conv.by} · {fmtDate(conv.date, lang)}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>
+                      {tr(lang, "Розмова", "Conversation")}
+                      {conv.duration_s != null ? ` · ${fmtDur(conv.duration_s)}` : ""}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                      {fmtDate(conv.date, lang)}, {fmtTime(conv.date, lang)}
+                      {/* A conversation that recorded nothing is a real
+                          outcome and must be visible as such, not as an
+                          ordinary row the clinician opens to a blank pane. */}
+                      {conv.segments === 0
+                        ? ` · ${tr(lang, "без транскрипту", "no transcript")}`
+                        : conv.segments != null
+                          ? ` · ${conv.segments} ${tr(lang, "реплік", "turns")}`
+                          : ""}
+                    </div>
                   </div>
-                  <span className={`chip ${conv.status === "live" ? "live" : conv.status === "signed" ? "signed" : "draft"}`}>
-                    {conv.status === "live" ? (tr(lang, "наживо", "live")) : conv.status === "signed" ? (tr(lang, "підписано", "signed")) : (tr(lang, "чернетка", "draft"))}
+                  <span className={`chip ${conv.status === "failed" ? "warn" : conv.status === "finalized" ? "signed" : "draft"}`}>
+                    {conv.status === "finalized" ? (tr(lang, "завершено", "finalized"))
+                      : conv.status === "failed" ? (tr(lang, "помилка", "failed"))
+                        : conv.status}
                   </span>
                   <Icon name="chevRight" size={14} />
                 </div>

@@ -47,8 +47,10 @@ clinic lead (Volodymyr to route); FE owner: this repo.
 - Backend consent enforcement: dictation-service does not yet reject a
   session for missing consent — the FE gate is the only enforcement
   (stated in the step-05 sign-off). Named backend ask.
-- Encounter update endpoint + report encounter_id: see
-  ~/Desktop/dictat-s11-encounter-backend-asks.md (step 04).
+- ~~Encounter update endpoint~~ — DONE (backend migration 0058). The visit
+  lifecycle now exists end to end: `POST /encounters/{id}/{start|pause|
+  resume|complete|cancel}` + `GET /encounters/open`, driven from
+  `src/patients/VisitControls.jsx`. Report `encounter_id` is still open.
 - Diia (QR) signing for consents: the as-built proxy supports
   provider=diia (202 session); the FE consent dialog ships file_key +
   dev scaffold — QR flow reuse from SigningFlow is a follow-up.

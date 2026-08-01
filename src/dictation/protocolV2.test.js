@@ -95,3 +95,29 @@ test("consent_required is explained in Ukrainian, not as a code", () => {
   assert.doesNotMatch(uk, /consent_required/);
   assert.match(explainErrorCode("consent_required", "en"), /consent/i);
 });
+
+// The failure a clinician is most likely to meet is the transport one — the
+// recognition service down, restarting, or unreachable. It used to render as
+// "Помилка сесії (connect_failed)": an internal identifier, in front of a
+// patient, with no statement of what happened or what to do.
+test("client-side failure codes are explained, never dumped as codes", () => {
+  for (const code of ["connect_failed", "connection_lost", "mic_denied",
+                      "no_opus_encoder", "encoder_failed", "transport_error"]) {
+    for (const lang of ["uk", "en"]) {
+      const msg = explainErrorCode(code, lang);
+      assert.doesNotMatch(msg, new RegExp(code), `${code}/${lang} leaked the raw code`);
+      assert.ok(msg.length > 10, `${code}/${lang} is not a sentence`);
+    }
+  }
+});
+
+test("connect_failed says nothing was recorded — the clinician must not assume otherwise", () => {
+  assert.match(explainErrorCode("connect_failed", "uk"), /нічого не записано/i);
+  assert.match(explainErrorCode("connect_failed", "en"), /nothing was recorded/i);
+});
+
+// An unknown code still has to say SOMETHING, and the code is the only honest
+// thing left to say — this is the one place a raw identifier may surface.
+test("an unmapped code falls back to the code, not to silence", () => {
+  assert.match(explainErrorCode("some_future_code", "uk"), /some_future_code/);
+});

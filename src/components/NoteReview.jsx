@@ -1,6 +1,6 @@
 // NoteReview.jsx — Sprint 15: 2-pane note review with traceability
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Icon } from './UI.jsx';
+import { Icon, Empty } from './UI.jsx';
 import { Loading, asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { useAsync } from '../api/useAsync.js';
@@ -270,6 +270,28 @@ export function NoteReviewPage({ sessionId, lang, navigate }) {
   const patient = session.patient;
   const transcript = asList(session.transcript);
   const sections = asList(session.generatedNote?.sections);
+
+  // This screen reviews a GENERATED note against the transcript it came
+  // from. No backend produces one yet (note synthesis is a later sprint),
+  // so rather than render an empty right-hand pane over a note that does
+  // not exist, send the clinician to the transcript and to the draft path
+  // that does work.
+  if (!sections.length) {
+    return (
+      <div className="page">
+        <Empty icon="fileText"
+          title={tr(lang, "Нотатка ще не згенерована", "No generated note yet")}
+          body={tr(lang,
+            "Автоматичне створення нотатки з транскрипту ще не доступне. Відкрийте транскрипт розмови або створіть чернетку у Студії.",
+            "Generating a note from the transcript is not available yet. Open the conversation transcript, or create a draft in the Studio.")}
+          action={
+            <button className="btn" onClick={() => navigate(`/scribe/consult/${sessionId}`)}>
+              {tr(lang, "До транскрипту", "Open the transcript")}
+            </button>
+          } />
+      </div>
+    );
+  }
 
   const handleSign = async () => {
     setSigning(true);

@@ -41,6 +41,7 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
   const [level, setLevel] = useState(0);
   const [sessionId, setSessionId] = useState(null);
   const [startedAt, setStartedAt] = useState(null);
+  const [paused, setPaused] = useState(false);
 
   const clientRef = useRef(null);
   const encoderRef = useRef(null);
@@ -50,6 +51,7 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
   const sessionIdRef = useRef(null);
   const resumesRef = useRef(0);
   const wantLiveRef = useRef(false);   // the clinician's intent, not the socket's state
+  const pausedRef = useRef(false);
   const optsRef = useRef({ language, promptId, encounterId, deviceId });
   optsRef.current = { language, promptId, encounterId, deviceId };
 
@@ -163,18 +165,24 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
   }, [onPartial, onFinal, onSpeakerMappingUpdated, fail]);
 
   // ── start ───────────────────────────────────────────────────────────
+  // Resolves TRUE only when audio is actually flowing. A start that never got
+  // a socket must not leave the caller showing a recording surface — the room
+  // uses the answer to go back to the intro, where the error and the retry
+  // live together (`error` is set in every false path).
   const start = useCallback(async () => {
-    if (wantLiveRef.current) return;
+    if (wantLiveRef.current) return true;
     setError(null);
     setStatus("starting");
     wantLiveRef.current = true;
+    pausedRef.current = false;
+    setPaused(false);
     resumesRef.current = 0;
 
     // Capability first: without a real Opus encoder every frame we ship would
     // be undecodable on the server. Refuse loudly instead of recording silence.
     if (!isOpusEncodingSupported()) {
       fail("no_opus_encoder", null, false);
-      return;
+      return false;
     }
 
     try {
@@ -191,14 +199,14 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
         },
         onError: () => fail("encoder_failed", null, false),
       });
-      if (!(await encoder.ready())) { fail("no_opus_encoder", null, false); return; }
+      if (!(await encoder.ready())) { fail("no_opus_encoder", null, false); return false; }
       encoderRef.current = encoder;
 
       const stream = await openMicStream(optsRef.current.deviceId);
       streamRef.current = stream;
 
       await connect({ resume: false });
-      if (!wantLiveRef.current) return;   // stopped while connecting
+      if (!wantLiveRef.current) return false;   // stopped while connecting
 
       ring.sessionId = sessionIdRef.current;
       captureRef.current = startCapture({
@@ -208,6 +216,7 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
       });
       setStartedAt(Date.now());
       setStatus("live");
+      return true;
     } catch (e) {
       await teardownAudio();
       wantLiveRef.current = false;
@@ -215,16 +224,57 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
         // The refusal already arrived as an `error` frame (consent_required is
         // the common one) and set the message; don't overwrite it.
         setStatus((s) => (s === "error" ? s : "error"));
-        setError((prev) => prev || { code: "connect_failed", message: null, recoverable: false });
-        return;
+        // Recoverable: a socket that closed before start_session recorded
+        // nothing, so trying again costs the clinician nothing and is very
+        // often the right move (the service was restarting, the network
+        // blinked). Terminal refusals set their own error above and keep it.
+        setError((prev) => prev || { code: "connect_failed", message: null, recoverable: true });
+        return false;
       }
       if (e?.name === "NotAllowedError" || e?.name === "NotFoundError") {
         fail("mic_denied", null, false);
-        return;
+        return false;
       }
-      fail("connect_failed", null, false);
+      fail("connect_failed", null, true);
+      return false;
     }
   }, [connect, fail, teardownAudio]);
+
+  // ── pause / resume ──────────────────────────────────────────────────
+  // The protocol has always carried these frames; nothing in the UI ever
+  // sent them, so a clinician stepping out mid-consultation had only one
+  // option — end the whole thing.
+  //
+  // Order matters in both directions. The server rejects audio that arrives
+  // while the session is paused (`pause_state_mismatch`), so capture stops
+  // BEFORE the pause frame and restarts AFTER the resume frame. The mic
+  // stream itself stays open: re-acquiring it would re-prompt for
+  // permission in the middle of a consultation.
+  const pause = useCallback(async () => {
+    if (!wantLiveRef.current || pausedRef.current) return;
+    pausedRef.current = true;
+    setPaused(true);
+    if (captureRef.current) { try { await captureRef.current.stop(); } catch {} }
+    captureRef.current = null;
+    if (encoderRef.current) { try { await encoderRef.current.flush(); } catch {} }
+    clientRef.current?.pause();
+    setLevel(0);
+  }, []);
+
+  const resume = useCallback(() => {
+    if (!pausedRef.current) return;
+    clientRef.current?.resume();
+    const stream = streamRef.current;
+    if (stream) {
+      captureRef.current = startCapture({
+        stream,
+        onFrame: (int16) => { encoderRef.current?.push(int16); },
+        onLevel: setLevel,
+      });
+    }
+    pausedRef.current = false;
+    setPaused(false);
+  }, []);
 
   // ── stop → the session is finalized server-side ─────────────────────
   // end_session persists the transcript (with segment UUIDs and speakers); the
@@ -235,6 +285,8 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
       return sessionIdRef.current;
     }
     wantLiveRef.current = false;
+    pausedRef.current = false;
+    setPaused(false);
     setStatus("stopping");
     // Stop capture before flushing so no frame arrives after end_session.
     if (captureRef.current) { try { await captureRef.current.stop(); } catch {} }
@@ -275,17 +327,33 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
 
   // Navigating away mid-consultation must not leave the microphone hot or the
   // session holding two capacity slots.
+  //
+  // It used to close the socket WITHOUT sending end_session, which is the
+  // difference between a finalized consultation and a lost one: the server
+  // saw a dropped client, moved the session to `reconnecting`, and abandoned
+  // it half an hour later — no persisted transcript, no draft, and a row
+  // sitting in the tenant's active-session budget the whole time. Send the
+  // frame first; the close is deferred a beat so it actually goes out.
   useEffect(() => () => {
+    const wasLive = wantLiveRef.current;
     wantLiveRef.current = false;
-    try { clientRef.current?.close(); } catch {}
+    pausedRef.current = false;
     if (captureRef.current) { captureRef.current.stop(); }
+    captureRef.current = null;
     if (streamRef.current) { try { streamRef.current.getTracks().forEach((t) => t.stop()); } catch {} }
     if (encoderRef.current) encoderRef.current.destroy();
+    const client = clientRef.current;
+    if (wasLive && client) {
+      try { client.endSession(); } catch {}
+      setTimeout(() => { try { client.close(); } catch {} }, 250);
+      return;
+    }
+    try { client?.close(); } catch {}
   }, []);
 
   return {
-    status, turns, mapping, error, level, sessionId, startedAt,
-    start, stop, setSpeaker, swapMapping, assignRole,
+    status, turns, mapping, error, level, sessionId, startedAt, paused,
+    start, stop, pause, resume, setSpeaker, swapMapping, assignRole,
     recording: status === "live" || status === "resuming",
   };
 }

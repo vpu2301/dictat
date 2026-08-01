@@ -649,3 +649,62 @@ test("a dropped socket resumes and the committed turns stay on screen", async ({
   await expect(page.getByTestId("turn").nth(1)).toHaveAttribute("data-speaker", "UNKNOWN");
   await expect(page.getByTestId("cv-recording")).toBeVisible();
 });
+
+// ── the service is simply not there ──────────────────────────────────
+//
+// The single most common real failure, and the one this room used to handle
+// worst: dictation-service down or restarting, so the socket closes before
+// session_started. The clinician saw «Помилка сесії (connect_failed)» — an
+// internal identifier — on a live-looking recording surface, with
+// "Завершити розмову" as the only exit. Nothing was recorded, and nothing on
+// screen said so.
+test("a socket that never starts a session returns to the intro and says so", async ({ page }) => {
+  const calls = newCalls();
+  await installMocks(page, calls);
+  await installBrowserSeams(page);
+  // The upgrade succeeds and the connection is then cut — exactly what a
+  // crash-looping worker looks like from the browser.
+  await page.routeWebSocket(/\/ws\/dictate/, (ws) => {
+    calls.sockets.push(ws.url());
+    ws.onMessage(() => ws.close({ code: 1006 }));
+    setTimeout(() => ws.close({ code: 1006 }), 50);
+  });
+  await login(page);
+
+  await page.goto(roomUrl);
+  await page.getByTestId("cv-start").click();
+
+  const room = page.getByTestId("conversation-room");
+  await expect(room).toHaveAttribute("data-phase", "intro");
+  await expect(page.getByTestId("cv-recording")).toHaveCount(0);
+
+  const err = page.getByTestId("cv-error");
+  await expect(err).toBeVisible();
+  await expect(err).toContainText(/нічого не записано/i);
+  await expect(err).not.toContainText(/connect_failed/);
+
+  // The start button is the retry, and it still works.
+  await expect(page.getByTestId("cv-start")).toBeEnabled();
+});
+
+// A visit that is over cannot take a recording — dictation-service refuses it
+// with `encounter_closed`. Finding that out costs a consent conversation with
+// the patient unless the room checks first.
+test("a completed visit blocks the start before consent is ever asked for", async ({ page }) => {
+  const calls = newCalls();
+  await installMocks(page, calls);
+  await installBrowserSeams(page);
+  await installConversationWs(page, calls);
+  // Override the encounter with a finished one.
+  await page.route(`**/encounters/${ENC}`, (route) =>
+    route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ ...ENCOUNTER, status: "completed" }),
+    }));
+  await login(page);
+
+  await page.goto(roomUrl);
+  await expect(page.getByTestId("cv-visit-closed")).toBeVisible();
+  await expect(page.getByTestId("cv-start")).toBeDisabled();
+  expect(calls.sockets).toHaveLength(0);
+});

@@ -80,6 +80,14 @@ export function explainCloseCode(code, lang = "en") {
 // `consent_required` is sprint 14's addition: a conversation start with no
 // encounter, or with no granted `recording` consent for that encounter's
 // patient. Terminal — the fix is the consent flow, not a retry.
+//
+// The table also covers the CLIENT-side failure codes the session hook raises
+// (connect_failed, mic_denied, no_opus_encoder, encoder_failed,
+// transport_error). They used to fall through to the generic branch, which put
+// "Помилка сесії (connect_failed)" — an internal identifier — in front of a
+// clinician standing in front of a patient. A failure the user can act on must
+// say what failed and what to do; the fallback stays for codes a future
+// backend invents, and is the only place a raw code should ever surface.
 export function explainErrorCode(code, lang = "en") {
   const map = {
     consent_required: {
@@ -100,6 +108,31 @@ export function explainErrorCode(code, lang = "en") {
     },
     encounter_invalid: { uk: "Прийом не знайдено", en: "Encounter not found" },
     encounter_closed:  { uk: "Прийом уже завершено", en: "This encounter is closed" },
+    // Client-side failures (useConversationSession / the dictation hook).
+    connect_failed: {
+      uk: "Немає зв'язку із сервером розпізнавання — нічого не записано. Перевірте мережу та спробуйте ще раз.",
+      en: "Can't reach the recognition server — nothing was recorded. Check the network and try again.",
+    },
+    connection_lost: {
+      uk: "Зв'язок із сервером втрачено. Записане до цього моменту збережено.",
+      en: "Lost the connection to the server. What was recorded up to that point is saved.",
+    },
+    transport_error: {
+      uk: "Збій з'єднання — відновлюємо",
+      en: "Connection glitch — reconnecting",
+    },
+    mic_denied: {
+      uk: "Немає доступу до мікрофона — дозвольте його в налаштуваннях браузера",
+      en: "No microphone access — allow it in the browser settings",
+    },
+    no_opus_encoder: {
+      uk: "Цей браузер не вміє кодувати аудіо для розмовного режиму. Скористайтеся Chrome.",
+      en: "This browser cannot encode audio for conversation mode. Use Chrome.",
+    },
+    encoder_failed: {
+      uk: "Кодування аудіо перервалося — почніть розмову ще раз",
+      en: "Audio encoding failed — start the conversation again",
+    },
   };
   const row = map[code];
   if (!row) return lang === "uk" ? `Помилка сесії (${code})` : `Session error (${code})`;

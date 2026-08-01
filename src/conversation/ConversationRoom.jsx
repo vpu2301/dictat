@@ -28,7 +28,8 @@ import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { useAsync } from "../api/useAsync.js";
 import { asList } from "../components/DataStates.jsx";
 import { getPatient, yearOfBirth } from "../api/patients.js";
-import { getEncounter } from "../api/encounters.js";
+import { getEncounter, isEncounterClosed } from "../api/encounters.js";
+import { VisitControls, visitStatusLabel } from "../patients/VisitControls.jsx";
 import { listTemplates, getTemplate, toStudioTemplate } from "../api/templates.js";
 import { listPrompts } from "../api/asr.js";
 import { getSession } from "../api/dictation.js";
@@ -83,6 +84,12 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
   const patient = patientReq.data;
   const encounter = encounterReq.data;
   const templates = asList(templatesReq.data);
+  // dictation-service refuses a conversation on a finished visit
+  // (`encounter_closed`), and it is right to: the audio would attach to a
+  // record that is already closed. Knowing that BEFORE the clinician asks the
+  // patient for consent and presses record is the difference between a
+  // sentence on screen and a consultation recorded into nothing.
+  const visitClosed = !!encounter && isEncounterClosed(encounter.status);
 
   useEffect(() => {
     if (!templateId && templates.length) setTemplateId(templates[0].id);
@@ -96,6 +103,20 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
     const forLang = list.filter((p) => !p.language || p.language === lang);
     return (forLang.find((p) => p.is_default) || forLang[0] || list[0] || {}).id || null;
   }, [promptsReq.data, lang]);
+
+  // Closing the tab mid-consultation is the one exit the app cannot make
+  // graceful on its own: the unmount handler gets to send end_session, but a
+  // hard unload may cut the socket first. Warn while audio is live.
+  useEffect(() => {
+    if (phase !== "live") return undefined;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [phase]);
 
   const mic = useMicDevices();
   const consentGate = useConsentGate(patientId, { encounterId, type: CONSENT_TYPE_RECORDING });
@@ -115,7 +136,13 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
     if (error) return;                       // the banner offers the retry
     if (!active) { setConsentOpen(true); return; }
     setPhase("live");
-    await session.start();
+    // A start that never opened a socket recorded nothing. Staying on the live
+    // surface would show "Говоріть — текст з'явиться тут" over a dead session
+    // and offer "Завершити розмову" as the only way out — a consultation the
+    // clinician thinks is being recorded is the worst failure this screen has.
+    // Go back to the intro, where the error sits above the start button.
+    const live = await session.start();
+    if (!live) setPhase("intro");
   }, [consentGate, session]);
 
   // ── stop → the server finalizes and persists; we read the transcript back
@@ -215,8 +242,32 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
   }
 
   const patientName = patient?.name?.[lang] || patient?.name?.uk || patient?.name?.en || "";
+  // One banner, rendered wherever the failure can be acted on: on the intro it
+  // sits above the start button (which IS the retry), on the live surface it
+  // carries its own.
+  const errorBanner = session.error ? (
+    <div className="consent-gate-banner error" data-testid="cv-error" role="alert">
+      <Icon name="micOff" size={14} />
+      <span>{session.error.message || explainErrorCode(session.error.code, lang)}</span>
+      {session.error.code === "consent_required" && (
+        <button type="button" className="btn sm" onClick={() => setConsentOpen(true)}>
+          {tr(lang, "Отримати згоду", "Capture consent")}
+        </button>
+      )}
+      {session.error.recoverable && phase !== "intro" && (
+        <button type="button" className="btn sm" data-testid="cv-retry" onClick={startConversation}>
+          {tr(lang, "Спробувати ще раз", "Try again")}
+        </button>
+      )}
+    </div>
+  ) : null;
   const yob = yearOfBirth?.(patient);
   const unresolved = unresolvedCount(session.turns);
+  // Nothing to fold into a draft — a failed connect, or a visit where the
+  // socket lived but no speech was committed. The button used to stay enabled
+  // and fail with "транскрипт збережено", which is false when there is no
+  // transcript at all.
+  const recorded = (reviewSegments?.length ?? 0) > 0 || session.turns.turns.length > 0;
   const reviewUnattributed = reviewSegments
     ? unattributedCount(mergeReview(reviewSegments, {
         corrections: corrections(session.turns), mapping: session.mapping.mapping,
@@ -283,6 +334,18 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
               </button>
             </div>
           )}
+          {errorBanner}
+          {visitClosed && (
+            <div className="consent-gate-banner error" data-testid="cv-visit-closed" role="alert">
+              <Icon name="calendar" size={14} />
+              <span>{tr(lang,
+                `Цей прийом ${visitStatusLabel(encounter.status, lang)} — записати розмову можна лише під час відкритого прийому.`,
+                `This visit is ${visitStatusLabel(encounter.status, lang)} — a conversation can only be recorded during an open visit.`)}</span>
+              <button type="button" className="btn sm" onClick={() => navigate(`/patients/${patientId}`)}>
+                {tr(lang, "До картки пацієнта", "To the patient record")}
+              </button>
+            </div>
+          )}
           {!isOpusEncodingSupported() && (
             <div className="consent-gate-banner error" data-testid="cv-no-encoder" role="alert">
               <Icon name="micOff" size={14} />
@@ -313,7 +376,8 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
           <button
             className="btn accent lg"
             data-testid="cv-start"
-            disabled={consentGate.status === "loading" || !promptId || !templateId || !isOpusEncodingSupported()}
+            disabled={consentGate.status === "loading" || !promptId || !templateId
+                      || !isOpusEncodingSupported() || visitClosed}
             onClick={startConversation}
           >
             <Icon name="mic" size={15} /> {tr(lang, "Почати розмову", "Start the conversation")}
@@ -327,24 +391,22 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
       {/* ── live + review share the transcript surface ─────────────── */}
       {(phase === "live" || phase === "review") && (
         <>
-          <MappingBanner
-            mapping={session.mapping}
-            lang={lang}
-            onSwap={session.swapMapping}
-          />
+          {/* Only once there is a voice to attribute. "The system has not yet
+              decided who is the clinician and who is the patient" over an
+              empty transcript describes a decision that was never pending. */}
+          {(session.turns.turns.length > 0 || session.turns.partial) && (
+            <MappingBanner
+              mapping={session.mapping}
+              lang={lang}
+              onSwap={session.swapMapping}
+            />
+          )}
 
-          {session.error && (
-            <div className="consent-gate-banner error" data-testid="cv-error" role="alert">
-              <Icon name="micOff" size={14} />
-              <span>
-                {session.error.message
-                  || explainErrorCode(session.error.code, lang)}
-              </span>
-              {session.error.code === "consent_required" && (
-                <button type="button" className="btn sm" onClick={() => setConsentOpen(true)}>
-                  {tr(lang, "Отримати згоду", "Capture consent")}
-                </button>
-              )}
+          {errorBanner}
+
+          {session.paused && (
+            <div className="cv-resuming" role="status" data-testid="cv-paused">
+              {tr(lang, "Запис на паузі — мікрофон вимкнено", "Recording paused — the microphone is off")}
             </div>
           )}
 
@@ -372,6 +434,20 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
                   <i style={{ width: `${Math.round(Math.min(1, session.level * 1.6) * 100)}%` }} />
                 </div>
                 <div style={{ flex: 1 }} />
+                {/* The protocol has always had pause/resume; this is the
+                    first control that sends them. Stepping out of the room
+                    no longer means ending the consultation. */}
+                <button
+                  className="btn"
+                  data-testid="cv-pause"
+                  disabled={busy || session.status !== "live"}
+                  onClick={() => (session.paused ? session.resume() : session.pause())}
+                >
+                  <Icon name={session.paused ? "play" : "pause"} size={14} />
+                  {session.paused
+                    ? tr(lang, "Продовжити", "Resume")
+                    : tr(lang, "Пауза", "Pause")}
+                </button>
                 <button className="btn accent" data-testid="cv-stop" disabled={busy} onClick={stopConversation}>
                   <Icon name="check" size={14} /> {tr(lang, "Завершити розмову", "End the conversation")}
                 </button>
@@ -379,15 +455,28 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
             ) : (
               <>
                 <span className="cv-review-note" data-testid="cv-review-note">
-                  {reviewUnattributed > 0
-                    ? unresolvedNote(reviewUnattributed, lang)
-                    : tr(lang, "Усі репліки мають мовця", "Every turn has a speaker")}
+                  {!recorded
+                    ? tr(lang, "Розмову не записано — чернетку створювати нема з чого",
+                               "Nothing was recorded — there is nothing to make a draft from")
+                    : reviewUnattributed > 0
+                      ? unresolvedNote(reviewUnattributed, lang)
+                      : tr(lang, "Усі репліки мають мовця", "Every turn has a speaker")}
                 </span>
                 <div style={{ flex: 1 }} />
+                {/* The conversation is over; the visit it belongs to is not.
+                    Offering the transition here is what stops finished
+                    consultations from leaving an open visit behind. */}
+                <VisitControls
+                  encounter={encounter}
+                  lang={lang}
+                  showCancel={false}
+                  onChanged={() => encounterReq.reload()}
+                />
                 <button className="btn" onClick={() => navigate(`/patients/${patientId}`)}>
                   {tr(lang, "Пізніше", "Later")}
                 </button>
-                <button className="btn accent" data-testid="cv-create-draft" disabled={busy} onClick={createDraft}>
+                <button className="btn accent" data-testid="cv-create-draft"
+                  disabled={busy || !recorded} onClick={createDraft}>
                   <Icon name="fileText" size={14} />
                   {busy ? tr(lang, "Створення…", "Creating…") : tr(lang, "Створити чернетку", "Create the draft")}
                 </button>

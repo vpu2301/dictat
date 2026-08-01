@@ -28,6 +28,11 @@ export function hasAnyRole(claims, roles) {
 export const CLINICAL_ROLES = ["clinician", "nurse"];
 export const ADMIN_ROLES = ["tenant_admin", "super_admin"];
 
+// Who may open the patient roster. An auditor is deliberately absent: their
+// subject is the trail — who touched what, when — not the people in it.
+// Single source for the `patient.*` matrix rows below and for the route gate.
+export const PATIENT_ROLES = ["clinician", "nurse", "tenant_admin"];
+
 /** Can this user see clinical content (notes, dictations, reports)? */
 export function hasClinicalAccess(claims) {
   return hasAnyRole(claims, CLINICAL_ROLES);
@@ -36,6 +41,26 @@ export function hasClinicalAccess(claims) {
 /** An administrator with no clinical standing — the S14 case. */
 export function isAdminOnly(claims) {
   return hasAnyRole(claims, ADMIN_ROLES) && !hasClinicalAccess(claims);
+}
+
+/**
+ * An auditor with no clinical standing and no admin powers — the read-only
+ * oversight account. Their entire surface is the audit trail (events + chain
+ * verification) plus the template library they read records against; every
+ * other nav entry would be a button that 403s.
+ *
+ * Like `isAdminOnly` this is a matrix over ROLES, not people: a clinician who
+ * also audits carries both roles and keeps the full clinical workspace.
+ */
+export function isAuditorOnly(claims) {
+  return hasAnyRole(claims, ["auditor"])
+    && !hasClinicalAccess(claims)
+    && !hasAnyRole(claims, ADMIN_ROLES);
+}
+
+/** Can this user open the patient roster? */
+export function canReadPatients(claims) {
+  return isAllowed(claims, "patients.read", "patient");
 }
 
 // Map: action → target_kind → roles allowed.
@@ -78,8 +103,8 @@ const MATRIX = {
   "reports.read":     { report:  ["clinician", "nurse"] },
   "notes.read":       { note:    ["clinician", "nurse"] },
   "notes.write":      { note:    ["clinician", "nurse"] },
-  "patients.read":    { patient: ["clinician", "nurse", "tenant_admin"] },
-  "patients.write":   { patient: ["clinician", "nurse", "tenant_admin"] },
+  "patients.read":    { patient: PATIENT_ROLES },
+  "patients.write":   { patient: PATIENT_ROLES },
 
   // ── break-glass (S14) ─────────────────────────────────────────────────
   // Only an admin requests it — a clinician already holds report.read, so
