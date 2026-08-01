@@ -270,11 +270,14 @@ export function Sidebar({
     // several secondary jobs.
     if (isAuditor && !auditorOnly) {
       secs.push({
-        title: tr(lang, "Аудит", "Audit"),
+        title: tr(lang, "Комплаєнс", "Compliance"),
         icon: "history",
         items: [
           { icon: "history", label: tr(lang, "Події", "Events"), path: "/audit/events", prefix: "/audit/events" },
           { icon: "shield", label: tr(lang, "Перевірка ланцюга", "Chain verify"), path: "/audit/verify", exact: true },
+          { icon: "eye", label: tr(lang, "Break-glass", "Break-glass"), path: "/audit/phi-access", exact: true },
+          { icon: "users", label: tr(lang, "Огляд доступів", "Access review"), path: "/audit/access", exact: true },
+          { icon: "book", label: tr(lang, "Докази для аудиту", "Audit evidence"), path: "/audit/compliance", exact: true },
         ],
       });
     }
@@ -288,7 +291,14 @@ export function Sidebar({
         <div className="sb-brand-inner"
              onClick={() => navigate(auditorOnly ? "/audit/events" : product === "scribe" ? "/scribe" : "/dictate")}>
           <Logo size={26} />
-          {!collapsed && <span>Klarnote</span>}
+          {/* An auditor-only account is not in Scribe or Dictate — it has no
+              product switch at all — so the wordmark is what names the product
+              they are actually in. */}
+          {!collapsed && (
+            <span className="sb-wordmark">
+              Klarnote{auditorOnly && <span className="sb-wordmark-sfx">Audit</span>}
+            </span>
+          )}
         </div>
         <button className="sb-toggle" onClick={onToggleCollapse} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
           <Icon name={collapsed ? "chevRight" : "chevLeft"} size={13} />
@@ -324,7 +334,7 @@ export function Sidebar({
 
       {auditorOnly ? (
         /* ── Audit (the auditor's whole workspace) ─────────── */
-        <Group id="audit" title={tr(lang, "Аудит", "Audit")} icon="history"
+        <Group id="audit" title={tr(lang, "Комплаєнс", "Compliance")} icon="history"
                openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed} defaultOpen>
           <NavLink {...{ route, navigate, collapsed }} icon="history"
                    label={tr(lang, "Події", "Events")}
@@ -332,6 +342,20 @@ export function Sidebar({
           <NavLink {...{ route, navigate, collapsed }} icon="shield"
                    label={tr(lang, "Перевірка ланцюга", "Chain verify")}
                    path="/audit/verify" exact />
+          {/* Break-glass oversight. `phi_access.read` admits the auditor, and
+              the grant record answers what the audit event alone cannot: on
+              what grounds, for how long, and how often it was used. */}
+          <NavLink {...{ route, navigate, collapsed }} icon="eye"
+                   label={tr(lang, "Break-glass", "Break-glass")}
+                   path="/audit/phi-access" exact />
+          {/* `user.read` is the auditor's server-side permission for the roster
+              — the access-control review GDPR Art. 32(4) asks them to perform. */}
+          <NavLink {...{ route, navigate, collapsed }} icon="users"
+                   label={tr(lang, "Огляд доступів", "Access review")}
+                   path="/audit/access" exact />
+          <NavLink {...{ route, navigate, collapsed }} icon="book"
+                   label={tr(lang, "Докази для аудиту", "Audit evidence")}
+                   path="/audit/compliance" exact />
           {/* `templates.read` admits the auditor: the template library is the
               reference they read a record's structure against, and it holds
               no patient data. */}

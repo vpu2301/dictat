@@ -1825,10 +1825,16 @@
 }
 
 @media print {
-  /* the execution report is shown/handed to patients — print it alone */
-  body * { visibility: hidden; }
-  .exec-report, .exec-report * { visibility: visible; }
-  .exec-report { position: absolute; inset: 0 auto auto 0; width: 100%; border: none; }
+  /* The execution report is shown/handed to patients — print it alone.
+     MUST stay scoped to `body:has(.exec-report)`: unscoped, `body * { hidden }`
+     applies to every print in the app, so printing a report (or anything else)
+     produced a blank page whenever no .exec-report was on screen. */
+  body:has(.exec-report) * { visibility: hidden; }
+  body:has(.exec-report) .exec-report,
+  body:has(.exec-report) .exec-report * { visibility: visible; }
+  body:has(.exec-report) .exec-report {
+    position: absolute; inset: 0 auto auto 0; width: 100%; border: none;
+  }
   .exec-report-print { display: none; }
 }
 
@@ -2421,3 +2427,257 @@
 @media (prefers-reduced-motion: reduce) {
   .cv-rec-dot, .cv-mapping.is-pulsing { animation: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   Version record — the audit detail behind every "version · author ·
+   timestamp" line, with print / JSON / PDF export.
+   ══════════════════════════════════════════════════════════════════ */
+
+.modal:has(.vi-head) { max-width: 720px; }
+.version-info-modal { display: flex; flex-direction: column; max-height: 86vh; min-height: 0; }
+
+.vi-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.vi-head h2 {
+  margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  font-size: 17px; font-weight: 600; letter-spacing: -.01em;
+}
+.vi-head p { margin: 4px 0 0; font-size: 12.5px; }
+.vi-chip {
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--warn-soft); color: var(--warn);
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.vi-chip.current { background: var(--accent-soft); color: var(--accent-text, var(--accent)); }
+
+.vi-body { padding: 16px 20px; overflow-y: auto; min-height: 0; }
+
+/* Label/value pairs — a two-column grid that collapses on narrow screens. */
+.vi-grid { margin: 0; display: grid; gap: 0; }
+.vi-row {
+  display: grid; grid-template-columns: 190px 1fr; gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-2, var(--line));
+}
+.vi-row:last-child { border-bottom: 0; }
+.vi-row dt { margin: 0; font-size: 12px; color: var(--muted); }
+.vi-row dd { margin: 0; font-size: 13px; color: var(--text-1); overflow-wrap: anywhere; }
+.vi-row dd.mono { font-family: var(--mono); font-size: 11.5px; color: var(--text-2, var(--muted)); }
+.vi-sub { color: var(--muted); font-size: 12px; }
+
+.vi-sub-h {
+  margin: 20px 0 10px;
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+}
+.vi-sections { display: flex; flex-direction: column; gap: 10px; }
+.vi-section {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px 14px; background: var(--surface);
+}
+.vi-section-h {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  margin-bottom: 5px;
+}
+.vi-section-b { font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; }
+.vi-icd { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+.vi-foot {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 20px; border-top: 1px solid var(--line);
+}
+.vi-foot .spacer { flex: 1; }
+.vi-err { margin: 0; font-size: 12px; }
+.vi-note {
+  margin: 0; padding: 0 20px 14px;
+  font-size: 11.5px; color: var(--muted); line-height: 1.5;
+}
+
+/* Every line that shows "version · author · timestamp" opens the record, so
+   they all get the same affordance. */
+.diff-stamp.is-link, .version-row.is-link {
+  border: 0; background: none; font: inherit; cursor: pointer;
+  text-align: left; width: 100%;
+}
+.diff-stamp.is-link {
+  width: auto; padding: 2px 6px; margin: -2px -6px; border-radius: 6px;
+}
+.diff-stamp.is-link:hover { background: var(--surface-hover, rgba(0,0,0,.04)); }
+.diff-stamp.is-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.diff-stamp-go { opacity: .5; }
+.diff-stamp.is-link:hover .diff-stamp-go { opacity: 1; }
+.version-row.is-link { display: block; }
+
+@media print {
+  /* The version record is a document to hand over — print it alone. */
+  body:has(.version-info-modal) * { visibility: hidden; }
+  body:has(.version-info-modal) .version-info-modal,
+  body:has(.version-info-modal) .version-info-modal * { visibility: visible; }
+  /* `.modal.version-info-modal`, not `.version-info-modal`: the on-screen cap
+     is set by `.modal:has(.vi-head)`, which out-specifies a single class —
+     @media adds no specificity, so a bare class would silently lose and the
+     record would print at 720px in the corner of the page. */
+  .modal.version-info-modal {
+    position: absolute; inset: 0 auto auto 0;
+    width: 100%; max-width: none; max-height: none; overflow: visible;
+    border: 0; border-radius: 0; box-shadow: none;
+  }
+  .version-info-modal .vi-body { overflow: visible; max-height: none; }
+  .version-info-modal .no-print { display: none !important; }
+  .vi-section { break-inside: avoid; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Split button — ONE control: a primary action and a caret to its
+   alternates, sharing a single outline with a single divider between.
+
+   Lives here, not in styles.css, and every rule is `.split-btn > .btn…`
+   (0,3,0): app-extra.css re-declares `.btn` with a `border-radius` AND a
+   `border` shorthand, and it loads later — a bare `.split-btn-main` in
+   styles.css lost to it, which is what made the halves render as two
+   separate pills with a gap.
+   ══════════════════════════════════════════════════════════════════ */
+
+.split-btn { position: relative; display: inline-flex; }
+
+/* Square off the inner corners and drop the seam border so the two halves
+   read as one rounded rectangle. */
+.split-btn > .btn.split-btn-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0;
+  margin-right: 0;
+}
+.split-btn > .btn.split-btn-caret {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: 0;
+  padding-left: 9px; padding-right: 9px;
+  gap: 0;
+  /* The one divider. currentColor keeps it legible on the dark primary and
+     on a transparent ghost alike. */
+  border-left: 1px solid color-mix(in srgb, currentColor 26%, transparent);
+}
+/* Hover must light BOTH halves, or the seam re-reads as two controls. */
+.split-btn:hover > .btn.primary { background: color-mix(in srgb, var(--text-1) 86%, #fff); }
+.split-btn > .btn.split-btn-caret .chev { transition: transform .12s; }
+.split-btn > .btn.split-btn-caret .chev.up { transform: rotate(180deg); }
+
+.split-btn-menu { top: auto; bottom: calc(100% + 6px); min-width: 240px; }
+.split-btn-menu.end { left: auto; right: 0; }
+.split-btn-menu.start { left: 0; right: auto; }
+/* `.spec-menu-item` is space-between (MenuSelect puts a check on the far
+   right). Here the row is icon → label, so it has to pack left. */
+.split-btn-menu .spec-menu-item {
+  align-items: flex-start; justify-content: flex-start; gap: 9px;
+}
+.split-btn-menu .spec-menu-item svg { margin-top: 1px; }
+.split-btn-menu .spec-menu-item[disabled] { opacity: .5; cursor: not-allowed; }
+.split-btn-menu .spec-menu-item.danger { color: var(--rec); }
+.split-btn-item { display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0; }
+.split-btn-hint { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+
+@keyframes split-btn-spin { to { transform: rotate(360deg); } }
+.spin { animation: split-btn-spin .9s linear infinite; transform-origin: 50% 50%; }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+/* ══════════════════════════════════════════════════════════════════
+   Break-glass oversight (/audit/phi-access) — the grant behind every
+   `sec`-severity phi_access event: who, why, for how long, how often.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Rows are read, not opened — override the events table's pointer/hover. */
+.phi-table tbody tr { cursor: default; }
+.phi-table tbody tr:hover { background: transparent; }
+.phi-table td { vertical-align: top; }
+.phi-table .psub { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+
+.phi-who { font-weight: 600; color: var(--text-1); }
+.phi-reason { color: var(--text-1); }
+.phi-note {
+  font-style: italic;
+  /* Justifications are free text and can run long — keep the column honest
+     rather than clipping the reason someone opened a medical record. */
+  white-space: normal; line-height: 1.45; max-width: 42ch;
+}
+.phi-when { white-space: nowrap; }
+.phi-uses { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.phi-state {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+}
+.phi-state.active  { background: var(--warn-soft); color: var(--warn); }
+.phi-state.expired { background: var(--surface-2); color: var(--muted); }
+.phi-state.revoked { background: var(--accent-soft); color: var(--accent-text, var(--accent)); }
+
+.phi-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+.phi-foot { padding: 10px 14px; border-top: 1px solid var(--line); }
+
+/* ─── Access review (/audit/access) ──────────────────────────────────── */
+.ar-tiles { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.ar-tile {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  padding: 10px 14px; min-width: 130px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); cursor: pointer; text-align: left;
+  font: inherit; transition: border-color .12s, background .12s;
+}
+.ar-tile:hover { border-color: var(--line-2, var(--text-3)); }
+.ar-tile.on { border-color: var(--accent); background: var(--accent-soft); }
+.ar-tile-v { font-size: 20px; font-weight: 600; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.ar-tile-l { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.ar-tile.warn .ar-tile-v { color: var(--warn); }
+.ar-tile.risk { border-color: var(--rec); }
+.ar-tile.risk .ar-tile-v { color: var(--rec); }
+
+.ar-filter-note {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  font-size: 12.5px; color: var(--muted);
+}
+.ar-table tbody tr { cursor: default; }
+.ar-table tbody tr:hover { background: transparent; }
+.ar-table td { vertical-align: top; }
+.ar-table .psub { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+.ar-name { font-weight: 600; color: var(--text-1); }
+.ar-role { color: var(--text-1); }
+.ar-inactive { opacity: .62; }
+.ar-status {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent-text, var(--accent));
+}
+.ar-status.off { background: var(--surface-2); color: var(--muted); }
+.ar-phi { display: flex; align-items: flex-start; gap: 6px; color: var(--warn); font-size: 12.5px; line-height: 1.4; }
+.ar-phi svg { flex: none; margin-top: 2px; }
+.ar-phi .muted { color: var(--muted); }
+
+/* ─── Audit evidence map (/audit/compliance) ─────────────────────────── */
+.cmp-summary {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 14px; font-size: 13px; color: var(--muted);
+}
+.cmp-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 24px; padding: 0 8px; border-radius: 999px;
+  font-weight: 700; font-size: 13px;
+}
+.cmp-count.live { background: var(--accent-soft); color: var(--accent-text, var(--accent)); }
+.cmp-count.soon { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.cmp-summary .cmp-count + span { margin-right: 10px; }
+
+.cmp-table tbody tr { cursor: default; }
+.cmp-table tbody tr:hover { background: transparent; }
+.cmp-table td { vertical-align: top; }
+.cmp-art { white-space: nowrap; color: var(--muted); font-size: 12px; }
+.cmp-obl { color: var(--text-1); font-weight: 500; max-width: 30ch; }
+.cmp-eviq { font-size: 12.5px; line-height: 1.5; color: var(--text-2, var(--muted)); max-width: 54ch; }
+.cmp-blocker { color: var(--muted); font-style: italic; }
+.cmp-act { text-align: right; white-space: nowrap; }
+.cmp-soon { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.cmp-foot { margin-top: 12px; max-width: 76ch; line-height: 1.55; }

@@ -12,6 +12,9 @@ import { MenuSelect } from './MenuSelect.jsx';
 import { useAsync } from '../api/useAsync.js';
 import { listReports, countReports, reportHits, getReport, listReportVersions, getReportVersion, amendReport, cancelReport, revertReportToDraft } from '../api/reports.js';
 import { listTemplates, getTemplate, toStudioTemplate } from '../api/templates.js';
+import { versionBody, diffSectionList } from '../reports/versionDiff.js';
+import { useMemberNames } from '../api/memberNames.js';
+import { VersionInfoModal } from './VersionInfoModal.jsx';
 import { AmendmentModal, ReportDiffView } from './ReportDiff.jsx';
 import { RequestAccessModal } from './RequestAccessModal.jsx';
 import { isPhiAccessRequired } from '../api/phiAccess.js';
@@ -441,17 +444,19 @@ function RowActionsMenu({ r, tpl, lang, onChanged }) {
 function VersionsModal({ report, tpl, lang, onClose }) {
   const uk = lang === "uk";
   const versionsReq = useAsync(() => listReportVersions(report.id), [report.id]);
-  const templateReq = useAsync(
-    () => (report.template_id ? getTemplate(report.template_id) : Promise.resolve(null)),
-    [report.template_id],
-    { enabled: !!report.template_id },
-  );
-  const template = useMemo(
-    () => (templateReq.data ? toStudioTemplate(templateReq.data) : null),
-    [templateReq.data],
-  );
   const versions = asList(versionsReq.data);
   const [diffPair, setDiffPair] = useState(null); // { v1, v2 }
+  const [infoVer, setInfoVer] = useState(null);   // version number | null
+  const { nameFor } = useMemberNames();
+
+  // The version record stacks ON TOP of this modal rather than replacing it, so
+  // closing it returns you to the list/diff you were reading.
+  if (infoVer != null) {
+    return (
+      <VersionInfoModal report={report} versionNumber={infoVer} lang={lang}
+        sectionLabels={report.section_labels} onClose={() => setInfoVer(null)} />
+    );
+  }
 
   return (
     <Modal onClose={onClose}>
@@ -459,7 +464,7 @@ function VersionsModal({ report, tpl, lang, onClose }) {
         <div className="vm-head">
           <div>
             <h2>{uk ? "Версії звіту" : "Report versions"}</h2>
-            <p className="muted">{loc(tpl?.name, lang) || loc(report.title, lang) || report.code} · {report.code}</p>
+            <p className="muted">{[loc(tpl?.name, lang) || loc(report.title, lang), report.code].filter(Boolean).join(" · ")}</p>
           </div>
           <button type="button" className="btn ghost sm" onClick={onClose} aria-label={uk ? "Закрити" : "Close"}>
             <Icon name="x" size={15} />
@@ -468,12 +473,12 @@ function VersionsModal({ report, tpl, lang, onClose }) {
 
         <div className="vm-body">
           {diffPair ? (
-            template ? (
-              <ReportDiffLoader id={report.id} template={template} v1={diffPair.v1} v2={diffPair.v2} lang={lang}
-                onBack={() => setDiffPair(null)} />
-            ) : (
-              <Loading lang={lang} />
-            )
+            <ReportDiffLoader id={report.id} templateId={report.template_id}
+              sectionLabels={report.section_labels} v1={diffPair.v1} v2={diffPair.v2} lang={lang}
+              onBack={() => setDiffPair(null)}
+              versionOptions={versions.map(v => v.version_number).sort((x, y) => x - y)}
+              onPairChange={(v1, v2) => setDiffPair({ v1, v2 })}
+              defaultView="inline" onOpenVersion={setInfoVer} />
           ) : (
             <>
               {versionsReq.error ? (
@@ -485,16 +490,20 @@ function VersionsModal({ report, tpl, lang, onClose }) {
               ) : (
                 <div className="version-list">
                   {versions.map(v => (
-                    <div key={v.version_number} className="version-row">
+                    <button type="button" key={v.version_number} className="version-row is-link"
+                      onClick={() => setInfoVer(v.version_number)}
+                      title={uk ? "Показати відомості про версію" : "Show version details"}>
                       <div className="v-top">
                         <span className="v-label">
                           v{v.version_number}{v.is_amendment ? ` · ${uk ? "правка" : "amendment"}` : ""}
                         </span>
+                        <span className="v-author">{nameFor(v.created_by)}</span>
+                        <Icon name="chevRight" size={13} className="muted" />
                       </div>
                       <div className="v-meta">
                         {formatDate(v.created_at, lang)}{v.amendment_reason ? ` · ${v.amendment_reason}` : ""}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -568,22 +577,81 @@ function CancelReportModal({ report, lang, onClose, onDone }) {
 
 // ── Diff loader — fetches two version bodies, then renders the diff view ────
 
-function ReportDiffLoader({ id, template, v1, v2, lang, onBack }) {
+// Fetches two version bodies (and the template, for section order/titles) and
+// renders the diff. `templateId` may be null — templateless reports still diff.
+function ReportDiffLoader({
+  id, templateId, sectionLabels, v1, v2, lang, onBack, versionOptions, onPairChange, defaultView,
+  onOpenVersion,
+}) {
   const req = useAsync(() => Promise.all([getReportVersion(id, v1), getReportVersion(id, v2)]), [id, v1, v2]);
-  if (req.loading) return <div className="page"><Loading lang={lang} /></div>;
-  if (req.error) return <div className="page"><ApiErrorView error={req.error} lang={lang} /></div>;
+  const tplReq = useAsync(() => getTemplate(templateId), [templateId], { enabled: !!templateId });
+  const template = useMemo(
+    () => (tplReq.data ? toStudioTemplate(tplReq.data) : null),
+    [tplReq.data],
+  );
+  const labelMap = useMemo(() => Object.fromEntries(
+    (sectionLabels || []).filter(l => l?.section_key).map(l => [l.section_key, l.name || {}]),
+  ), [sectionLabels]);
+  const { nameFor } = useMemberNames();
+
+  // Only the FIRST load takes over the surface. Switching versions from the
+  // diff's own pickers keeps the previous pair on screen (useAsync holds `data`
+  // across refetches) and just dims it — re-mounting the view on every change
+  // would flash a spinner and reset the split/inline toggle.
+  const first = !req.data;
+  if ((req.loading || tplReq.loading) && first) return <div className="diff-page"><Loading lang={lang} /></div>;
+  if (req.error && first) return <div className="diff-page"><ApiErrorView error={req.error} lang={lang} /></div>;
   const [a, b] = req.data || [];
-  const report = { versions: [{ body: a?.body || {} }, { body: b?.body || {} }] };
-  return <ReportDiffView report={report} template={template} v1={1} v2={2} lang={lang} onBack={onBack} />;
+  const bodies = [versionBody(a), versionBody(b)];
+  const report = { versions: bodies.map(body => ({ body })) };
+  const sections = diffSectionList({ template, bodies, labelMap, lang });
+  // A missing template is not fatal (tplReq.error is ignored on purpose): the
+  // section list falls back to the keys the two versions actually carry.
+  // Who wrote each version and when — the audit trail the diff is really for.
+  // ReportVersionDetail carries created_by/created_at plus the amendment fields;
+  // the sub is resolved to a name off the tenant roster.
+  const meta = (v) => (v ? {
+    version_number: v.version_number,
+    at: v.created_at,
+    by: nameFor(v.created_by),
+    is_amendment: v.is_amendment,
+    amendment_type: v.amendment_type,
+    amendment_reason: v.amendment_reason,
+    signed_at: v.signed_at,
+    signed_by: v.signed_by ? nameFor(v.signed_by) : null,
+  } : null);
+
+  return (
+    <>
+      {req.error && <div className="diff-page-err"><ApiErrorView error={req.error} lang={lang} /></div>}
+      <ReportDiffView report={report} sections={sections} v1={1} v2={2}
+        labelV1={a?.version_number} labelV2={b?.version_number} lang={lang} onBack={onBack}
+        metaOld={meta(a)} metaNew={meta(b)}
+        versionOptions={versionOptions} onPairChange={onPairChange} busy={req.loading}
+        defaultView={defaultView} onOpenVersion={onOpenVersion} />
+    </>
+  );
 }
 
 // ── Diff tab — pick two versions to compare, then open the full diff view ──
 
 function DiffTab({ versions, loading, lang, onCompare }) {
   const uk = lang === "uk";
+  // Version numbers, ascending — the list arrives in either order depending on
+  // the caller, so normalise instead of trusting index 0/1.
+  const opts = useMemo(
+    () => versions.map(v => v.version_number).sort((a, b) => a - b),
+    [versions],
+  );
   // Default: previous → latest (the most common "what changed last" comparison).
-  const [from, setFrom] = useState(() => (versions[1]?.version_number ?? versions[0]?.version_number ?? null));
-  const [to, setTo]     = useState(() => (versions[0]?.version_number ?? null));
+  // Versions load after the first render, so seed the pair once they arrive.
+  const [pair, setPair] = useState(null);
+  const defFrom = opts[opts.length - 2] ?? opts[0] ?? null;
+  const defTo   = opts[opts.length - 1] ?? null;
+  const from = pair ? pair.from : defFrom;
+  const to   = pair ? pair.to   : defTo;
+  const setFrom = v => setPair({ from: v, to });
+  const setTo   = v => setPair({ from, to: v });
 
   if (loading) return <Loading lang={lang} />;
   if (versions.length < 2) {
@@ -594,24 +662,31 @@ function DiffTab({ versions, loading, lang, onCompare }) {
     );
   }
 
-  const opts = versions.map(v => v.version_number);
   const same = from === to;
   return (
     <div className="diff-tab">
       <div className="diff-tab-row">
-        <label>
+        <div className="diff-tab-field">
           <span>{uk ? "Від" : "From"}</span>
-          <select className="ti" value={from ?? ""} onChange={e => setFrom(Number(e.target.value))}>
-            {opts.map(n => <option key={n} value={n}>v{n}</option>)}
-          </select>
-        </label>
+          <MenuSelect
+            block
+            value={from}
+            options={opts.map(n => ({ value: n, label: `v${n}` }))}
+            onChange={setFrom}
+            ariaLabel={uk ? "Від" : "From"}
+          />
+        </div>
         <Icon name="arrowRight" size={13} className="muted" />
-        <label>
+        <div className="diff-tab-field">
           <span>{uk ? "До" : "To"}</span>
-          <select className="ti" value={to ?? ""} onChange={e => setTo(Number(e.target.value))}>
-            {opts.map(n => <option key={n} value={n}>v{n}</option>)}
-          </select>
-        </label>
+          <MenuSelect
+            block
+            value={to}
+            options={opts.map(n => ({ value: n, label: `v${n}` }))}
+            onChange={setTo}
+            ariaLabel={uk ? "До" : "To"}
+          />
+        </div>
       </div>
       <button
         className="btn accent sm"
@@ -634,7 +709,7 @@ function DiffTab({ versions, loading, lang, onCompare }) {
 // Built from the version list plus the report's lifecycle timestamps so it
 // works from the same data the sidebar already loads (no extra request).
 
-function buildHistory(report, versions, lang) {
+function buildHistory(report, versions, lang, nameFor = () => "") {
   const uk = lang === "uk";
   const events = [];
   // Oldest version first; each version (draft/amendment) is a timeline entry.
@@ -645,6 +720,7 @@ function buildHistory(report, versions, lang) {
       label: v.is_amendment
         ? (uk ? `Правка · v${v.version_number}` : `Amendment · v${v.version_number}`)
         : (uk ? `Версія v${v.version_number}` : `Version v${v.version_number}`),
+      by: nameFor(v.created_by),
       sub: v.amendment_reason || "",
     });
   });
@@ -656,15 +732,21 @@ function buildHistory(report, versions, lang) {
     events.push({ at: report.finalized_at, icon: "check", label: uk ? "Завершено (очікує підпису)" : "Finalized (awaiting signature)" });
   }
   if (report.signed_at) {
-    events.push({ at: report.signed_at, icon: "shield", label: uk ? "Підписано цифровим підписом" : "Digitally signed" });
+    events.push({
+      at: report.signed_at,
+      icon: "shield",
+      label: uk ? "Підписано цифровим підписом" : "Digitally signed",
+      by: nameFor(report.signed_by || report.signature?.signed_by),
+    });
   }
   return events.filter(e => e.at).sort((a, b) => new Date(a.at) - new Date(b.at));
 }
 
 function HistoryTab({ report, versions, loading, lang }) {
   const uk = lang === "uk";
+  const { nameFor } = useMemberNames();
   if (loading) return <Loading lang={lang} />;
-  const events = buildHistory(report, versions, lang);
+  const events = buildHistory(report, versions, lang, nameFor);
   if (!events.length) {
     return <div className="psub" style={{ padding: "8px 0" }}>{uk ? "Немає подій" : "No history yet"}</div>;
   }
@@ -675,7 +757,9 @@ function HistoryTab({ report, versions, loading, lang }) {
           <span className="he-dot"><Icon name={e.icon} size={12} /></span>
           <div className="he-body">
             <div className="he-label">{e.label}</div>
-            <div className="he-time">{formatDate(e.at, lang)}</div>
+            <div className="he-time">
+              {formatDate(e.at, lang)}{e.by ? ` · ${e.by}` : ""}
+            </div>
             {e.sub && <div className="he-sub">{e.sub}</div>}
           </div>
         </li>
@@ -829,8 +913,9 @@ export function ReportView({ id, navigate, lang }) {
   const reportReq = useAsync(() => getReport(id), [id]);
   const templatesReq = useAsync(() => listTemplates(), []);
   const versionsReq = useAsync(() => listReportVersions(id), [id]);
+  const { nameFor } = useMemberNames();
 
-  const [activeVer, setActiveVer] = useState(0);
+  const [infoVer, setInfoVer] = useState(null);      // version number | null
   const [sideTab, setSideTab] = useState("versions"); // versions | diff | history
   const [showInsights, setShowInsights] = useState(false); // "…" menu (versions/diff/history)
   const [showDiff, setShowDiff] = useState(false);
@@ -940,12 +1025,10 @@ export function ReportView({ id, navigate, lang }) {
   const signature = r.signature || {};
   const envelopeId = signature.envelope_id || r.envelope_id;
 
-  if (showDiff && diffPair && tpl) {
-    return (
-      <ReportDiffLoader id={id} template={tpl} v1={diffPair.v1} v2={diffPair.v2} lang={lang}
-        onBack={() => setShowDiff(false)} />
-    );
-  }
+  // The diff renders INSIDE the report shell (below), not as a route takeover:
+  // the toolbar, the "…" panels and the side rail stay put, so switching
+  // versions or leaving the diff never costs a page transition.
+  const diffOpen = showDiff && !!diffPair;
 
   const handleAmend = async (payload) => {
     setShowAmend(false);
@@ -1057,14 +1140,19 @@ export function ReportView({ id, navigate, lang }) {
                     <div className="psub">{tr(lang, "Немає версій", "No versions")}</div>
                   ) : (
                     <div className="version-list">
-                      {versions.map((v, i) => (
-                        <div key={v.version_number} className={`version-row${activeVer === i ? " current" : ""}`} onClick={() => setActiveVer(i)}>
+                      {versions.map(v => (
+                        <button type="button" key={v.version_number}
+                          className={"version-row is-link" + (v.version_number === r.current_version_number ? " current" : "")}
+                          onClick={() => { setInfoVer(v.version_number); setShowInsights(false); }}
+                          title={tr(lang, "Показати відомості про версію", "Show version details")}>
                           <div className="v-top">
                             <span className="v-label">v{v.version_number}{v.is_amendment ? ` · ${tr(lang, "правка", "amendment")}` : ""}</span>
-                            {activeVer === i && <Icon name="check" size={12} style={{ color: "var(--accent)" }} />}
+                            <Icon name="chevRight" size={13} className="muted" />
                           </div>
-                          <div className="v-meta">{formatDate(v.created_at, lang)}</div>
-                        </div>
+                          <div className="v-meta">
+                            {formatDate(v.created_at, lang)} · {nameFor(v.created_by)}
+                          </div>
+                        </button>
                       ))}
                     </div>
                   )
@@ -1088,6 +1176,19 @@ export function ReportView({ id, navigate, lang }) {
         </div>
 
         <div className="editor-scroll">
+          {diffOpen ? (
+            <ReportDiffLoader
+              id={id}
+              templateId={content.template_id}
+              sectionLabels={r.section_labels}
+              v1={diffPair.v1} v2={diffPair.v2}
+              lang={lang}
+              onBack={() => setShowDiff(false)}
+              versionOptions={versions.map(v => v.version_number).sort((x, y) => x - y)}
+              onPairChange={(v1, v2) => setDiffPair({ v1, v2 })}
+              onOpenVersion={setInfoVer}
+            />
+          ) : (
           <div className="editor">
             {isSigned && (
               <div className="signed-banner">
@@ -1134,6 +1235,7 @@ export function ReportView({ id, navigate, lang }) {
               </div>
             ))}
           </div>
+          )}
         </div>
       </div>
 
@@ -1191,6 +1293,11 @@ export function ReportView({ id, navigate, lang }) {
       {showAmend && (
         <AmendmentModal report={r} template={tpl} lang={lang} initialBody={amendSeed}
           onCancel={() => { setShowAmend(false); setAmendSeed(null); }} onConfirm={handleAmend} />
+      )}
+
+      {infoVer != null && (
+        <VersionInfoModal report={r} versionNumber={infoVer} lang={lang}
+          sectionLabels={r.section_labels} onClose={() => setInfoVer(null)} />
       )}
 
       {signOpen && (

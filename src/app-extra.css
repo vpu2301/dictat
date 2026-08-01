@@ -341,12 +341,12 @@
 .pager-label { font-size: 13px; color: var(--muted); min-width: 84px; text-align: center; }
 .pager-range { font-size: 12px; margin-left: 4px; }
 .pager-size { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; margin-left: 4px; }
-.pager-size select {
-  height: 30px; padding: 0 6px;
-  border: 1px solid var(--line); background: var(--surface);
-  border-radius: 7px; font-size: 13px; color: var(--text-1); cursor: pointer;
-}
-.pager-size select:disabled { opacity: .55; cursor: not-allowed; }
+/* Per-page picker is the platform MenuSelect, not a native <select> — the
+   system dropdown ignored the app's field styling entirely. */
+.pager-size .menu-select-trigger { padding: 5px 9px; font-size: 13px; min-width: 62px; }
+/* The pager sits at the FOOT of a list, so the menu opens upward; downward it
+   would fall outside the scroll area (or off the viewport) on a full page. */
+.pager-size .spec-menu { top: auto; bottom: calc(100% + 6px); min-width: 0; }
 
 /* ── Audit verify ───────────────────────────────────────────── */
 .verify-form { padding: 12px 14px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
@@ -2198,3 +2198,9 @@
   direction: ltr;
   unicode-bidi: isolate;
 }
+
+/* Global search is unbuilt (see TopBar): dim it and let the pill do the
+   explaining, rather than leaving a live-looking box that swallows queries. */
+.tb-search.is-soon { opacity: .72; }
+.tb-search.is-soon input { cursor: not-allowed; }
+.tb-search.is-soon:hover { opacity: .85; }

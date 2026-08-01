@@ -59,13 +59,38 @@ export function AuditEventsPage({ lang = "en", initialFromSeq = "" }) {
 
   const copy = (s) => { try { navigator.clipboard.writeText(s); } catch {} };
 
+  // Evidence has to leave the screen to be worth anything to an auditor.
+  // Scoped to the page in view on purpose: /audit/events is a forward-only
+  // cursor with no server-side export, so an "export everything" button would
+  // either lie or hammer the endpoint. The label says which it is.
+  const exportCsv = () => {
+    const cols = ["seq", "created_at", "severity", "kind", "actor_sub", "actor_role", "target_kind", "target_id"];
+    const esc = (v) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = events.map((ev) => cols.map((c) => esc(ev[c])).concat(esc(JSON.stringify(ev.payload ?? {}))).join(","));
+    const csv = [cols.concat("payload").join(",")].concat(rows).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `audit-events-p${pg.page}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
   return (
     <div className="page audit-events">
       <div className="page-h">
-        <div>
+        <div style={{ flex: 1 }}>
           <h1>{tr(lang, "Аудит — події", "Audit events")}</h1>
           <p className="muted">{tr(lang, "Перегляд журналу аудиту тенанта.", "Browse this tenant's audit log.")}</p>
         </div>
+        <button className="btn" onClick={exportCsv} disabled={events.length === 0}
+          title={tr(lang, "Експортує сторінку, що на екрані", "Exports the page currently on screen")}>
+          <Icon name="download" size={13} />
+          {tr(lang, "Експорт CSV (сторінка)", "Export CSV (this page)")}
+        </button>
       </div>
 
       <form className="audit-filters card" onSubmit={applyFilters}>

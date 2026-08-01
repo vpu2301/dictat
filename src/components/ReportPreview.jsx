@@ -14,6 +14,7 @@
 // `[[ … ]]` spans are preserved through synthesis and stay flagged here.
 import React, { useState, useEffect, useCallback } from "react";
 import { Icon } from "./UI.jsx";
+import { SplitButton } from "./SplitButton.jsx";
 import { synthesizeReport, downloadReportPdf } from "../api/reports.js";
 import { ViolationNotice } from "../reports/finalizeViolations.js";
 import { DiagnosisBody } from "../reports/renderers/DiagnosisBody.js";
@@ -82,6 +83,8 @@ export function ReportPreview({
   const [accepted, setAccepted] = useState({});         // section_key -> true once applied
   // Finalize state.
   const [finalizing, setFinalizing] = useState(false);
+  const [busyAction, setBusyAction] = useState(null);   // "sign" | "finalize" | null
+  const [downloading, setDownloading] = useState(false);
   const [problems, setProblems] = useState(null);       // [{ section_key, reason, ... }] | null
   const [finalErr, setFinalErr] = useState(null);
 
@@ -161,18 +164,22 @@ export function ReportPreview({
   };
 
   const handleDownload = async () => {
+    setDownloading(true); setFinalErr(null);
     try {
       await downloadReportPdf(reportId, { variant: "draft", lang });
     } catch (e) {
       setFinalErr({ kind: "pdf", message: (e && e.message) || "pdf_failed" });
+    } finally {
+      setDownloading(false);
     }
   };
 
   // Shared gate for finalize AND sign (2026-07-24): signing finalizes first,
   // so both actions can surface the same 422 violations / 409 conflict here
   // instead of letting a doomed signing modal open.
-  const runGated = async (fn) => {
+  const runGated = async (fn, action) => {
     if (!fn) return;
+    setBusyAction(action || null);
     setFinalizing(true); setProblems(null); setFinalErr(null);
     try {
       await fn();
@@ -188,10 +195,11 @@ export function ReportPreview({
       }
     } finally {
       setFinalizing(false);
+      setBusyAction(null);
     }
   };
-  const handleFinalize = () => runGated(onFinalize);
-  const handleSign = () => runGated(onSign);
+  const handleFinalize = () => runGated(onFinalize, "finalize");
+  const handleSign = () => runGated(onSign, "sign");
 
   const changedCount = Object.entries(proposed)
     .filter(([k, v]) => v?.text != null && v.text !== (body[k] || "") && !accepted[k]).length;
@@ -356,30 +364,51 @@ export function ReportPreview({
           </div>
         </div>
 
+        {/* The error gets its OWN row. Inline between the buttons it appeared
+            and disappeared mid-interaction, shoving the whole action row. */}
+        {finalErr && (
+          <div className="rp-foot-err" role="alert">
+            <Icon name="alert" size={13} />
+            {finalErr.kind === "conflict" || finalErr.kind === "finalize"
+              ? finalErr.message
+              : T(lang, "Не вдалося завантажити PDF.", "Could not download the PDF.")}
+          </div>
+        )}
         <footer className="report-preview-foot">
-          <button className="btn" onClick={onClose}>
-            <Icon name="arrowLeft" size={13} /> {T(lang, "Повернутись до редагування", "Back to editing")}
+          <button className="btn ghost" onClick={onClose}>
+            <Icon name="arrowLeft" size={13} /> {T(lang, "До редагування", "Back to editing")}
           </button>
-          {finalErr && (
-            <span className="rp-foot-err" role="alert">
-              {finalErr.kind === "conflict" || finalErr.kind === "finalize"
-                ? finalErr.message
-                : T(lang, "Не вдалося завантажити PDF.", "Could not download the PDF.")}
-            </span>
-          )}
           <div style={{ flex: 1 }} />
-          <button className="btn ghost" onClick={handleDownload} disabled={!reportId}>
-            <Icon name="download" size={13} /> {T(lang, "Завантажити PDF (чернетка)", "Download PDF (draft)")}
-          </button>
-          {onFinalize && (
-            <button className="btn" onClick={handleFinalize} disabled={finalizing || !reportId}>
-              <Icon name={finalizing ? "refresh" : "check"} size={13} />
-              {finalizing ? T(lang, "Завершення…", "Finalizing…") : T(lang, "Завершити", "Finalize")}
-            </button>
-          )}
-          <button className="btn primary" onClick={handleSign} disabled={finalizing}>
-            <Icon name="sign" size={13} /> {T(lang, "Підписати звіт", "Sign report")}
-          </button>
+          <SplitButton
+            variant="primary"
+            icon="sign"
+            label={T(lang, "Підписати звіт", "Sign report")}
+            onClick={handleSign}
+            busy={finalizing}
+            busyLabel={busyAction === "finalize"
+              ? T(lang, "Завершення…", "Finalizing…")
+              : T(lang, "Підготовка…", "Preparing…")}
+            menuLabel={T(lang, "Інші дії зі звітом", "Other report actions")}
+            items={[
+              onFinalize && {
+                key: "finalize",
+                icon: "check",
+                label: T(lang, "Завершити без підпису", "Finalize without signing"),
+                hint: T(lang, "Заблокує звіт для редагування", "Locks the report for editing"),
+                onSelect: handleFinalize,
+                disabled: !reportId,
+              },
+              {
+                key: "pdf",
+                icon: "download",
+                label: T(lang, "Завантажити PDF", "Download PDF"),
+                hint: T(lang, "Чернетка, без юридичної сили", "Draft, no legal force"),
+                onSelect: handleDownload,
+                disabled: !reportId,
+                busy: downloading,
+              },
+            ]}
+          />
         </footer>
       </div>
     </div>

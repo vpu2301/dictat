@@ -1,6 +1,7 @@
 // UI.jsx — Shared UI primitives + icons + shell (Sidebar, TopBar)
 import React from 'react';
 import { useI18n , tr } from "../i18n.js";
+import { relativeTime } from "../notifications/relativeTime.js";
 
 export const Icon = ({ name, size = 16, ...rest }) => {
   const paths = {
@@ -279,11 +280,21 @@ export function TopBar({ title, subtitle, crumbs, back, onBack, right, search, l
         </div>
       )}
       <div className="tb-spacer" />
+      {/* Global search is NOT built: this input has never had a handler and no
+          ⌘K binding exists anywhere in the app. Left live it invites every
+          user — an auditor hunting an event most of all — to type a query that
+          silently goes nowhere, so it is disabled and labelled until there is
+          something behind it. */}
       {search !== false && (
-        <div className="tb-search">
+        <div className="tb-search is-soon"
+          title={tr(lang, "Глобальний пошук — незабаром", "Global search — coming soon")}>
           <Icon name="search" size={14} />
-          <input placeholder={tr(lang, "Пошук…", "Search…")} />
-          <kbd>⌘K</kbd>
+          <input
+            placeholder={tr(lang, "Пошук…", "Search…")}
+            disabled
+            aria-label={tr(lang, "Глобальний пошук (незабаром)", "Global search (coming soon)")}
+          />
+          <span className="soon-pill">{tr(lang, "незабаром", "soon")}</span>
         </div>
       )}
       {right}
@@ -322,17 +333,27 @@ export function Modal({ children, onClose, className }) {
 }
 
 // ── SaveStatus ──────────────────────────────────────────────────────────
+// `lastSavedAt` is an epoch-ms timestamp. It used to be rendered as raw
+// minutes-since, which reads fine for a live draft and absurdly for anything
+// older ("Збережено 11700 хв тому"). relativeTime() rolls up to hours/days and
+// switches to an absolute date past a week, with correct Ukrainian plurals.
 export function SaveStatus({ state, lastSavedAt }) {
   const { t, lang } = useI18n();
-  const since = lastSavedAt ? Math.max(0, Math.floor((Date.now() - lastSavedAt) / 60000)) : 0;
+  const when = Number.isFinite(lastSavedAt)
+    ? relativeTime(new Date(lastSavedAt).toISOString(), lang)
+    : "";
+  const savedLabel = !when
+    ? tr(lang, "Збережено", "Saved")
+    : tr(lang, `Збережено ${when}`, `Saved ${when}`);
   const labels = {
-    saved: since === 0 ? (tr(lang, "Збережено", "Saved")) : (lang === "uk" ? `Збережено ${since} хв тому` : `Saved ${since} min ago`),
+    saved: savedLabel,
     saving: tr(lang, "Збереження…", "Saving…"),
     unsaved: tr(lang, "Незбережено", "Unsaved"),
     error: tr(lang, "Помилка збереження", "Save error"),
   };
   return (
-    <div className="save-status" data-state={state}>
+    <div className="save-status" data-state={state}
+      title={Number.isFinite(lastSavedAt) ? new Date(lastSavedAt).toLocaleString(tr(lang, "uk-UA", "en-US")) : undefined}>
       <span className="dot" />
       <span>{labels[state]}</span>
     </div>

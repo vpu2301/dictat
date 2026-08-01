@@ -50,6 +50,9 @@ import { TenantSettingsPage } from './pages/TenantSettingsPage.jsx';
 import { TenantMembersPage } from './pages/TenantMembersPage.jsx';
 import { AuditEventsPage } from './pages/AuditEventsPage.jsx';
 import { AuditVerifyPage } from './pages/AuditVerifyPage.jsx';
+import { PhiAccessLogPage } from './pages/PhiAccessLogPage.jsx';
+import { AccessReviewPage } from './pages/AccessReviewPage.jsx';
+import { CompliancePage } from './pages/CompliancePage.jsx';
 import { ForbiddenPage } from './pages/ForbiddenPage.jsx';
 import { SettingsPage } from './pages/SettingsPage.jsx';
 import { AsrSubmitPage } from './pages/AsrSubmitPage.jsx';
@@ -502,14 +505,39 @@ function App() {
         <AuditEventsPage lang={lang} initialFromSeq={routeQuery.get("from_seq") || ""} />
       </RequireRole>
     );
-    crumbs = [{ label: tr(lang, "Аудит", "Audit") }, { label: tr(lang, "Події", "Events") }];
+    crumbs = [{ label: tr(lang, "Комплаєнс", "Compliance") }, { label: tr(lang, "Події", "Events") }];
   } else if (r === "/audit/verify") {
     view = (
       <RequireRole any={["auditor", "tenant_admin"]} navigate={navigate}>
         <AuditVerifyPage lang={lang} navigate={navigate} />
       </RequireRole>
     );
-    crumbs = [{ label: tr(lang, "Аудит", "Audit") }, { label: tr(lang, "Перевірка", "Verify") }];
+    crumbs = [{ label: tr(lang, "Комплаєнс", "Compliance") }, { label: tr(lang, "Перевірка", "Verify") }];
+  } else if (r === "/audit/phi-access") {
+    // `phi_access.read` admits auditor + tenant_admin (src/auth/roles.js) — the
+    // same pair the rest of /audit is gated on.
+    view = (
+      <RequireRole any={["auditor", "tenant_admin"]} navigate={navigate}>
+        <PhiAccessLogPage lang={lang} />
+      </RequireRole>
+    );
+    crumbs = [{ label: tr(lang, "Комплаєнс", "Compliance") }, { label: tr(lang, "Break-glass", "Break-glass") }];
+  } else if (r === "/audit/access") {
+    // `user.read` is granted to auditor server-side (libs/auth/perms.py) —
+    // this is the read-only half of /admin/users, which stays tenant_admin.
+    view = (
+      <RequireRole any={["auditor", "tenant_admin"]} navigate={navigate}>
+        <AccessReviewPage lang={lang} />
+      </RequireRole>
+    );
+    crumbs = [{ label: tr(lang, "Комплаєнс", "Compliance") }, { label: tr(lang, "Огляд доступів", "Access review") }];
+  } else if (r === "/audit/compliance") {
+    view = (
+      <RequireRole any={["auditor", "tenant_admin"]} navigate={navigate}>
+        <CompliancePage lang={lang} navigate={navigate} />
+      </RequireRole>
+    );
+    crumbs = [{ label: tr(lang, "Комплаєнс", "Compliance") }, { label: tr(lang, "Докази для аудиту", "Audit evidence") }];
   } else if (r === "/forbidden") {
     view = <ForbiddenPage navigate={navigate} lang={lang} />;
     showTopbar = false;

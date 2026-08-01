@@ -27,44 +27,126 @@ function diffWords(oldText, newText) {
   return diffs.map(([op, chars]) => [op, [...chars].map(c => a.tokens[c.charCodeAt(0) - 32] ?? b.tokens[c.charCodeAt(0) - 32] ?? '').join('')])
 }
 
-function DiffSection({ title, oldText, newText, lang }) {
+// One side of a split view: the old column keeps deletions and drops what was
+// inserted, the new column does the reverse. Equal runs appear in both, so the
+// two columns read as the two documents, not as two halves of one diff.
+function DiffColumn({ diffs, side, empty }) {
+  const drop = side === 'old' ? INSERT : DELETE
+  const kept = diffs.filter(([op]) => op !== drop)
+  if (!kept.some(([, text]) => text)) return <div className="diff-col-empty">{empty}</div>
+  return (
+    <>
+      {kept.map(([op, text], i) => {
+        if (op === EQUAL)  return <span key={i}>{text}</span>
+        if (op === INSERT) return <ins key={i} className="diff-insert">{text}</ins>
+        return <del key={i} className="diff-delete">{text}</del>
+      })}
+    </>
+  )
+}
+
+function DiffSection({ title, oldText, newText, lang, view, nOld, nNew }) {
   const diffs = useMemo(() => diffWords(oldText, newText), [oldText, newText])
   const hasChange = diffs.some(([op]) => op !== EQUAL)
+  const uk = lang === 'uk'
 
   if (!hasChange && !oldText && !newText) return null
 
   return (
-    <div className="diff-section">
+    <div className={'diff-section' + (hasChange ? ' changed' : '')}>
       <div className="sec-h">
         <span>{title}</span>
-        {hasChange && <span className="chip" style={{ fontSize: 11, background: 'var(--warn-soft)', color: 'var(--warn)' }}>
-          {lang === 'uk' ? 'Змінено' : 'Changed'}
-        </span>}
+        {hasChange && <span className="chip diff-chip">{uk ? 'Змінено' : 'Changed'}</span>}
       </div>
-      <div className="diff-body">
-        {diffs.map(([op, text], i) => {
-          if (op === EQUAL)  return <span key={i}>{text}</span>
-          if (op === INSERT) return <ins key={i} className="diff-insert">{text}</ins>
-          if (op === DELETE) return <del key={i} className="diff-delete">{text}</del>
-          return null
-        })}
-        {!hasChange && <span className="muted" style={{ fontSize: 12, fontStyle: 'italic' }}>
-          {lang === 'uk' ? '— без змін —' : '— no changes —'}
-        </span>}
-      </div>
+      {view === 'split' ? (
+        <div className="diff-cols">
+          <div className="diff-col old">
+            {/* Per-column tag — shown only where the columns stack (the modal)
+                and the single header row at the top can't label them. */}
+            <span className="diff-col-tag">v{nOld}</span>
+            <DiffColumn diffs={diffs} side="old" empty={uk ? '— порожньо —' : '— empty —'} />
+          </div>
+          <div className="diff-col new">
+            <span className="diff-col-tag">v{nNew}</span>
+            <DiffColumn diffs={diffs} side="new" empty={uk ? '— порожньо —' : '— empty —'} />
+          </div>
+        </div>
+      ) : (
+        <div className="diff-body">
+          {diffs.map(([op, text], i) => {
+            if (op === EQUAL)  return <span key={i}>{text}</span>
+            if (op === INSERT) return <ins key={i} className="diff-insert">{text}</ins>
+            if (op === DELETE) return <del key={i} className="diff-delete">{text}</del>
+            return null
+          })}
+          {/* Own line — appended inline it collides with the last word. */}
+          {!hasChange && <div className="diff-nochange">
+            {uk ? '— без змін —' : '— no changes —'}
+          </div>}
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Amendment modal ───────────────────────────────────────────────────────
 
-import { Modal } from './UI.jsx'
+import { Modal, Icon } from './UI.jsx'
+import { MenuSelect } from './MenuSelect.jsx'
 import { buildReportContent } from '../api/reports.js'
 
 function loc(v, lang) {
   if (v == null) return ''
   if (typeof v === 'object') return v[lang] ?? v.en ?? Object.values(v)[0] ?? ''
   return v
+}
+
+// Audit stamps carry the year — unlike the list-row dates, these are read to
+// answer "when exactly was this changed", sometimes years later.
+function stamp(iso, lang) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString(lang === 'uk' ? 'uk-UA' : 'en-US',
+    { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+const AMENDMENT_LABEL = {
+  correction:    { uk: 'Виправлення', en: 'Correction' },
+  addition:      { uk: 'Доповнення',  en: 'Addition' },
+  clarification: { uk: 'Уточнення',   en: 'Clarification' },
+}
+
+// "v12 · Dev Clinician A · 24 лип. 2026, 16:30" — one attribution, used in the
+// split column headers and in the inline view's summary line. Noun phrasing
+// ("Автор") keeps it neutral: we don't know anyone's pronouns.
+function VersionStamp({ meta, lang, showVersion = true, onOpen }) {
+  if (!meta) return null
+  const uk = lang === 'uk'
+  const inner = (
+    <>
+      {showVersion && <b>v{meta.version_number}</b>}
+      {meta.is_amendment && (
+        <span className="diff-stamp-tag">
+          {loc(AMENDMENT_LABEL[meta.amendment_type] || { uk: 'Правка', en: 'Amendment' }, lang)}
+        </span>
+      )}
+      <span className="diff-stamp-who" title={uk ? 'Автор версії' : 'Version author'}>{meta.by}</span>
+      <span className="diff-stamp-at">{stamp(meta.at, lang)}</span>
+    </>
+  )
+  // Clickable when the host can open the version record — the whole line is the
+  // target, so the version, the author and the timestamp all lead to the detail.
+  if (!onOpen) return <span className="diff-stamp">{inner}</span>
+  return (
+    <button
+      type="button"
+      className="diff-stamp is-link"
+      onClick={() => onOpen(meta.version_number)}
+      title={uk ? 'Показати відомості про версію' : 'Show version details'}
+    >
+      {inner}
+      <Icon name="chevRight" size={12} className="muted diff-stamp-go" />
+    </button>
+  )
 }
 
 const AMENDMENT_TYPES = [
@@ -234,39 +316,145 @@ export function AmendmentModal({ report, template, lang, onConfirm, onCancel, in
 
 // ── Version diff view (full page) ─────────────────────────────────────────
 
-export function ReportDiffView({ report, template, v1, v2, lang, onBack }) {
+// `sections` is the resolved [{ id, title }] list to diff (template order plus
+// any key the versions carry). `template` stays supported for older callers.
+// labelV1/labelV2 are the version numbers shown in the heading — they differ
+// from v1/v2, which index into report.versions.
+//
+// `versionOptions` + `onPairChange` put the version pickers in the diff's own
+// header, so switching what you compare never means leaving the diff. Omit
+// them and the header is read-only.
+export function ReportDiffView({
+  report, template, sections, v1, v2, labelV1, labelV2, lang, onBack,
+  versionOptions, onPairChange, busy, defaultView = 'split', metaOld, metaNew, onOpenVersion,
+}) {
   const uk = lang === 'uk'
+  // Split by default; narrow hosts (the versions modal) start inline, where
+  // stacked columns would just print every unchanged section twice.
+  const [view, setView] = React.useState(defaultView) // split | inline
   const oldBody = report?.versions?.[v1 - 1]?.body || report?.body || {}
   const newBody = report?.versions?.[v2 - 1]?.body || report?.body || {}
+  const rows = sections
+    || (template?.sections || []).map(s => ({ id: s.id, title: s.name?.[lang] || s.name?.en }))
+  const nOld = labelV1 ?? v1
+  const nNew = labelV2 ?? v2
+  const anyText = rows.some(s => (oldBody[s.id] || '') || (newBody[s.id] || ''))
+  const changedCount = rows.filter(s => (oldBody[s.id] || '') !== (newBody[s.id] || '')).length
+
+  const opts = (versionOptions || []).map(n => ({ value: n, label: `v${n}` }))
+  const pickable = opts.length > 1 && typeof onPairChange === 'function'
 
   return (
-    <div className="page">
-      <div className="page-h">
-        <div>
-          <button className="btn ghost sm" onClick={onBack} style={{ marginBottom: 8 }}>
+    <div className={'diff-page' + (view === 'split' ? ' split' : '')}>
+      <div className="diff-head">
+        {onBack && (
+          <button className="btn ghost sm diff-back" onClick={onBack}>
             ← {uk ? 'Назад до звіту' : 'Back to report'}
           </button>
-          <h1 style={{ fontSize: 18 }}>
-            {uk ? `Порівняння версій v${v1} → v${v2}` : `Version diff v${v1} → v${v2}`}
-          </h1>
+        )}
+        <h1>{uk ? 'Порівняння версій' : 'Version diff'}</h1>
+        <p className="diff-sub">
+          {changedCount === 0
+            ? (uk ? 'Ці версії ідентичні.' : 'These versions are identical.')
+            : (uk ? `Змінених розділів: ${changedCount}` : `${changedCount} section${changedCount === 1 ? '' : 's'} changed`)}
+        </p>
+
+        <div className="diff-bar">
+          {pickable ? (
+            <div className="diff-bar-pick">
+              <MenuSelect
+                value={nOld} options={opts} onChange={n => onPairChange(n, nNew)}
+                disabled={busy} ariaLabel={uk ? 'Версія «від»' : 'From version'}
+              />
+              <Icon name="arrowRight" size={13} className="muted" />
+              <MenuSelect
+                value={nNew} options={opts} onChange={n => onPairChange(nOld, n)}
+                disabled={busy} ariaLabel={uk ? 'Версія «до»' : 'To version'}
+              />
+              {nOld === nNew && (
+                <span className="diff-bar-warn">{uk ? 'Оберіть різні версії' : 'Pick two different versions'}</span>
+              )}
+            </div>
+          ) : (
+            <div className="diff-bar-pick"><strong>v{nOld}</strong>
+              <Icon name="arrowRight" size={13} className="muted" /><strong>v{nNew}</strong>
+            </div>
+          )}
+          <div className="spacer" />
+          <div className="diff-view-toggle" role="group" aria-label={uk ? 'Вигляд' : 'View'}>
+            <button type="button" className={view === 'split' ? 'on' : ''}
+              aria-pressed={view === 'split'} onClick={() => setView('split')}>
+              {uk ? 'Поруч' : 'Split'}
+            </button>
+            <button type="button" className={view === 'inline' ? 'on' : ''}
+              aria-pressed={view === 'inline'} onClick={() => setView('inline')}>
+              {uk ? 'Разом' : 'Inline'}
+            </button>
+          </div>
         </div>
+
+        {/* Who changed what, and when. In split view the same attribution sits
+            in the column headers, so it isn't repeated here. */}
+        {view === 'inline' && (metaOld || metaNew) && (
+          <div className="diff-attrib">
+            <VersionStamp meta={metaOld} lang={lang} onOpen={onOpenVersion} />
+            <Icon name="arrowRight" size={12} className="muted" />
+            <VersionStamp meta={metaNew} lang={lang} onOpen={onOpenVersion} />
+          </div>
+        )}
+
+        {metaNew?.is_amendment && metaNew.amendment_reason && (
+          <div className="diff-reason">
+            <Icon name="edit" size={13} />
+            <div>
+              <b>{uk ? 'Причина правки' : 'Reason for the amendment'}</b>
+              <p>{metaNew.amendment_reason}</p>
+            </div>
+          </div>
+        )}
+
+        {metaNew?.signed_at && (
+          <div className="diff-signed">
+            <Icon name="shield" size={12} />
+            {uk ? 'Підписано' : 'Signed'}: <b>{metaNew.signed_by || '—'}</b>
+            <span className="diff-stamp-at">{stamp(metaNew.signed_at, lang)}</span>
+          </div>
+        )}
       </div>
 
+      {/* Swatches are empty — the +/− comes from the ::before marker, so
+          spelling it out here too would render "++" / "−−". */}
       <div className="diff-legend">
-        <span><ins className="diff-insert">+</ins> {uk ? 'Додано' : 'Inserted'}</span>
-        <span><del className="diff-delete">−</del> {uk ? 'Видалено' : 'Deleted'}</span>
+        <span><ins className="diff-insert" aria-hidden="true" /> {uk ? 'Додано' : 'Inserted'}</span>
+        <span><del className="diff-delete" aria-hidden="true" /> {uk ? 'Видалено' : 'Deleted'}</span>
       </div>
 
-      <div className="diff-doc">
-        {(template?.sections || []).map(s => (
+      {/* Column headers, once — repeating "v2 / v3" on every card is noise.
+          Same grid and insets as `.diff-cols`, so the rule lines up. */}
+      {view === 'split' && anyText && (
+        <div className="diff-colhead">
+          <span>{metaOld ? <VersionStamp meta={metaOld} lang={lang} onOpen={onOpenVersion} /> : <b>v{nOld}</b>}</span>
+          <span>{metaNew ? <VersionStamp meta={metaNew} lang={lang} onOpen={onOpenVersion} /> : <b>v{nNew}</b>}</span>
+        </div>
+      )}
+
+      <div className={'diff-doc' + (busy ? ' busy' : '')}>
+        {anyText ? rows.map(s => (
           <DiffSection
             key={s.id}
-            title={s.name?.[lang] || s.name?.en}
+            title={s.title}
             oldText={oldBody[s.id] || ''}
             newText={newBody[s.id] || ''}
             lang={lang}
+            view={view}
+            nOld={nOld}
+            nNew={nNew}
           />
-        ))}
+        )) : (
+          <div className="psub">
+            {uk ? 'Обидві версії порожні — немає що порівнювати.' : 'Both versions are empty — nothing to compare.'}
+          </div>
+        )}
       </div>
     </div>
   )
