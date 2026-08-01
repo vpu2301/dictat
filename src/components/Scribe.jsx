@@ -7,7 +7,8 @@ import { Icon, Empty } from './UI.jsx';
 import { LoadGate, asList } from './DataStates.jsx';
 import { Pagination } from './Pagination.jsx';
 import { useAsync } from '../api/useAsync.js';
-import { listSchedule } from '../api/encounters.js';
+import { listSchedule, listOpenEncounters } from '../api/encounters.js';
+import { VisitControls, visitStatusLabel } from '../patients/VisitControls.jsx';
 import { listNotes, listNoteStructures } from '../api/notes.js';
 import { getSession } from '../api/scribe.js';
 
@@ -51,6 +52,12 @@ function StatusPill({ status, lang }) {
     draft: tr(lang, "чернетка", "draft"),
     signed: tr(lang, "підписано", "signed"),
     scheduled: tr(lang, "заплановано", "scheduled"),
+    // dictation_sessions.status — a conversation is finalized, not a draft.
+    finalized: tr(lang, "завершено", "finalized"),
+    failed: tr(lang, "помилка", "failed"),
+    active: tr(lang, "наживо", "live"),
+    reconnecting: tr(lang, "відновлення", "reconnecting"),
+    abandoned: tr(lang, "перервано", "abandoned"),
   })[status] || status;
   return <span className={"status-pill " + status}>{label}</span>;
 }
@@ -100,17 +107,28 @@ function PatientAvatar({ patient, lang = "uk", size = 36 }) {
 export function ScribeToday({ navigate, lang }) {
   const sched = useAsync(() => listSchedule(), []);
   const notes = useAsync(() => listNotes({}), []);
+  // Visits the clinician has open right now. Separate from /schedule, which
+  // only ever returns status='scheduled' rows — this is the list that used
+  // to be impossible to drain.
+  const open = useAsync(() => listOpenEncounters(), []);
 
   const schedList = asList(sched.data).map((s) => ({ ...s, patient: s.patient }));
+  const openList = asList(open.data);
   const notesList = asList(notes.data);
   const recentNotes = notesList.slice(0, 4);
-  const liveNow = schedList.find((t) => t.status === "in-room");
+  // The row this screen used to look for — `status === "in-room"` — is not a
+  // status the backend has ever emitted (the enum is scheduled | in_progress
+  // | paused | completed | cancelled), so the live row never rendered.
+  const liveNow = openList[0] || null;
 
   const stats = [
     { label: tr(lang, "Сьогодні візитів", "Today's visits"), value: schedList.length },
+    { label: tr(lang, "Активних прийомів", "Open visits"), value: openList.length },
     { label: tr(lang, "Чернеток", "Drafts"), value: notesList.filter((n) => n.status === "draft").length },
     { label: tr(lang, "Підписаних", "Signed"), value: notesList.filter((n) => n.status === "signed").length },
   ];
+
+  const reloadOpen = () => { open.reload(); sched.reload(); };
 
   return (
     <div className="page">
@@ -138,19 +156,71 @@ export function ScribeToday({ navigate, lang }) {
       </div>
 
       {liveNow && (
-        <div className="liveroom" onClick={() => navigate(`/scribe/consult/new?patient=${liveNow.patient?.id || ""}`)}>
-          <div className="liveroom-l">
+        <div className="liveroom">
+          <div
+            className="liveroom-l"
+            style={{ cursor: "pointer" }}
+            onClick={() => liveNow.patient?.id && navigate(`/scribe/patients/${liveNow.patient.id}`)}
+          >
             <PatientAvatar patient={liveNow.patient} lang={lang} size={44} />
             <div>
-              <div className="liveroom-name">{patientName(liveNow.patient, lang)} <span className="chip live">{tr(lang, "У кабінеті", "In room")}</span></div>
-              <div className="liveroom-meta">{loc(liveNow.reason, lang)} · {liveNow.time}</div>
+              <div className="liveroom-name">
+                {patientName(liveNow.patient, lang)}{" "}
+                <span className={`chip ${liveNow.status === "paused" ? "draft" : "live"}`}>
+                  {visitStatusLabel(liveNow.status, lang)}
+                </span>
+              </div>
+              <div className="liveroom-meta">
+                {loc(liveNow.reason, lang)} · {fmtTime(liveNow.started_at || liveNow.occurred_at, lang)}
+              </div>
             </div>
           </div>
           <div style={{ flex: 1 }} />
-          <button className="btn accent">
+          <button
+            className="btn accent"
+            onClick={() =>
+              navigate(`/dictate/studio?patient=${liveNow.patient?.id || ""}&encounter=${liveNow.id}`)
+            }
+          >
             <Icon name="mic" size={13} /> {tr(lang, "Розпочати запис", "Begin recording")}
           </button>
+          {/* The control that did not exist: the visit can be closed from
+              the screen that shows it is still running. */}
+          <VisitControls encounter={liveNow} lang={lang} onChanged={reloadOpen} />
         </div>
+      )}
+
+      {openList.length > 1 && (
+        <section className="panel" style={{ marginTop: 16 }}>
+          <div className="panel-h">
+            <h3>{tr(lang, "Активні прийоми", "Open visits")}</h3>
+            <div style={{ flex: 1 }} />
+            <span className="chip">{openList.length}</span>
+          </div>
+          <div className="schedule">
+            {openList.slice(1).map((item) => (
+              <div key={item.id} className="sch-row" style={{ alignItems: "center" }}>
+                <div className="sch-time">{fmtTime(item.started_at || item.occurred_at, lang)}</div>
+                <div className="sch-divider"><div className="sch-dot" /><div className="sch-line" /></div>
+                <div
+                  className="sch-body"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => item.patient?.id && navigate(`/scribe/patients/${item.patient.id}`)}
+                >
+                  <div className="sch-row-1">
+                    <PatientAvatar patient={item.patient} lang={lang} size={28} />
+                    <div className="sch-name">{patientName(item.patient, lang)}</div>
+                    <span className={`chip ${item.status === "paused" ? "draft" : "live"}`}>
+                      {visitStatusLabel(item.status, lang)}
+                    </span>
+                  </div>
+                  <div className="sch-reason">{loc(item.reason, lang)}</div>
+                </div>
+                <VisitControls encounter={item} lang={lang} compact onChanged={reloadOpen} />
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="grid-2">
@@ -166,7 +236,9 @@ export function ScribeToday({ navigate, lang }) {
                 {schedList.map((item) => (
                   <div key={item.id} className={`sch-row ${item.status}`}
                        onClick={() => item.patient?.id && navigate(`/scribe/patients/${item.patient.id}`)}>
-                    <div className="sch-time">{item.time}</div>
+                    {/* `item.time` never existed on the wire — the encounter
+                        carries occurred_at. */}
+                    <div className="sch-time">{fmtTime(item.occurred_at, lang)}</div>
                     <div className="sch-divider"><div className="sch-dot" /><div className="sch-line" /></div>
                     <div className="sch-body">
                       <div className="sch-row-1">
@@ -177,8 +249,7 @@ export function ScribeToday({ navigate, lang }) {
                       <div className="sch-reason">{loc(item.reason, lang)}</div>
                     </div>
                     <div className="sch-status">
-                      {item.status === "in-room" && <span className="chip live">{tr(lang, "У кабінеті", "In room")}</span>}
-                      {item.status === "scheduled" && <Icon name="chevRight" size={14} />}
+                      <Icon name="chevRight" size={14} />
                     </div>
                   </div>
                 ))}
@@ -360,8 +431,8 @@ export function ScribeNotes({ navigate, lang }) {
 // search behavior). ScribePatients here was its sprint-old predecessor.
 
 // ─── Consultation viewer (reads a finalized scribe session) ──────────────
-// Live ambient capture is performed by a dedicated scribe backend; until a
-// session exists this screen shows an empty state rather than a scripted demo.
+// Reads the transcript dictation-service persisted at finalize (see
+// src/api/scribe.js). Live capture happens in src/conversation/, not here.
 export function ScribeConsult({ id, patientHint, navigate, lang, onRecordingChange }) {
   // This viewer never holds a live recording — clear any parent indicator.
   React.useEffect(() => { onRecordingChange?.(null); }, []); // eslint-disable-line
@@ -395,74 +466,106 @@ export function ScribeConsult({ id, patientHint, navigate, lang, onRecordingChan
             action={<button className="btn" onClick={() => navigate("/scribe/notes")}>{tr(lang, "До нотаток", "Back to notes")}</button>} />
         </div>
       )}>
-      {(session) => <ConsultView session={session} navigate={navigate} lang={lang} />}
+      {(session) => (
+        <ConsultView session={session} patientId={patientHint} navigate={navigate} lang={lang} />
+      )}
     </LoadGate>
   );
 }
 
-function ConsultView({ session, navigate, lang }) {
+// Who a turn is attributed to. The backend's diarization emits anonymous
+// S1/S2/UNKNOWN labels and its doctor↔patient mapping ABSTAINS when the
+// signal is weak — so an unattributed turn must render as an anonymous
+// voice. Calling it "Лікар" would launder a machine abstention into an
+// attribution in a clinical record.
+function turnWho(turn, lang) {
+  if (turn.speaker === "patient") return tr(lang, "Пацієнт", "Patient");
+  if (turn.speaker === "clinician") return tr(lang, "Лікар", "Clinician");
+  if (turn.label === "S1" || turn.label === "S2") {
+    return lang === "uk" ? `Голос ${turn.label}` : `Voice ${turn.label}`;
+  }
+  return tr(lang, "Мовець невідомий", "Speaker unknown");
+}
+
+function ConsultView({ session, patientId, navigate, lang }) {
   const patient = session.patient || {};
-  const noteSections = ["subjective", "objective", "assessment", "plan"];
-  const note = session.note || {};
+  const pid = patient.id || patientId;
+  const turns = asList(session.transcript);
 
   return (
     <div className="consult">
       <div className="consult-h">
-        <button className="tb-back" onClick={() => navigate(patient.id ? `/scribe/patients/${patient.id}` : "/scribe/notes")}>
+        <button className="tb-back" onClick={() => navigate(pid ? `/scribe/patients/${pid}` : "/scribe/notes")}>
           <Icon name="arrowLeft" size={16} />
         </button>
         <PatientAvatar patient={patient} lang={lang} size={36} />
         <div className="consult-h-meta">
-          <div className="consult-h-name">{patientName(patient, lang) || session.patientId}</div>
+          <div className="consult-h-name">
+            {patientName(patient, lang) || tr(lang, "Розмова", "Conversation")}
+          </div>
           <div className="consult-h-sub">
-            {patientAge(patient, lang)}{patient.sex ? ` · ${patient.sex}` : ""}{patient.mrn ? ` · ${patient.mrn}` : ""}
+            {[
+              session.durationS != null ? fmtDur(Math.round(session.durationS)) : null,
+              turns.length
+                ? (lang === "uk" ? `${turns.length} реплік` : `${turns.length} turns`)
+                : null,
+              fmtRel(session.finalizedAt || session.startedAt, lang) || null,
+            ].filter(Boolean).join(" · ")}
           </div>
         </div>
         <div style={{ flex: 1 }} />
         {session.status && <StatusPill status={session.status} lang={lang} />}
-        <button className="btn" onClick={() => navigate(`/scribe/review/${session.id}`)}>
-          <Icon name="eye" size={13} /> {tr(lang, "Огляд нотатки", "Review note")}
-        </button>
       </div>
 
       <div className="consult-split">
         <section className="tx-pane">
           <div className="tx-h">
             <h3>{tr(lang, "Транскрипт", "Transcript")}</h3>
+            {session.unattributed > 0 && (
+              <span className="psub" style={{ marginLeft: 8 }}>
+                {lang === "uk"
+                  ? `${session.unattributed} без мовця`
+                  : `${session.unattributed} without a speaker`}
+              </span>
+            )}
           </div>
           <div className="tx-body">
-            {asList(session.transcript).map((turn, i) => (
-              <div key={turn.id || i} className={`turn ${turn.speaker || "clinician"}`}>
+            {turns.map((turn, i) => (
+              <div key={turn.id || i} className={`turn ${turn.speaker || "unattributed"}`}>
                 <div className="turn-meta">
-                  <span className="turn-who">
-                    {turn.speaker === "patient"
-                      ? (tr(lang, "Пацієнт", "Patient"))
-                      : (tr(lang, "Лікар", "Clinician"))}
-                  </span>
+                  <span className="turn-who">{turnWho(turn, lang)}</span>
                   <span className="turn-t">{fmtDur(turn.t)}</span>
                 </div>
                 <div className="turn-text">{turn.text}</div>
               </div>
             ))}
-            {!asList(session.transcript).length && (
-              <Empty icon="mic" title={tr(lang, "Транскрипт порожній", "Transcript is empty")} />
+            {!turns.length && (
+              <Empty icon="mic"
+                title={tr(lang, "Нічого не записано", "Nothing was recorded")}
+                body={tr(lang,
+                  "Ця сесія завершилася без розпізнаного мовлення. Аудіо збережено, але транскрипту немає.",
+                  "This session finished with no recognised speech. The audio was stored, but there is no transcript.")} />
             )}
           </div>
         </section>
 
         <section className="note-pane">
           <div className="note-body">
-            {noteSections.filter((sec) => note[sec]).map((sec) => {
-              const s = note[sec];
-              return (
-                <article key={sec} id={`note-${sec}`} className="note-section">
-                  <div className="note-section-h"><h4>{loc(s.title, lang)}</h4></div>
-                  <div className="note-section-c">
-                    {loc(s.content, lang).split("\n").map((line, i) => <p key={i}>{line || <br />}</p>)}
-                  </div>
-                </article>
-              );
-            })}
+            {/* No note is generated from a transcript anywhere in the
+                backend yet (note synthesis is a later sprint). What DOES
+                produce a document is the conversation review → "Створити
+                чернетку" → a Studio draft, so send the clinician there
+                rather than to a screen with nothing behind it. */}
+            <Empty icon="fileText"
+              title={tr(lang, "Нотатка не генерується автоматично", "Notes are not generated automatically")}
+              body={tr(lang,
+                "Автоматичне створення нотатки з транскрипту ще не доступне. Створіть чернетку звіту на основі цієї розмови та відредагуйте її у Студії.",
+                "Generating a note from the transcript is not available yet. Create a report draft from this conversation and edit it in the Studio.")}
+              action={turns.length ? (
+                <button className="btn accent" onClick={() => navigate(`/dictate/studio?patient=${pid || ""}`)}>
+                  <Icon name="fileText" size={13} /> {tr(lang, "До Студії", "Open the Studio")}
+                </button>
+              ) : null} />
 
             {asList(session.flags).length > 0 && (
               <article className="note-flags">
@@ -490,9 +593,6 @@ function ConsultView({ session, navigate, lang }) {
               </article>
             )}
 
-            {!noteSections.some((sec) => note[sec]) && (
-              <Empty icon="fileText" title={tr(lang, "Нотатку ще не згенеровано", "Note not generated yet")} />
-            )}
           </div>
         </section>
       </div>

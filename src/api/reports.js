@@ -134,8 +134,16 @@ export function buildReportContent({ template_id, template_schema_version, body,
       if (meta.field_specific_metadata && Object.keys(meta.field_specific_metadata).length) {
         s.field_specific_metadata = meta.field_specific_metadata;
       }
+      // Sprint 14: back-reference from a report section to the conversation
+      // segments it was written from (report_models SectionIn field, the same
+      // one dictation-service fills when IT writes the draft). Only conversation
+      // transcripts have segment UUIDs, so this key is absent everywhere else —
+      // the pre-S14 payload is byte-identical.
+      if (Array.isArray(meta.transcript_segment_ids) && meta.transcript_segment_ids.length) {
+        s.transcript_segment_ids = meta.transcript_segment_ids;
+      }
       // Meta-only entry that resolved to nothing → drop the synthetic section.
-      if (!s.text && !s.icd10 && !s.field_specific_metadata) {
+      if (!s.text && !s.icd10 && !s.field_specific_metadata && !s.transcript_segment_ids) {
         byKey.delete(s.section_key);
         sections = sections.filter((x) => x !== s);
       }

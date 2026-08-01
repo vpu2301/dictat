@@ -15,10 +15,13 @@ import { useAuth } from "./AuthContext.jsx";
 export {
   ADMIN_ROLES,
   CLINICAL_ROLES,
+  PATIENT_ROLES,
+  canReadPatients,
   hasAnyRole,
   hasClinicalAccess,
   isAdminOnly,
   isAllowed,
+  isAuditorOnly,
 } from "./roles.js";
 
 import { isAllowed } from "./roles.js";

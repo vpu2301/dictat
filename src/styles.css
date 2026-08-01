@@ -1020,6 +1020,10 @@ kbd {
 .turn.patient .turn-text {
   border-bottom-right-radius: 4px;
 }
+/* See scribe.css — an unattributed turn belongs to neither lane. */
+.turn.unattributed { align-self: center; align-items: center; max-width: 92%; }
+.turn.unattributed .turn-who { color: var(--muted); font-style: italic; }
+.turn.unattributed .turn-text { background: transparent; border-style: dashed; }
 .turn.interim .turn-text { color: var(--muted); }
 .dots { display: inline-flex; gap: 3px; }
 .dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .35; animation: blink 1.4s infinite; }

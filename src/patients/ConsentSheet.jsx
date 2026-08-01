@@ -8,14 +8,31 @@ import React, { useState } from "react";
 import { Icon, Modal } from "../components/UI.jsx";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { recordConsent, signConsent } from "../api/consents.js";
+import { APPROVED_CONSENT_VERSIONS } from "./consentTexts.js";
 import { tr } from "../i18n.js";
 
-// Approved consent-text versions (must match the backend's registry at
-// infra/seeds/consents/<type>-<version>.md — a digital capture with an
-// unknown pair is rejected 422 consent_text_version_unknown).
-export const APPROVED_CONSENT_VERSIONS = {
-  ai_scribe: ["v1"],
-  data_processing: ["v1"],
+// Approved consent-text versions — the registry lives in ./consentTexts.js so
+// it stays assertable under node --test; re-exported here for the S11 callers.
+export { APPROVED_CONSENT_VERSIONS };
+
+// Per-type sheet copy. The conversation wording states plainly that BOTH
+// voices are recorded — the mode-choice screen says the same thing, so the
+// clinician reads the same promise they are about to make to the patient.
+const CONSENT_COPY = {
+  ai_scribe: {
+    title: { uk: "Згода пацієнта на AI-запис", en: "Patient consent to AI recording" },
+    intro: {
+      uk: "Запис голосу обробляється AI-сервісом для створення медичної документації.",
+      en: "The voice recording is processed by an AI service to produce clinical documentation.",
+    },
+  },
+  recording: {
+    title: { uk: "Згода на запис розмови", en: "Consent to record the consultation" },
+    intro: {
+      uk: "Записується вся розмова — голос лікаря І голос пацієнта. Запис обробляється AI-сервісом для створення медичної документації; система розділяє голоси, а лікар перевіряє, кому належить кожна репліка.",
+      en: "The whole consultation is recorded — the clinician's voice AND the patient's. The recording is processed by an AI service to produce clinical documentation; the system separates the voices and the clinician reviews who said what.",
+    },
+  },
 };
 
 const METHOD_LABEL = {
@@ -158,14 +175,17 @@ export function ConsentSignDialog({ lang, patientId, consent, onClose, onSigned 
 // the create response's `signing` hint. onGranted(consent, {autoStart})
 // fires as soon as the consent EXISTS (as-built: created granted) — for
 // digital that is before/independent of the signature.
-export function ConsentSheet({ lang, patient, encounterId, onClose, onGranted }) {
+export function ConsentSheet({ lang, patient, encounterId, onClose, onGranted, type: consentType = "ai_scribe" }) {
   const { state: auth } = useAuth();
   const attester = auth?.dbUser?.display_name || auth?.claims?.sub || "—";
   const patientLabel =
     (patient?.name && (patient.name[lang] || patient.name.uk || patient.name.en)) || patient?.label || "";
 
-  const type = "ai_scribe"; // the recording gate's subject
+  // The gate's subject: "ai_scribe" for dictation, "recording" for a
+  // conversation (the patient's own voice) — see APPROVED_CONSENT_VERSIONS.
+  const type = APPROVED_CONSENT_VERSIONS[consentType] ? consentType : "ai_scribe";
   const versions = APPROVED_CONSENT_VERSIONS[type];
+  const copy = CONSENT_COPY[type] || CONSENT_COPY.ai_scribe;
   const [method, setMethod] = useState("verbal");
   const [version, setVersion] = useState(versions[versions.length - 1]);
   const [busy, setBusy] = useState(false);
@@ -209,10 +229,10 @@ export function ConsentSheet({ lang, patient, encounterId, onClose, onGranted })
   return (
     <Modal onClose={onClose}>
       <div className="modal-h">
-        <h2>{tr(lang, "Згода пацієнта на AI-запис", "Patient consent to AI recording")}</h2>
-        <p>{tr(lang, "Запис голосу обробляється AI-сервісом для створення медичної документації.", "The voice recording is processed by an AI service to produce clinical documentation.")}</p>
+        <h2>{copy.title[lang] || copy.title.en}</h2>
+        <p>{copy.intro[lang] || copy.intro.en}</p>
       </div>
-      <div className="modal-body consent-sheet-body" data-testid="consent-sheet">
+      <div className="modal-body consent-sheet-body" data-testid="consent-sheet" data-consent-type={type}>
         <div className="consent-scope">
           <div><span className="consent-scope-k">{tr(lang, "Пацієнт", "Patient")}:</span> <strong>{patientLabel}</strong></div>
           <div><span className="consent-scope-k">{tr(lang, "Засвідчує", "Attested by")}:</span> {attester}</div>

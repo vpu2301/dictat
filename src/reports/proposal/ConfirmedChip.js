@@ -8,13 +8,14 @@
 import React from "react";
 import { CheckIcon, XIcon } from "./icons.js";
 import { ariaConfirmed, ariaRemoveAction, removeLabel } from "./copy.js";
+import { chipClass } from "./grammarClass.js";
 
 const h = React.createElement;
 
 export function ConfirmedChip({ label, onRemove, lang, disabled = false }) {
   return h(
     "span",
-    { className: "pgm-chip pgm-confirmed", role: "group", "aria-label": ariaConfirmed(label, lang) },
+    { className: chipClass({ confirmed: true }), role: "group", "aria-label": ariaConfirmed(label, lang) },
     h(CheckIcon, {}),
     h("span", { className: "pgm-chip-label" }, label),
     onRemove

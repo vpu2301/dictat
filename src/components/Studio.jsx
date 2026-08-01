@@ -16,7 +16,8 @@ import { getTemplate, toStudioTemplate } from '../api/templates.js';
 import { getStarredIds, toggleStar as toggleStarPref, getUsage, recordUse } from '../api/templatePrefs.js';
 import { createReport, updateReport, finalizeReport, downloadReportPdf, getReport } from '../api/reports.js';
 import { getPatient, listPatients, yearOfBirth } from '../api/patients.js';
-import { getEncounter, createEncounter } from '../api/encounters.js';
+import { getEncounter, createEncounter, isEncounterOpen } from '../api/encounters.js';
+import { VisitControls, visitStatusLabel } from '../patients/VisitControls.jsx';
 import { useConsentGate } from '../patients/consentGate.js';
 import { ConsentSheet } from '../patients/ConsentSheet.jsx';
 import { asList, Loading } from './DataStates.jsx';
@@ -942,7 +943,7 @@ function EditorToolbar({ saveState, lastSavedAt }) {
 // The "wrong patient?" escape shows until anything has been dictated —
 // mis-selection is the top real-world error and undoing it must be one
 // click BEFORE recording starts.
-function StudioContextBar({ patient, encounter, canEscape, lang }) {
+function StudioContextBar({ patient, encounter, canEscape, lang, onVisitChanged }) {
   const yob = yearOfBirth(patient);
   return (
     <div className="studio-context-bar" data-testid="studio-context-bar">
@@ -955,12 +956,22 @@ function StudioContextBar({ patient, encounter, canEscape, lang }) {
         <span className="scb-enc">
           <Icon name="calendar" size={12} />
           {encounter.reason || (tr(lang, "Прийом", "Encounter"))}
-          {encounter.status === "in_progress" && (
-            <em>{tr(lang, " · триває", " · in progress")}</em>
+          {isEncounterOpen(encounter.status) && (
+            <em> · {visitStatusLabel(encounter.status, lang)}</em>
           )}
         </span>
       )}
       <span className="spacer" />
+      {/* Ending the dictation is not ending the visit. The bar that always
+          says which visit you are in is where the control to close it
+          belongs — without it the encounter stayed in_progress forever. */}
+      <VisitControls
+        encounter={encounter}
+        lang={lang}
+        compact
+        showCancel={false}
+        onChanged={onVisitChanged}
+      />
       {canEscape && (
         <button type="button" className="scb-escape"
           onClick={() => { location.hash = "/patients"; }}>
@@ -1706,6 +1717,21 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     return () => clearTimeout(id);
   }, [saveState, body, sectionMeta, saveDraft, saveTick]);
 
+  // The autosave above is a timer, and a timer does not survive the tab
+  // closing: up to one debounce window of dictated text can go with it.
+  // Warn while anything is unsaved or the mic is still hot.
+  useEffect(() => {
+    const atRisk = saveState === "unsaved" || speech.state === "listening";
+    if (!atRisk) return undefined;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [saveState, speech.state]);
+
   // ── Hotkeys ────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = e => {
@@ -2006,6 +2032,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           encounter={encounter}
           canEscape={Object.values(body).every(v => !String(v || "").trim()) && speech.state !== "listening"}
           lang={lang}
+          onVisitChanged={() => encounterReq.reload()}
         />
         <EditorToolbar
           saveState={saveState}

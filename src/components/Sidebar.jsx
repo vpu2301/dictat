@@ -5,7 +5,7 @@ import { Icon, Logo, Modal } from "./UI.jsx";
 import { HealthBadge } from "./HealthBadge.jsx";
 import { ClinicMenuSection, CreateClinicModal } from "./TenantSwitcher.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
-import { hasClinicalAccess } from "../auth/permissions.js";
+import { hasClinicalAccess, isAuditorOnly, canReadPatients } from "../auth/permissions.js";
 import { isPlatformOwner } from "../company/ownerAccess.js";
 import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
@@ -146,6 +146,12 @@ export function Sidebar({
   // doctor's nav full of buttons that fail. The patient roster stays —
   // that one an admin genuinely uses.
   const clinical = hasClinicalAccess(claims);
+  // …and an auditor holds neither clinical nor administrative permission.
+  // The roster is not theirs (`patients.read` excludes auditor), and neither
+  // is dictation, so the product switcher and the record CTA go with it:
+  // what is left is the trail they are here to read.
+  const auditorOnly = isAuditorOnly(claims);
+  const canPatients = canReadPatients(claims);
 
   const product = route.startsWith("/dictate") ? "dictate" : "scribe";
 
@@ -178,6 +184,7 @@ export function Sidebar({
   useEffect(() => {
     let want = null;
     if (route.startsWith("/asr")) want = "asr";
+    else if (route.startsWith("/audit")) want = "audit";
     else if (route.startsWith("/scribe") || route.startsWith("/dictate")) want = "workspace";
     if (want) setOpenSet((cur) => { if (cur.has(want)) return cur; const n = new Set(cur); n.add(want); return n; });
   }, [route]);
@@ -257,7 +264,11 @@ export function Sidebar({
         ],
       });
     }
-    if (isAuditor) {
+    // For an auditor-only account the trail IS the workspace — it already sits
+    // in the main nav above, so folding a second copy into the account dropup
+    // would be duplicate navigation. Admins keep it here, where it is one of
+    // several secondary jobs.
+    if (isAuditor && !auditorOnly) {
       secs.push({
         title: tr(lang, "Аудит", "Audit"),
         icon: "history",
@@ -268,13 +279,14 @@ export function Sidebar({
       });
     }
     return secs;
-  }, [isOwner, isAdmin, isAuditor, lang]);
+  }, [isOwner, isAdmin, isAuditor, auditorOnly, lang]);
 
   return (
     <>
     <aside className={"sb" + (collapsed ? " collapsed" : "")}>
       <div className="sb-brand">
-        <div className="sb-brand-inner" onClick={() => navigate(product === "scribe" ? "/scribe" : "/dictate")}>
+        <div className="sb-brand-inner"
+             onClick={() => navigate(auditorOnly ? "/audit/events" : product === "scribe" ? "/scribe" : "/dictate")}>
           <Logo size={26} />
           {!collapsed && <span>Klarnote</span>}
         </div>
@@ -283,16 +295,20 @@ export function Sidebar({
         </button>
       </div>
 
-      <div className="sb-product" role="tablist">
-        <button data-p="scribe" className={product === "scribe" ? "on" : ""} onClick={() => setProduct("scribe")}>
-          <span className="dot" />{!collapsed && <span>Scribe</span>}
-        </button>
-        <button data-p="dictate" className={product === "dictate" ? "on" : ""} onClick={() => setProduct("dictate")}>
-          <span className="dot" />{!collapsed && <span>Dictate</span>}
-        </button>
-      </div>
+      {!auditorOnly && (
+        <div className="sb-product" role="tablist">
+          <button data-p="scribe" className={product === "scribe" ? "on" : ""} onClick={() => setProduct("scribe")}>
+            <span className="dot" />{!collapsed && <span>Scribe</span>}
+          </button>
+          <button data-p="dictate" className={product === "dictate" ? "on" : ""} onClick={() => setProduct("dictate")}>
+            <span className="dot" />{!collapsed && <span>Dictate</span>}
+          </button>
+        </div>
+      )}
 
-      {product === "scribe" ? (
+      {/* An auditor cannot start a recording (`dictation.start` excludes the
+          role), so the primary CTA is not theirs to press. */}
+      {!auditorOnly && (product === "scribe" ? (
         <button className="sb-cta" onClick={onNewSession}>
           <span className="sb-cta-icon"><Icon name="mic" size={13} /></span>
           {!collapsed && <span className="sb-cta-label">{tr(lang, "Нова консультація", "New consultation")}</span>}
@@ -304,9 +320,28 @@ export function Sidebar({
           {!collapsed && <span className="sb-cta-label">{tr(lang, "Нове диктування", "New dictation")}</span>}
           {!collapsed && <kbd>D</kbd>}
         </button>
-      )}
+      ))}
 
-      {/* ── Workspace ─────────────────────────────────────── */}
+      {auditorOnly ? (
+        /* ── Audit (the auditor's whole workspace) ─────────── */
+        <Group id="audit" title={tr(lang, "Аудит", "Audit")} icon="history"
+               openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed} defaultOpen>
+          <NavLink {...{ route, navigate, collapsed }} icon="history"
+                   label={tr(lang, "Події", "Events")}
+                   path="/audit/events" prefix="/audit/events" />
+          <NavLink {...{ route, navigate, collapsed }} icon="shield"
+                   label={tr(lang, "Перевірка ланцюга", "Chain verify")}
+                   path="/audit/verify" exact />
+          {/* `templates.read` admits the auditor: the template library is the
+              reference they read a record's structure against, and it holds
+              no patient data. */}
+          <NavLink {...{ route, navigate, collapsed }} icon="layers"
+                   label={tr(lang, "Шаблони нотаток", "Note templates")}
+                   path="/scribe/templates"
+                   comingSoon={!FEATURES.templates} />
+        </Group>
+      ) : (
+      /* ── Workspace ─────────────────────────────────────── */
       <Group id="workspace" title={tr(lang, "Робочий простір", "Workspace")} icon="folder"
              openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed} defaultOpen>
         {product === "scribe" ? (
@@ -314,10 +349,12 @@ export function Sidebar({
             {clinical && (
               <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Сьогодні", "Today")} path="/scribe" exact />
             )}
-            <NavLink {...{ route, navigate, collapsed }} icon="users"
-                     label={tr(lang, "Пацієнти", "Patients")}
-                     path="/scribe/patients" prefix="/scribe/patients"
-                     comingSoon={!FEATURES.patients} />
+            {canPatients && (
+              <NavLink {...{ route, navigate, collapsed }} icon="users"
+                       label={tr(lang, "Пацієнти", "Patients")}
+                       path="/scribe/patients" prefix="/scribe/patients"
+                       comingSoon={!FEATURES.patients} />
+            )}
             {clinical && (
               <NavLink {...{ route, navigate, collapsed }} icon="fileText"
                        label={tr(lang, "Нотатки", "Notes")}
@@ -353,6 +390,7 @@ export function Sidebar({
           </>
         )}
       </Group>
+      )}
 
       {/* ── Transcription (ASR — clinical roles only since S14) ── */}
       {state && clinical && (

@@ -11,6 +11,7 @@ import { NotificationBell } from './components/NotificationBell.jsx';
 import { NotificationToasts } from './components/NotificationToasts.jsx';
 import NotificationPreferencesPage from './pages/NotificationPreferencesPage.jsx';
 import { DictationStudio } from './components/Studio.jsx';
+import { ConversationRoom } from './conversation/ConversationRoom.jsx';
 import { DictateToday } from './components/DictateHome.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
 import { ScribeToday, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
@@ -56,6 +57,7 @@ import { AsrJobsListPage } from './pages/AsrJobsListPage.jsx';
 import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
 import { RequireAuth, RequireRole, RequireClinical } from './auth/RequireRole.jsx';
 import { useAuth, hasAnyRole } from './auth/AuthContext.jsx';
+import { PATIENT_ROLES, hasClinicalAccess, isAuditorOnly } from './auth/permissions.js';
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "theme": "light",
@@ -74,8 +76,12 @@ function App() {
   const lang = tweaks.lang;
   const { state: auth } = useAuth();
 
+  // Every recording/authoring shortcut is clinical: an auditor or an
+  // admin-only account pressing them would land on a forbidden page.
+  const clinical = hasClinicalAccess(auth?.claims);
+
   // Quick note hotkey
-  useQuickNoteHotkey(() => setQuickNoteOpen(true));
+  useQuickNoteHotkey(() => { if (clinical) setQuickNoteOpen(true); });
 
   const fireToast = (msg) => setToast({ msg });
 
@@ -156,6 +162,13 @@ function App() {
     if (auth && isTenantAdmin && (route === "/" || route === "")) navigate("/dashboard");
   }, [auth, isTenantAdmin, route]);
 
+  // Same for an auditor-only account: the root renders the clinical queue,
+  // which for them is a forbidden page. Land them on the trail instead.
+  const auditorOnly = isAuditorOnly(auth?.claims);
+  useEffect(() => {
+    if (auth && auditorOnly && (route === "/" || route === "")) navigate("/audit/events");
+  }, [auth, auditorOnly, route]);
+
   // Theme + density + accent + document language
   useEffect(() => {
     document.documentElement.dataset.theme = tweaks.theme;
@@ -168,6 +181,7 @@ function App() {
 
   // Keyboard: N → new consultation in scribe; D → studio
   useEffect(() => {
+    if (!clinical) return;
     const onKey = (e) => {
       if (e.target.matches("input, textarea, [contenteditable]")) return;
       if (e.key === "n" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/scribe/consult/new"); }
@@ -175,7 +189,7 @@ function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [clinical]);
 
   // Parse route → view
   let view;
@@ -263,7 +277,14 @@ function App() {
     title = tr(lang, "Сьогодні", "Today");
   } else if (r === "/scribe/patients" || r === "/patients") {
     // /patients is the sprint-11 canonical alias; both render the directory.
-    view = <PatientDirectory navigate={navigate} lang={lang} />;
+    // Role-gated since the auditor split: `patients.read` admits clinician /
+    // nurse / tenant_admin, and a deep link from anyone else gets the standard
+    // forbidden state instead of a roster of failing requests.
+    view = (
+      <RequireRole any={PATIENT_ROLES} navigate={navigate}>
+        <PatientDirectory navigate={navigate} lang={lang} />
+      </RequireRole>
+    );
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: tr(lang, "Пацієнти", "Patients") }];
   } else if (r.startsWith("/patients/") && r.endsWith("/erasure-request")) {
     // S11 step 06 — the weighty full-screen erasure request (admin-only,
@@ -278,32 +299,42 @@ function App() {
   } else if (r.startsWith("/scribe/patients/") || r.startsWith("/patients/")) {
     // ?tab= is the one allowed (enum) param on this route — strip it from the id
     const id = r.split("/")[r.startsWith("/scribe/") ? 3 : 2]?.split("?")[0];
-    view = <EnhancedScribePatient id={id} navigate={navigate} lang={lang} />;
+    view = (
+      <RequireRole any={PATIENT_ROLES} navigate={navigate}>
+        <EnhancedScribePatient id={id} navigate={navigate} lang={lang} />
+      </RequireRole>
+    );
     crumbs = [
       { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
       { label: tr(lang, "Пацієнти", "Patients"), path: "/scribe/patients", onClick: () => navigate("/scribe/patients") },
       { label: id },
     ];
   } else if (r.startsWith("/scribe/notes/new") || r === "/scribe/notes/new") {
+    // The note/consult/consent surfaces write clinical records — same gate as
+    // the notes list above, so a non-clinical deep link stops at the door.
     const m = r.match(/patient=([\w-]+)/);
-    view = <NoteEditorPage patientId={m?.[1]} lang={lang} navigate={navigate} />;
+    view = <RequireClinical navigate={navigate}><NoteEditorPage patientId={m?.[1]} lang={lang} navigate={navigate} /></RequireClinical>;
     showTopbar = false;
   } else if (r.startsWith("/scribe/notes/") && r.split("/").length >= 4 && r.split("/")[3] !== "new") {
     const noteId = r.split("/")[3];
-    view = <NoteEditorPage noteId={noteId} lang={lang} navigate={navigate} />;
+    view = <RequireClinical navigate={navigate}><NoteEditorPage noteId={noteId} lang={lang} navigate={navigate} /></RequireClinical>;
     showTopbar = false;
   } else if (r.startsWith("/scribe/review/")) {
     const sessionId = r.split("/")[3];
-    view = <NoteReviewPage sessionId={sessionId} lang={lang} navigate={navigate} />;
+    view = <RequireClinical navigate={navigate}><NoteReviewPage sessionId={sessionId} lang={lang} navigate={navigate} /></RequireClinical>;
     showTopbar = false;
   } else if (r.startsWith("/scribe/consent/new") || r === "/scribe/consent/new") {
     const m = r.match(/patient=([\w-]+)/);
-    view = <ConsentScreen patientId={m?.[1]} lang={lang} navigate={navigate} />;
+    view = <RequireClinical navigate={navigate}><ConsentScreen patientId={m?.[1]} lang={lang} navigate={navigate} /></RequireClinical>;
     showTopbar = false;
   } else if (r === "/scribe/consult/new" || r.startsWith("/scribe/consult/")) {
     const m = r.match(/patient=([\w-]+)/);
     const idMatch = r.match(/^\/scribe\/consult\/([^?]+)/);
-    view = <ScribeConsult id={idMatch?.[1]} patientHint={m?.[1]} navigate={navigate} lang={lang} onRecordingChange={setActiveRecording} />;
+    view = (
+      <RequireClinical navigate={navigate}>
+        <ScribeConsult id={idMatch?.[1]} patientHint={m?.[1]} navigate={navigate} lang={lang} onRecordingChange={setActiveRecording} />
+      </RequireClinical>
+    );
     showTopbar = false;
   } else if (r === "/scribe/notes") {
     view = <RequireClinical navigate={navigate}><ScribeNotes navigate={navigate} lang={lang} /></RequireClinical>;
@@ -323,10 +354,27 @@ function App() {
     const tm = r.match(/template=([\w-]+)/);
     const rm = r.match(/report=([\w-]+)/);
     const em = r.match(/encounter=([\w-]+)/);
-    view = <DictationStudio lang={lang} patientId={pm?.[1]} encounterId={em?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
-             templatesMap={templatesMap} onAddTemplate={handleAddTemplate}
-             templatesLoading={templatesReq.loading} templatesError={templatesReq.error}
-             onRetryTemplates={templatesReq.reload} />;
+    view = (
+      <RequireClinical navigate={navigate}>
+        <DictationStudio lang={lang} patientId={pm?.[1]} encounterId={em?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
+          templatesMap={templatesMap} onAddTemplate={handleAddTemplate}
+          templatesLoading={templatesReq.loading} templatesError={templatesReq.error}
+          onRetryTemplates={templatesReq.reload} />
+      </RequireClinical>
+    );
+    showTopbar = false;
+  } else if (r === "/dictate/conversation" || r.startsWith("/dictate/conversation?")) {
+    // S14 conversation mode: its own surface, not a Studio variant. The Studio
+    // is a section editor for a note the clinician dictates; this is a live
+    // two-voice transcript with a review pass, and it hands off to the Studio
+    // only once a draft exists.
+    const pm = r.match(/patient=([\w-]+)/);
+    const em = r.match(/encounter=([\w-]+)/);
+    view = (
+      <RequireClinical navigate={navigate}>
+        <ConversationRoom lang={lang} patientId={pm?.[1]} encounterId={em?.[1]} navigate={navigate} />
+      </RequireClinical>
+    );
     showTopbar = false;
   } else if (r === "/dictate/reports") {
     view = <RequireClinical navigate={navigate}><ReportsList lang={lang} navigate={navigate} /></RequireClinical>;
@@ -477,7 +525,7 @@ function App() {
   else {
     view = (
       <div className="page">
-        <Empty icon="search" title={tr(lang, "Сторінку не знайдено", "Page not found")} body={r} action={<button className="btn" onClick={() => navigate("/scribe")}>{tr(lang, "На головну", "Go home")}</button>} />
+        <Empty icon="search" title={tr(lang, "Сторінку не знайдено", "Page not found")} body={r} action={<button className="btn" onClick={() => navigate("/")}>{tr(lang, "На головну", "Go home")}</button>} />
       </div>
     );
   }

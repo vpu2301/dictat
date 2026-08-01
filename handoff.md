@@ -115,6 +115,7 @@ Route map (current):
 | `/welcome`, `/`, `/features/*`, `/product/*`, `/legal/*` | marketing (`LandingPage`, `ContentPage`) |
 | `/login`, `/signup`, `/mfa`, `/verify/*` | auth |
 | `/dictate` | **DictationStudio** (the core screen) |
+| `/dictate/conversation?patient=&encounter=` | **ConversationRoom** (S14) — two-voice consultation on protocol v2; needs a `recording` consent; finalize → draft → `/dictate/studio?report=` |
 | `/dictate/reports`, `/dictate/reports/{id}` | Reports list + detail |
 | `/dictate/templates` | TemplatesPage |
 | `/scribe`, `/scribe/consult/*`, `/scribe/patients/*`, `/scribe/notes/*`, `/scribe/review/*` | ambient scribe + EHR |
