@@ -84,15 +84,25 @@ test("server authority (VERIFY guard): without a 422 payload the surface shows N
   assert.equal(renderToStaticMarkup(h(ViolationNotice, { problems: null, sectionKey: "x", lang: "uk" })), "");
 });
 
-test("no client-side gate: the finalize button's disabled state never reads filled-ness", () => {
-  // Encoded guard (§4.3): the button may be disabled only by an in-flight
-  // request or a missing report id — never by body/meta inspection.
+test("no client-side gate: the finalize action's disabled state never reads filled-ness", () => {
+  // Encoded guard (§4.3): finalize may be disabled only by an in-flight request
+  // or a missing report id — never by body/meta inspection.
+  //
+  // Finalize moved into the footer's split-button menu (2026-08-01); the guard
+  // is unchanged, only its shape. `disabled` on the item must be EXACTLY
+  // `!reportId`, and the in-flight half is `busy={finalizing}` on the control,
+  // which disables the whole thing including the menu.
   const src = readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), "..", "components", "ReportPreview.jsx"),
     "utf8",
   );
-  assert.match(src, /onClick=\{handleFinalize\} disabled=\{finalizing \|\| !reportId\}/);
+  assert.match(src, /onSelect:\s*handleFinalize,\s*\n\s*disabled:\s*!reportId,/);
+  assert.match(src, /busy=\{finalizing\}/);
+  // Nothing derived from the document's contents may reach that disabled state.
+  const finalizeItem = /onSelect:\s*handleFinalize,\s*\n\s*disabled:\s*([^\n]*)/.exec(src);
+  assert.ok(finalizeItem, "finalize menu item not found");
+  assert.doesNotMatch(finalizeItem[1], /body|sections|problems|filled|required|violation/i);
   // And the soft hint stays a hint: labeled as a pre-check, in a warn box,
-  // with no wiring into the button.
+  // with no wiring into the action.
   assert.match(src, /Попередня перевірка/);
 });

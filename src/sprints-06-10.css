@@ -341,10 +341,105 @@ span.partial {
    Sprint 08 — Report Diff
    ══════════════════════════════════════════════════════════════════════════ */
 
+/* The diff replaces the report document in place, so it uses the same reading
+   column as `.editor` — otherwise the content jumps width and gutters when you
+   switch between the report and its diff. */
+.diff-page {
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 28px 48px 72px;
+}
+/* Side-by-side needs two readable columns, so the split view widens past the
+   single-document measure. */
+.diff-page.split { max-width: 1080px; }
+
+.diff-head { margin-bottom: 16px; }
+.diff-head .diff-back { margin-bottom: 12px; }
+.diff-head h1 {
+  margin: 0;
+  font-size: 20px; font-weight: 600; letter-spacing: -0.015em;
+  color: var(--text-1);
+}
+.diff-sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+/* Controls live on the diff itself — versions on the left, view on the right —
+   so re-comparing never means going back to a picker screen. */
+.diff-bar {
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.diff-bar .spacer { flex: 1; }
+.diff-bar-pick { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.diff-bar-pick .menu-select-trigger { padding: 6px 10px; font-size: 13px; min-width: 84px; }
+.diff-bar-warn { font-size: 12px; color: var(--warn, #b45309); }
+
+.diff-view-toggle {
+  display: inline-flex;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px;
+}
+.diff-view-toggle button {
+  border: 0; background: none; cursor: pointer;
+  padding: 5px 12px; border-radius: 6px;
+  font: inherit; font-size: 12.5px; color: var(--muted);
+}
+.diff-view-toggle button.on {
+  background: var(--surface);
+  color: var(--text-1); font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+
+/* ─── Attribution: who changed it, and when ───────────────────────────── */
+.diff-stamp {
+  display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 6px;
+  font-size: 12px; color: var(--muted);
+  text-transform: none; letter-spacing: 0;
+}
+.diff-stamp b { color: var(--text-1); font-weight: 700; font-size: 12.5px; }
+.diff-stamp-who { color: var(--text-1); font-weight: 600; }
+.diff-stamp-at { color: var(--muted); font-variant-numeric: tabular-nums; }
+.diff-stamp-tag {
+  padding: 1px 6px; border-radius: 999px;
+  background: var(--warn-soft); color: var(--warn);
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+
+.diff-attrib {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin-top: 12px; padding: 8px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* The clinical "why" behind an amendment — never hide this behind a tab. */
+.diff-reason {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  color: var(--warn);
+  font-size: 13px;
+}
+.diff-reason b { display: block; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; }
+.diff-reason p { margin: 3px 0 0; color: var(--text-1); line-height: 1.5; }
+
+.diff-signed {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 10px;
+  font-size: 12px; color: var(--muted);
+}
+.diff-signed b { color: var(--text-1); font-weight: 600; }
+
 .diff-legend {
   display: flex;
   gap: 20px;
-  padding: 8px 0 16px;
+  padding: 0 0 16px;
   font-size: 12px;
   color: var(--text-3);
 }
@@ -362,35 +457,126 @@ span.partial {
   overflow: hidden;
 }
 
+/* Header and body share one inset — `.sec-h` is a bare flex row elsewhere, so
+   without this the section title sits flush against the card border while the
+   text below it is indented. */
+.diff-section .sec-h {
+  padding: 14px 16px 0;
+  margin-bottom: 7px;
+}
+.diff-section .sec-h > span { font-weight: 700; letter-spacing: .05em; }
+
 .diff-body {
-  padding: 12px 16px;
+  padding: 0 16px 14px;
   font-size: 14px;
   line-height: 1.6;
 }
+.diff-nochange {
+  margin-top: 6px;
+  font-size: 12px; font-style: italic;
+  color: var(--muted);
+}
+.diff-chip { font-size: 11px; background: var(--warn-soft); color: var(--warn); }
 
+/* ─── Split (side-by-side) view ───────────────────────────────────────── */
+.diff-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.diff-col {
+  padding: 0 16px 14px;
+  font-size: 14px; line-height: 1.6;
+  min-width: 0; overflow-wrap: anywhere;
+}
+.diff-col + .diff-col { border-left: 1px solid var(--line); }
+.diff-col-empty { color: var(--muted); font-style: italic; font-size: 12px; }
+/* Only needed where the columns stack — wide layouts label them once, at the top. */
+.diff-col-tag { display: none; }
+
+/* One header row for the whole document — same grid and insets as .diff-cols,
+   so the column rule reads as a single line down the page. */
+.diff-colhead {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  position: sticky; top: 0; z-index: 1;
+  margin-bottom: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.diff-colhead > span {
+  padding: 7px 16px;
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted);
+}
+.diff-colhead > span + span { border-left: 1px solid var(--line); }
+
+/* Refetching the pair keeps the previous diff on screen, just muted. */
+.diff-doc.busy { opacity: .55; transition: opacity .12s; pointer-events: none; }
+.diff-page-err { max-width: 1080px; margin: 0 auto; padding: 16px 48px 0; }
+
+/* Inside the versions modal the diff sits in `.vm-body`, which already brings
+   its own padding — drop the page column and shrink the heading to modal scale.
+   The modal is far too narrow for two columns, so split stacks instead. */
+.versions-modal .diff-page,
+.versions-modal .diff-page.split { max-width: none; padding: 0; }
+.versions-modal .diff-head { margin-bottom: 12px; }
+.versions-modal .diff-head h1 { font-size: 16px; }
+.versions-modal .diff-page-err { padding: 0 0 12px; }
+.versions-modal .diff-colhead { display: none; }
+.versions-modal .diff-cols { grid-template-columns: 1fr; }
+.versions-modal .diff-col + .diff-col {
+  border-left: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.versions-modal .diff-col-tag {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted);
+}
+
+/* Added = light yellow + a leading "+", removed = light red + a leading "−".
+   The sign is a ::before marker, so the diff still reads correctly in print,
+   in high-contrast mode, and anywhere the background is dropped. */
 ins.diff-insert {
-  background: rgba(4, 120, 87, 0.12);
-  color: #047857;
+  background: rgba(245, 158, 11, 0.18);
+  color: #92400e;
   text-decoration: none;
   border-radius: 2px;
-  padding: 0 1px;
+  padding: 0 2px;
 }
 
 del.diff-delete {
-  background: rgba(220, 38, 38, 0.10);
-  color: #dc2626;
-  text-decoration: line-through;
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+  /* No line-through: the red field plus the "−" already say "removed", and a
+     strikethrough runs straight through the marker so the two read as one line. */
+  text-decoration: none;
   border-radius: 2px;
-  padding: 0 1px;
+  padding: 0 2px;
 }
 
+ins.diff-insert::before,
+del.diff-delete::before {
+  font-weight: 700;
+  font-size: .9em;
+  margin-right: 3px;
+  opacity: .9;
+}
+ins.diff-insert::before { content: "+"; }
+del.diff-delete::before { content: "\2212"; }
+
 [data-theme="dark"] ins.diff-insert {
-  background: rgba(45, 212, 191, 0.15);
-  color: #2dd4bf;
+  background: rgba(251, 191, 36, 0.20);
+  color: #fcd34d;
 }
 [data-theme="dark"] del.diff-delete {
-  background: rgba(248, 113, 113, 0.15);
-  color: #f87171;
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -775,7 +961,14 @@ del.diff-delete {
   background: var(--surface-2);
   flex-shrink: 0;
 }
-.rp-foot-err { font-size: 12px; color: var(--rec); }
+/* Own row above the actions — inline, it appeared mid-interaction and shoved
+   every button sideways. */
+.rp-foot-err {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 26px 0;
+  font-size: 12.5px; color: var(--rec); line-height: 1.45;
+}
+.rp-foot-err svg { flex: none; margin-top: 1px; }
 
 /* ── AI synthesis (frontend guide §1) ─────────────────────────────────── */
 .rp-synth-bar {
@@ -848,14 +1041,18 @@ del.diff-delete {
 .row-action.danger:hover { background: rgba(193, 59, 59, 0.08); }
 
 /* Versions & compare modal */
-.versions-modal { width: min(560px, 92vw); display: flex; flex-direction: column; max-height: 82vh; }
+/* Widen the shared .modal shell for this dialog — the shell clips (overflow:
+   hidden), so the inner panel must never be wider than it. */
+.modal:has(.versions-modal) { max-width: 560px; }
+.versions-modal { width: 100%; display: flex; flex-direction: column; max-height: 82vh; min-height: 0; }
 .vm-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   padding: 16px 20px; border-bottom: 1px solid var(--line);
 }
 .vm-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .vm-head p  { margin: 3px 0 0; font-size: 12.5px; }
-.vm-body { padding: 16px 20px; overflow-y: auto; }
+.vm-head > .btn { flex: none; margin: -4px -6px 0 0; }
+.vm-body { padding: 16px 20px; overflow-y: auto; min-height: 0; }
 .vm-divider { height: 1px; background: var(--line); margin: 16px 0; }
 .vm-sub { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
 

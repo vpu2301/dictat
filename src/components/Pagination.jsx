@@ -12,6 +12,7 @@
 
 import React from "react";
 import { Icon } from "./UI.jsx";
+import { MenuSelect } from "./MenuSelect.jsx";
 import { tr } from "../i18n.js";
 
 // First, last, and a small window around the current page, with ellipses.
@@ -103,18 +104,16 @@ export function Pagination({
       {rangeHint && <span className="pager-range muted">{rangeHint}</span>}
 
       {showSizer && (
-        <label className="pager-size">
-          <span className="muted">{perPageLabel}</span>
-          <select
-            value={pageSize ?? ""}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+        <div className="pager-size">
+          <span className="muted" id="pager-size-label">{perPageLabel}</span>
+          <MenuSelect
+            value={pageSize}
+            options={pageSizeOptions.map((n) => ({ value: n, label: String(n) }))}
+            onChange={onPageSizeChange}
             disabled={loading}
-          >
-            {pageSizeOptions.map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-        </label>
+            ariaLabel={perPageLabel}
+          />
+        </div>
       )}
     </nav>
   );

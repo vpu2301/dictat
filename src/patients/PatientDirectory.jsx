@@ -1,6 +1,7 @@
 // PatientDirectory.jsx — sprint 11 step 02: the /patients roster.
-// Debounced cancel-safe search, cursor-append pagination, create/edit/
-// archive, and the separate ІПН exact-lookup field.
+// Debounced cancel-safe search, a paged table (numbered pager + per-page
+// selector over the server cursor), create/edit/archive, and the separate
+// ІПН exact-lookup field.
 //
 // PII hygiene (deliberate, test-enforced by e2e/patients-directory.spec.js):
 // - Search state lives in component memory ONLY — never synced to the URL.
@@ -11,9 +12,10 @@
 //   full DOB.
 // - Nothing patient-derived goes to localStorage/sessionStorage or telemetry.
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Icon, Empty, Modal } from "../components/UI.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
+import { Pagination } from "../components/Pagination.jsx";
 import { Loading } from "../components/DataStates.jsx";
 import { useClaims } from "../auth/AuthContext.jsx";
 import {
@@ -53,6 +55,9 @@ function fmtRel(iso, lang) {
 }
 
 const SEX_LABEL = { M: "M", F: "F", U: "—" };
+
+// Per-page choices; the roster fetch limit must stay ≥ the largest of these.
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 function StatusBadge({ status, lang }) {
   if (status === "inactive") {
@@ -312,9 +317,11 @@ export function PatientDirectory({ navigate, lang }) {
   // on claims.tid so the roster refetches after a clinic switch.
   const activeTid = useClaims()?.tid;
 
+  // Fetch limit ≥ the largest page size (PAGE_SIZE_OPTIONS) so the biggest
+  // per-page setting still fills from a single request; the server caps at 200.
   const sq = useSearchQuery(
     (query, cursor, { signal } = {}) =>
-      listPatients({ query: query || undefined, cursor, limit: 50 }, signal ? { signal } : {}).then(toPage),
+      listPatients({ query: query || undefined, cursor, limit: 100 }, signal ? { signal } : {}).then(toPage),
     [activeTid],
     { debounceMs: 250, minLength: 2 },
   );
@@ -346,10 +353,52 @@ export function PatientDirectory({ navigate, lang }) {
 
   const rows = showInactive ? sq.items : sq.items.filter((p) => p.status === "active");
 
+  // ── Paging ──────────────────────────────────────────────────────────────
+  // The roster is a forward-only server cursor, so pages are cut client-side
+  // out of everything fetched so far and Next past the last loaded page pulls
+  // the following cursor page first. `pageCount` therefore GROWS as you page
+  // forward — that is the honest picture: the total is unknown until the
+  // cursor runs out, which is also why the range hint only appears then.
+  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(1);
+
+  // Anything that redefines the result set sends you back to page 1.
+  useEffect(() => { setPage(1); }, [sq.query, showInactive, pageSize]);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  // Clamp when the set shrinks under the current page (archived filter, a
+  // narrower search, a page fetch that returned nothing).
+  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
+
+  const pageRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  // Top up a short page: the server may hand back fewer rows than the page
+  // size (small cursor page, or the "show archived" filter eating rows), and a
+  // half-empty page above a live Next button reads as data loss. Bounded by
+  // MAX_FILL_FETCHES per page so a filter that hides nearly everything can't
+  // walk the whole roster in one go — Next still pulls the rest by hand.
+  const MAX_FILL_FETCHES = 3;
+  const fillsRef = useRef(0);
+  useEffect(() => { fillsRef.current = 0; }, [page, pageSize, sq.query, showInactive]);
+  useEffect(() => {
+    if (sq.loading || sq.loadingMore || !sq.hasMore) return;
+    if (rows.length >= page * pageSize) return;
+    if (fillsRef.current >= MAX_FILL_FETCHES) return;
+    fillsRef.current += 1;
+    sq.loadMore();
+  }, [rows.length, page, pageSize, sq.hasMore, sq.loading, sq.loadingMore, sq.loadMore]);
+
+  const goNext = async () => {
+    if (page < pageCount) { setPage((p) => p + 1); return; }
+    if (!sq.hasMore || sq.loadingMore) return;
+    await sq.loadMore();
+    setPage((p) => p + 1);   // clamped above if the fetch added nothing
+  };
+
   // Keyboard: "/" focuses search (unless already typing), ↑/↓ move, Enter opens.
   const searchRef = useRef(null);
   const [kbIdx, setKbIdx] = useState(-1);
-  useEffect(() => { setKbIdx(-1); }, [rows.length, sq.query]);
+  useEffect(() => { setKbIdx(-1); }, [pageRows.length, sq.query, page]);
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "/") return;
@@ -362,26 +411,12 @@ export function PatientDirectory({ navigate, lang }) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+  // Arrow keys move within the CURRENT page; Enter opens the highlighted row.
   const onListKeyDown = (e) => {
-    if (e.key === "ArrowDown") { e.preventDefault(); setKbIdx((i) => Math.min(rows.length - 1, i + 1)); }
+    if (e.key === "ArrowDown") { e.preventDefault(); setKbIdx((i) => Math.min(pageRows.length - 1, i + 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setKbIdx((i) => Math.max(0, i - 1)); }
-    else if (e.key === "Enter" && kbIdx >= 0 && rows[kbIdx]) navigate(`/scribe/patients/${rows[kbIdx].id}`);
+    else if (e.key === "Enter" && kbIdx >= 0 && pageRows[kbIdx]) navigate(`/scribe/patients/${pageRows[kbIdx].id}`);
   };
-
-  // Infinite scroll: IntersectionObserver on a sentinel; the "load more"
-  // button stays as the accessible/deterministic fallback.
-  const sentinelRef = useRef(null);
-  const loadMoreRef = useRef(sq.loadMore);
-  loadMoreRef.current = sq.loadMore;
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((en) => en.isIntersecting)) loadMoreRef.current();
-    }, { rootMargin: "200px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [sq.hasMore]);
 
   const handleAdd = async (payload) => {
     await createPatient(payload);
@@ -460,7 +495,7 @@ export function PatientDirectory({ navigate, lang }) {
           </div>
         )}
 
-        {!initialLoading && !sq.error && rows.map((p, i) => {
+        {!initialLoading && !sq.error && pageRows.map((p, i) => {
           const dimmed = p.status !== "active";
           const yob = yearOfBirth(p);
           return (
@@ -509,17 +544,26 @@ export function PatientDirectory({ navigate, lang }) {
           );
         })}
 
-        {sq.hasMore && !sq.error && (
-          <div className="pdir-more">
-            <div ref={sentinelRef} aria-hidden="true" />
-            <button type="button" className="btn" disabled={sq.loadingMore} onClick={sq.loadMore}>
-              {sq.loadingMore
-                ? (tr(lang, "Завантаження…", "Loading…"))
-                : (tr(lang, "Показати ще", "Show more"))}
-            </button>
-          </div>
-        )}
       </div>
+
+      {!initialLoading && !sq.error && rows.length > 0 && (
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          hasNext={page < pageCount || sq.hasMore}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={goNext}
+          onPage={setPage}
+          loading={sq.loadingMore || sq.loading}
+          lang={lang}
+          /* Only once the cursor is exhausted is `rows.length` the real total —
+             until then "1–25 of 50" would understate the roster. */
+          total={sq.hasMore ? null : rows.length}
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageSizeChange={setPageSize}
+        />
+      )}
 
       {addOpen && (
         <PatientFormModal lang={lang} patient={null}

@@ -30,6 +30,17 @@ const EXISTING = mk(6, { id: EXISTING_ID, name: { uk: "Наявний Паціє
 const PAGE1 = [P1, P2, P3];
 const PAGE2 = [P4, P5];
 
+// 60 hits in one server page — enough to exercise the numbered pager
+// (25/25/10) and the per-page selector without any cursor involvement.
+const BULK_QUERY = "Багато";
+const BULK = Array.from({ length: 60 }, (_, i) => ({
+  ...mk(1),
+  id: `bbbbbbbb-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+  name: { uk: `Багато Пацієнт ${String(i + 1).padStart(2, "0")}`, en: `Bulk Patient ${i + 1}` },
+  mrn: `MRN-B${String(i + 1).padStart(3, "0")}`,
+  tags: [],
+}));
+
 const SLOW_QUERY = "Перший";
 const FAST_QUERY = "Другий";
 const VALID_IPN = "1759013776";
@@ -80,6 +91,7 @@ async function installMocks(page, calls) {
       }
       if (query === FAST_QUERY) return json(200, { items: [P2], next_cursor: null });
       if (query === VALID_IPN) return json(200, { items: [P3], next_cursor: null });
+      if (query === BULK_QUERY) return json(200, { items: BULK, next_cursor: null });
       if (query) {
         const hit = PAGE1.concat(PAGE2).filter((p) => p.name.uk.includes(query));
         return json(200, { items: hit.map(withStatus), next_cursor: null });
@@ -137,8 +149,8 @@ async function openRoster(page) {
   await expect(page.locator(".ptable-row").first()).toBeVisible({ timeout: 10000 });
 }
 
-// Requests that carry a search string (the sentinel auto-loads cursor pages
-// in the background — those carry `cursor`, never `query`).
+// Requests that carry a search string (page top-ups fetch cursor pages in the
+// background — those carry `cursor`, never `query`).
 const queries = (calls) => calls.list.filter((c) => c.query).map((c) => c.query);
 
 test("search debounces to one request, min length 2, '/' focuses the box", async ({ page }) => {
@@ -244,8 +256,9 @@ test("pagination: the cursor page appends automatically without duplicates", asy
   await installMocks(page, calls);
   await openRoster(page);
 
-  // the sentinel IntersectionObserver fetches page 2 as soon as it scrolls
-  // into reach — on this short list, immediately
+  // page 1 of the pager is 25 rows wide but the server cursor page holds 3, so
+  // the roster tops itself up from cursor c2 rather than showing a short page
+  // under a live Next button
   await expect(page.locator(".ptable-row")).toHaveCount(5);
 
   const cursored = calls.list.find((c) => c.cursor === "c2");
@@ -260,6 +273,44 @@ test("pagination: the cursor page appends automatically without duplicates", asy
   await expect(page.locator(".pdir-badge.inactive")).toBeVisible();
   await page.locator(".pdir-inactive-toggle input").uncheck();
   await expect(page.locator(".ptable-row")).toHaveCount(4);
+});
+
+test("pagination: numbered pager slices the roster, per-page resizes it", async ({ page }) => {
+  const calls = newCalls();
+  await installMocks(page, calls);
+  await openRoster(page);
+
+  await page.locator(".pdir-toolbar .search-input input").first().fill(BULK_QUERY);
+  await expect(page.locator(".ptable-row")).toHaveCount(25); // 60 hits → page 1 of 3
+
+  const pager = page.locator(".pager");
+  await expect(pager.locator(".pager-num").last()).toHaveText("3");
+  await expect(pager.locator(".pager-num.on")).toHaveText("1");
+  await expect(pager.locator(".pager-range")).toContainText("1–25");
+  await expect(page.locator(".ptable-row .pname").first()).toContainText("Пацієнт 01");
+
+  // Next walks forward; the tail page is the remainder, not a padded 25
+  await pager.getByRole("button", { name: /Далі|Next/ }).click();
+  await expect(page.locator(".ptable-row .pname").first()).toContainText("Пацієнт 26");
+  await pager.getByRole("button", { name: /Далі|Next/ }).click();
+  await expect(page.locator(".ptable-row")).toHaveCount(10);
+  await expect(pager.getByRole("button", { name: /Далі|Next/ })).toBeDisabled();
+
+  // a page number jumps directly; Prev is live again
+  await pager.locator(".pager-num", { hasText: /^1$/ }).click();
+  await expect(page.locator(".ptable-row .pname").first()).toContainText("Пацієнт 01");
+  await expect(pager.getByRole("button", { name: /Назад|Prev/ })).toBeDisabled();
+
+  // per-page resize re-slices and returns to page 1 — all client-side, the
+  // roster is never refetched for a page change
+  // (the per-page picker is the platform MenuSelect, not a native <select>)
+  const listCallsBefore = calls.list.length;
+  await pager.locator(".pager-size .menu-select-trigger").click();
+  await pager.locator(".pager-size .spec-menu button", { hasText: /^50$/ }).click();
+  await expect(page.locator(".ptable-row")).toHaveCount(50);
+  await expect(pager.locator(".pager-num").last()).toHaveText("2");
+  await expect(pager.locator(".pager-num.on")).toHaveText("1");
+  expect(calls.list.length).toBe(listCallsBefore);
 });
 
 test("create: duplicate ІПН 409 lands on the existing record in one click", async ({ page }) => {

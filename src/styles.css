@@ -1887,6 +1887,11 @@ kbd {
 .v-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .v-label { font-size: 13px; font-weight: 500; color: var(--text-1); }
 .v-meta  { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+/* Who wrote the version — the row's right-hand column, next to v-label. */
+.v-author {
+  font-size: 11.5px; color: var(--text-2, var(--muted)); font-weight: 500;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* Metadata list */
 .meta-list { display: flex; flex-direction: column; gap: 6px; }
@@ -1924,10 +1929,14 @@ kbd {
 /* Diff tab — version pickers */
 .diff-tab { display: flex; flex-direction: column; gap: 12px; }
 .diff-tab-row { display: flex; align-items: flex-end; gap: 8px; }
-.diff-tab-row label { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.diff-tab-row label > span { font-size: 11px; color: var(--muted); }
-.diff-tab-row .ti { padding: 6px 8px; font-size: 13px; }
-.diff-tab-row > .chev, .diff-tab-row > svg { margin-bottom: 8px; }
+.diff-tab-row .diff-tab-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.diff-tab-row .diff-tab-field > span { font-size: 11px; color: var(--muted); }
+.diff-tab-row .menu-select-trigger { padding: 7px 10px; font-size: 13px; }
+.diff-tab-row > .chev, .diff-tab-row > svg { margin-bottom: 9px; }
+/* In the versions modal the compare row sits at the bottom of the scrollable
+   body, so drop the menu upward — downward it would be clipped by .vm-body's
+   overflow. In the report side rail there is room below, so leave it alone. */
+.versions-modal .diff-tab-row .spec-menu { top: auto; bottom: calc(100% + 6px); max-height: 220px; }
 
 /* History timeline */
 .history-timeline {
@@ -2502,3 +2511,64 @@ kbd {
 .qs-card.active .tpl-card-icon { background: var(--surface); }
 .qs-card.active .qs-card-go { opacity: 1; color: var(--dictate); background: var(--surface); }
 .qs-hint { font-size: 11.5px; font-family: var(--mono); }
+
+/* ─── Printing a report ───────────────────────────────────────────────────
+   The report document is the only thing that belongs on paper: no sidebar,
+   no toolbar, no dictation rail. Two things make this non-obvious:
+
+   1. The shell is a fixed-height, overflow:hidden layout (.app-main / .report-page
+      / .report-main / .editor-scroll all clip). Left alone, print would emit at
+      most the one screenful that happens to be scrolled into view.
+   2. The printable region is .editor-scroll rather than .editor, because the
+      version diff renders in the same slot — printing from an open diff should
+      put the diff on paper, not nothing.
+*/
+@media print {
+  @page { margin: 14mm; }
+
+  /* :not(:has(.version-info-modal)) — with a version record open ON TOP of the
+     report, that modal owns the print job. Without this both would paint. */
+  body:has(.report-page):not(:has(.version-info-modal)) * { visibility: hidden; }
+  body:has(.report-page):not(:has(.version-info-modal)) .editor-scroll,
+  body:has(.report-page):not(:has(.version-info-modal)) .editor-scroll * { visibility: visible; }
+
+  /* Unclip every ancestor between the page and the document. */
+  body:has(.report-page) .app-main,
+  body:has(.report-page) .report-page,
+  body:has(.report-page) .report-main,
+  body:has(.report-page) .editor-scroll {
+    overflow: visible;
+    height: auto;
+    max-height: none;
+    display: block;
+    border: 0;
+  }
+  body:has(.report-page) .editor-scroll {
+    position: absolute; inset: 0 auto auto 0;
+    width: 100%; background: none;
+  }
+  /* Full page width on paper — the 740px measure is for reading on screen. */
+  body:has(.report-page) .editor,
+  body:has(.report-page) .diff-page,
+  body:has(.report-page) .diff-page.split {
+    max-width: none; margin: 0; padding: 0;
+  }
+  /* Chrome that lives inside the printable region but not on paper. */
+  body:has(.report-page) .diff-bar,
+  body:has(.report-page) .diff-back,
+  body:has(.report-page) .diff-view-toggle { display: none; }
+
+  .section-block, .diff-section, .vi-section { break-inside: avoid; }
+}
+
+/* Product wordmark. The suffix names the product an account is actually in —
+   only auditor-only sessions carry one today, because they are the one role
+   with no Scribe/Dictate switch to tell them where they are. */
+.sb-wordmark { display: inline-flex; align-items: baseline; gap: 5px; min-width: 0; }
+.sb-wordmark-sfx {
+  font-size: 12.5px; font-weight: 600;
+  letter-spacing: .01em;
+  color: var(--accent-text, var(--accent));
+  padding: 1px 6px; border-radius: 5px;
+  background: var(--accent-soft);
+}

@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useI18n , tr } from "../i18n.js";
 import { Icon, SaveStatus, Modal, Toast, Empty } from './UI.jsx';
 import { MenuSelect } from './MenuSelect.jsx';
+import { SplitButton } from './SplitButton.jsx';
 import { TipTapEditor, bodyToDoc, docToBody } from './TipTapEditor.jsx';
 import { SigningFlow } from './SigningFlow.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
@@ -1003,34 +1004,54 @@ function DictationStatusBar({ template, activeId, listening, lang }) {
   );
 }
 
-// ── Footer action bar: save draft + download draft PDF + complete dictation ──
+// ── Footer action bar ────────────────────────────────────────────────────
+// One control: "Complete dictation" with its alternates (save draft, draft PDF)
+// behind the caret — same split button as the finalize modal. Save state reads
+// off the item's hint; the header already carries the live SaveStatus, so the
+// footer doesn't need a second always-on indicator.
 function StudioFooter({ done, total, onSaveDraft, onDownloadDraft, onComplete, saveState, lang }) {
   const saving = saveState === "saving";
   const saved  = saveState === "saved";
-  const saveLabel = saving
-    ? (tr(lang, "Збереження…", "Saving…"))
-    : saved
-      ? (tr(lang, "Збережено", "Saved"))
-      : (tr(lang, "Зберегти чернетку", "Save draft"));
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const downloadPdf = async () => {
+    setPdfBusy(true);
+    try { await onDownloadDraft(); } finally { setPdfBusy(false); }
+  };
   return (
     <div className="studio-footer">
       <div className="studio-footer-info">
         <span className="sf-progress">{done}/{total} {tr(lang, "розділів", "sections")}</span>
       </div>
-      <button
-        className="btn ghost"
-        onClick={onSaveDraft}
-        disabled={saving || saved}
-        title={tr(lang, "Зберегти, щоб продовжити пізніше (⌘S)", "Save to continue later (⌘S)")}
-      >
-        <Icon name={saving ? "refresh" : saved ? "check" : "save"} size={14} /> {saveLabel}
-      </button>
-      <button className="btn ghost" onClick={onDownloadDraft}>
-        <Icon name="download" size={14} /> {tr(lang, "PDF (чернетка)", "Draft PDF")}
-      </button>
-      <button className="btn primary" onClick={onComplete}>
-        <Icon name="check" size={14} /> {tr(lang, "Завершити диктування", "Complete dictation")}
-      </button>
+      <SplitButton
+        variant="primary"
+        icon="check"
+        label={tr(lang, "Завершити диктування", "Complete dictation")}
+        onClick={onComplete}
+        menuLabel={tr(lang, "Інші дії", "Other actions")}
+        items={[
+          {
+            key: "save",
+            icon: saved ? "check" : "save",
+            label: tr(lang, "Зберегти чернетку", "Save draft"),
+            hint: saving
+              ? tr(lang, "Збереження…", "Saving…")
+              : saved
+                ? tr(lang, "Збережено — змін немає", "Saved — no changes")
+                : tr(lang, "Продовжити пізніше · ⌘S", "Continue later · ⌘S"),
+            onSelect: onSaveDraft,
+            disabled: saving || saved,
+            busy: saving,
+          },
+          {
+            key: "pdf",
+            icon: "download",
+            label: tr(lang, "PDF (чернетка)", "Draft PDF"),
+            hint: tr(lang, "Чернетка, без юридичної сили", "Draft, no legal force"),
+            onSelect: downloadPdf,
+            busy: pdfBusy,
+          },
+        ]}
+      />
     </div>
   );
 }
