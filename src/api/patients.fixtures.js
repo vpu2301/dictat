@@ -26,12 +26,21 @@
 
 // POST /patients → 201. Note: `ipn` went IN, only `has_ipn` comes OUT —
 // the raw РНОКПП is never echoed by any endpoint.
+//
+// phone/email/address (migration 0060) are absent from the capture body
+// above, so they come back as the server default — "" for the phone and the
+// e-mail, and an address object with every component blank. That IS the wire
+// shape for a patient registered without contact details: `address` is always
+// an object, never null and never a string.
 export const PATIENT_CREATED = {
   id: "cca2c827-3a14-486b-a48c-a599c8b8bb74",
   name: { uk: "Тест Пацієнт-С11", en: "Test Patient-S11" },
   dob: "1984-03-12",
   sex: "F",
   mrn: "S11-FIX-001",
+  phone: "",
+  email: "",
+  address: { street: "", house: "", zip: "", city: "", country: "" },
   summary: { uk: "фікстура контракту", en: "contract fixture" },
   tags: ["fixture"],
   status: "active",
@@ -39,6 +48,42 @@ export const PATIENT_CREATED = {
   created_at: "2026-07-15T20:28:48.163350Z",
   updated_at: "2026-07-15T20:28:48.163350Z",
   has_ipn: true,
+};
+
+// POST /patients → 201 WITH contact details. Captured 2026-08-02 from the
+// same local backend (core-service on :8003) after migration 0060, request
+// body:
+//
+//   {"name":{"uk":"Контакт Тест","en":"Contact Test"},"sex":"F",
+//    "phone":"+380 (67) 123-45-67","email":"Contact@Example.COM",
+//    "address":{"street":"вул. Хрещатик","house":"1, кв. 5",
+//               "zip":"01001","city":"Київ","country":"Україна"}}
+//
+// Note what the server normalized: the phone lost its separators (stored
+// dialable, _clean_phone) and the e-mail was case-folded. A number the shape
+// check rejects never gets this far — it answers 422 code=phone_invalid.
+export const PATIENT_WITH_CONTACT = {
+  id: "21c114c9-8195-4a2a-accc-288f54ff2371",
+  name: { uk: "Контакт Тест", en: "Contact Test" },
+  dob: null,
+  sex: "F",
+  mrn: "",
+  phone: "+380671234567",
+  email: "contact@example.com",
+  address: {
+    street: "вул. Хрещатик",
+    house: "1, кв. 5",
+    zip: "01001",
+    city: "Київ",
+    country: "Україна",
+  },
+  summary: { uk: "", en: "" },
+  tags: [],
+  status: "active",
+  last_visit: null,
+  created_at: "2026-08-02T07:21:09.816004Z",
+  updated_at: "2026-08-02T07:21:09.816004Z",
+  has_ipn: false,
 };
 
 // GET /patients?query=С1&limit=5 → 200. Same page shape for an ІПН query

@@ -9,8 +9,7 @@ import { useAsync } from '../api/useAsync.js';
 import { useClaims, hasAnyRole } from '../auth/AuthContext.jsx';
 import { hasClinicalAccess } from '../auth/permissions.js';
 import { RequestAccessModal } from './RequestAccessModal.jsx';
-import { isPhiAccessRequired } from '../api/phiAccess.js';
-import { getPatient, getPatientTimeline, updatePatient } from '../api/patients.js';
+import { getPatient, getPatientTimeline, updatePatient, hasContact, hasAddress, formatAddress } from '../api/patients.js';
 import { mergeFeed } from '../patients/feed.js';
 import { PatientFormModal } from '../patients/PatientDirectory.jsx';
 import { ConsentSignDialog } from '../patients/ConsentSheet.jsx';
@@ -720,6 +719,34 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
             <span className="pmono">{patient.mrn}</span>
             {patient.dob && <><span>·</span><span>{tr(lang, "Народж.", "DOB")}: {patient.dob}</span></>}
             {patient.summary && loc(patient.summary, lang) && <><span>·</span><span>{loc(patient.summary, lang)}</span></>}
+          </div>
+          {/* Contact details — phone / e-mail / address live on the record
+              itself (never in the roster list, which stays name + year of
+              birth). Phone and e-mail are click-to-reach; a record with
+              nothing on file says so rather than rendering an empty row. */}
+          <div className="ph-contact">
+            {patient.phone ? (
+              <a className="ph-contact-item" href={`tel:${patient.phone.replace(/\s+/g, "")}`}
+                title={tr(lang, "Зателефонувати", "Call")}>
+                <Icon name="phone" size={12} /> <span>{patient.phone}</span>
+              </a>
+            ) : null}
+            {patient.email ? (
+              <a className="ph-contact-item" href={`mailto:${patient.email}`}
+                title={tr(lang, "Написати", "Send e-mail")}>
+                <Icon name="mail" size={12} /> <span>{patient.email}</span>
+              </a>
+            ) : null}
+            {hasAddress(patient.address) ? (
+              <span className="ph-contact-item">
+                <Icon name="mapPin" size={12} /> <span>{formatAddress(patient.address)}</span>
+              </span>
+            ) : null}
+            {!hasContact(patient) && (
+              <button type="button" className="ph-contact-empty" onClick={() => setEditOpen(true)}>
+                <Icon name="phone" size={12} /> {tr(lang, "Контактів немає — додати", "No contact details — add")}
+              </button>
+            )}
           </div>
           <div className="ph-tags">
             {(patient.tags || []).map((t, i) => <span key={i} className="chip">{t}</span>)}

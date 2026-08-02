@@ -19,8 +19,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // means the contract moved and the typedef in patients.js must follow).
 const PATIENT_KEYS = [
   "id", "name", "dob", "sex", "mrn", "summary", "tags",
+  "phone", "email", "address",
   "status", "last_visit", "created_at", "updated_at", "has_ipn",
 ];
+// The address is an object of its own (migration 0060), strict like every
+// other model — these five components and nothing else.
+const ADDRESS_KEYS = ["street", "house", "zip", "city", "country"];
 
 async function login() {
   const r = await fetch(`${AUTH}/auth/login`, {
@@ -56,6 +60,12 @@ test("patient lifecycle: create → list finds it via query= → empty timeline 
   assert.match(created.id, UUID_RE);
   assert.equal(created.status, "active");
   assert.equal(created.has_ipn, false, "no ipn sent → has_ipn false, raw ІПН never echoed");
+  // Contact details omitted on the way in come back blank, never null — the
+  // address is always an object, so no caller has to branch on its absence.
+  assert.equal(created.phone, "");
+  assert.equal(created.email, "");
+  assert.deepEqual(Object.keys(created.address).sort(), [...ADDRESS_KEYS].sort(), "Address shape");
+  assert.deepEqual(Object.values(created.address), ["", "", "", "", ""]);
 
   // list — server-side query finds it; cursor page shape
   const lr = await fetch(`${CORE}/patients?query=${encodeURIComponent(mrn)}&limit=5`, authed(token));
@@ -84,6 +94,66 @@ test("patient lifecycle: create → list finds it via query= → empty timeline 
   }));
   assert.equal(ar.status, 200);
   assert.equal((await ar.json()).status, "inactive");
+});
+
+// Contact details (migration 0060): the FE's own validators mirror the
+// server's, so this pins BOTH sides — what the server normalizes and what it
+// refuses. A drift here means the inline hints in the patient form started
+// lying about what would be accepted.
+test("contact details: phone/e-mail normalize server-side, address round-trips by component", { skip: !GATED }, async () => {
+  const token = await login();
+
+  const cr = await fetch(`${CORE}/patients`, authed(token, {
+    method: "POST",
+    body: JSON.stringify({
+      name: { uk: "Смоук Контакти", en: "Smoke Contacts" },
+      mrn: `S11-SMOKE-K-${Date.now()}`,
+      phone: "+380 (67) 123-45-67",
+      email: "  Smoke@Example.COM ",
+      address: {
+        street: " вул. Хрещатик ", house: "1, кв. 5",
+        zip: "01001", city: "Київ", country: "Україна",
+      },
+    }),
+  }));
+  assert.equal(cr.status, 201);
+  const created = await cr.json();
+  assert.equal(created.phone, "+380671234567", "separators stripped — stored dialable");
+  assert.equal(created.email, "smoke@example.com", "trimmed + lower-cased");
+  assert.deepEqual(created.address, {
+    street: "вул. Хрещатик", house: "1, кв. 5",
+    zip: "01001", city: "Київ", country: "Україна",
+  });
+
+  // A number that cannot be dialled is refused with the branch code the form
+  // relies on — same rule as isPhoneShapeValid() in patients.js.
+  const bad = await fetch(`${CORE}/patients`, authed(token, {
+    method: "POST", body: JSON.stringify({ name: { uk: "Bad" }, phone: "call me" }),
+  }));
+  assert.equal(bad.status, 422);
+  assert.equal((await bad.json()).code, "phone_invalid");
+
+  // An unknown address component is rejected, not ignored — the picker in
+  // patients.js rebuilds the object for exactly this reason.
+  const xr = await fetch(`${CORE}/patients`, authed(token, {
+    method: "POST", body: JSON.stringify({ name: { uk: "Bad" }, address: { region: "Київська" } }),
+  }));
+  assert.equal(xr.status, 422, 'Address is extra="forbid" too');
+
+  // An address object replaces all five columns: the ones left blank clear.
+  const ur = await fetch(`${CORE}/patients/${created.id}`, authed(token, {
+    method: "PUT", body: JSON.stringify({ address: { city: "Львів", country: "Україна" } }),
+  }));
+  assert.equal(ur.status, 200);
+  const updated = await ur.json();
+  assert.deepEqual(updated.address,
+    { street: "", house: "", zip: "", city: "Львів", country: "Україна" });
+  assert.equal(updated.phone, "+380671234567", "an address-only update leaves the phone alone");
+
+  // hygiene: archive the smoke patient
+  await fetch(`${CORE}/patients/${created.id}`, authed(token, {
+    method: "PUT", body: JSON.stringify({ status: "inactive" }),
+  }));
 });
 
 test("consent lifecycle on an encounter: grant verbal → withdraw via the NESTED path", { skip: !GATED }, async () => {

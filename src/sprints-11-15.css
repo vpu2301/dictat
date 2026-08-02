@@ -1562,6 +1562,21 @@
   width: 14px; height: 14px; margin: 0; flex: none;
   cursor: pointer; accent-color: var(--accent);
 }
+
+/* Status filter + sort dropdowns. Fixed widths so the toolbar does not jump
+   as the selected label changes length; the menus are wide enough for the
+   longest option ("Останній візит: спершу давні"). */
+.pdir-status-filter .menu-select-trigger { width: 168px; }
+.pdir-sort .menu-select-trigger { width: 244px; }
+/* The sort options are wider than their trigger; anchor the menu to the right
+   edge so it grows inward instead of off the viewport (it sits last in the
+   toolbar row). */
+.pdir-sort .spec-menu { left: auto; right: 0; min-width: 264px; white-space: nowrap; }
+@media (max-width: 720px) {
+  .pdir-status-filter .menu-select-trigger,
+  .pdir-sort .menu-select-trigger { width: 100%; }
+  .pdir-status-filter, .pdir-sort { flex: 1 1 160px; }
+}
 .pdir-searching { font-size: 12px; color: var(--muted); }
 
 .pdir-badge {
@@ -1581,6 +1596,27 @@
   padding: 1px 6px; border-radius: 999px; font-size: 10.5px;
   background: var(--accent-soft); color: var(--accent);
 }
+
+/* Patient-card contact row (phone / e-mail / address) — record page only;
+   the roster list deliberately never renders these. */
+.ph-contact {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  margin-top: 6px; font-size: 12.5px;
+}
+.ph-contact-item {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--text-2); min-width: 0;
+}
+.ph-contact-item > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+.ph-contact-item > svg { color: var(--muted); flex-shrink: 0; }
+a.ph-contact-item:hover { color: var(--accent); }
+a.ph-contact-item:hover > svg { color: var(--accent); }
+.ph-contact-empty {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--muted); font-size: 12.5px; background: none; border: 0; padding: 0;
+  cursor: pointer;
+}
+.ph-contact-empty:hover { color: var(--accent); text-decoration: underline; }
 
 .pdir-row-actions { display: flex; align-items: center; gap: 4px; }
 .pdir-row-actions .icon-btn { width: 26px; height: 26px; opacity: 0; transition: opacity .15s; }

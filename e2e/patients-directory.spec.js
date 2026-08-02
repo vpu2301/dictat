@@ -14,6 +14,11 @@ const mk = (n, over = {}) => ({
   id: `${n}${n}${n}${n}${n}${n}${n}${n}-${n}${n}${n}${n}-4${n}${n}${n}-8${n}${n}${n}-${n}${n}${n}${n}${n}${n}${n}${n}${n}${n}${n}${n}`,
   name: { uk: `Пацієнт Номер${n}`, en: `Patient Number${n}` },
   dob: "1984-03-12", sex: "F", mrn: `MRN-00${n}`,
+  // Contact details (migration 0060) — the server default for a patient
+  // registered without them: "" per field, and an address object whose five
+  // components are all blank (never null, never a string).
+  phone: "", email: "",
+  address: { street: "", house: "", zip: "", city: "", country: "" },
   summary: { uk: "", en: "" }, tags: n === 1 ? ["діабет", "гіпертонія", "астма"] : [],
   status: "active", last_visit: null,
   created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
@@ -21,7 +26,14 @@ const mk = (n, over = {}) => ({
 });
 
 const P1 = mk(1);
-const P2 = mk(2, { name: { uk: "Іван Петренко", en: "Ivan Petrenko" }, dob: "1980-06-15", sex: "M" });
+const P2 = mk(2, {
+  name: { uk: "Іван Петренко", en: "Ivan Petrenko" }, dob: "1980-06-15", sex: "M",
+  phone: "+380441234567", email: "ivan@example.com",
+  address: {
+    street: "вул. Шевченка", house: "12, кв. 7",
+    zip: "01001", city: "Київ", country: "Україна",
+  },
+});
 const P3 = mk(3, { has_ipn: true }); // the ІПН-holder: query "1759013776" finds exactly this one
 const P4 = mk(4, { status: "inactive", dob: null });
 const P5 = mk(5);
@@ -267,12 +279,49 @@ test("pagination: the cursor page appends automatically without duplicates", asy
   const ids = await page.locator(".ptable-row .pname").allInnerTexts();
   expect(new Set(ids).size).toBe(ids.length); // no dup rows
 
-  // archived patient from page 2 renders dimmed with a badge, and the
-  // "show archived" toggle hides it
+  // archived patient from page 2 renders dimmed with a badge, and the status
+  // filter cuts the roster down to each status in turn
   await expect(page.locator(".ptable-row.pdir-dimmed")).toHaveCount(1);
   await expect(page.locator(".pdir-badge.inactive")).toBeVisible();
-  await page.locator(".pdir-inactive-toggle input").uncheck();
+
+  const statusFilter = page.locator(".pdir-status-filter");
+  await statusFilter.locator(".menu-select-trigger").click();
+  await statusFilter.locator(".spec-menu-item", { hasText: "Активні" }).click();
   await expect(page.locator(".ptable-row")).toHaveCount(4);
+  await expect(page.locator(".ptable-row.pdir-dimmed")).toHaveCount(0);
+
+  await statusFilter.locator(".menu-select-trigger").click();
+  await statusFilter.locator(".spec-menu-item", { hasText: "Архівні" }).click();
+  await expect(page.locator(".ptable-row")).toHaveCount(1);
+  await expect(page.locator(".pdir-badge.inactive")).toBeVisible();
+
+  // no deceased rows in the fixture → the filter-specific empty state
+  await statusFilter.locator(".menu-select-trigger").click();
+  await statusFilter.locator(".spec-menu-item", { hasText: "Померлі" }).click();
+  await expect(page.locator(".ptable-row")).toHaveCount(0);
+  await expect(page.getByText("Померлих пацієнтів немає")).toBeVisible();
+});
+
+test("sort: the order dropdown re-orders the loaded roster", async ({ page }) => {
+  const calls = newCalls();
+  await installMocks(page, calls);
+  await openRoster(page);
+
+  await expect(page.locator(".ptable-row")).toHaveCount(5);
+  // .pname carries the status badge too ("архів") — strip it off the name
+  const names = async () =>
+    (await page.locator(".ptable-row .pname").allInnerTexts())
+      .map((s) => s.replace(/\s*(архів|помер\(ла\))\s*$/i, "").trim());
+
+  const sortMenu = page.locator(".pdir-sort");
+  await sortMenu.locator(".menu-select-trigger").click();
+  await sortMenu.locator(".spec-menu-item", { hasText: "Ім'я А→Я" }).click();
+  const asc = await names();
+  expect(asc).toEqual([...asc].sort((a, b) => a.localeCompare(b, "uk")));
+
+  await sortMenu.locator(".menu-select-trigger").click();
+  await sortMenu.locator(".spec-menu-item", { hasText: "Ім'я Я→А" }).click();
+  expect(await names()).toEqual([...asc].reverse());
 });
 
 test("pagination: numbered pager slices the roster, per-page resizes it", async ({ page }) => {
@@ -329,6 +378,98 @@ test("create: duplicate ІПН 409 lands on the existing record in one click", a
   expect(calls.create[0].ipn).toBe(DUP_IPN);
   await modal.getByRole("button", { name: /Відкрити наявну|Open the existing/ }).click();
   await expect(page).toHaveURL(new RegExp(`#/scribe/patients/${EXISTING_ID}$`));
+});
+
+// Contact details: captured on registration, shown on the record card. The
+// roster list stays name + year of birth — see the PII-hygiene test above.
+test("create: telephone / e-mail / address reach the wire; a typo in either blocks the save", async ({ page }) => {
+  const calls = newCalls();
+  await installMocks(page, calls);
+  await openRoster(page);
+
+  await page.getByRole("button", { name: /Новий пацієнт|Add patient/ }).click();
+  const modal = page.locator(".modal");
+  await modal.locator("input").first().fill("Тест Контакти");
+
+  const phone = modal.locator('input[type="tel"]');
+  const email = modal.locator('input[type="email"]');
+  const save = modal.getByRole("button", { name: /Додати пацієнта|Add patient/ });
+
+  // Address components, each its own field — nothing here is parsed out of a
+  // free-text line.
+  await modal.getByPlaceholder(/вул\. Шевченка|Shevchenka St/).fill("вул. Шевченка");
+  await modal.getByPlaceholder(/12, кв\. 5|12, apt\. 5/).fill("12, кв. 7");
+  await modal.getByPlaceholder("01001").fill("01001");
+  await modal.getByPlaceholder(/^(Київ|Kyiv)$/).fill("Київ");
+  await modal.getByPlaceholder(/Україна|Ukraine/).fill("Україна");
+
+  // A number the server would 422 (code=phone_invalid) is caught here instead.
+  await phone.fill("+380 44 ABC");
+  await expect(save).toBeDisabled();
+  await expect(modal.locator(".pdir-ipn-hint.err")).toBeVisible();
+  await phone.fill("+380 44 123 45 67");
+  await expect(modal.locator(".pdir-ipn-hint.err")).toHaveCount(0);
+
+  // Same for a malformed e-mail (code=email_invalid).
+  await email.fill("ivan@example");
+  await expect(save).toBeDisabled();
+  await expect(modal.locator(".pdir-ipn-hint.err")).toBeVisible();
+
+  await email.fill("  Ivan@Example.COM ");
+  await expect(save).toBeEnabled();
+  await save.click();
+
+  await expect(modal).toHaveCount(0);
+  expect(calls.create).toHaveLength(1);
+  // Normalized client-side, exactly as the server stores it — one number must
+  // not become two records because of spacing.
+  expect(calls.create[0].phone).toBe("+380441234567");
+  expect(calls.create[0].email).toBe("ivan@example.com");   // trimmed + lower-cased
+  expect(calls.create[0].address).toEqual({
+    street: "вул. Шевченка", house: "12, кв. 7",
+    zip: "01001", city: "Київ", country: "Україна",
+  });
+});
+
+test("patient card: contact details render and are reachable; emptying a field clears it", async ({ page }) => {
+  const calls = newCalls();
+  await installMocks(page, calls);
+  await openRoster(page);
+
+  // P1 has nothing on file → the card offers to add rather than showing a
+  // blank row; P2 carries all three.
+  await page.goto(`/#/scribe/patients/${P1.id}`);
+  await expect(page.locator(".ph-contact-empty")).toBeVisible();
+  await expect(page.locator(".ph-contact-item")).toHaveCount(0);
+
+  await page.goto(`/#/scribe/patients/${P2.id}`);
+  const contact = page.locator(".ph-contact");
+  await expect(contact).toContainText("+380441234567");
+  await expect(contact).toContainText("ivan@example.com");
+  // The components render as one line, in postal order.
+  await expect(contact).toContainText("вул. Шевченка, 12, кв. 7, 01001 Київ, Україна");
+  await expect(contact.locator('a[href="tel:+380441234567"]')).toBeVisible();
+  await expect(contact.locator('a[href="mailto:ivan@example.com"]')).toBeVisible();
+
+  // Emptying a field is how a detail is removed: "" on the wire = clear. The
+  // address components load back into their own inputs, not one line.
+  await page.getByRole("button", { name: /Редагувати|Edit/ }).first().click();
+  const modal = page.locator(".modal");
+  await expect(modal.locator('input[type="tel"]')).toHaveValue("+380441234567");
+  await expect(modal.getByPlaceholder(/вул\. Шевченка|Shevchenka St/)).toHaveValue("вул. Шевченка");
+  await expect(modal.getByPlaceholder("01001")).toHaveValue("01001");
+  await modal.locator('input[type="tel"]').fill("");
+  await modal.getByPlaceholder(/12, кв\. 5|12, apt\. 5/).fill("");
+  await modal.getByRole("button", { name: /Зберегти|Save/ }).click();
+
+  await expect(modal).toHaveCount(0);
+  expect(calls.update[0].body.phone).toBe("");
+  expect(calls.update[0].body.email).toBe("ivan@example.com");   // untouched, still sent
+  // A blanked component clears just that column; the rest survive.
+  expect(calls.update[0].body.address).toEqual({
+    street: "вул. Шевченка", house: "",
+    zip: "01001", city: "Київ", country: "Україна",
+  });
 });
 
 test("edit: archive via status, deceased needs confirmation, erased never offered", async ({ page }) => {

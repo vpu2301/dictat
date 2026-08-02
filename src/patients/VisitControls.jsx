@@ -194,22 +194,30 @@ export function VisitControls({ encounter, lang, onChanged, compact = false, sho
 
       {confirm && (
         <Modal onClose={() => setConfirm(null)}>
-          <h3 style={{ marginTop: 0 }}>{copy.title}</h3>
-          <p style={{ color: "var(--muted)", fontSize: 13.5 }}>{copy.body}</p>
-          {confirm.detail && (
-            <p style={{ color: "var(--muted)", fontSize: 12.5 }}>{confirm.detail}</p>
-          )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <div className="modal-h">
+            <h2>{copy.title}</h2>
+          </div>
+          <div className="modal-body">
+            <p style={{ margin: 0, color: "var(--text-2)", fontSize: 13.5, lineHeight: 1.5 }}>
+              {copy.body}
+            </p>
+            {confirm.detail && (
+              <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.5 }}>
+                {confirm.detail}
+              </p>
+            )}
+          </div>
+          <div className="modal-foot">
             <button type="button" className="btn" onClick={() => setConfirm(null)}>
               {tr(lang, "Назад", "Back")}
             </button>
             <button
               type="button"
-              className={`btn ${copy.danger ? "" : "accent"}`}
+              className={`btn ${copy.danger ? "danger" : "accent"}`}
               disabled={busy != null}
               onClick={() => run(confirm.action, { force: confirm.force })}
             >
-              {copy.ok}
+              {busy != null ? tr(lang, "Зачекайте…", "Working…") : copy.ok}
             </button>
           </div>
         </Modal>
