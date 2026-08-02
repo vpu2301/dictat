@@ -74,6 +74,7 @@ export const Icon = ({ name, size = 16, ...rest }) => {
     // Added for the platform-owner console (#/company).
     building: <><path d="M3 21h18M5 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17M15 21V9h4a1 1 0 0 1 1 1v11" /><path d="M8 7h4M8 11h4M8 15h4" /></>,
     activity: <path d="M3 12h4l3 8 4-16 3 8h4" />,
+    link: <><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" /></>,
     card: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></>,
     pulse: <><circle cx="12" cy="12" r="9" /><path d="M7 12h2l1.5 3.5L13 8l1.5 4H17" /></>,
     alert: <><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></>,

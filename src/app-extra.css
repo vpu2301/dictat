@@ -387,6 +387,14 @@
 .settings-row:first-child { border-top: 0; padding-top: 4px; }
 .settings-row-label { font-size: 13px; font-weight: 500; }
 .settings-row-hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+/* Group heading inside a settings card — used where one section carries rows in
+   named groups (evidence sources, by source family). */
+.settings-subhead {
+  padding: 14px 0 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted);
+}
+.settings-card-body > .settings-subhead:first-child { padding-top: 4px; }
 .settings-row-control { display: flex; align-items: center; gap: 8px; }
 /* Every setting control is a dropdown now — give them a consistent width so
    they line up on the right of each row. */

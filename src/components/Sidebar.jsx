@@ -184,6 +184,7 @@ export function Sidebar({
   useEffect(() => {
     let want = null;
     if (route.startsWith("/asr")) want = "asr";
+    else if (route.startsWith("/chat")) want = "evidence";
     else if (route.startsWith("/audit")) want = "audit";
     else if (route.startsWith("/scribe") || route.startsWith("/dictate")) want = "workspace";
     if (want) setOpenSet((cur) => { if (cur.has(want)) return cur; const n = new Set(cur); n.add(want); return n; });
@@ -426,6 +427,19 @@ export function Sidebar({
           <NavLink {...{ route, navigate, collapsed }} icon="plus"
                    label={tr(lang, "Нове завдання", "New job")}
                    path="/asr/new" exact />
+        </Group>
+      )}
+
+      {/* ── Evidence (embedded module — chat, agents, connectors) ── */}
+      {state && clinical && (
+        <Group id="evidence" title={tr(lang, "Доказова база", "Evidence")} icon="sparkle"
+               openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed}>
+          <NavLink {...{ route, navigate, collapsed }} icon="sparkle"
+                   label={tr(lang, "Платформа", "Evidence platform")}
+                   path="/chat" exact />
+          <NavLink {...{ route, navigate, collapsed }} icon="users"
+                   label={tr(lang, "Агенти", "Agents")}
+                   path="/chat/agents" prefix="/chat/agents" />
         </Group>
       )}
 

@@ -12,12 +12,18 @@ import { Icon } from "../components/UI.jsx";
 import { MenuSelect } from "../components/MenuSelect.jsx";
 import { Row, Section, SettingsNav, Toggle, useSettingsSections } from "../components/SettingsLayout.jsx";
 import { LANGS , tr } from "../i18n.js";
+import { ChatSettingsSection, CHAT_SETTINGS_SECTION } from "../chat/host/ChatSettingsSection.jsx";
+import { ChatConnectorsSection, CHAT_CONNECTORS_SECTION } from "../chat/host/ChatConnectorsSection.jsx";
 
 // ── Section registry (drives both the side nav and the rendered order) ────────
 const SECTIONS = [
   { id: "appearance",    icon: "sun",      uk: "Вигляд",          en: "Appearance" },
   { id: "language",      icon: "layers",   uk: "Мова та регіон",  en: "Language & region" },
   { id: "dictation",     icon: "mic",      uk: "Диктування",      en: "Dictation" },
+  // The evidence-chat module publishes its settings as a contract and this page
+  // renders them; the module has no settings screen of its own (src/chat/README.md).
+  { id: CHAT_SETTINGS_SECTION.id, icon: CHAT_SETTINGS_SECTION.icon, uk: CHAT_SETTINGS_SECTION.uk, en: CHAT_SETTINGS_SECTION.en },
+  { id: CHAT_CONNECTORS_SECTION.id, icon: CHAT_CONNECTORS_SECTION.icon, uk: CHAT_CONNECTORS_SECTION.uk, en: CHAT_CONNECTORS_SECTION.en },
   { id: "notifications", icon: "bell",     uk: "Сповіщення",      en: "Notifications" },
   { id: "privacy",       icon: "shield",   uk: "Дані та приватність", en: "Data & privacy" },
   { id: "account",       icon: "user",     uk: "Акаунт і безпека", en: "Account & security" },
@@ -116,6 +122,10 @@ export function SettingsPage({ lang = "en", tweaks, setTweak, navigate }) {
               <Toggle on={g("autosave", true)} onChange={(v) => setTweak("autosave", v)} label={T("Автозбереження чернеток", "Auto-save drafts")} />
             </Row>
           </Section>
+
+          <ChatSettingsSection lang={lang} />
+
+          <ChatConnectorsSection lang={lang} />
 
           <Section id="notifications" icon="bell" title={T("Сповіщення", "Notifications")}>
             <Row label={T("Email-сповіщення", "Email notifications")}>
