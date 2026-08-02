@@ -41,6 +41,8 @@
   --rec: #dc2626;
   --rec-soft: #fee2e2;
   --ok: #047857;
+  --info: #2563eb;
+  --info-soft: #e9effd;
 
   --shadow-1: 0 1px 2px rgba(11, 18, 32, 0.04), 0 1px 1px rgba(11, 18, 32, 0.02);
   --shadow-2: 0 4px 14px -4px rgba(11, 18, 32, 0.08), 0 2px 6px rgba(11, 18, 32, 0.04);
@@ -81,6 +83,8 @@
   --warn-soft: rgba(245, 158, 11, 0.10);
   --rec: #f87171;
   --rec-soft: rgba(248, 113, 113, 0.12);
+  --info: #60a5fa;
+  --info-soft: rgba(96, 165, 250, 0.12);
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
   --shadow-2: 0 4px 14px -4px rgba(0, 0, 0, 0.45);
@@ -911,22 +915,17 @@ kbd {
   cursor: pointer;
   position: relative;
 }
-.tl-row::before {
-  content: ""; position: absolute;
-  left: 37px; top: 38px; bottom: 0;
-  width: 1px; background: var(--line-2);
-}
-.tl-row:last-child::before { display: none; }
 .tl-row:last-child { border-bottom: 0; }
 .tl-row:hover { background: var(--surface-hover); }
 .tl-dot {
-  width: 32px; height: 32px; border-radius: 50%;
+  width: 34px; height: 34px; border-radius: 10px;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--scribe-soft); color: var(--scribe);
-  border: 1px solid var(--surface);
-  box-shadow: 0 0 0 1px var(--line);
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  flex-shrink: 0;
   z-index: 1;
 }
+.tl-dot svg { stroke-width: 2px; }
 .tl-row.dictate .tl-dot { background: var(--dictate-soft); color: var(--dictate); }
 .tl-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
 .tl-h strong { font-weight: 500; color: var(--text-1); }
@@ -1195,6 +1194,11 @@ kbd {
 }
 .studio > .right { border-right: 0; border-left: 1px solid var(--line); }
 .studio > .center { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+/* Gate screens (loading, encounter closed/not-found, template/report errors)
+   render a single child inside the Studio grid — span it across all columns
+   like .patient-gate does, so it isn't squeezed into the 260px rail column. */
+.studio > :only-child { grid-column: 1 / -1; }
+.studio > .empty:only-child { align-self: center; }
 
 /* ─── Studio left rail ────────────────────────────────────────────────── */
 .rail-h {

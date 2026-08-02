@@ -10,7 +10,9 @@ import { ApiErrorView } from './ApiErrorView.jsx';
 import { Pagination } from './Pagination.jsx';
 import { MenuSelect } from './MenuSelect.jsx';
 import { useAsync } from '../api/useAsync.js';
-import { listReports, countReports, reportHits, getReport, listReportVersions, getReportVersion, amendReport, cancelReport, revertReportToDraft } from '../api/reports.js';
+import { listReports, countReports, reportHits, getReport, listReportVersions, getReportVersion, amendReport, cancelReport, revertReportToDraft, expandedTerms } from '../api/reports.js';
+import { ReplaySection } from '../replay/ReplayStrip.jsx';
+import { SearchTips } from '../search/SearchTips.jsx';
 import { listTemplates, getTemplate, toStudioTemplate } from '../api/templates.js';
 import { versionBody, diffSectionList } from '../reports/versionDiff.js';
 import { useMemberNames } from '../api/memberNames.js';
@@ -193,21 +195,35 @@ export function ReportsList({ navigate, lang }) {
   // Fetch the active tab's reports server-side by status + full-text query
   // (re-runs on tab / search change) so results reflect the whole result set,
   // not just the first page. The backend orders most-recent-first.
+  // Sprint 15 — synonym expansion is the server's default; "точний пошук"
+  // turns it off via expand=false. Kept out of the URL filter state on
+  // purpose: it is a way of looking, not a filter worth sharing in a link.
+  const [exactSearch, setExactSearch] = useState(false);
+
   const activeStatus = TAB_STATUS[filters.tab];
   const reportsReq = useAsync(
     () => listReports({
       ...(activeStatus ? { status: activeStatus } : {}),
       ...(debouncedSearch ? { query: debouncedSearch } : {}),
+      ...(exactSearch ? { expand: false } : {}),
       limit: 100,
     }),
-    [filters.tab, debouncedSearch],
+    [filters.tab, debouncedSearch, exactSearch],
   );
+
+  // What the server actually broadened the query with. Empty unless expansion
+  // occurred — so the indicator can never claim an expansion that did not
+  // happen (including every expand=false search).
+  const expansions = useMemo(() => expandedTerms(reportsReq.data), [reportsReq.data]);
 
   // Exact per-tab counts for the badges (cheap total=exact calls). They respect
   // the active search so the badge numbers match the filtered list.
   const countsReq = useAsync(
     () => {
-      const q = debouncedSearch ? { query: debouncedSearch } : {};
+      const q = {
+        ...(debouncedSearch ? { query: debouncedSearch } : {}),
+        ...(exactSearch ? { expand: false } : {}),
+      };
       return Promise.all([
         countReports({ ...q, status: "draft" }),
         countReports({ ...q, status: "finalized" }),
@@ -217,7 +233,7 @@ export function ReportsList({ navigate, lang }) {
         countReports({ ...q, status: ACTIVE_STATUSES }),
       ]);
     },
-    [debouncedSearch],
+    [debouncedSearch, exactSearch],
   );
 
   const all = useMemo(() => reportHits(reportsReq.data).map(hitToReport), [reportsReq.data]);
@@ -294,7 +310,49 @@ export function ReportsList({ navigate, lang }) {
           )}
         </label>
         {specs.length > 0 && <SpecFilter value={filters.spec} onChange={v => setFilter('spec', v)} lang={lang} specs={specs} />}
+        <div className="spacer" style={{ flex: 1 }} />
+        {/* Sprint 15 — the tips are rendered from the server's own description
+            of its search behaviour, never from copy written here. */}
+        <SearchTips lang={lang} />
       </div>
+
+      {/* Sprint 15 — expansion transparency. The row appears ONLY when the
+          server reports that it broadened the query, and it says exactly what
+          with. The toggle is the escape hatch to literal terms. */}
+      {debouncedSearch && (expansions.length > 0 || exactSearch) && (
+        <div className="search-expansion" data-testid="search-expansion">
+          {expansions.length > 0 ? (
+            <>
+              <Icon name="search" size={12} />
+              <span className="se-label">{tr(lang, "Також шукали:", "Also matched:")}</span>
+              <span className="se-terms" data-testid="search-expansion-terms">
+                {expansions.map(term => (
+                  <span className="se-term" key={term}>{term}</span>
+                ))}
+              </span>
+            </>
+          ) : (
+            <>
+              <Icon name="search" size={12} />
+              <span className="se-label" data-testid="search-exact-note">
+                {tr(lang, "Точний пошук — синоніми вимкнено.", "Exact search — synonyms are off.")}
+              </span>
+            </>
+          )}
+          <span className="spacer" style={{ flex: 1 }} />
+          <button
+            type="button"
+            className={"btn ghost sm" + (exactSearch ? " accent" : "")}
+            data-testid="search-exact-toggle"
+            aria-pressed={exactSearch}
+            onClick={() => setExactSearch(v => !v)}
+          >
+            {exactSearch
+              ? tr(lang, "Увімкнути синоніми", "Turn synonyms on")
+              : tr(lang, "Точний пошук", "Exact search")}
+          </button>
+        </div>
+      )}
 
       <div className="tabs" style={{ marginBottom: 14 }}>
         {tabs.map(({ key, label }) => (
@@ -926,6 +984,10 @@ export function ReportView({ id, navigate, lang }) {
   const [accessOpen, setAccessOpen] = useState(false); // S14 break-glass modal
   const [editing, setEditing] = useState(false);
   const [toasts, setToasts] = useState([]);
+  // Sprint 15 — which sentence's replay strip is open ("<section>:<index>").
+  // One at a time across the whole report: two clips playing over each other
+  // is noise, not review.
+  const [replayOpen, setReplayOpen] = useState(null);
   const insightsRef = React.useRef(null);
 
   const pushToast = useCallback(msg => {
@@ -1229,9 +1291,24 @@ export function ReportView({ id, navigate, lang }) {
                 <div className="sec-h">
                   <span>{sectionLabel(s.section_key)}</span>
                 </div>
-                <div className="body" style={{ whiteSpace: "pre-wrap" }}>
-                  {s.text || <span style={{ color: "var(--muted)", fontStyle: "italic" }}>— {tr(lang, "відсутнє", "missing")} —</span>}
-                </div>
+                {/* Sprint 15 — every sentence is one tap from its source audio.
+                    ReplaySection falls back to plain text when the section has
+                    no segments, so a report with no recording reads exactly as
+                    it did before. */}
+                {s.text ? (
+                  <ReplaySection
+                    reportId={id}
+                    sectionKey={s.section_key}
+                    text={s.text}
+                    lang={lang}
+                    openKey={replayOpen}
+                    onOpen={setReplayOpen}
+                  />
+                ) : (
+                  <div className="body" style={{ whiteSpace: "pre-wrap" }}>
+                    <span style={{ color: "var(--muted)", fontStyle: "italic" }}>— {tr(lang, "відсутнє", "missing")} —</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>

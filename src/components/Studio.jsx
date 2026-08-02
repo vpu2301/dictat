@@ -32,6 +32,9 @@ import {
   useBackoff,
 } from './AutocompletePanel.jsx';
 import { telemetry } from '../autocomplete/telemetry.js';
+import { useGhostCompletion } from '../completion/useGhostCompletion.js';
+import { useLayerCFlag } from '../completion/useLayerCFlag.js';
+import { GhostCoachMark, coachMarkSeen, markCoachMarkSeen } from '../completion/CoachMark.jsx';
 import { sectionMetaFromContent } from '../reports/fieldContract.js';
 import { focusViolationTarget } from '../reports/finalizeViolations.js';
 import { applyChoiceOp, voiceOpErrorMessage, revealSection, ICD10_SEED_EVENT } from '../reports/applyChoiceOp.js';
@@ -71,7 +74,9 @@ function acMinPrefix(sensitivity) {
 // design). Server-side preferences endpoint is a named follow-up in
 // docs/sprint-10/EXPLORE.md. `enabled` is the master switch: false ⇒ no
 // queries, no decorations, no telemetry, no keyboard interception.
-const AC_PREFS_DEFAULTS = { enabled: true, ghostEnabled: true, pillsEnabled: true, sensitivity: 50 };
+// `layerCEnabled` (sprint 15) is the user's half of the Layer C gate; the
+// tenant's half comes from generation-service /readyz. Both must be on.
+const AC_PREFS_DEFAULTS = { enabled: true, ghostEnabled: true, pillsEnabled: true, layerCEnabled: true, sensitivity: 50 };
 const acPrefsKey = (sub) => `mdx.ac.prefs.v1.${sub || "anon"}`;
 function loadAcPrefs(sub) {
   try {
@@ -1283,6 +1288,10 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   const { state: auth } = useAuth();
   const author = auth?.dbUser?.display_name || auth?.claims?.sub || null;
   const reportIdRef = useRef(null);
+  // Render-visible mirror of reportIdRef. Layer C's wire contract REQUIRES a
+  // real report_id, so the ghost hook has to re-evaluate the moment the first
+  // autosave mints one — a ref alone never re-renders.
+  const [liveReportId, setLiveReportId] = useState(null);
   const reportVersionRef = useRef(0);  // optimistic-lock version for draft autosave
   const reportStatusRef = useRef("draft"); // draft | finalized | signed — drives finalize-before-sign
   // Autosave pacing/serialization (see AUTOSAVE_* constants).
@@ -1308,6 +1317,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     seededReportRef.current = rep.id;
     const content = rep.content || {};
     reportIdRef.current = rep.id;
+    setLiveReportId(rep.id);
     // The envelope names it current_version_number (GET /v1/reports/{id});
     // seeding 1 for a v2+ draft would 409 every autosave until the conflict
     // handler re-adopts the server version.
@@ -1373,6 +1383,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       setBody({});
       setSectionMeta({});
       reportIdRef.current = null;
+      setLiveReportId(null);
       setActiveId(null); // the detail-load effect sets the first section
     }
   }, [externalAddTemplate]);
@@ -1447,6 +1458,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       } else {
         const r = await createReport({ template_id: templateId, template_schema_version: template?.schema_version, body, patient_id: patient.id, section_meta: sectionMeta });
         reportIdRef.current = r?.id ?? null;
+        setLiveReportId(reportIdRef.current);
         reportVersionRef.current = r?.version_number ?? 1;
       }
       setLastSavedAt(Date.now());
@@ -1898,6 +1910,103 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     if (explicit) setAcExplicit(true);
   }, []);
 
+  // ── Layer C — generated ghost completions (Sprint 15) ──────────────
+  //
+  // Gated by FOUR independent conditions, all of which must hold. Any one of
+  // them false means not a single request leaves the browser:
+  //   · the tenant flag, read from generation-service /readyz;
+  //   · the clinician's own switch (autocomplete master + the Layer C toggle);
+  //   · a draft that actually exists — the wire contract requires a report_id
+  //     and inventing one would poison the audit trail's target;
+  //   · Layer A silence. The corpus knows the clinic's real phrasing; when it
+  //     has an answer the model does not get to talk over it, and the caret
+  //     never carries two ghosts.
+  // Dictation also suppresses it: while the transcript stream owns insertion,
+  // a second writer at the caret is nothing but interference.
+  const layerCUserOn = acPrefs.enabled !== false && acPrefs.layerCEnabled !== false;
+  const layerCFlag = useLayerCFlag({ enabled: layerCUserOn });
+  const lcEnabled =
+    layerCUserOn &&
+    layerCFlag.enabled &&
+    !!liveReportId &&
+    !!activeId &&
+    acVisible.length === 0 &&
+    speech.state !== 'listening';
+
+  // Touch devices have no Tab key, so the ghost carries an inline accept chip.
+  const lcTouch = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.matchMedia?.('(pointer: coarse)').matches === true ||
+        (navigator.maxTouchPoints || 0) > 0;
+    } catch { return false; }
+  }, []);
+
+  const handleLcShown = useCallback(({ requestId, prefix }) => {
+    if (!requestId) return;
+    telemetry.track({
+      request_id: requestId,
+      event: 'shown_only',
+      source: 'layer_c',
+      prefix: prefix || '',
+      context: { field: activeId },
+    });
+  }, [activeId]);
+
+  const handleLcDismissed = useCallback(({ requestId, prefix, reason }) => {
+    if (!requestId) return;
+    telemetry.track({
+      request_id: requestId,
+      event: 'rejected',
+      source: 'layer_c',
+      prefix: prefix || '',
+      context: { field: activeId, reason },
+    });
+  }, [activeId]);
+
+  const lc = useGhostCompletion({
+    textBeforeCaret: acCaretText,
+    enabled: lcEnabled,
+    reportId: liveReportId,
+    sectionKey: activeId,
+    language: dictLang,
+    onShown: handleLcShown,
+    onDismissed: handleLcDismissed,
+  });
+
+  // One-time coach-mark anchor: the first ghost a clinician ever sees says
+  // what it is. `null` once seen (or once the ghost is gone).
+  const [lcCoach, setLcCoach] = useState(null);
+
+  // The accept. After this the continuation is the clinician's text — full
+  // stop. Nothing marks it, nothing remembers it was generated; that is what
+  // accepting means.
+  const handleLcAccept = useCallback(() => {
+    const g = lc.ghost;
+    lc.clearAccepted();
+    if (g?.requestId) {
+      telemetry.track({
+        request_id: g.requestId,
+        event: 'accepted',
+        source: 'layer_c',
+        prefix: g.prefix || '',
+        context: { field: activeId },
+      });
+    }
+    setLcCoach(null);
+    markCoachMarkSeen(auth?.claims?.sub);
+  }, [lc, activeId, auth?.claims?.sub]);
+
+  const handleLcDismiss = useCallback((reason) => { lc.dismiss(reason); }, [lc]);
+
+  // Anchored to the caret via the editor's own coords helper.
+  useEffect(() => {
+    if (!lc.ghost) return;
+    if (coachMarkSeen(auth?.claims?.sub)) return;
+    setLcCoach(acApiRef.current?.caretCoords?.() || null);
+  }, [lc.ghost, auth?.claims?.sub]);
+  useEffect(() => { if (!lc.ghost) setLcCoach(null); }, [lc.ghost]);
+
   // A reopened draft that failed to load must surface the failure. Falling
   // through would render the patient gate and then an empty template state —
   // which reads as "pick a patient / no templates" instead of the real error
@@ -2041,6 +2150,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
             setBody({});
             setSectionMeta({});
             reportIdRef.current = null;
+            setLiveReportId(null);
             setActiveId(null); // the detail-load effect sets the first section
           }}
           onAddTemplate={onAddTemplate}
@@ -2090,7 +2200,34 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           onAcCaretContext={setAcCaretText}
           acApiRef={acApiRef}
           acListboxOpen={acPillsOpen}
+          lcGhost={lc.ghost}
+          lcTouch={lcTouch}
+          lcAcceptLabel={tr(lang, "Прийняти продовження", "Accept continuation")}
+          onLcAccept={handleLcAccept}
+          onLcDismiss={handleLcDismiss}
         />
+
+        {/* Layer C: the ghost text itself is aria-hidden (a screen reader
+            reading it inline would present machine text as document content).
+            This is where its existence is announced instead — a short, stable
+            sentence, never the completion, so the region never becomes a
+            keystroke-paced narrator. */}
+        <div className="sr-only" role="status" aria-live="polite">
+          {lc.ghost
+            ? tr(lang,
+                "Є продовження, запропоноване ШІ. Натисніть Tab, щоб прийняти.",
+                "An AI-suggested continuation is available. Press Tab to accept.")
+            : ""}
+        </div>
+
+        {/* Layer C: first-run explanation, shown once per clinician. */}
+        {lc.ghost && lcCoach && (
+          <GhostCoachMark
+            anchor={lcCoach}
+            lang={lang}
+            onDone={() => { setLcCoach(null); markCoachMarkSeen(auth?.claims?.sub); }}
+          />
+        )}
 
         {/* Sprint 10: Layer B pills (popup only when there is a choice),
             anchored under the caret (viewport coords from the editor). */}

@@ -200,10 +200,13 @@ test("new encounter sends only as-built enum kinds", async ({ page }) => {
   await page.getByRole("button", { name: /Додати без диктування|Log without dictation/ }).click();
   const modal = page.locator(".modal");
 
-  const values = await modal.locator("select option").evaluateAll((os) => os.map((o) => o.value));
-  expect(values).toEqual(["visit", "followup", "phone", "video", "other"]);
-
-  await modal.locator("select").selectOption("followup");
+  await modal.locator(".menu-select-trigger").click();
+  const opts = modal.locator(".spec-menu-item");
+  const labels = await opts.allTextContents();
+  expect(labels).toEqual([
+    "Візит", "Повторний прийом", "Телефонна консультація", "Відеоконсультація", "Інше",
+  ]);
+  await opts.filter({ hasText: "Повторний прийом" }).click();
   await modal.locator("textarea").fill("контроль тиску");
   await modal.getByRole("button", { name: /Зберегти|Save/ }).click();
   await expect(modal).toHaveCount(0);

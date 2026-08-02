@@ -55,22 +55,14 @@
   display: none;
 }
 
-/* Per-type dots */
-.tl-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.tl-type-encounter .tl-dot { background: var(--accent-soft); color: var(--accent); }
-.tl-type-report    .tl-dot { background: var(--dictate-soft,#ecebfb); color: var(--dictate,#4338ca); }
-.tl-type-note      .tl-dot { background: var(--surface-2); color: var(--text-2); }
-.tl-type-conversation .tl-dot { background: var(--scribe-soft,#e6f4f1); color: var(--scribe,#0a8a7a); }
-.tl-type-consent   .tl-dot { background: var(--warn-soft); color: var(--warn); }
+/* Per-type dots — base geometry lives in styles.css (.tl-dot). One hue per
+   artifact type so the merged feed scans by color, not by reading labels. */
+.tl-dot.tl-type-encounter,    .tl-type-encounter .tl-dot    { background: var(--info-soft); color: var(--info); }
+.tl-dot.tl-type-report,       .tl-type-report .tl-dot       { background: var(--dictate-soft, #ecebfb); color: var(--dictate, #4338ca); }
+.tl-dot.tl-type-note,         .tl-type-note .tl-dot         { background: var(--surface-2); color: var(--text-3); }
+.tl-dot.tl-type-recording,    .tl-type-recording .tl-dot    { background: var(--scribe-soft, #e6f4f1); color: var(--scribe, #0a8a7a); }
+.tl-dot.tl-type-conversation, .tl-type-conversation .tl-dot { background: var(--scribe-soft, #e6f4f1); color: var(--scribe, #0a8a7a); }
+.tl-dot.tl-type-consent,      .tl-type-consent .tl-dot      { background: var(--warn-soft); color: var(--warn); }
 
 /* Count badges on tabs */
 .tab-badge {
@@ -1653,8 +1645,6 @@ a.ph-contact-item:hover > svg { color: var(--accent); }
   background: var(--warn-soft, #fef3c7); color: var(--warn, #92400e);
   font-size: 12.5px;
 }
-.tl-dot.tl-type-recording { background: var(--scribe-soft, #e6f4f1); color: var(--scribe, #0a8a7a); }
-.tl-dot.tl-type-encounter { background: var(--surface-2); color: var(--text-2); }
 .tl-enc-link {
   background: none; border: none; padding: 0; cursor: pointer;
   color: var(--accent); font-size: 12px; text-decoration: underline;
@@ -2717,3 +2707,197 @@ a.ph-contact-item:hover > svg { color: var(--accent); }
 .cmp-act { text-align: right; white-space: nowrap; }
 .cmp-soon { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
 .cmp-foot { margin-top: 12px; max-width: 76ch; line-height: 1.55; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Sprint 15 — Layer C ghost completions · Tap-to-hear replay · Smarter search
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Layer C ghost text ────────────────────────────────────────────────────
+   Deliberately DIFFERENT from Layer A's ghost (.autocomplete-ghost): Layer A
+   completes a phrase the clinic already uses, Layer C is generated prose. The
+   italic + the ✦ mark are the honesty channel — until Tab, this is visibly
+   not the record. After Tab it is plain document text with no trace. */
+
+.layerc-ghost {
+  pointer-events: none;
+  user-select: none;
+  white-space: pre-wrap;
+}
+
+.layerc-ghost-text {
+  color: var(--text-3, var(--muted));
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* The machine mark rides in front of the continuation, in the flow, so it
+   cannot be scrolled away from the text it qualifies. */
+.layerc-ghost-text::before {
+  content: "✦\00a0";
+  font-style: normal;
+  opacity: 0.75;
+  color: var(--dictate);
+}
+
+/* Touch accept chip — the Tab key made tappable. Pointer events are re-enabled
+   only here; the ghost text itself stays inert. */
+.layerc-accept {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  margin-inline-start: 6px;
+  padding: 0 6px;
+  vertical-align: baseline;
+  border: 1px solid var(--dictate);
+  border-radius: 6px;
+  background: var(--dictate-soft);
+  color: var(--dictate);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.layerc-accept:active { transform: translateY(1px); }
+
+/* One-time coach-mark */
+.layerc-coach {
+  z-index: 90;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-3);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.layerc-coach-mark { color: var(--dictate); flex: none; }
+.layerc-coach-x {
+  margin-inline-start: auto;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* ── Tap-to-hear replay ───────────────────────────────────────────────────
+   The glyph is quiet until the sentence is hovered/focused: a report should
+   read as a report, not as a control panel. */
+
+.replay-body { white-space: pre-wrap; }
+
+.replay-sentence { border-radius: 4px; transition: background 120ms ease; }
+.replay-sentence.on { background: var(--accent-soft); }
+
+.replay-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-inline-start: 3px;
+  vertical-align: baseline;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0.28;
+  cursor: pointer;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+.replay-sentence:hover .replay-glyph,
+.replay-sentence.on .replay-glyph,
+.replay-glyph:focus-visible { opacity: 1; background: var(--surface-2); }
+.replay-glyph:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.replay-player {
+  display: block;
+  margin: 8px 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  white-space: normal;
+}
+.replay-player-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.replay-player-h .spacer { flex: 1; }
+.replay-speaker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--dictate-soft);
+  color: var(--dictate);
+  font-weight: 600;
+}
+.replay-range { font-size: 11px; }
+.replay-approx { font-style: italic; opacity: 0.85; }
+.replay-audio { width: 100%; height: 32px; }
+.replay-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.replay-degraded { color: var(--warn); }
+.replay-degraded svg { flex: none; margin-top: 2px; }
+
+/* ── Search: expansion transparency + server-owned tips ───────────────── */
+
+.search-expansion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.se-label { color: var(--text-2); }
+.se-terms { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.se-term {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text, var(--accent));
+  font-size: 12px;
+}
+
+.search-tips-wrap { position: relative; }
+.search-tips-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  z-index: 60;
+  width: min(400px, calc(100vw - 24px));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-3);
+}
+.search-tip + .search-tip { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-2); }
+.search-tip-h { font-size: 12.5px; font-weight: 650; color: var(--text-1); margin-bottom: 3px; }
+.search-tip-b { font-size: 12.5px; line-height: 1.5; color: var(--text-2); }

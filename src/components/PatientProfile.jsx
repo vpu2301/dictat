@@ -3,6 +3,7 @@
 // rule is for lists) + the merged clinical feed via src/patients/feed.js.
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon, Modal, Empty } from './UI.jsx';
+import { MenuSelect } from './MenuSelect.jsx';
 import { Loading, asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { useAsync } from '../api/useAsync.js';
@@ -215,7 +216,7 @@ export function StartEncounterSheet({ lang, onClose, onStart }) {
   };
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} className="dialog-modal">
       <div className="modal-h">
         <h2>{tr(lang, "Почати прийом", "Start encounter")}</h2>
         <p>{tr(lang, "Прийом розпочнеться зараз; запис буде звʼязаний з ним.", "The encounter starts now; the recording will be linked to it.")}</p>
@@ -252,9 +253,13 @@ export function StartEncounterSheet({ lang, onClose, onStart }) {
         </div>
         <label>
           {tr(lang, "Тип прийому", "Visit kind")}
-          <select value={kind} onChange={e => setKind(e.target.value)}>
-            {kindOptions.map(o => <option key={o.value} value={o.value}>{o[lang] || o.en}</option>)}
-          </select>
+          <MenuSelect
+            block
+            value={kind}
+            onChange={setKind}
+            options={kindOptions.map(o => ({ value: o.value, label: o[lang] || o.en }))}
+            ariaLabel={tr(lang, "Тип прийому", "Visit kind")}
+          />
         </label>
         <label>
           {tr(lang, "Причина звернення (необовʼязково)", "Reason for visit (optional)")}
@@ -309,7 +314,7 @@ export function EncounterModal({ lang, onClose, onSave }) {
   };
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} className="dialog-modal">
       <div className="modal-h">
         <h2>{tr(lang, "Додати прийом (без диктування)", "Log an encounter (no dictation)")}</h2>
         <p>{tr(lang, "Зафіксуйте минулий прийом заднім числом", "Backfill a visit that already happened")}</p>
@@ -317,9 +322,13 @@ export function EncounterModal({ lang, onClose, onSave }) {
       <div className="encounter-form">
         <label>
           {tr(lang, "Тип прийому", "Visit kind")}
-          <select value={kind} onChange={e => setKind(e.target.value)}>
-            {kindOptions.map(o => <option key={o.value} value={o.value}>{o[lang] || o.en}</option>)}
-          </select>
+          <MenuSelect
+            block
+            value={kind}
+            onChange={setKind}
+            options={kindOptions.map(o => ({ value: o.value, label: o[lang] || o.en }))}
+            ariaLabel={tr(lang, "Тип прийому", "Visit kind")}
+          />
         </label>
         <label>
           {tr(lang, "Дата та час", "Date & time")}
@@ -667,7 +676,7 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
     return (
       <div key={item.key} className={`tl-row tl-type-${item.type}`} onClick={links[item.type]}
         style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", cursor: "pointer", borderBottom: "1px solid var(--line-2)" }}>
-        <div className={`tl-dot tl-type-${item.type}`}><Icon name={t.icon} size={12} /></div>
+        <div className={`tl-dot tl-type-${item.type}`}><Icon name={t.icon} size={15} /></div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {t.chipClass && <span className={`chip ${t.chipClass}`}>{t.label}</span>}
@@ -879,8 +888,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
             ) : listShell(
               encounters.map((e, i, arr) => (
                 <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-2)" : "none" }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon name="calendar" size={13} />
+                  <div className="tl-dot tl-type-encounter">
+                    <Icon name="calendar" size={15} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>
@@ -923,8 +932,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
               notes.map((n, i) => (
                 <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < notes.length - 1 ? "1px solid var(--line-2)" : "none", cursor: "pointer" }}
                   onClick={() => navigate(`/scribe/notes/${n.id}`)}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon name="fileText" size={13} />
+                  <div className="tl-dot tl-type-note">
+                    <Icon name="fileText" size={15} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>{loc(n.title, lang)}</div>
@@ -951,8 +960,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
               reportItems.map((rep, i, arr) => (
                 <div key={rep.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-2)" : "none", cursor: "pointer" }}
                   onClick={() => navigate(`/dictate/reports/${rep.id}`)}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--dictate-soft,#ecebfb)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--dictate,#4338ca)" }}>
-                    <Icon name="scan" size={13} />
+                  <div className="tl-dot tl-type-report">
+                    <Icon name="scan" size={15} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>{loc(rep.title, lang)}</div>
@@ -994,8 +1003,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
             ) : listShell(
               recordingItems.map((rec, i, arr) => (
                 <div key={rec.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-2)" : "none" }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--scribe-soft,#e6f4f1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--scribe,#0a8a7a)" }}>
-                    <Icon name="audio" size={13} />
+                  <div className="tl-dot tl-type-recording">
+                    <Icon name="audio" size={15} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>
@@ -1039,8 +1048,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                 // transcript with no idea whose record it belongs to.
                 <div key={conv.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-2)" : "none", cursor: "pointer" }}
                   onClick={() => navigate(`/scribe/consult/${conv.id}?patient=${id}`)}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--scribe-soft,#e6f4f1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--scribe,#0a8a7a)" }}>
-                    <Icon name="mic" size={13} />
+                  <div className="tl-dot tl-type-conversation">
+                    <Icon name="mic" size={15} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--text-1)" }}>
@@ -1086,8 +1095,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
             ) : listShell(
               consents.map((c) => (
                 <div key={c.id} className={"consent-row" + (c.status === "withdrawn" ? " withdrawn" : "")}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon name="shield" size={13} />
+                  <div className="tl-dot tl-type-consent">
+                    <Icon name="shield" size={15} />
                   </div>
                   <div className="cr-meta">
                     <div className="cr-type">
