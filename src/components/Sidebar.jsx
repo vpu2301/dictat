@@ -11,6 +11,7 @@ import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
 import { useAsync } from "../api/useAsync.js";
 import { countReports } from "../api/reports.js";
+import { useSettings as useChatSettings } from "../chat/settingsContract.js";
 import { tr } from "../i18n.js";
 
 // One collapsible group ── header clickable, body slides under.
@@ -152,6 +153,11 @@ export function Sidebar({
   // what is left is the trail they are here to read.
   const auditorOnly = isAuditorOnly(claims);
   const canPatients = canReadPatients(claims);
+  // The evidence-chat module is a fixture-data demo behind a settings gate:
+  // its sidebar block exists only while "Show the module" is on (same
+  // workspace-scoped store the module itself reads, so the toggle in
+  // /settings hides this block live, no reload).
+  const chatEnabled = !!useChatSettings(claims?.tid).settings.moduleEnabled;
 
   const product = route.startsWith("/dictate") ? "dictate" : "scribe";
 
@@ -184,6 +190,7 @@ export function Sidebar({
   useEffect(() => {
     let want = null;
     if (route.startsWith("/asr")) want = "asr";
+    else if (route.startsWith("/chat")) want = "evidence";
     else if (route.startsWith("/audit")) want = "audit";
     else if (route.startsWith("/scribe") || route.startsWith("/dictate")) want = "workspace";
     if (want) setOpenSet((cur) => { if (cur.has(want)) return cur; const n = new Set(cur); n.add(want); return n; });
@@ -426,6 +433,21 @@ export function Sidebar({
           <NavLink {...{ route, navigate, collapsed }} icon="plus"
                    label={tr(lang, "Нове завдання", "New job")}
                    path="/asr/new" exact />
+        </Group>
+      )}
+
+      {/* ── Evidence (embedded module — chat, agents, connectors) ──
+          Behind the settings gate: a demo module nobody switched on
+          must not advertise itself in the nav. */}
+      {state && clinical && chatEnabled && (
+        <Group id="evidence" title={tr(lang, "Доказова база", "Evidence")} icon="sparkle"
+               openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed}>
+          <NavLink {...{ route, navigate, collapsed }} icon="sparkle"
+                   label={tr(lang, "Платформа", "Evidence platform")}
+                   path="/chat" exact />
+          <NavLink {...{ route, navigate, collapsed }} icon="users"
+                   label={tr(lang, "Агенти", "Agents")}
+                   path="/chat/agents" prefix="/chat/agents" />
         </Group>
       )}
 

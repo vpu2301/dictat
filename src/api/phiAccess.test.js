@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isPhiAccessRequired, phiAccessResourceId } from "./phiAccess.js";
+import { isPhiAccessRequired, phiAccessResourceId, phiAccessResourceKind } from "./phiAccess.js";
 import { hasClinicalAccess, isAdminOnly, isAllowed } from "../auth/roles.js";
 
 const REPORT_ID = "33333333-3333-3333-3333-333333333333";
@@ -30,6 +30,19 @@ test("a phi_access_required 403 is recognised and carries its target", () => {
   });
   assert.equal(isPhiAccessRequired(err), true);
   assert.equal(phiAccessResourceId(err), REPORT_ID);
+});
+
+test("a patient-kind 403 (S15) is recognised and carries its kind", () => {
+  const err = apiError(403, {
+    code: "phi_access_required",
+    resource_kind: "patient",
+    resource_id: REPORT_ID,
+    can_request_access: true,
+  });
+  assert.equal(isPhiAccessRequired(err), true);
+  assert.equal(phiAccessResourceKind(err), "patient");
+  // Older report-shaped errors without the field default to "report".
+  assert.equal(phiAccessResourceKind(apiError(403, { code: "phi_access_required" })), "report");
 });
 
 test("a plain role_denied 403 is NOT an invitation to break glass", () => {

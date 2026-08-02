@@ -1,0 +1,370 @@
+# Evidence-based chat — embedded module (mock-first)
+
+A self-contained clinical evidence module that a host platform **mounts**. The
+user asks a clinical question; the answer comes back as a structured document —
+recommendation, what the evidence says, limitations — with an AWMF-style
+evidence grade, a confidence score, and citations that resolve to real source
+records one tab away. A patient can be brought in for context, either injected
+by the host or imported inside the module.
+
+There is **no backend, no model, no retrieval, and no real patient data**.
+Answers are fixtures. Every patient is fictional.
+
+In this repo the host is Klarnote itself: the module is mounted at `#/chat` and
+linked from the sidebar under **Evidence** (Platform · Agents · Connectors),
+below Transcription. A dev-only fake host lives at `#/chat/harness`.
+
+**Patients are real here.** The host passes `onSearchPatients`, so the import
+dialog searches this tenant's actual roster. The answers are still fixtures —
+see "Deliberate gaps".
+
+---
+
+## Mounting it
+
+```jsx
+import { ChatEmbed } from "./chat/ChatEmbed.jsx";
+
+<ChatEmbed
+  user={{ id, name, email, role }}       // already authenticated by the host
+  workspace={{ id, name }}
+  patient={patientOrUndefined}           // optional: host injects context
+  allowPatientImport                     // offer in-module import when none injected
+  basePath="/apps/evidence-chat"
+  path={currentPath}                     // optional — see "Routing"
+  theme={{ mode: "light" | "dark", tokens }}
+  locale="en"                            // UI language ("uk" translated, else English)
+  onNavigate={(path) => void}
+  onEvent={(evt) => void}
+  onRequestPatient={() => Promise<Patient | null>}   // delegate picking to host UI
+/>
+```
+
+### Props the host must pass
+
+| Prop | Required | Notes |
+|---|---|---|
+| `user` | yes | `{ id, name, email, role }`. Display only — the module authorises nothing. |
+| `workspace` | yes | `{ id, name }`. `id` scopes the module's saved settings. |
+| `patient` | no | Injecting one puts the module in **locked** mode: context renders on mount, import UI is hidden, and it cannot be removed for the session. |
+| `allowPatientImport` | no | When no patient is injected, offer the in-module import dialog (fixtures). |
+| `basePath` | yes in practice | Defaults to `/chat`. Every internal link is built from it. |
+| `path` | no | Current full path. Pass it with `onNavigate` to let the host own the URL; omit both and the module routes itself in memory. |
+| `theme` | no | `mode` picks the module's own light/dark token set. `tokens` overrides individual tokens — values may be colours **or** `var(--host-token)` references. |
+| `locale` | no | UI language. Independent of the **answer language**, which is a feature setting (EN/DE). |
+| `onNavigate` | no | Called with the next path. |
+| `onEvent` | no | `{ name, at, workspaceId, … }`. Emits `patient_context_attached` / `patient_context_removed`, `message_sent`, `answer_completed` / `answer_stopped` / `answer_failed`, `answer_feedback`, `citation_opened`, `session_resumed`, settings and nav events. |
+| `onRequestPatient` | no | If present, "Add patient context" delegates to the host's own picker and the built-in dialog never opens. |
+| `onSearchPatients` | no | `(query) => Promise<Patient[]>`. The host's real roster; the import dialog searches this instead of the fixtures. **This is the door real patient data comes through.** |
+| `onCreateDocument` | no | `(doc) => void`. Where a generated note/plan goes when the user sends it out of the module. |
+| `modalHost` | no | `"panel"` (default) dims the module only; `"page"` portals dialogs to `<body>` and dims the viewport, for a host that owns the content area. |
+
+### The four screens
+
+| View | Path | What it is |
+|---|---|---|
+| Chat | `{basePath}` | Ask, read the answer, generate a document |
+| History | `{basePath}/history` | Past conversations, resumable with their patient |
+| Agents | `{basePath}/agents` | Built-in agents plus ones you create |
+
+Connectors are not a screen: which sources the module may read is configured
+once and lived with, so they sit on the host's settings page with the module's
+other settings (**/settings → Evidence sources**).
+
+### The three patient-context doors
+
+1. **Host-injected** (`patient` prop) — chat opened from a chart. Locked for the session.
+2. **Host picker** (`onRequestPatient`) — the module asks, the host's UI answers.
+3. **In-module import** (`allowPatientImport`) — the module's own dialog over the
+   fixture list. Removable; removing it visibly reverts answers to the generic script.
+
+There is no fourth door. The module never reaches into host internals to find a patient.
+
+### Contract the module keeps
+
+- No `<a href>` navigation and no `location` access — nav goes through
+  `onNavigate` or the in-memory router.
+- Nothing is sized in viewport units, and dialogs dim the **module** by default
+  (`absolute` scrim inside the module root). A host that owns the whole content
+  area can opt into its own modal behaviour with `modalHost="page"`: the dialog
+  is portalled to `<body>` and the scrim covers the viewport, like every other
+  modal in the platform. Klarnote sets it; the harness does not, so the
+  embedded default stays exercised.
+- Identity is never read from `localStorage` or cookies. Storage holds feature
+  settings only (`chat:settings:<workspaceId>`) — never a patient.
+- Telemetry leaves only through `onEvent`; the module calls no analytics SDK.
+- Every rule in `chat.css` is scoped under `.ec-root`, so mounting cannot
+  restyle the host.
+
+All of these are enforced by `noHostImports.test.js` (`npm run test:unit`),
+along with the rule that no file outside `host/` imports anything from outside
+this directory.
+
+---
+
+## The ask box
+
+One rounded card holds the question on top and a tool row underneath — the
+question, the context and tool controls, and the send button in a single object.
+The answer language is not in it: that is a setting, it changes rarely, and the
+answer arrives written in it. It is the same component in both screen states: centred and
+large on the home screen (`size="hero"`), docked to the bottom of the panel once
+a conversation exists (`size="bar"`).
+
+The border does not change on focus. A box that repaints the moment you touch it
+makes typing feel like a state change, and a textarea already announces focus
+the honest way — with a caret.
+
+The tool row is two drop-ups — upward, because the box is docked at the bottom
+of the panel:
+
+| Menu | Items |
+|---|---|
+| **Context** | Patient (opens the picker) · Attachment (a file; demo — not uploaded) · Remove patient |
+| **Tools** | Drug check · Calculators (eGFR · CHA₂DS₂-VASc · BMI) · which agent answers · Manage agents |
+
+**The trigger is the state.** Idle, each is just an icon — the row stays quiet
+when the question carries nothing. Attach a patient and the Context pill becomes
+their name with a × to detach; pick an agent and the Tools pill becomes the
+agent. No chips beside the buttons: the button *is* the chip, so the row never
+grows a second copy of what it already says. Attaching a patient
+changes what the next question means, so the control belongs where the question
+is typed — and that chip is the *only* place attached context is shown. There is
+no patient card on the page; a second panel restating the same fact is furniture
+between the reader and the answer.
+
+**Drug check** writes the question rather than opening a separate mode — with
+the patient's own medication list when there is one. **Calculators** compute in
+`calculators.js` (pure, tested against worked examples) and insert their result
+as a sentence carrying its inputs: a bare "60" in a record is a number nobody
+can check. A drop-up measures the space inside `.ec-root` and flips or clips
+itself to stay in the panel.
+
+Docked it is the same control, same surface, border and radius — narrowed to
+the document's 680px measure rather than spanning the panel, so it lines up
+under the answer instead of being the widest thing on a page it no longer
+leads. It sits at the bottom of the host's content area: the module does not
+measure the window (a panel guessing at a page it does not own), the host passes
+`--ec-fill` and the module fills it. Klarnote sets it; without it the panel
+falls back to a fixed height.
+
+Group labels inside the module — the drop-up section headings, the home
+"Try asking", the limitations aside — use the platform's own values
+(`styles.css` `.sb-section-h` / `.rail-h`): 10.5px, 600, uppercase, .07em,
+muted. Form field labels follow `.label`: 12px, 500, secondary ink. Mirrored,
+not imported, like the rest of the module's styling.
+
+## The two screen states
+
+**Home** — nothing asked yet. The ask box is the page: centred, with example
+questions beneath it, because on an empty evidence tool the hard part is knowing
+what to ask. Past conversations live in History, not here — one list, one place.
+
+**Document** — a question has been asked. The layout carries as little
+furniture as it can, in one 68-character column:
+
+| | |
+|---|---|
+| question | the heading — what was asked |
+| meta | patient chip · N sources · evidence grade · confidence, one line |
+| tabs | **Answer** · **Sources (n)** — a `[n]` chip switches tabs and highlights its card |
+| lead | the recommendation, set larger — no "RECOMMENDATION" label over a single paragraph |
+| body | what the evidence says, at reading size |
+| limits | what it does not cover: an aside with a rule down the side, recessive but never removed |
+| follow-ups | three chips at the end |
+
+Earlier exchanges collapse into a thread above, each keeping its source count.
+While it runs, the retrieval pipeline is visible stage by stage (classify →
+search → guidelines → synthesise → verify) with the entities it extracted,
+rather than a spinner.
+
+**The actions are not in the document.** Helpful / not helpful / copy /
+regenerate / **create document** sit in a bar pinned above the ask box, because
+the moment you want them is after reading to the end — which is exactly when a
+bar inside the scroll area has scrolled away.
+
+Four things were deliberately removed after review: a sources *strip* above the
+answer (the Sources tab already holds them — two source surfaces means neither
+is *the* one), the uppercase heading over each paragraph, the extracted-entity
+chip row (pipeline detail, useful while it runs and noise afterwards), and the
+per-answer action row inside the scroll.
+
+---
+
+## Modals
+
+The module's dialogs — add patient, new agent, create document — are built on
+the platform's own modal pattern (`styles.css` `.modal-*`): 14px radius, header
+with title and sub, body, tinted footer with the action on the right, no close
+X, same overlay tint, blur and entrance animations. The values are **mirrored,
+not imported** (the module may not reach into host CSS any more than into host
+JS) and they resolve through the tokens the host passes in, so they render
+identically.
+
+Where they dim is the host's call. By default the scrim is `absolute` and dims
+the module only — a fixed full-viewport overlay is the thing an embedded module
+must not do unasked (§5). A host that owns the whole content area passes
+`modalHost="page"` and gets the platform's exact behaviour: portalled to
+`<body>`, viewport-covering scrim. Klarnote passes it. A test pins both halves:
+`position: fixed` may appear in exactly one rule, and the default must stay
+`absolute`.
+
+The patient dialog also follows the platform's *interaction*: a row selects, the
+footer button commits. Attaching the wrong patient silently changes what every
+following answer is about, so it takes a deliberate second click — exactly like
+the assign-transcript modal it sits beside.
+
+## From answer to document
+
+**Create document** turns an answer into something that can be filed — a
+**note** (assessment + plan), a **plan** (numbered steps) or a **summary**
+(question, answer, provenance). The draft is editable before it leaves, because
+a generated clinical document that cannot be corrected is a trap, and the edit
+is what turns "the machine wrote this" into "I reviewed and wrote this".
+
+Three rules `documents.js` keeps, all under test:
+
+1. `[n]` markers resolve to a numbered source list carrying PMID/DOI/registry —
+   a citation nobody can follow is worse than none.
+2. Limitations always travel with the recommendation.
+3. Every document says it came from a demo build that does not generate answers.
+
+In Klarnote, **Send to app** copies the document and toasts where it went. A
+real "insert into report" entry point is the report editor's to add.
+
+## Layout
+
+```
+chat/
+  ChatEmbed.jsx          entry + props contract + scoped router + patient state
+  EmbedHarness.jsx       dev-only fake host, both mounting modes (#/chat/harness)
+  SessionContext.jsx     "who am I / which workspace" — filled from props
+  EmbedContext.jsx       basePath, navigate(), emit(), locale, settings, patient
+  routing.js             parsePath()/buildPath() under basePath
+  settingsContract.js    the settings as DATA — the host renders them
+  citations.js           [n] markers → chips; cited-source list
+  documents.js           answer → note / plan / summary (pure, tested)
+  i18n.js                UI translator, dates, age
+  chat.css               the module's whole stylesheet, scoped to .ec-root
+  data/
+    fixtures.js          demo patients, evidence, structured answers (EN + DE)
+    mockClient.js        latency, failure/empty switches, staged streaming
+    useQuery.js          keyed fetch + load/error/refetch
+    hooks.js             THE SEAM — useChat(), usePatients(), useSessions()
+    useSettings.js       feature preferences (localStorage, per workspace)
+  ui/                    Icon, States (loading/empty/error), Bits (pills,
+                         avatar, disclaimer)
+  features/
+    chat/                ChatPage, AnswerDocument, StageProgress, ReferenceCard,
+                         CitationChip, PastTurns, Composer,
+                         PatientContextPanel, PatientImportDialog, DocumentDialog
+    history/             HistoryPanel
+    agents/              AgentsPanel (+ create dialog)
+  host/                  the ONLY host-aware files:
+                           ChatHostRoute.jsx     — mounts the module at #/chat
+                           ChatSettingsSection.jsx   — settings contract on /settings
+                           ChatConnectorsSection.jsx — connectors on /settings
+```
+
+**Screens call hooks, never the mock client.** When the real chat/retrieval API
+lands, only `data/hooks.js` changes — `streamAnswer` already has the shape of a
+streaming endpoint:
+
+```
+{ stage }                      → pipeline progress
+{ entities }                   → what the classifier extracted
+{ chunk }                      → prose, repeatedly
+{ done: true, answer }         → structured, citation-resolved answer
+```
+
+with an `AbortSignal` for stop.
+
+---
+
+## Routing
+
+| Path | Screen |
+|---|---|
+| `{basePath}` | Chat |
+| `{basePath}/s/{sessionId}` | Chat, resumed (thread + patient context restored) |
+| `{basePath}/history` | History |
+| `{basePath}/agents` | Agents |
+
+Anything else under the base renders the chat rather than a blank panel.
+
+---
+
+## Demo scripts
+
+Four topics answer; anything else **abstains** — it says the demo set doesn't
+cover the question rather than assembling a plausible answer from unrelated
+sources.
+
+| Ask | Without context | With context |
+|---|---|---|
+| "What HbA1c target should I aim for?" | 6.5–7.5% corridor, 2 sources, confidence 0.86 | **Manfred Weber** → ~7.0–7.5% using his eGFR 54 / HbA1c 7.8, 3 sources, 0.91 |
+| "When would you add an SGLT2 inhibitor?" | risk-driven indication, 1 source | **Manfred Weber** → eGFR + hypertension rationale, metformin combination |
+| "When should asthma therapy be stepped up?" | check technique and adherence first | **Sofia Krause** → within-regimen step-up, not a new class |
+| "How is anticoagulation dosed in AF?" | DOAC over VKA, dosing criteria | **Yusuf Demir** → apixaban 5 mg correct; INR 1.1 is not a DOAC parameter |
+
+The headline demo is the first row: ask it with no patient, attach Manfred
+Weber, ask it again — different recommendation, different source count,
+different confidence.
+
+Answers, evidence titles and follow-ups all switch to German with
+**Settings → Answer language**; the UI language stays whatever the host injected.
+
+## Settings live on the host's settings page
+
+The module has no settings screen. It publishes `settingsContract.js` — which
+settings exist, their options, their labels, and the storage hook — and the host
+renders them with its own controls. In Klarnote that is **/settings → Evidence
+chat** (answer detail and language) and **/settings → Evidence sources** (the
+connectors), next to Appearance and Dictation, built from the same
+`Section`/`Row`/`Toggle` primitives as every other section there.
+
+The module still owns what the settings mean and where they persist
+(localStorage, scoped per workspace). The host owns only placement. Two settings
+exist: **evidence detail** (compact/full) and **answer language** (EN/DE).
+
+## Reaching every state
+
+The mock switches live in the harness, under **Mock backend**: simulate API
+failure, simulate empty data, latency, and stream speed. They are properties of
+the fake backend, not user preferences — "simulate API failure" has no business
+in a clinician's settings page. Every mounted query refetches the moment a
+switch flips, so loading, empty and error states are reachable live. Press
+**Stop** mid-stream to see a partial answer marked incomplete.
+
+---
+
+## Deliberate gaps
+
+- **Real patients, fixture answers.** The roster in the import dialog is this
+  tenant's own (`onSearchPatients` → `GET /patients`), but the answers are still
+  four scripted topics. When a patient the script doesn't cover is attached, the
+  answer says so in its limitations rather than pretending to have used their
+  data — there is a test for that sentence.
+- **Only the roster crosses over.** Name, year of birth, sex, MRN, tags and
+  summary. No diagnoses, medication, labs or ІПН: those sit behind per-patient
+  endpoints the module has no reason to read. Nothing is persisted — the
+  attached patient lives in memory for the session.
+- **Audit logging is not wired.** `patient_context_attached` / `_removed` fire
+  on every attach and detach; routing them into the host's audit trail (and the
+  data-protection review that goes with it) is still owed before this reaches a
+  real clinic.
+- **Agents and connectors do nothing yet.** A created agent is a row in memory;
+  toggling a connector changes a status, not a retrieval path.
+- **No TypeScript.** The brief assumes TS + React Query + Zustand; this repo is
+  plain JSX with none of them. Thread state is a reducer, lists go through a
+  small keyed-query hook. Same shapes, no new dependencies to host a fake API.
+- Sessions live in memory for the tab: the fixtures come back on reload.
+  Persisting conversations that mention patients is a decision for the sprint
+  with the compliance pass.
+
+## Next sprint
+
+- Swap `mockClient` for the real chat/retrieval API behind the same hooks.
+- Wire `usePatients` / `onRequestPatient` to the host's real patient API and picker.
+- Route `patient_context_attached` / `_removed` into the host's audit log.
+- Compliance pass (privacy, consent, disclaimers) before any real data flows.

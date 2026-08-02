@@ -19,6 +19,7 @@ import { Pagination } from "../components/Pagination.jsx";
 import { MenuSelect } from "../components/MenuSelect.jsx";
 import { Loading } from "../components/DataStates.jsx";
 import { useClaims } from "../auth/AuthContext.jsx";
+import { isAdminOnly } from "../auth/roles.js";
 import {
   listPatients, createPatient, updatePatient, toPage,
   displayName, yearOfBirth,
@@ -481,7 +482,12 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
 export function PatientDirectory({ navigate, lang }) {
   // Patients are tenant-scoped server-side (RLS on the active tenant); re-key
   // on claims.tid so the roster refetches after a clinic switch.
-  const activeTid = useClaims()?.tid;
+  const claims = useClaims();
+  const activeTid = claims?.tid;
+  // S15 — an admin-only account receives a REDACTED roster (name + id);
+  // opening a record goes through per-patient break-glass. Say so, or
+  // the blank MRN/DOB columns read as a data bug.
+  const redactedRoster = isAdminOnly(claims);
 
   // Fetch limit ≥ the largest page size (PAGE_SIZE_OPTIONS) so the biggest
   // per-page setting still fills from a single request; the server caps at 200.
@@ -659,6 +665,19 @@ export function PatientDirectory({ navigate, lang }) {
           <span className="pdir-searching">{tr(lang, "Пошук…", "Searching…")}</span>
         )}
       </div>
+
+      {redactedRoster && (
+        <div className="pdir-redacted-note" style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "8px 12px", marginBottom: 10, borderRadius: 8,
+          background: "var(--soft,#f4f4f5)", fontSize: 12.5, color: "var(--muted)",
+        }}>
+          <Icon name="shield" size={13} />
+          {tr(lang,
+            "Реєстр показує лише ім'я та статус. Щоб відкрити картку пацієнта, потрібен тимчасовий доступ із зазначенням причини.",
+            "The roster shows only name and status. Opening a patient record requires temporary access with a stated reason.")}
+        </div>
+      )}
 
       <div className="ptable" role="listbox" tabIndex={0} onKeyDown={onListKeyDown}
         aria-label={tr(lang, "Список пацієнтів", "Patient list")}>

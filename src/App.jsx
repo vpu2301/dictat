@@ -58,6 +58,9 @@ import { SettingsPage } from './pages/SettingsPage.jsx';
 import { AsrSubmitPage } from './pages/AsrSubmitPage.jsx';
 import { AsrJobsListPage } from './pages/AsrJobsListPage.jsx';
 import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
+import { ChatHostRoute, CHAT_BASE_PATH } from './chat/host/ChatHostRoute.jsx';
+import { EmbedHarness as ChatEmbedHarness } from './chat/EmbedHarness.jsx';
+import { useSettings as useChatSettings } from './chat/settingsContract.js';
 import { RequireAuth, RequireRole, RequireClinical } from './auth/RequireRole.jsx';
 import { useAuth, hasAnyRole } from './auth/AuthContext.jsx';
 import { PATIENT_ROLES, hasClinicalAccess, isAuditorOnly } from './auth/permissions.js';
@@ -78,6 +81,11 @@ function App() {
   const [activeRecording, setActiveRecording] = useState(null);
   const lang = tweaks.lang;
   const { state: auth } = useAuth();
+  // The evidence-chat module is a fixture-data demo behind a settings gate
+  // ("Show the module" in /settings). While OFF, its sidebar block is hidden
+  // (Sidebar.jsx) and its routes fall through to the 404 — a bookmarked /chat
+  // must not resurrect a module the workspace has switched off.
+  const chatModuleEnabled = !!useChatSettings(auth?.claims?.tid).settings.moduleEnabled;
 
   // Every recording/authoring shortcut is clinical: an auditor or an
   // admin-only account pressing them would land on a forbidden page.
@@ -147,8 +155,13 @@ function App() {
   // CompanyLoginPage own the redirect, and send unauthenticated visitors to
   // /company/login instead.
   const isCompanyRoute = route === "/company" || route.startsWith("/company/");
+  // The evidence-chat embed harness is a dev-only fake host running on
+  // fixtures — no session, no backend, no patient data to protect. Sending it
+  // to /login would defeat the one thing it exists for: reviewing the module in
+  // isolation from this app.
+  const isEmbedHarness = !!import.meta.env?.DEV && route === "/chat/harness";
   const isPublicRoute = isAuthRoute || isLanding || isMarketing || isCompanyRoute
-    || route.startsWith("/verify/");
+    || isEmbedHarness || route.startsWith("/verify/");
   const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
   const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
 
@@ -389,6 +402,25 @@ function App() {
   } else if (r === "/dictate/templates") {
     view = <TemplatesPage lang={lang} navigate={navigate} />;
     crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: tr(lang, "Шаблони", "Templates") }];
+  }
+  // ── evidence chat (embedded module, mock data only) ────────
+  // Dev-only fake host for the module (§6 B-05). Checked BEFORE the module's
+  // own base path, which would otherwise swallow /chat/harness as a route
+  // belonging to the embed's scoped router. Never routed in a build.
+  else if (r === "/chat/harness" && import.meta.env?.DEV) {
+    view = <ChatEmbedHarness />;
+    crumbs = [{ label: tr(lang, "Доказовий чат", "Evidence chat") }, { label: "Embed harness" }];
+  }
+  // Mounted, not imported screen by screen: the host hands it identity, theme,
+  // locale and the URL, and owns navigation. Everything under the base path
+  // belongs to the module's own scoped router.
+  else if (chatModuleEnabled && (routePath === CHAT_BASE_PATH || routePath.startsWith(`${CHAT_BASE_PATH}/`))) {
+    view = (
+      <RequireClinical navigate={navigate}>
+        <ChatHostRoute route={r} navigate={navigate} lang={lang} theme={tweaks.theme} onToast={fireToast} />
+      </RequireClinical>
+    );
+    crumbs = [{ label: tr(lang, "Доказовий чат", "Evidence chat") }];
   }
   // ── asr (batch transcription) ──────────────────────────────
   else if (r === "/asr" || r === "/asr/jobs") {

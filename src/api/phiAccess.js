@@ -1,17 +1,21 @@
-// phiAccess.js — break-glass access to a single report (S14).
+// phiAccess.js — break-glass access to a single report (S14) or a
+// single patient record (S15).
 //
-// A tenant_admin holds no standing clinical read. When one genuinely
-// needs a specific report, the flow is two calls:
+// A tenant_admin holds no standing clinical read, and no standing full
+// patient read. When one genuinely needs a specific resource, the flow
+// is two calls:
 //
 //   1. reauth(password)                  → reauth_ticket   (auth-service)
 //   2. requestPhiAccess({ ..., ticket }) → a time-limited grant
 //
-// After step 2 the ordinary getReport(id) / report PDF calls succeed for
-// that ONE report until the grant expires. Every read under it is
-// counted, audited at `sec` severity, and notified to the report's
+// After step 2 the ordinary getReport(id) — or getPatient(id) /
+// timeline for a patient-kind grant — succeeds for that ONE resource
+// until the grant expires. Every read under it is counted and audited
+// at `sec` severity; report grants additionally notify the report's
 // authors — so treat this as a visible act, not a workaround.
 //
-// Lives on report-service, which owns both the reports and the grants.
+// Lives on report-service, which owns the grants for both kinds
+// (patient-kind grants are enforced by core-service).
 
 import { apiAt } from "./client.js";
 import { SERVICES } from "./services.js";
@@ -40,6 +44,7 @@ export async function listAccessReasons() {
  *   404                           no such report in this tenant
  */
 export async function requestPhiAccess({
+  resourceKind = "report",
   resourceId,
   reasonCode,
   reasonNote = "",
@@ -50,6 +55,7 @@ export async function requestPhiAccess({
     headers: { "Content-Type": "application/json" },
     // The backend models are `extra="forbid"` — send exactly these keys.
     body: JSON.stringify({
+      resource_kind: resourceKind,
       resource_id: resourceId,
       reason_code: reasonCode,
       reason_note: reasonNote,
@@ -94,4 +100,9 @@ export function isPhiAccessRequired(err) {
 /** The resource id carried by such a 403, so the modal opens pre-targeted. */
 export function phiAccessResourceId(err) {
   return err?.problem?.resource_id || null;
+}
+
+/** The resource kind ('report' | 'patient') carried by such a 403. */
+export function phiAccessResourceKind(err) {
+  return err?.problem?.resource_kind || "report";
 }
