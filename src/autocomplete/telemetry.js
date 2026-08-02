@@ -41,6 +41,10 @@ export function createTelemetrySink({
   // { field, index }: never preceding_text, never document text, never
   // patient identifiers, never suggestion text (the backend has it by id).
   function sanitize(raw) {
+    // Sprint 15: `source` splits corpus autocomplete from Layer C generated
+    // ghost text. The backend defaults it to 'autocomplete', so the key only
+    // goes on the wire for layer_c — pre-S15 events stay byte-identical.
+    const isLayerC = raw.source === "layer_c";
     const out = {
       request_id: raw.request_id,
       event: raw.event,
@@ -48,7 +52,11 @@ export function createTelemetrySink({
       // headroom, not an invitation)
       prefix: String(raw.prefix ?? "").slice(0, 80),
     };
-    if (raw.event === "accepted" || raw.event === "shown_only") {
+    if (isLayerC) out.source = "layer_c";
+    // A completion is NOT a corpus row. The backend 422s a layer_c event
+    // carrying either id (it would corrupt the phrase counters the roll-up
+    // maintains) — so the whitelist drops them here, at the source.
+    if (!isLayerC && (raw.event === "accepted" || raw.event === "shown_only")) {
       if (raw.phrase_id) out.phrase_id = raw.phrase_id;
       else if (raw.snippet_id) out.snippet_id = raw.snippet_id;
     }
@@ -56,6 +64,13 @@ export function createTelemetrySink({
     if (raw.context && raw.context.field != null) ctx.field = String(raw.context.field);
     if (raw.event === "accepted" && Number.isInteger(raw.context?.index)) {
       ctx.index = raw.context.index;
+    }
+    // Layer C dismissal reason — a closed enum of non-PHI words ('input',
+    // 'key', 'blur', 'expired'). It is the only way to tell "the clinician
+    // typed through it" from "it timed out on screen", which is the whole
+    // tuning signal for the settle/staleness budgets.
+    if (isLayerC && typeof raw.context?.reason === "string") {
+      ctx.reason = raw.context.reason.slice(0, 16);
     }
     if (Object.keys(ctx).length) out.context = ctx;
     return out;

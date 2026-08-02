@@ -21,6 +21,11 @@ export async function listReports({
   // (a cheap exact count without paging); the encounter-date window + author
   // filter let the owner dashboard derive period/per-doctor counts server-side.
   total, author_id, encounter_date_from, encounter_date_to,
+  // Sprint 15 (ADR-0038): server-side synonym expansion is ON by default —
+  // «ІМ» finds «інфаркт міокарда» and back. Pass expand:false for the exact-
+  // terms search the tips popover documents. Only `false` is serialised: the
+  // default must stay off the wire so pre-S15 backends keep working.
+  expand,
 } = {}) {
   const qs = new URLSearchParams();
   // `status` may be a single value or an array; the backend `?status=` is a
@@ -38,8 +43,28 @@ export async function listReports({
   if (total)    qs.set("total", total);
   if (limit)    qs.set("limit", String(limit));
   if (cursor)   qs.set("cursor", cursor);
+  if (expand === false) qs.set("expand", "false");
   const tail = qs.toString() ? `?${qs}` : "";
   return a(`/v1/reports/search${tail}`, { method: "GET" });
+}
+
+// Synonym groups that broadened the last query, e.g.
+// ["інфаркт міокарда", "ГІМ", "MI"]. Empty when nothing expanded or
+// expand=false — which is exactly when the indicator must NOT appear.
+export function expandedTerms(res) {
+  return Array.isArray(res?.expanded_terms) ? res.expanded_terms : [];
+}
+
+// GET /v1/search/tips?language=uk|en → { language, tips: [{key,title,body}] }.
+//
+// The backend OWNS this copy (ADR-0021's honesty promise: search does not stem,
+// filters compose with AND, synonyms expand). Rendering it verbatim is the
+// whole point — hardcoding the tips here would let the FE promise behaviour the
+// search engine does not have. `language` is a uk|en enum server-side; every
+// other UI language falls back to en, same as the rest of the platform.
+export async function getSearchTips(language = "uk") {
+  const lang = language === "uk" ? "uk" : "en";
+  return a(`/v1/search/tips?language=${lang}`, { method: "GET" });
 }
 
 // Pull the hit array out of a search response (the endpoint returns

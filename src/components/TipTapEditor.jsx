@@ -18,6 +18,7 @@ import { closeHistory } from '@tiptap/pm/history'
 import { SectionExtension } from '../extensions/SectionExtension.js'
 import { LowConfidenceMark } from '../extensions/LowConfidenceMark.js'
 import { AutocompleteGhost, autocompleteGhostKey } from '../extensions/AutocompleteGhost.js'
+import { GhostCompletion, ghostCompletionKey, GHOST_ACCEPT_EVENT } from '../extensions/GhostCompletion.js'
 import { clipboardToInsertHTML } from '../paste/sanitizingPaste.js'
 import { Icon } from './UI.jsx'
 import { useI18n } from '../i18n.js'
@@ -242,6 +243,13 @@ function FindReplace({ editor, onClose, lang }) {
   )
 }
 
+// Keys that produce no input on their own. A ghost must survive them: pressing
+// Shift is step one of typing a capital letter, not a rejection.
+const BARE_MODIFIERS = new Set([
+  'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'NumLock', 'ScrollLock',
+  'AltGraph', 'Fn', 'FnLock', 'Hyper', 'Super', 'Dead',
+])
+
 // ── Section header rendered above each section in the editor ──────────────
 // (We render them outside the editor content as overlays; actual content goes in editor)
 
@@ -271,6 +279,15 @@ export function TipTapEditor({
   acApiRef,               // ref → { accept, caretCoords } for pills (mousedown insert + anchor)
   acShowGhost = true,     // Layer A toggle (keyboard protocol stays active)
   acListboxOpen = false,  // pills popup rendered → manage aria-activedescendant
+  // Sprint 15 — Layer C generated ghost text. Armed only while Layer A is
+  // silent (Studio gates the hook that way), so the caret never carries two
+  // ghosts. Tab is the ONLY keyboard path in; every other key falls through to
+  // the document untouched.
+  lcGhost,                // { text, requestId } | null
+  lcTouch = false,        // render the inline "↹" accept chip (no Tab on touch)
+  lcAcceptLabel,          // aria-label for that chip
+  onLcAccept,             // (text) → telemetry `accepted` + state clear
+  onLcDismiss,            // (reason) → telemetry `rejected` + state clear
   patientRef,             // optional patient identifier shown in the report meta
   // Sprint 13 — typed field widgets. sectionMeta is the Studio's
   // { [section_key]: { icd10?, field_specific_metadata? } } map; changes go
@@ -297,6 +314,14 @@ export function TipTapEditor({
     onAccept: onAcAccept,
     onDismiss: onAcDismiss,
     onCycle: onAcCycle,
+  }
+  // Same snapshot trick for Layer C — editorProps callbacks close over the
+  // first render otherwise.
+  const lcRef = useRef({})
+  lcRef.current = {
+    ghost: lcGhost || null,
+    onAccept: onLcAccept,
+    onDismiss: onLcDismiss,
   }
   const composingRef = useRef(false)
   const caretCbRef = useRef(onAcCaretContext)
@@ -365,6 +390,57 @@ export function TipTapEditor({
     ac.onAccept?.(s, index)
   }, [])
 
+  // Layer C accept — the ONLY way generated text enters the record. One
+  // transaction in its own undo group, exactly like a Layer A phrase accept:
+  // after the accept it is the clinician's text, so it must behave like text
+  // they typed (one undo takes it out, and nothing marks it as machine-made).
+  const acceptGhostCompletion = useCallback(() => {
+    const e = editorRef.current
+    const lc = lcRef.current
+    const text = lc.ghost?.text
+    if (!e || !text) return
+    const sel = e.state.selection
+    if (!sel.empty) return
+    const caret = sel.from
+    e.chain()
+      .focus()
+      .command(({ tr }) => {
+        closeHistory(tr)
+        tr.insertText(text, caret, caret)
+        return true
+      })
+      .run()
+    lc.onAccept?.(text)
+  }, [])
+
+  // Layer C keyboard law. Reached only when Layer A has nothing to say.
+  //
+  //   Tab            → accept (the single entry point; consumed)
+  //   Escape         → dismiss (consumed — Escape means "go away")
+  //   bare modifier  → ignored; Shift is how you type a capital letter, and
+  //                    killing the ghost on Shift-down would delete it half a
+  //                    keystroke before the letter that was going to arrive
+  //   anything else  → dismiss AND fall through (return false), so the
+  //                    keystroke lands in the document exactly as if no ghost
+  //                    had ever been there. Swallowing input to "handle" a
+  //                    dismissal is the one bug this feature cannot ship with.
+  const handleLcKeyDown = useCallback((event) => {
+    const lc = lcRef.current
+    if (!lc.ghost) return false
+    if (BARE_MODIFIERS.has(event.key)) return false
+    if (event.key === 'Tab' && !event.shiftKey) {
+      event.preventDefault()
+      acceptGhostCompletion()
+      return true
+    }
+    if (event.key === 'Escape') {
+      lc.onDismiss?.('key')
+      return true
+    }
+    lc.onDismiss?.('input')
+    return false
+  }, [acceptGhostCompletion])
+
   // Keyboard protocol (§4.3) — registered at the EDITOR level, consuming a
   // key (return true) ONLY when suggestions are visible and the key acts on
   // them. Tab precedence: suggestions visible → accept; otherwise the
@@ -373,7 +449,7 @@ export function TipTapEditor({
   const handleAcKeyDown = useCallback((view, event) => {
     const ac = acRef.current
     const n = ac.suggestions.length
-    if (!n) return false
+    if (!n) return handleLcKeyDown(event)
     if (event.key === 'Tab' && !event.shiftKey) {
       event.preventDefault()
       acceptSuggestion(ac.suggestions[ac.activeIndex] || ac.suggestions[0], ac.activeIndex)
@@ -409,7 +485,7 @@ export function TipTapEditor({
       }
     }
     return false
-  }, [acceptSuggestion])
+  }, [acceptSuggestion, handleLcKeyDown])
 
   const editor = useEditor({
     extensions: [
@@ -426,6 +502,7 @@ export function TipTapEditor({
       SectionExtension,
       LowConfidenceMark,
       AutocompleteGhost,
+      GhostCompletion,
       SanitizingPaste,
       Placeholder.configure({
         placeholder: ({ node }) => {
@@ -466,6 +543,10 @@ export function TipTapEditor({
       reportCaretContext(e)
     },
     onBlur: () => {
+      // Layer C dies on blur with its own reason — losing focus is not the
+      // clinician typing through the ghost, and the telemetry must not
+      // pretend it was.
+      lcRef.current.onDismiss?.('blur')
       caretCbRef.current?.(null)
     },
   })
@@ -505,6 +586,36 @@ export function TipTapEditor({
     tr.setMeta('addToHistory', false)
     e.view.dispatch(tr)
   }, [acSuggestions, acActiveIndex, acShowGhost, editor])
+
+  // The touch chip lives inside the widget decoration and cannot hold a live
+  // callback (decorations are rebuilt on every transaction, so a captured
+  // handler would accept the wrong text). It dispatches a bubbling custom
+  // event instead; this is where it lands.
+  useEffect(() => {
+    const dom = editor?.view?.dom
+    if (!dom) return undefined
+    const onAccept = () => acceptGhostCompletion()
+    dom.addEventListener(GHOST_ACCEPT_EVENT, onAccept)
+    return () => dom.removeEventListener(GHOST_ACCEPT_EVENT, onAccept)
+  }, [editor, acceptGhostCompletion])
+
+  // Arm / clear the Layer C ghost. Same meta protocol and same zero-work
+  // guard as Layer A: when nothing is armed and nothing was armed, this
+  // effect dispatches nothing at all.
+  useEffect(() => {
+    const e = editorRef.current
+    if (!e || e.isDestroyed) return
+    const text = lcGhost?.text || null
+    const prev = ghostCompletionKey.getState(e.state)
+    if (!text && !prev) return
+    if (text && prev && prev.text === text && prev.touch === lcTouch) return
+    const tr = e.state.tr.setMeta(
+      ghostCompletionKey,
+      text ? { text, touch: !!lcTouch, acceptLabel: lcAcceptLabel } : null,
+    )
+    tr.setMeta('addToHistory', false)
+    e.view.dispatch(tr)
+  }, [lcGhost, lcTouch, lcAcceptLabel, editor])
 
   // §7 accessibility: the ghost is aria-hidden; screen readers follow the
   // popup listbox via aria-activedescendant on the editor's element.

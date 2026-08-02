@@ -359,6 +359,19 @@ export function AutocompleteSettings({ prefs, onChange, lang }) {
             <Switch disabled={off} checked={prefs.pillsEnabled !== false} onChange={v => set('pillsEnabled', v)} />
           </div>
 
+          {/* Sprint 15 — Layer C. Named as generated content in the switch
+              itself, not only in the coach-mark: a clinician turning it on
+              should know they are enabling a model, not a dictionary. */}
+          <div className="setting-row">
+            <span>{uk ? 'Продовження від ШІ (Layer C)' : 'AI continuations (Layer C)'}</span>
+            <Switch disabled={off} checked={prefs.layerCEnabled !== false} onChange={v => set('layerCEnabled', v)} />
+          </div>
+          <div className="muted" style={{ fontSize: 11, lineHeight: 1.45, padding: '0 4px 6px' }}>
+            {uk
+              ? 'Сіре продовження речення, яке пропонує модель. Нічого не вставляється без Tab.'
+              : 'A grey continuation of your sentence, proposed by a model. Nothing is inserted without Tab.'}
+          </div>
+
           <div className="rail-h" style={{ marginTop: 8 }}>{uk ? 'Джерела' : 'Sources'}</div>
 
           {Object.entries(SOURCE_META).map(([key, meta]) => (

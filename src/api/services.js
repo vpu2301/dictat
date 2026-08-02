@@ -23,6 +23,10 @@ export const SERVICES = {
   core:      env.VITE_CORE_SERVICE_URL      || env.VITE_CORE_URL || "http://localhost:8003",
   // Sprint 12 — notification feed, WebSocket push, preferences.
   notification: env.VITE_NOTIFICATION_SERVICE_URL || env.VITE_NOTIFICATION_URL || "http://localhost:8004",
+  // Sprint 15 — Layer C inline generative completion (ADR-0036). Its own
+  // service because it owns a model process, a slot pool and a latency budget
+  // that must never share a queue with the corpus autocomplete on :8007.
+  generation:   env.VITE_GENERATION_SERVICE_URL   || env.VITE_GENERATION_URL   || "http://localhost:8009",
 };
 
 // Derive the WS base from the dictation HTTP base. Always upgrade scheme.
