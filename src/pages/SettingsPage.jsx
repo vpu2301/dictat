@@ -14,6 +14,8 @@ import { Row, Section, SettingsNav, Toggle, useSettingsSections } from "../compo
 import { LANGS , tr } from "../i18n.js";
 import { ChatSettingsSection, CHAT_SETTINGS_SECTION } from "../chat/host/ChatSettingsSection.jsx";
 import { ChatConnectorsSection, CHAT_CONNECTORS_SECTION } from "../chat/host/ChatConnectorsSection.jsx";
+import { useSettings as useChatSettings } from "../chat/settingsContract.js";
+import { useAuth } from "../auth/AuthContext.jsx";
 
 // ── Section registry (drives both the side nav and the rendered order) ────────
 const SECTIONS = [
@@ -50,7 +52,16 @@ function SoonBtn({ children }) {
 
 export function SettingsPage({ lang = "en", tweaks, setTweak, navigate }) {
   const T = (uk, en) => tr(lang, uk, en);
-  const { active, jump } = useSettingsSections(SECTIONS);
+  // The evidence-chat module sits behind the "Show the module" toggle. Its
+  // MAIN section always renders — it holds the toggle, and a gate you cannot
+  // reach to open is a lock, not a setting. The CONNECTORS section follows
+  // the module: configuring connectors for a hidden module is dead UI.
+  const { state: auth } = useAuth();
+  const chatEnabled = !!useChatSettings(auth?.claims?.tid).settings.moduleEnabled;
+  const sections = chatEnabled
+    ? SECTIONS
+    : SECTIONS.filter((s) => s.id !== CHAT_CONNECTORS_SECTION.id);
+  const { active, jump } = useSettingsSections(sections);
 
   // Defaults applied inline so the page works before these land in TWEAK_DEFAULTS.
   const g = (key, fallback) => (tweaks[key] === undefined ? fallback : tweaks[key]);
@@ -67,7 +78,7 @@ export function SettingsPage({ lang = "en", tweaks, setTweak, navigate }) {
       <div className="settings-layout">
         {/* ── Sticky scroll-spy side menu ─────────────────────────────── */}
         <SettingsNav
-          sections={SECTIONS.map((s) => ({ id: s.id, icon: s.icon, label: T(s.uk, s.en) }))}
+          sections={sections.map((s) => ({ id: s.id, icon: s.icon, label: T(s.uk, s.en) }))}
           active={active}
           onJump={jump}
           label={T("Розділи налаштувань", "Settings sections")}
@@ -125,7 +136,7 @@ export function SettingsPage({ lang = "en", tweaks, setTweak, navigate }) {
 
           <ChatSettingsSection lang={lang} />
 
-          <ChatConnectorsSection lang={lang} />
+          {chatEnabled && <ChatConnectorsSection lang={lang} />}
 
           <Section id="notifications" icon="bell" title={T("Сповіщення", "Notifications")}>
             <Row label={T("Email-сповіщення", "Email notifications")}>

@@ -13,6 +13,11 @@
 import { useCallback, useEffect, useState } from "react";
 
 export const DEFAULT_SETTINGS = {
+  // The demo gate: the whole module (sidebar block + /chat routes) is hidden
+  // until this is switched on in the host's settings. OFF by default — the
+  // module runs on fixtures and is not ready for routine eyes; it appears
+  // only when someone deliberately turns it on for a demo.
+  moduleEnabled: false,
   evidenceDetail: "full",   // "compact" | "full"
   answerLanguage: "en",     // "en" | "de"
 };

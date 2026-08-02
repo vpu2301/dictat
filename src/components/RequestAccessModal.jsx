@@ -1,8 +1,9 @@
-// RequestAccessModal.jsx — break-glass access to ONE report (S14).
+// RequestAccessModal.jsx — break-glass access to ONE report (S14) or
+// ONE patient record (S15), chosen by the `resourceKind` prop.
 //
 // A tenant_admin has no standing clinical read. This modal is the door:
 // pick a reason from a closed vocabulary, re-enter your password, and get
-// a time-limited grant on that single report.
+// a time-limited grant on that single resource.
 //
 // Two backend calls, in this order, because the second consumes the first:
 //
@@ -47,7 +48,7 @@ const FALLBACK_REASONS = [
 
 const DEFAULT_NOTE_MIN = 10;
 
-function errorMessage(err, lang) {
+function errorMessage(err, lang, resourceKind) {
   const code = err?.problem?.code;
   if (err?.status === 401 && code === "reauth_required") {
     return tr(lang,
@@ -58,7 +59,9 @@ function errorMessage(err, lang) {
     return tr(lang, "Невірний пароль.", "That password is not correct.");
   }
   if (err?.status === 404) {
-    return tr(lang, "Звіт не знайдено.", "Report not found.");
+    return resourceKind === "patient"
+      ? tr(lang, "Пацієнта не знайдено.", "Patient not found.")
+      : tr(lang, "Звіт не знайдено.", "Report not found.");
   }
   if (err?.status === 403) {
     return tr(lang,
@@ -75,12 +78,18 @@ function errorMessage(err, lang) {
 
 export function RequestAccessModal({
   lang = "uk",
+  // "report" (S14) or "patient" (S15). For "patient", pass the patient's
+  // id as resourceId; reportId is kept for the existing report call sites.
+  resourceKind = "report",
+  resourceId,
   reportId,
   reportCode,
   patientLabel,
   onClose,
   onGranted,
 }) {
+  const targetId = resourceId ?? reportId;
+  const isPatient = resourceKind === "patient";
   const [reasons, setReasons] = useState(FALLBACK_REASONS);
   const [ttlMinutes, setTtlMinutes] = useState(60);
   const [noteMin, setNoteMin] = useState(DEFAULT_NOTE_MIN);
@@ -127,7 +136,8 @@ export function RequestAccessModal({
       const { reauth_ticket: ticket } = await reauth(password);
       // Step 2 — spend it. From here the grant exists and is audited.
       const grant = await requestPhiAccess({
-        resourceId: reportId,
+        resourceKind,
+        resourceId: targetId,
         reasonCode,
         reasonNote: note.trim(),
         reauthTicket: ticket,
@@ -148,10 +158,20 @@ export function RequestAccessModal({
   return (
     <Modal onClose={busy ? undefined : onClose}>
       <div className="modal-h">
-        <h2>{tr(lang, "Запит доступу до звіту", "Request access to report")}</h2>
+        <h2>
+          {isPatient
+            ? tr(lang, "Запит доступу до картки пацієнта", "Request access to patient record")
+            : tr(lang, "Запит доступу до звіту", "Request access to report")}
+        </h2>
         <p>
-          {reportCode ? `${reportCode}` : reportId}
-          {patientLabel ? ` · ${patientLabel}` : ""}
+          {isPatient
+            ? (patientLabel || targetId)
+            : (
+              <>
+                {reportCode ? `${reportCode}` : targetId}
+                {patientLabel ? ` · ${patientLabel}` : ""}
+              </>
+            )}
         </p>
       </div>
 
@@ -161,24 +181,32 @@ export function RequestAccessModal({
             <>
               <p style={{ margin: 0 }}>
                 Ви — адміністратор і не маєте постійного доступу до медичних записів.
-                Цей запит відкриє <strong>лише цей звіт</strong> на {ttlMinutes} хв.
+                Цей запит відкриє{" "}
+                <strong>{isPatient ? "лише картку цього пацієнта" : "лише цей звіт"}</strong>{" "}
+                на {ttlMinutes} хв.
               </p>
               <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-                <li>авторів звіту буде повідомлено про ваш доступ;</li>
+                {!isPatient && <li>авторів звіту буде повідомлено про ваш доступ;</li>}
                 <li>подію та причину буде записано в журнал аудиту;</li>
-                <li>кожне відкриття звіту зараховується окремо.</li>
+                <li>{isPatient
+                  ? "кожне відкриття картки зараховується окремо;"
+                  : "кожне відкриття звіту зараховується окремо."}</li>
+                {isPatient && <li>читання звітів пацієнта потребує окремого запиту.</li>}
               </ul>
             </>
           ) : (
             <>
               <p style={{ margin: 0 }}>
                 You are an administrator and hold no standing access to clinical
-                records. This request opens <strong>this one report</strong> for {ttlMinutes} min.
+                records. This request opens{" "}
+                <strong>{isPatient ? "this one patient record" : "this one report"}</strong>{" "}
+                for {ttlMinutes} min.
               </p>
               <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-                <li>the report's authors are notified that you opened it;</li>
+                {!isPatient && <li>the report's authors are notified that you opened it;</li>}
                 <li>the event and your stated reason enter the audit trail;</li>
-                <li>each time you open it is counted separately.</li>
+                <li>each time you open it is counted separately{isPatient ? ";" : "."}</li>
+                {isPatient && <li>reading the patient's reports needs a separate request.</li>}
               </ul>
             </>
           )}
@@ -239,7 +267,7 @@ export function RequestAccessModal({
 
         {error && (
           <div role="alert" style={{ color: "var(--rec,#dc2626)", fontSize: 13 }}>
-            {errorMessage(error, lang)}
+            {errorMessage(error, lang, resourceKind)}
           </div>
         )}
 

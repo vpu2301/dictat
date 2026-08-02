@@ -6,7 +6,7 @@
 //   npm run test:unit
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { segmentAnswer, citedSources } from "./citations.js";
+import { segmentAnswer, citedSources, confidenceBandOf } from "./citations.js";
 
 const A = { id: "ev_01", title: "Guideline", sourceType: "guideline", year: 2024, evidenceLevel: "Ia" };
 const B = { id: "ev_04", title: "Review", sourceType: "review", year: 2024, evidenceLevel: "IV" };
@@ -49,4 +49,13 @@ test("citedSources numbers sources in citation order and drops duplicates", () =
   const sources = citedSources([A, B, A]);
   assert.deepEqual(sources.map((s) => s.id), ["ev_01", "ev_04"]);
   assert.deepEqual(sources.map((s) => s.index), [1, 2]);
+});
+
+test("confidence bands: the pill and the memo agree on the cut-offs", () => {
+  assert.equal(confidenceBandOf(0.85), "high"); // boundary is inclusive
+  assert.equal(confidenceBandOf(0.91), "high");
+  assert.equal(confidenceBandOf(0.7), "mid"); // boundary is inclusive
+  assert.equal(confidenceBandOf(0.84), "mid");
+  assert.equal(confidenceBandOf(0.69), "low");
+  assert.equal(confidenceBandOf(0), "low");
 });

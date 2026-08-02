@@ -30,6 +30,10 @@ export const ANSWER_LANGUAGE_OPTIONS = [
 ];
 
 export const SETTINGS_LABELS = {
+  moduleEnabled: {
+    uk: ["Показувати модуль", "Демо на фіксованих даних — пункт «Доказова база» зʼявляється в меню лише коли ввімкнено"],
+    en: ["Show the module", "Fixture-data demo — the Evidence entry appears in the sidebar only while this is on"],
+  },
   evidenceDetail: {
     uk: ["Деталізація джерел", "Тип, рік і рівень доказовості показуються завжди"],
     en: ["Evidence detail", "Type, year and evidence level always show"],

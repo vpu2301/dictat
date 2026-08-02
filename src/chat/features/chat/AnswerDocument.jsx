@@ -27,7 +27,9 @@ import { Icon } from "../../ui/Icon.jsx";
 import { CitationChip } from "./CitationChip.jsx";
 import { ReferenceCard } from "./ReferenceCard.jsx";
 import { StageProgress } from "./StageProgress.jsx";
-import { segmentAnswer, citedSources } from "../../citations.js";
+import { EvidenceInfoDialog } from "./EvidenceInfoDialog.jsx";
+import { LEVEL_MEANING } from "../../ui/Bits.jsx";
+import { segmentAnswer, citedSources, confidenceBandOf } from "../../citations.js";
 import { t } from "../../i18n.js";
 
 // Prose with [n] markers → text runs and citation chips.
@@ -69,6 +71,9 @@ export function AnswerDocument({
 }) {
   const [tab, setTab] = useState("answer");
   const [highlighted, setHighlighted] = useState(null);
+  // { topic: "evidence" | "confidence", level? } — the badge that was clicked,
+  // so the memo opens with the reader's own value highlighted. null = closed.
+  const [info, setInfo] = useState(null);
 
   const answer = message?.answer || null;
   const streaming = message?.status === "streaming";
@@ -86,7 +91,7 @@ export function AnswerDocument({
       : []),
   ];
 
-  const confidenceBand = answer && (answer.confidence >= 0.85 ? "high" : answer.confidence >= 0.7 ? "mid" : "low");
+  const confidenceBand = answer && confidenceBandOf(answer.confidence);
 
   return (
     <article className="ec-doc">
@@ -104,19 +109,33 @@ export function AnswerDocument({
             {answer.grade && (
               <>
                 <span className="ec-dot">·</span>
-                <span className="ec-pill ec-level"
-                      data-strength={answer.grade.startsWith("I") && answer.grade !== "IV" ? "high" : "low"}>
+                {/* Both badges are buttons: clicking one opens the memo that
+                    decodes the scale, focused on the clicked topic. */}
+                <button type="button" className="ec-pill ec-pill-btn ec-level"
+                        data-strength={answer.grade.startsWith("I") && answer.grade !== "IV" ? "high" : "low"}
+                        // The tooltip decodes the roman numeral in place; the
+                        // click opens the full memo. Both, because a hover that
+                        // only says "click me" made the reader hover for nothing.
+                        title={`${LEVEL_MEANING[answer.grade]
+                          ? t(locale, LEVEL_MEANING[answer.grade].uk, LEVEL_MEANING[answer.grade].en)
+                          : t(locale, "Рівень доказовості", "Evidence level")}. ${t(locale, "Натисніть для пояснення.", "Click for the explanation.")}`}
+                        onClick={() => setInfo({ topic: "evidence", level: answer.grade })}>
                   {t(locale, "Доказовість", "Evidence")} {answer.grade}
-                </span>
+                  <Icon name="info" size={10} />
+                </button>
               </>
             )}
             {/* Confidence sits in the meta line, not in a chip row under the
                 recommendation: it qualifies the whole answer, and one row of
                 metadata reads faster than two. */}
-            <span className="ec-pill ec-conf" data-band={confidenceBand}
-                  title={t(locale, "Впевненість у відповіді", "Answer confidence")}>
+            <button type="button" className="ec-pill ec-pill-btn ec-conf" data-band={confidenceBand}
+                    title={`${t(locale,
+                      "Наскільки джерела підтримують цю відповідь",
+                      "How well the sources support this answer")}. ${t(locale, "Натисніть для пояснення.", "Click for the explanation.")}`}
+                    onClick={() => setInfo({ topic: "confidence" })}>
               {t(locale, "Впевненість", "Confidence")} {answer.confidence.toFixed(2)}
-            </span>
+              <Icon name="info" size={10} />
+            </button>
           </div>
         )}
       </header>
@@ -237,9 +256,20 @@ export function AnswerDocument({
               locale={locale}
               answerLanguage={answerLanguage}
               detail={evidenceDetail}
+              onEvidenceInfo={(level) => setInfo({ topic: "evidence", level })}
             />
           ))}
         </ol>
+      )}
+
+      {info && (
+        <EvidenceInfoDialog
+          topic={info.topic}
+          level={info.level ?? answer?.grade ?? null}
+          confidence={answer?.confidence ?? null}
+          locale={locale}
+          onClose={() => setInfo(null)}
+        />
       )}
     </article>
   );

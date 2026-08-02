@@ -15,7 +15,7 @@ import { Icon } from "../../ui/Icon.jsx";
 import { SourceTypePill, EvidenceLevelPill } from "../../ui/Bits.jsx";
 import { t } from "../../i18n.js";
 
-export function ReferenceCard({ source, index, highlighted, locale = "en", answerLanguage = "en", detail = "full" }) {
+export function ReferenceCard({ source, index, highlighted, locale = "en", answerLanguage = "en", detail = "full", onEvidenceInfo }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -43,7 +43,7 @@ export function ReferenceCard({ source, index, highlighted, locale = "en", answe
             <span className="ec-ref-pub">{source.source}</span>
             <SourceTypePill type={source.sourceType} locale={locale} answerLanguage={answerLanguage} />
             <span className="ec-ref-year">{source.year}</span>
-            <EvidenceLevelPill level={source.evidenceLevel} locale={locale} />
+            <EvidenceLevelPill level={source.evidenceLevel} locale={locale} onInfo={onEvidenceInfo} />
             {source.recommendationGrade && (
               <span className="ec-pill" title={t(locale, "Ступінь рекомендації", "Recommendation grade")}>
                 {t(locale, "Рек.", "Rec.")} {source.recommendationGrade}

@@ -10,7 +10,7 @@
 // (localStorage, scoped per workspace). The host owns only placement.
 
 import React from "react";
-import { Row, Section } from "../../components/SettingsLayout.jsx";
+import { Row, Section, Toggle } from "../../components/SettingsLayout.jsx";
 import { MenuSelect } from "../../components/MenuSelect.jsx";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import { tr } from "../../i18n.js";
@@ -44,6 +44,17 @@ export function ChatSettingsSection({ lang = "en" }) {
       icon={CHAT_SETTINGS_SECTION.icon}
       title={tr(lang, CHAT_SETTINGS_SECTION.uk, CHAT_SETTINGS_SECTION.en)}
     >
+      {/* The demo gate first: everything below only matters once the module
+          is visible at all. This row must stay reachable while the module is
+          OFF — it is the only way to turn it back on. */}
+      <Row label={label("moduleEnabled")[0]} hint={label("moduleEnabled")[1]}>
+        <Toggle
+          on={!!settings.moduleEnabled}
+          onChange={(v) => update({ moduleEnabled: v })}
+          label={settings.moduleEnabled ? tr(lang, "Увімкнено", "On") : tr(lang, "Вимкнено", "Off")}
+        />
+      </Row>
+
       <Row label={label("evidenceDetail")[0]} hint={label("evidenceDetail")[1]}>
         <MenuSelect
           value={settings.evidenceDetail}

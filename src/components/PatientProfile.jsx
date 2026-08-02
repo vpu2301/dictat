@@ -9,6 +9,7 @@ import { useAsync } from '../api/useAsync.js';
 import { useClaims, hasAnyRole } from '../auth/AuthContext.jsx';
 import { hasClinicalAccess } from '../auth/permissions.js';
 import { RequestAccessModal } from './RequestAccessModal.jsx';
+import { isPhiAccessRequired } from '../api/phiAccess.js';
 import { getPatient, getPatientTimeline, updatePatient } from '../api/patients.js';
 import { mergeFeed } from '../patients/feed.js';
 import { PatientFormModal } from '../patients/PatientDirectory.jsx';
@@ -430,6 +431,9 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   // would be a control that does nothing.
   const canBreakGlass = isPrivacyAdmin && !hasClinicalAccess(claims);
   const [accessTarget, setAccessTarget] = useState(null); // timeline report row | null
+  // S15 — the patient record itself is behind the same wall: the GET
+  // answers 403 phi_access_required until a patient-kind grant exists.
+  const [patientAccessOpen, setPatientAccessOpen] = useState(false);
 
   const cached = pageStateCache.get(id);
   const [tab, setTab] = useState(() => initialTabFromHash() || cached?.tab || "timeline");
@@ -459,7 +463,50 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   }, [feedReady]);
 
   if (patientReq.loading) return <div className="page wide"><Loading lang={lang} /></div>;
-  if (patientReq.error)   return <div className="page wide"><ApiErrorView error={patientReq.error} lang={lang} /></div>;
+  if (patientReq.error) {
+    // S15 — an admin without a live patient-kind grant gets a 403 with a
+    // machine-readable code; turn it into the request flow rather than a
+    // dead-end "forbidden".
+    if (isPhiAccessRequired(patientReq.error)) {
+      return (
+        <div className="page wide">
+          <Empty
+            icon="shield"
+            title={tr(lang, "Картку пацієнта захищено", "This patient record is protected")}
+            body={tr(lang,
+              "Як адміністратор ви бачите лише ім'я в реєстрі. Щоб відкрити картку — демографію, історію візитів і хронологію — запитайте тимчасовий доступ із зазначенням причини.",
+              "As an administrator you see only the name in the roster. To open the record — demographics, visit history and timeline — request temporary access with a stated reason.")}
+            action={
+              <button className="btn accent" onClick={() => setPatientAccessOpen(true)}>
+                <Icon name="shield" size={13} />
+                {tr(lang, "Запитати доступ", "Request access")}
+              </button>
+            }
+          />
+          {patientAccessOpen && (
+            <RequestAccessModal
+              lang={lang}
+              resourceKind="patient"
+              resourceId={id}
+              onClose={() => setPatientAccessOpen(false)}
+              onGranted={() => {
+                setPatientAccessOpen(false);
+                // The grant exists now — every record surface reloads
+                // under it.
+                patientReq.reload();
+                tlReq.reload();
+                encReq.reload();
+                conReq.reload();
+                notesReq.reload();
+                anamReq.reload();
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+    return <div className="page wide"><ApiErrorView error={patientReq.error} lang={lang} /></div>;
+  }
   const patient = patientReq.data;
   if (!patient) return <Empty title={tr(lang, "Пацієнт не знайдений", "Patient not found")} icon="user" />;
 

@@ -26,6 +26,13 @@ export function segmentAnswer(text, citations = []) {
   return out;
 }
 
+// The confidence bands the UI colours by, in one place: the meta pill, and the
+// explanation memo that decodes it, must never disagree about where "high"
+// begins.
+export function confidenceBandOf(confidence) {
+  return confidence >= 0.85 ? "high" : confidence >= 0.7 ? "mid" : "low";
+}
+
 // Which sources a given answer actually cited, in citation order, deduplicated
 // — the evidence panel lists each source once even when the text points at it
 // twice.

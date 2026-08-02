@@ -49,8 +49,9 @@ export function SourceTypePill({ type, locale = "en", answerLanguage = "en" }) {
 // ── evidence level ────────────────────────────────────────────────────────
 // Ia/Ib are the strong tiers, IV the weakest. The tone is a supporting signal;
 // the level itself is always spelled out, and the title attribute says what the
-// roman numeral means for anyone who does not read them daily.
-const LEVEL_MEANING = {
+// roman numeral means for anyone who does not read them daily. Exported for
+// the explanation memo (EvidenceInfoDialog), which must use the same words.
+export const LEVEL_MEANING = {
   Ia: { uk: "метааналіз РКД", en: "meta-analysis of RCTs" },
   Ib: { uk: "щонайменше одне РКД", en: "at least one RCT" },
   IIa: { uk: "контрольоване дослідження без рандомізації", en: "controlled study without randomisation" },
@@ -59,16 +60,39 @@ const LEVEL_MEANING = {
   IV: { uk: "думка експертів", en: "expert opinion" },
 };
 
-export function EvidenceLevelPill({ level, locale = "en" }) {
+export function EvidenceLevelPill({ level, locale = "en", onInfo }) {
   const strong = level === "Ia" || level === "Ib";
   const meaning = LEVEL_MEANING[level];
+  const title = meaning
+    ? `${t(locale, "Рівень", "Level")} ${level} — ${t(locale, meaning.uk, meaning.en)}`
+    : undefined;
+  const body = <>{t(locale, "Рівень", "Level")} {level}</>;
+  // With an onInfo handler the pill opens the explanation memo; without one
+  // it stays inert text — a pill that looks clickable but does nothing
+  // teaches the reader to stop clicking. A role="button" span rather than a
+  // <button>: the pill sits inside ReferenceCard's expand/collapse button,
+  // and a button nested in a button is invalid HTML.
+  if (!onInfo) {
+    return (
+      <span className="ec-pill ec-level" data-strength={strong ? "high" : "low"} title={title}>
+        {body}
+      </span>
+    );
+  }
+  const open = (e) => { e.stopPropagation(); onInfo(level); };
+  const clickHint = t(locale, "Натисніть для пояснення.", "Click for the explanation.");
   return (
     <span
-      className="ec-pill ec-level"
+      role="button"
+      tabIndex={0}
+      className="ec-pill ec-pill-btn ec-level"
       data-strength={strong ? "high" : "low"}
-      title={meaning ? `${t(locale, "Рівень", "Level")} ${level} — ${t(locale, meaning.uk, meaning.en)}` : undefined}
+      title={title ? `${title}. ${clickHint}` : clickHint}
+      onClick={open}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(e); } }}
     >
-      {t(locale, "Рівень", "Level")} {level}
+      {body}
+      <Icon name="info" size={10} />
     </span>
   );
 }

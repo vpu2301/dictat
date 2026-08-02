@@ -60,6 +60,7 @@ import { AsrJobsListPage } from './pages/AsrJobsListPage.jsx';
 import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
 import { ChatHostRoute, CHAT_BASE_PATH } from './chat/host/ChatHostRoute.jsx';
 import { EmbedHarness as ChatEmbedHarness } from './chat/EmbedHarness.jsx';
+import { useSettings as useChatSettings } from './chat/settingsContract.js';
 import { RequireAuth, RequireRole, RequireClinical } from './auth/RequireRole.jsx';
 import { useAuth, hasAnyRole } from './auth/AuthContext.jsx';
 import { PATIENT_ROLES, hasClinicalAccess, isAuditorOnly } from './auth/permissions.js';
@@ -80,6 +81,11 @@ function App() {
   const [activeRecording, setActiveRecording] = useState(null);
   const lang = tweaks.lang;
   const { state: auth } = useAuth();
+  // The evidence-chat module is a fixture-data demo behind a settings gate
+  // ("Show the module" in /settings). While OFF, its sidebar block is hidden
+  // (Sidebar.jsx) and its routes fall through to the 404 — a bookmarked /chat
+  // must not resurrect a module the workspace has switched off.
+  const chatModuleEnabled = !!useChatSettings(auth?.claims?.tid).settings.moduleEnabled;
 
   // Every recording/authoring shortcut is clinical: an auditor or an
   // admin-only account pressing them would land on a forbidden page.
@@ -408,7 +414,7 @@ function App() {
   // Mounted, not imported screen by screen: the host hands it identity, theme,
   // locale and the URL, and owns navigation. Everything under the base path
   // belongs to the module's own scoped router.
-  else if (routePath === CHAT_BASE_PATH || routePath.startsWith(`${CHAT_BASE_PATH}/`)) {
+  else if (chatModuleEnabled && (routePath === CHAT_BASE_PATH || routePath.startsWith(`${CHAT_BASE_PATH}/`))) {
     view = (
       <RequireClinical navigate={navigate}>
         <ChatHostRoute route={r} navigate={navigate} lang={lang} theme={tweaks.theme} onToast={fireToast} />
