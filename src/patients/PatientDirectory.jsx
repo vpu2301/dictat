@@ -12,15 +12,19 @@
 //   full DOB.
 // - Nothing patient-derived goes to localStorage/sessionStorage or telemetry.
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Icon, Empty, Modal } from "../components/UI.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { Pagination } from "../components/Pagination.jsx";
+import { MenuSelect } from "../components/MenuSelect.jsx";
 import { Loading } from "../components/DataStates.jsx";
 import { useClaims } from "../auth/AuthContext.jsx";
 import {
   listPatients, createPatient, updatePatient, toPage,
   displayName, yearOfBirth,
+  CONTACT_LIMITS, normalizeEmail, isEmailShapeValid,
+  normalizePhone, isPhoneShapeValid,
+  addressBody,
 } from "../api/patients.js";
 import { useSearchQuery } from "../api/useSearchQuery.js";
 import { checkIpn, stripIpnSeparators } from "./ipn.js";
@@ -59,6 +63,62 @@ const SEX_LABEL = { M: "M", F: "F", U: "—" };
 // Per-page choices; the roster fetch limit must stay ≥ the largest of these.
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
+// Roster status filter. The server hands back the whole roster regardless of
+// status (there is no `status=` query param), so this cuts client-side over
+// what the cursor has already loaded — same as the "show archived" checkbox it
+// replaces. "erased" is deliberately absent: those rows only ever arrive with
+// include_erased=true, which is tenant_admin-only and lives in the privacy queue.
+const STATUS_FILTERS = ["all", "active", "inactive", "deceased"];
+function statusFilterLabel(value, lang) {
+  switch (value) {
+    case "active":   return tr(lang, "Активні", "Active");
+    case "inactive": return tr(lang, "Архівні", "Archived");
+    case "deceased": return tr(lang, "Померлі", "Deceased");
+    default:         return tr(lang, "Усі пацієнти", "All patients");
+  }
+}
+
+// Roster sort. Like the filter, this orders what the cursor has already
+// loaded — the API has no `sort=` param, so a roster longer than the loaded
+// pages sorts within the loaded prefix and re-sorts as Next pulls more.
+// "default" keeps the server's own order, which is
+// COALESCE(last_visit_at, created_at) DESC — most recent activity first.
+const SORTS = ["default", "name_asc", "name_desc", "visit_desc", "visit_asc", "created_desc"];
+function sortLabel(value, lang) {
+  switch (value) {
+    case "name_asc":     return tr(lang, "Ім'я А→Я", "Name A→Z");
+    case "name_desc":    return tr(lang, "Ім'я Я→А", "Name Z→A");
+    case "visit_desc":   return tr(lang, "Останній візит: спершу нові", "Last visit: newest first");
+    case "visit_asc":    return tr(lang, "Останній візит: спершу давні", "Last visit: oldest first");
+    case "created_desc": return tr(lang, "Нещодавно додані", "Recently added");
+    default:             return tr(lang, "Нещодавня активність", "Recent activity");
+  }
+}
+
+// `null` last_visit (never seen) always sinks to the bottom, in both
+// directions — "no visit yet" is not an early date, it is an absent one.
+function sortRows(rows, sort, lang) {
+  if (sort === "default") return rows;
+  const byName = (a, b) =>
+    displayName(a, lang).localeCompare(displayName(b, lang), tr(lang, "uk", "en"), { sensitivity: "base" });
+  const ts = (v) => { const t = v ? Date.parse(v) : NaN; return Number.isNaN(t) ? null : t; };
+  const byVisit = (dir) => (a, b) => {
+    const x = ts(a.last_visit), y = ts(b.last_visit);
+    if (x == null && y == null) return byName(a, b);
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return x === y ? byName(a, b) : (x - y) * dir;
+  };
+  const cmp = {
+    name_asc: byName,
+    name_desc: (a, b) => byName(b, a),
+    visit_desc: byVisit(-1),
+    visit_asc: byVisit(1),
+    created_desc: (a, b) => (ts(b.created_at) ?? 0) - (ts(a.created_at) ?? 0) || byName(a, b),
+  }[sort];
+  return cmp ? [...rows].sort(cmp) : rows;
+}
+
 function StatusBadge({ status, lang }) {
   if (status === "inactive") {
     return <span className="pdir-badge inactive">{tr(lang, "архів", "archived")}</span>;
@@ -96,6 +156,14 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
   const [dob, setDob] = useState(patient?.dob || "");
   const [sex, setSex] = useState(patient?.sex || "U");
   const [mrn, setMrn] = useState(patient?.mrn || "");
+  // Contact details: optional, and cleared by emptying the field (the server
+  // reads "" as "clear", absent as "unchanged"). The address is held as its
+  // five components — one state object rather than five useStates, so the
+  // whole address is one value to send and one to reset.
+  const [phone, setPhone] = useState(patient?.phone || "");
+  const [email, setEmail] = useState(patient?.email || "");
+  const [address, setAddress] = useState(() => addressBody(patient?.address));
+  const setAddressPart = (key) => (e) => setAddress((a) => ({ ...a, [key]: e.target.value }));
   const [summary, setSummary] = useState(patient ? patient.summary?.uk || "" : "");
   const [tags, setTags] = useState(patient?.tags || []);
   const [tagInput, setTagInput] = useState("");
@@ -108,8 +176,10 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
 
   const ipnState = ipnHint(ipn, lang);
   const ipnBlocked = !!stripIpnSeparators(ipn) && !checkIpn(ipn).ok;
+  const emailBlocked = !isEmailShapeValid(email);
+  const phoneBlocked = !isPhoneShapeValid(phone);
   const needsDeceasedConfirm = editing && status === "deceased" && patient.status !== "deceased" && !deceasedConfirmed;
-  const valid = nameUk.trim() && !ipnBlocked && !needsDeceasedConfirm;
+  const valid = nameUk.trim() && !ipnBlocked && !emailBlocked && !phoneBlocked && !needsDeceasedConfirm;
 
   const title = editing
     ? (tr(lang, "Редагувати пацієнта", "Edit patient"))
@@ -129,6 +199,14 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
       name: { uk, en },
       sex,
       mrn: mrn.trim(),
+      // Always sent (create and edit alike): the server trims and treats "" as
+      // "no value" on create / "clear it" on update, so emptying a field in
+      // the form is what removes the detail from the record.
+      // Sent normalized, exactly as the server stores them: "+380 (67) 123-45-67"
+      // and "+380671234567" must not become two different records.
+      phone: normalizePhone(phone),
+      email: normalizeEmail(email),
+      address: addressBody(address),
       summary: summary ? { uk: summary, en: summary } : (editing ? { uk: "", en: "" } : undefined),
       tags,
     };
@@ -222,6 +300,94 @@ export function PatientFormModal({ lang, patient, onClose, onSave, onOpenExistin
               <span>{tr(lang, "Прибрати ІПН", "Remove ІПН")}</span>
             </label>
           )}
+        </div>
+
+        {/* Contact details — how the clinic actually reaches the patient.
+            All optional; the phone and the e-mail are shape-checked inline so
+            a typo surfaces here rather than at the first call or send. They
+            sit under the ІПН because they read as part of the same identity
+            block. */}
+        <div className="np-row two">
+          <label>
+            <span>{tr(lang, "Телефон", "Phone")}</span>
+            <input className="ti" type="tel" inputMode="tel" value={phone}
+              maxLength={CONTACT_LIMITS.phone}
+              placeholder="+380 XX XXX XX XX"
+              aria-invalid={phoneBlocked || undefined}
+              onChange={(e) => setPhone(e.target.value)} />
+            {phoneBlocked && (
+              <span className="pdir-ipn-hint err">
+                {tr(lang,
+                  "Номер має містити 7–15 цифр, можна з кодом країни (+380…)",
+                  "A number is 7–15 digits, optionally with a country code (+380…)")}
+              </span>
+            )}
+          </label>
+          <label>
+            <span>{tr(lang, "Ел. пошта", "E-mail")}</span>
+            <input className="ti" type="email" inputMode="email" value={email}
+              maxLength={CONTACT_LIMITS.email}
+              placeholder="name@example.com"
+              aria-invalid={emailBlocked || undefined}
+              onChange={(e) => setEmail(e.target.value)} />
+            {emailBlocked && (
+              <span className="pdir-ipn-hint err">
+                {tr(lang, "Адреса має виглядати як name@example.com", "Address must look like name@example.com")}
+              </span>
+            )}
+          </label>
+        </div>
+
+        {/* Address, captured in components rather than one free-text line —
+            what is split here can be used downstream (a referral letter, a
+            courier hand-off, a roster filtered by city); a line typed once
+            cannot be split back apart reliably. Every component is optional:
+            a city with no street is a legitimate half-captured address. */}
+        <div className="np-row">
+          <span className="np-label">{tr(lang, "Адреса", "Address")}</span>
+          <div className="np-address">
+            <div className="np-row np-address-street">
+              <label>
+                <span>{tr(lang, "Вулиця", "Street")}</span>
+                <input className="ti" value={address.street}
+                  maxLength={CONTACT_LIMITS.street}
+                  placeholder={tr(lang, "вул. Шевченка", "Shevchenka St")}
+                  onChange={setAddressPart("street")} />
+              </label>
+              <label>
+                <span>{tr(lang, "Будинок / кв.", "No. / apt.")}</span>
+                <input className="ti" value={address.house}
+                  maxLength={CONTACT_LIMITS.house}
+                  placeholder={tr(lang, "12, кв. 5", "12, apt. 5")}
+                  onChange={setAddressPart("house")} />
+              </label>
+            </div>
+            <div className="np-row three">
+              <label>
+                <span>{tr(lang, "Індекс", "ZIP / postcode")}</span>
+                {/* No inputMode="numeric": a postcode is digits in Ukraine but
+                    alphanumeric in the UK, Canada, and the Netherlands. */}
+                <input className="ti mono" value={address.zip}
+                  maxLength={CONTACT_LIMITS.zip}
+                  placeholder="01001"
+                  onChange={setAddressPart("zip")} />
+              </label>
+              <label>
+                <span>{tr(lang, "Місто", "City")}</span>
+                <input className="ti" value={address.city}
+                  maxLength={CONTACT_LIMITS.city}
+                  placeholder={tr(lang, "Київ", "Kyiv")}
+                  onChange={setAddressPart("city")} />
+              </label>
+              <label>
+                <span>{tr(lang, "Країна", "Country")}</span>
+                <input className="ti" value={address.country}
+                  maxLength={CONTACT_LIMITS.country}
+                  placeholder={tr(lang, "Україна", "Ukraine")}
+                  onChange={setAddressPart("country")} />
+              </label>
+            </div>
+          </div>
         </div>
 
         {editing && (
@@ -347,11 +513,18 @@ export function PatientDirectory({ navigate, lang }) {
     if (c.ok) sq.setQuery(c.ipn);       // fires ONLY on 10 valid digits
   };
 
-  const [showInactive, setShowInactive] = useState(true); // clinics look up returning patients
+  // Default "all" — clinics look up returning and archived patients alike.
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("default");
   const [addOpen, setAddOpen] = useState(false);
   const [editPatient, setEditPatient] = useState(null);
 
-  const rows = showInactive ? sq.items : sq.items.filter((p) => p.status === "active");
+  const rows = useMemo(() => {
+    const base = statusFilter === "all"
+      ? sq.items
+      : sq.items.filter((p) => p.status === statusFilter);
+    return sortRows(base, sort, lang);
+  }, [sq.items, statusFilter, sort, lang]);
 
   // ── Paging ──────────────────────────────────────────────────────────────
   // The roster is a forward-only server cursor, so pages are cut client-side
@@ -363,7 +536,7 @@ export function PatientDirectory({ navigate, lang }) {
   const [page, setPage] = useState(1);
 
   // Anything that redefines the result set sends you back to page 1.
-  useEffect(() => { setPage(1); }, [sq.query, showInactive, pageSize]);
+  useEffect(() => { setPage(1); }, [sq.query, statusFilter, sort, pageSize]);
 
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   // Clamp when the set shrinks under the current page (archived filter, a
@@ -373,13 +546,13 @@ export function PatientDirectory({ navigate, lang }) {
   const pageRows = rows.slice((page - 1) * pageSize, page * pageSize);
 
   // Top up a short page: the server may hand back fewer rows than the page
-  // size (small cursor page, or the "show archived" filter eating rows), and a
+  // size (small cursor page, or the status filter eating rows), and a
   // half-empty page above a live Next button reads as data loss. Bounded by
   // MAX_FILL_FETCHES per page so a filter that hides nearly everything can't
   // walk the whole roster in one go — Next still pulls the rest by hand.
   const MAX_FILL_FETCHES = 3;
   const fillsRef = useRef(0);
-  useEffect(() => { fillsRef.current = 0; }, [page, pageSize, sq.query, showInactive]);
+  useEffect(() => { fillsRef.current = 0; }, [page, pageSize, sq.query, statusFilter]);
   useEffect(() => {
     if (sq.loading || sq.loadingMore || !sq.hasMore) return;
     if (rows.length >= page * pageSize) return;
@@ -464,10 +637,24 @@ export function PatientDirectory({ navigate, lang }) {
             value={ipnText} onChange={(e) => onIpnChange(e.target.value)} />
           {ipnState && <span className={`pdir-ipn-hint ${ipnState.kind}`}>{ipnState.msg}</span>}
         </div>
-        <label className="pdir-inactive-toggle">
-          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-          <span>{tr(lang, "Показувати архівних", "Show archived")}</span>
-        </label>
+        <div className="pdir-status-filter">
+          <MenuSelect
+            icon="archive"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            ariaLabel={tr(lang, "Фільтр за статусом", "Filter by status")}
+            options={STATUS_FILTERS.map((v) => ({ value: v, label: statusFilterLabel(v, lang) }))}
+          />
+        </div>
+        <div className="pdir-sort">
+          <MenuSelect
+            icon="sort"
+            value={sort}
+            onChange={setSort}
+            ariaLabel={tr(lang, "Сортування", "Sort order")}
+            options={SORTS.map((v) => ({ value: v, label: sortLabel(v, lang) }))}
+          />
+        </div>
         {sq.loading && sq.items.length > 0 && (
           <span className="pdir-searching">{tr(lang, "Пошук…", "Searching…")}</span>
         )}
@@ -487,11 +674,25 @@ export function PatientDirectory({ navigate, lang }) {
         {sq.error && <ApiErrorView error={sq.error} lang={lang} />}
         {!initialLoading && !sq.error && rows.length === 0 && (
           <div style={{ padding: "40px 24px", textAlign: "center" }}>
-            <Empty icon="users" title={
-              sq.query
-                ? (tr(lang, "Нічого не знайдено", "No results"))
-                : (tr(lang, "Пацієнтів ще немає", "No patients yet"))
-            } />
+            <Empty
+              icon={statusFilter === "all" ? "users" : "archive"}
+              title={
+                sq.query
+                  ? (tr(lang, "Нічого не знайдено", "No results"))
+                  : statusFilter === "inactive"
+                    ? (tr(lang, "Архівних пацієнтів немає", "No archived patients"))
+                    : statusFilter === "deceased"
+                      ? (tr(lang, "Померлих пацієнтів немає", "No deceased patients"))
+                      : statusFilter === "active"
+                        ? (tr(lang, "Активних пацієнтів немає", "No active patients"))
+                        : (tr(lang, "Пацієнтів ще немає", "No patients yet"))
+              }
+              body={statusFilter !== "all" && !sq.query
+                ? (lang === "uk"
+                    ? `Фільтр: ${statusFilterLabel(statusFilter, lang).toLowerCase()}. Оберіть «Усі пацієнти», щоб побачити решту.`
+                    : `Filter: ${statusFilterLabel(statusFilter, lang).toLowerCase()}. Switch to “All patients” to see the rest.`)
+                : undefined}
+            />
           </div>
         )}
 

@@ -2049,6 +2049,15 @@ kbd {
 .np-row.two   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .np-row.three { display: grid; grid-template-columns: 1.4fr 1fr 1.2fr; gap: 14px; }
 .np-row label { display: flex; flex-direction: column; gap: 5px; }
+
+/* Patient address, captured in components. The sub-rows are proportioned to
+   the content they hold — a street name needs the room a house number does
+   not, and an index is five characters wide. */
+.np-address { display: flex; flex-direction: column; gap: 10px; }
+.np-address .np-row.np-address-street {
+  display: grid; grid-template-columns: 2.2fr 1fr; gap: 14px;
+}
+.np-address .np-row.three { grid-template-columns: 0.8fr 1.4fr 1.2fr; }
 .np-row label > span, .np-label {
   font-size: 12px; font-weight: 500; color: var(--text-2);
 }

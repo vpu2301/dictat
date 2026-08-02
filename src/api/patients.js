@@ -28,6 +28,16 @@ const a = (p, init) => apiAt(SERVICES.core, p, init);
  *                                           render this; use yearOfBirth()
  * @property {"M"|"F"|"U"} sex
  * @property {string} mrn
+ * @property {string} phone                  normalized "+380671234567", "" when unset
+ * @property {string} email                  normalized lower-case, "" when unset
+ * @property {PatientAddress} address        components, each "" when unset
+ *
+ * @typedef {Object} PatientAddress
+ * @property {string} street
+ * @property {string} house                  building + apartment ("12, кв. 5")
+ * @property {string} zip
+ * @property {string} city
+ * @property {string} country
  * @property {NameI18n} summary
  * @property {string[]} tags
  * @property {"active"|"inactive"|"deceased"|"erased"} status
@@ -56,11 +66,16 @@ const a = (p, init) => apiAt(SERVICES.core, p, init);
 // server validates + HMAC-tokenizes; 422 ipn_invalid, 409 patient_ipn_exists
 // with problem.existing_patient_id). Undefined keys are dropped so the wire
 // carries exactly what the caller set.
-export function patientCreateBody({ name, dob, sex, mrn, summary, tags, ipn } = {}) {
+export function patientCreateBody({ name, dob, sex, mrn, phone, email, address, summary, tags, ipn } = {}) {
   const b = { name };
   if (dob !== undefined) b.dob = dob;
   if (sex !== undefined) b.sex = sex;
   if (mrn !== undefined) b.mrn = mrn;
+  if (phone !== undefined) b.phone = phone;
+  if (email !== undefined) b.email = email;
+  // Re-shaped rather than passed through: Address is extra="forbid" too, so a
+  // stray key on a caller's object would 422 the whole request.
+  if (address !== undefined) b.address = addressBody(address);
   if (summary !== undefined) b.summary = summary;
   if (tags !== undefined) b.tags = tags;
   if (ipn !== undefined) b.ipn = ipn;
@@ -68,19 +83,121 @@ export function patientCreateBody({ name, dob, sex, mrn, summary, tags, ipn } = 
 }
 
 // PatientUpdate: all optional. ipn semantics: undefined = unchanged,
-// "" = clear, digits = set. status "erased" is engine-only — the server
-// rejects it 422 code=status_immutable_erased (archive = "inactive").
-export function patientUpdateBody({ name, dob, sex, mrn, summary, tags, status, ipn } = {}) {
+// "" = clear, digits = set. The contact fields follow the same convention
+// (absent = unchanged, "" = clear). status "erased" is engine-only — the
+// server rejects it 422 code=status_immutable_erased (archive = "inactive").
+export function patientUpdateBody({ name, dob, sex, mrn, phone, email, address, summary, tags, status, ipn } = {}) {
   const b = {};
   if (name !== undefined) b.name = name;
   if (dob !== undefined) b.dob = dob;
   if (sex !== undefined) b.sex = sex;
   if (mrn !== undefined) b.mrn = mrn;
+  if (phone !== undefined) b.phone = phone;
+  if (email !== undefined) b.email = email;
+  // An address object REPLACES all five columns server-side — a blank
+  // component clears it. That is how the form removes a house number.
+  if (address !== undefined) b.address = addressBody(address);
   if (summary !== undefined) b.summary = summary;
   if (tags !== undefined) b.tags = tags;
   if (status !== undefined) b.status = status;
   if (ipn !== undefined) b.ipn = ipn;
   return b;
+}
+
+// ── Contact fields (phone / e-mail / address) ────────────────────────────
+// Mirrors the server so a typo becomes an inline hint instead of a round-trip
+// 422: core-service routers/patients.py caps each field at these lengths and
+// runs _clean_phone() / _clean_email() (normalize, then a shape check that
+// answers 422 code=phone_invalid / email_invalid). The server stays the
+// authority — this is only the fast path.
+export const CONTACT_LIMITS = {
+  phone: 32,
+  email: 254,
+  street: 200,
+  house: 32,
+  zip: 20,
+  city: 120,
+  country: 120,
+};
+
+// The address components, in the order the form and the display string use
+// them. Iterating this (rather than five hand-written branches) keeps the
+// form, the wire picker, and the formatter from drifting apart.
+export const ADDRESS_FIELDS = ["street", "house", "zip", "city", "country"];
+
+export function emptyAddress() {
+  return { street: "", house: "", zip: "", city: "", country: "" };
+}
+
+// Wire-shape address from whatever the caller holds (a PatientOut's address,
+// a half-filled form, or nothing). Always all five keys, always strings — the
+// server's model is extra="forbid", so an unknown key would 422.
+export function addressBody(raw) {
+  const a = raw || {};
+  const out = {};
+  for (const k of ADDRESS_FIELDS) out[k] = String(a[k] ?? "").trim();
+  return out;
+}
+
+export function hasAddress(raw) {
+  const a = addressBody(raw);
+  return ADDRESS_FIELDS.some((k) => a[k]);
+}
+
+// Single-line address for cards and headers: "вул. Шевченка, 12, кв. 5,
+// 01001 Київ, Україна". Blank components collapse rather than leaving stray
+// commas, so a half-captured address still reads correctly.
+export function formatAddress(raw) {
+  const a = addressBody(raw);
+  const street = [a.street, a.house].filter(Boolean).join(", ");
+  const locality = [a.zip, a.city].filter(Boolean).join(" ");
+  return [street, locality, a.country].filter(Boolean).join(", ");
+}
+
+export function normalizeEmail(raw) {
+  return String(raw ?? "").trim().toLowerCase();
+}
+
+// Deliberately the server's loose rule (local@domain.tld, no whitespace), not
+// a strict RFC regex — those reject addresses that deliver fine.
+export function isEmailShapeValid(raw) {
+  const email = normalizeEmail(raw);
+  if (!email) return true;                       // optional — blank is valid
+  const at = email.indexOf("@");
+  const local = at < 0 ? "" : email.slice(0, at);
+  const domain = at < 0 ? "" : email.slice(at + 1);
+  if (!local || !domain || !domain.includes(".")) return false;
+  return !/\s/.test(email);
+}
+
+// ── Telephone ────────────────────────────────────────────────────────────
+// Mirrors _clean_phone(): strip the separators a human types, keep an
+// optional leading "+", and require 7–15 digits (the E.164 range). Sent
+// normalized so the stored value is directly dialable — `tel:` links and any
+// future SMS gateway read the column as-is.
+const PHONE_SEPARATORS = /[\s()\-–—./]+/g;
+
+export function normalizePhone(raw) {
+  const phone = String(raw ?? "").trim();
+  if (!phone) return "";
+  const plus = phone.startsWith("+");
+  const digits = (plus ? phone.slice(1) : phone).replace(PHONE_SEPARATORS, "");
+  return plus ? `+${digits}` : digits;
+}
+
+// Not a per-country pattern on purpose: a border clinic records Polish and
+// Moldovan numbers too, and a stricter rule would reject numbers that dial.
+export function isPhoneShapeValid(raw) {
+  const phone = normalizePhone(raw);
+  if (!phone) return true;                       // optional — blank is valid
+  return /^\+?\d{7,15}$/.test(phone);
+}
+
+// Does the patient carry any contact detail at all? (drives the "no contact
+// details" hint on the record card).
+export function hasContact(patient) {
+  const p = patient || {};
+  return !!(String(p.phone || "").trim() || String(p.email || "").trim() || hasAddress(p.address));
 }
 
 // ── PII-hygiene display primitives (the ONLY derivations lists may use) ──
