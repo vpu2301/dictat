@@ -167,7 +167,7 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
       <div className="page">
         <ApiErrorView error={error} lang={lang} />
         <div style={{ marginTop: 12 }}>
-          <button className="btn" onClick={() => navigate("/asr/jobs")}>
+          <button className="btn" onClick={() => navigate("/documents/transcripts")}>
             <Icon name="arrowLeft" size={13} />
             <span>{tr(lang, "До списку", "Back to list")}</span>
           </button>
@@ -197,7 +197,7 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => navigate("/asr/jobs")}>
+          <button className="btn" onClick={() => navigate("/documents/transcripts")}>
             <Icon name="arrowLeft" size={13} />
             <span>{tr(lang, "До списку", "Back")}</span>
           </button>

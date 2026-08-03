@@ -126,7 +126,7 @@ function StatusBadge({ status, lang }) {
 
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-export function TemplatesPage({ lang, navigate }) {
+export function TemplatesPage({ lang, navigate, embedded = false }) {
   const canWrite = usePermission("templates.write", "template");
 
   const [specialty, setSpecialty]   = useState("");
@@ -224,7 +224,10 @@ export function TemplatesPage({ lang, navigate }) {
   }, [req, lang, fireToast]);
 
   return (
-    <div className="page">
+    // `embedded`: a tab of the Templates page, which owns the frame and the
+    // title. The counts move up into that header, so nothing is lost.
+    <div className={embedded ? "page-embedded" : "page"}>
+      {!embedded && (
       <div className="page-h">
         <div>
           <h1>{T(lang, "Шаблони звітів", "Report templates")}</h1>
@@ -235,6 +238,7 @@ export function TemplatesPage({ lang, navigate }) {
           </p>
         </div>
       </div>
+      )}
 
       {/* Toolbar */}
       <div className="ptable-toolbar" style={{ marginBottom: 16, flexWrap: "wrap", gap: 8 }}>

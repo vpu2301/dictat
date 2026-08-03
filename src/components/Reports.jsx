@@ -167,7 +167,7 @@ const TAB_STATUS = {
   all:       ACTIVE_STATUSES,
 };
 
-export function ReportsList({ navigate, lang }) {
+export function ReportsList({ navigate, lang, embedded = false }) {
   const templatesReq = useAsync(() => listTemplates(), []);
   const templatesMap = useMemo(() => templatesToMap(templatesReq.data), [templatesReq.data]);
 
@@ -279,8 +279,12 @@ export function ReportsList({ navigate, lang }) {
     return [...set];
   }, [templatesReq.data]);
 
+  // `embedded`: rendered as a tab of the Documents page, which owns the page
+  // frame, the title and the create button. The list keeps everything else —
+  // its own tabs, search, filters and paging.
   return (
-    <div className="page">
+    <div className={embedded ? "page-embedded" : "page"}>
+      {!embedded && (
       <div className="page-h">
         <div>
           <h1>{tr(lang, "Звіти", "Reports")}</h1>
@@ -296,6 +300,7 @@ export function ReportsList({ navigate, lang }) {
           </button>
         </div>
       </div>
+      )}
 
       <div className="ptable-toolbar" style={{ marginBottom: 0, paddingBottom: 14 }}>
         <label className="search-input">
@@ -1064,7 +1069,7 @@ export function ReportView({ id, navigate, lang }) {
     return (
       <div className="page">
         <Empty icon="fileText" title={tr(lang, "Звіт не знайдено", "Report not found")}
-               action={<button className="btn" onClick={() => navigate("/dictate/reports")}>← Back</button>} />
+               action={<button className="btn" onClick={() => navigate("/documents/reports")}>← Back</button>} />
       </div>
     );
   }
@@ -1134,7 +1139,7 @@ export function ReportView({ id, navigate, lang }) {
 
       <div className="report-main">
         <div className="editor-toolbar">
-          <button className="btn ghost sm" onClick={() => navigate("/dictate/reports")}>
+          <button className="btn ghost sm" onClick={() => navigate("/documents/reports")}>
             <Icon name="arrowLeft" size={13} />
             {tr(lang, "Звіти", "Reports")}
           </button>

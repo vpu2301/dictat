@@ -261,7 +261,65 @@ kbd {
   display: inline-flex; align-items: center; justify-content: center;
   background: rgba(255,255,255,0.16);
 }
-.sb-cta-label { flex: 1; text-align: left; }
+.sb-cta-label {
+  flex: 1; text-align: left; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Split create button (primary action + caret menu) ─────────────────── */
+.sb-cta-split { position: relative; display: flex; margin: 2px 4px; gap: 1px; }
+.sb-cta-split .sb-cta { margin: 0; }
+.sb-cta-split > .sb-cta:first-child { flex: 1; min-width: 0; border-radius: 8px 0 0 8px; }
+.sb-cta-caret {
+  flex: 0 0 auto; width: 30px; padding: 0;
+  justify-content: center;
+  border-radius: 0 8px 8px 0;
+}
+.sb-cta-caret.open { opacity: .92; }
+/* Collapsed rail: no room for a split — one 40 px square that opens the menu. */
+.sb-cta-split.collapsed { margin: 2px 0; justify-content: center; }
+.sb-cta-caret svg { color: currentColor; }
+
+/* ── Anchored dropdown menu (sidebar create button, page split buttons) ──
+   Fixed-positioned off its trigger, so it escapes the sidebar's overflow
+   clipping and any scroll container a page header sits in. */
+.anchored-menu {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-2);
+  padding: 4px;
+  display: flex; flex-direction: column;
+  z-index: 60;
+}
+.anchored-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--text-2);
+  text-align: left;
+  background: transparent;
+}
+.anchored-menu-item:hover { background: var(--surface-2); color: var(--text-1); }
+.anchored-menu-item svg { color: var(--muted); flex-shrink: 0; }
+.anchored-menu-label { flex: 1; white-space: nowrap; }
+.anchored-menu-item kbd {
+  background: var(--surface-2); border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+/* Page-header split button: primary action + caret, joined into one control. */
+.split-btn { position: relative; display: inline-flex; }
+.split-btn > .btn:first-child { border-radius: 8px 0 0 8px; }
+.split-btn-caret {
+  border-radius: 0 8px 8px 0;
+  padding-left: 8px; padding-right: 8px;
+  min-width: 0;
+  border-left: 1px solid rgba(255,255,255,0.22);
+}
+.split-btn > .btn:not(.accent).split-btn-caret { border-left: 1px solid var(--line); }
 .sb-cta kbd {
   background: rgba(255,255,255,0.16);
   border: 1px solid rgba(255,255,255,0.18);
@@ -589,6 +647,13 @@ kbd {
   margin: 0 auto;
 }
 .page.wide { max-width: none; }
+/* A list rendered as a tab of another page: the parent owns the frame, so this
+   wrapper contributes no box of its own. */
+.page-embedded { display: contents; }
+/* Document tabs carry an icon, so they need the flex row the plain tab lacks. */
+.doc-tabs .tab { display: inline-flex; align-items: center; gap: 7px; }
+.doc-tabs { margin-bottom: 14px; }
+
 .page-h {
   display: flex; align-items: flex-start; gap: 16px;
   margin-bottom: 18px;
@@ -2585,3 +2650,165 @@ kbd {
   padding: 1px 6px; border-radius: 5px;
   background: var(--accent-soft);
 }
+
+/* ─── Patient import modal ───────────────────────────────────────────── */
+.pimport-modal { max-width: min(1020px, 94vw); }
+.pimport-modal .modal-h { display: flex; align-items: flex-start; gap: 12px; }
+.pimport-modal .modal-h > div { flex: 1; min-width: 0; }
+.pimport-modal .modal-b { max-height: min(64vh, 620px); overflow-y: auto; }
+
+.pimport-drop {
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--surface-2);
+  transition: border-color .12s, background .12s;
+}
+.pimport-drop:hover, .pimport-drop.on { border-color: var(--accent); background: var(--accent-soft); }
+.pimport-drop-t { font-size: 14px; font-weight: 600; color: var(--text-1); margin-top: 8px; }
+.pimport-drop-s { font-size: 12.5px; margin-top: 2px; }
+.pimport-or { text-align: center; color: var(--muted); font-size: 12.5px; margin: 14px 0 8px; }
+.pimport-paste {
+  width: 100%; resize: vertical;
+  font-family: var(--mono); font-size: 12.5px;
+  padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--text-1);
+}
+
+.pimport-summary { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+.pimport-summary .stat-card.sm { padding: 10px 14px; flex: 0 0 auto; min-width: 128px; }
+.pimport-summary .stat-card.sm .stat-v { font-size: 22px; }
+.pimport-note { font-size: 12.5px; margin: 0 0 10px; }
+.pimport-note.err { color: var(--danger, #dc2626); }
+
+/* Six columns in the preview, three in the result table. */
+.pimport-preview .ptable-head,
+.pimport-preview .ptable-row {
+  grid-template-columns: 48px minmax(120px, 1.3fr) 96px minmax(90px, 1fr) minmax(120px, 1.4fr) minmax(150px, 1.5fr);
+  gap: 10px; padding: 10px 14px; align-items: center;
+}
+/* A long e-mail or an unparsed phone must not push the verdict off screen. */
+.pimport-table .ptable-row > div { min-width: 0; overflow-wrap: anywhere; }
+.pimport-table .ptable-row .chip { white-space: nowrap; }
+.pimport-result .ptable-head,
+.pimport-result .ptable-row { grid-template-columns: 56px 1.6fr 2fr; }
+.pimport-table .ptable-row.is-err { background: color-mix(in srgb, var(--danger, #dc2626) 6%, transparent); }
+.pimport-reason { font-size: 12px; color: var(--muted); margin-left: 8px; }
+.pimport-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-2); }
+
+/* ─── Patient documents (the "Uploaded" tab) ─────────────────────────── */
+.pdoc-modal { max-width: min(560px, 94vw); }
+.pdoc-modal .modal-h { display: flex; align-items: flex-start; gap: 12px; }
+
+.pdoc-drop {
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 24px 18px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--surface-2);
+  transition: border-color .12s, background .12s;
+}
+.pdoc-drop:hover, .pdoc-drop.on { border-color: var(--accent); background: var(--accent-soft); }
+.pdoc-drop.has-file { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
+.pdoc-drop-t { font-size: 14px; font-weight: 600; color: var(--text-1); margin-top: 8px; word-break: break-all; }
+.pdoc-drop-s { font-size: 12.5px; margin-top: 2px; }
+.pdoc-err { color: var(--danger, #dc2626); font-size: 12.5px; margin: 10px 0 0; }
+
+.pdoc-form { display: grid; grid-template-columns: 180px 1fr; gap: 12px; margin-top: 14px; }
+.pdoc-form label { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.pdoc-form label > span { font-size: 12px; color: var(--muted); }
+
+.pdoc-list { display: flex; flex-direction: column; gap: 8px; }
+.pdoc-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.pdoc-icon {
+  width: 34px; height: 34px; flex: 0 0 auto;
+  border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2); color: var(--muted);
+}
+.pdoc-main { flex: 1; min-width: 0; }
+.pdoc-name {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13.5px; font-weight: 600; color: var(--text-1);
+  overflow-wrap: anywhere;
+}
+.pdoc-meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+
+/* ─── Note editor (studio shell) ─────────────────────────────────────── */
+/* Same three-column grid as the dictation Studio; only the middle surface
+   differs (a section textarea instead of the TipTap document). */
+.note-studio .rail-h { padding: 12px 14px 6px; }
+.ns-rail-block { padding: 6px 12px 14px; }
+.ns-rail-label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
+
+.ns-sections { display: flex; flex-direction: column; gap: 2px; }
+.ns-section {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 8px;
+  font-size: 13px; color: var(--text-3); text-align: left;
+  background: transparent; width: 100%;
+}
+.ns-section:hover { background: var(--surface-2); color: var(--text-1); }
+.ns-section.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
+.ns-section-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--line); border: 1px solid var(--line);
+}
+.ns-section.filled .ns-section-dot { background: var(--accent); border-color: var(--accent); }
+.ns-section-name { flex: 1; min-width: 0; }
+.ns-section-count { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.ns-dictation-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 18px;
+  font-size: 12.5px; color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.ns-dictation-bar.on { background: var(--accent-soft); color: var(--accent-text); }
+.ns-dictation-bar svg { flex-shrink: 0; }
+.ns-wordcount { font-variant-numeric: tabular-nums; }
+
+.ns-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 18px; gap: 10px; }
+.ns-editor-h { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ns-editor-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
+.ns-tabs { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.ns-area {
+  flex: 1; min-height: 220px; resize: none;
+  padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--text-1);
+  font-size: 14.5px; line-height: 1.65;
+}
+.ns-area:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.ns-partial { margin: 0; }
+
+.ns-meta { padding: 4px 14px 16px; border-top: 1px solid var(--line-2); }
+.ns-meta-row { display: flex; gap: 10px; padding: 5px 0; font-size: 12.5px; }
+.ns-meta-row > span { color: var(--muted); flex: 0 0 84px; }
+.ns-meta-row > strong { font-weight: 500; color: var(--text-1); min-width: 0; overflow-wrap: anywhere; }
+
+/* The "pick a patient" gate, hosted inside the shell's centre column. */
+.nep-patient-gate {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+}
+.nep-patient-gate > div:first-child { flex: 1; min-width: 220px; }
+.nep-patient-gate .qno-combobox { min-width: 300px; flex: 0 1 340px; }
+.nep-gate-t { font-size: 13.5px; font-weight: 600; color: var(--text-1); }
+.nep-gate-s { font-size: 12.5px; color: var(--muted); margin-top: 2px; }

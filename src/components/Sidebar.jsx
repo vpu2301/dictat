@@ -1,7 +1,7 @@
 // Sidebar.jsx — Left sidebar with collapsible dropdown sections for
 // Workspace / Settings / Admin / Audit / Account. Replaces the flat sidebar.
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Icon, Logo, Modal } from "./UI.jsx";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Icon, Logo, Modal, useMenuAnchor, AnchoredMenu } from "./UI.jsx";
 import { HealthBadge } from "./HealthBadge.jsx";
 import { ClinicMenuSection, CreateClinicModal } from "./TenantSwitcher.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
@@ -121,6 +121,52 @@ function NavLink({ route, navigate, path, prefix, exact, icon, label, badge, col
   );
 }
 
+// The single "create" control: one primary button (consultation — the job
+// most days start with) plus a caret that drops the other three ways into the
+// same workspace. One button instead of a stack of CTAs, and every entry
+// routes straight to its own page rather than opening a chooser.
+//
+// The menu is positioned `fixed` off the trigger's rect: `.sb` sets
+// `overflow-x: hidden`, so an absolutely-positioned menu would be clipped at
+// the sidebar edge the moment the rail is collapsed.
+function NewMenu({ primary, actions, collapsed, lang }) {
+  const place = useCallback((r) => (collapsed
+    ? { left: Math.round(r.right + 6), top: Math.round(r.top), minWidth: 240 }
+    : { left: Math.round(r.left), top: Math.round(r.bottom + 6), minWidth: Math.max(240, Math.round(r.width)) }
+  ), [collapsed]);
+  const { open, setOpen, pos, ref, toggle } = useMenuAnchor(place);
+  // Collapsed there is no room for a split control, so the single square
+  // button opens the menu and the primary action joins the list.
+  const items = collapsed ? [primary, ...actions] : actions;
+  return (
+    <div className={"sb-cta-split" + (collapsed ? " collapsed" : "")} ref={ref}>
+      {collapsed ? (
+        <button className="sb-cta" onClick={toggle} title={tr(lang, "Створити", "Create")}
+                aria-haspopup="menu" aria-expanded={open}>
+          <span className="sb-cta-icon"><Icon name="plus" size={13} /></span>
+        </button>
+      ) : (
+        <>
+          {/* The caret eats ~30 px of a 248 px rail, so the primary keeps its
+              label and drops the key hint — the shortcut still fires, and the
+              tooltip names it. */}
+          <button className="sb-cta" onClick={primary.onClick}
+                  title={primary.kbd ? `${primary.label} (${primary.kbd})` : primary.label}>
+            <span className="sb-cta-icon"><Icon name={primary.icon} size={13} /></span>
+            <span className="sb-cta-label">{primary.label}</span>
+          </button>
+          <button className={"sb-cta sb-cta-caret" + (open ? " open" : "")} onClick={toggle}
+                  title={tr(lang, "Інші дії", "More ways to start")}
+                  aria-haspopup="menu" aria-expanded={open}>
+            <Icon name="chevDown" size={13} />
+          </button>
+        </>
+      )}
+      {open && <AnchoredMenu pos={pos} items={items} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
 export function Sidebar({
   route,
   navigate,
@@ -159,19 +205,16 @@ export function Sidebar({
   // /settings hides this block live, no reload).
   const chatEnabled = !!useChatSettings(claims?.tid).settings.moduleEnabled;
 
-  const product = route.startsWith("/dictate") ? "dictate" : "scribe";
-
   // Live count for the "Reports" nav badge — exact number of draft reports
   // needing attention (mirrors the Reports page's own `mine` count). Uses the
   // cheap total=exact path so the badge is accurate rather than counting a
-  // truncated page. Only fetched when the Dictate product is active and the
-  // reports feature is on; hidden at zero so an empty list shows no badge.
+  // truncated page. Hidden at zero so an empty list shows no badge.
   const reportsBadgeReq = useAsync(
     () => countReports({ status: "draft" }),
     [claims?.tid],
     // `clinical` gate added in S14: an admin has no report.read, so
     // this badge fetch would be a guaranteed 403 on every render.
-    { enabled: !!state && clinical && FEATURES.reports && product === "dictate" },
+    { enabled: !!state && clinical && FEATURES.reports },
   );
   const draftReportCount = typeof reportsBadgeReq.data === "number" ? reportsBadgeReq.data : 0;
 
@@ -189,10 +232,10 @@ export function Sidebar({
   // Auto-open the group matching the active route on navigation.
   useEffect(() => {
     let want = null;
-    if (route.startsWith("/asr")) want = "asr";
-    else if (route.startsWith("/chat")) want = "evidence";
+    if (route.startsWith("/chat")) want = "evidence";
     else if (route.startsWith("/audit")) want = "audit";
-    else if (route.startsWith("/scribe") || route.startsWith("/dictate")) want = "workspace";
+    // /asr now lives inside Scribe's workspace group, not a category of its own.
+    else if (route.startsWith("/scribe") || route.startsWith("/dictate") || route.startsWith("/asr")) want = "workspace";
     if (want) setOpenSet((cur) => { if (cur.has(want)) return cur; const n = new Set(cur); n.add(want); return n; });
   }, [route]);
 
@@ -213,11 +256,6 @@ export function Sidebar({
     setConfirmOpen(false);
     if (onToast) onToast(tr(lang, "Сесію завершено", "Signed out"));
     navigate("/login");
-  };
-
-  const setProduct = (p) => {
-    if (p === "scribe") navigate("/scribe");
-    else navigate("/dictate");
   };
 
   const initials = useMemo(() => {
@@ -296,11 +334,10 @@ export function Sidebar({
     <aside className={"sb" + (collapsed ? " collapsed" : "")}>
       <div className="sb-brand">
         <div className="sb-brand-inner"
-             onClick={() => navigate(auditorOnly ? "/audit/events" : product === "scribe" ? "/scribe" : "/dictate")}>
+             onClick={() => navigate(auditorOnly ? "/audit/events" : "/scribe")}>
           <Logo size={26} />
-          {/* An auditor-only account is not in Scribe or Dictate — it has no
-              product switch at all — so the wordmark is what names the product
-              they are actually in. */}
+          {/* An auditor-only account is not in the Scribe workspace at all, so
+              the wordmark is what names the product they are actually in. */}
           {!collapsed && (
             <span className="sb-wordmark">
               Klarnote{auditorOnly && <span className="sb-wordmark-sfx">Audit</span>}
@@ -312,32 +349,27 @@ export function Sidebar({
         </button>
       </div>
 
+      {/* Scribe and Dictate are one workspace now — no product switch — so one
+          create button carries all four ways in. An auditor cannot start a
+          recording (`dictation.start` excludes the role), so it is not theirs. */}
       {!auditorOnly && (
-        <div className="sb-product" role="tablist">
-          <button data-p="scribe" className={product === "scribe" ? "on" : ""} onClick={() => setProduct("scribe")}>
-            <span className="dot" />{!collapsed && <span>Scribe</span>}
-          </button>
-          <button data-p="dictate" className={product === "dictate" ? "on" : ""} onClick={() => setProduct("dictate")}>
-            <span className="dot" />{!collapsed && <span>Dictate</span>}
-          </button>
-        </div>
+        <NewMenu
+          collapsed={collapsed}
+          lang={lang}
+          primary={{
+            icon: "mic",
+            label: tr(lang, "Нова консультація", "New consultation"),
+            kbd: "N",
+            onClick: onNewSession,
+          }}
+          actions={[
+            { icon: "waveform", label: tr(lang, "Нове диктування", "New dictation"), kbd: "D", onClick: onNewDictation },
+            { icon: "users", label: tr(lang, "Розмова з пацієнтом", "Conversation mode"), onClick: () => navigate("/dictate/conversation") },
+            { icon: "fileText", label: tr(lang, "Написати нотатку", "Take a note"), onClick: () => navigate("/scribe/notes/new") },
+            { icon: "bot", label: tr(lang, "Завантажити на транскрипцію", "Upload for transcription"), onClick: () => navigate("/asr/new") },
+          ]}
+        />
       )}
-
-      {/* An auditor cannot start a recording (`dictation.start` excludes the
-          role), so the primary CTA is not theirs to press. */}
-      {!auditorOnly && (product === "scribe" ? (
-        <button className="sb-cta" onClick={onNewSession}>
-          <span className="sb-cta-icon"><Icon name="mic" size={13} /></span>
-          {!collapsed && <span className="sb-cta-label">{tr(lang, "Нова консультація", "New consultation")}</span>}
-          {!collapsed && <kbd>N</kbd>}
-        </button>
-      ) : (
-        <button className="sb-cta" onClick={onNewDictation}>
-          <span className="sb-cta-icon"><Icon name="mic" size={13} /></span>
-          {!collapsed && <span className="sb-cta-label">{tr(lang, "Нове диктування", "New dictation")}</span>}
-          {!collapsed && <kbd>D</kbd>}
-        </button>
-      ))}
 
       {auditorOnly ? (
         /* ── Audit (the auditor's whole workspace) ─────────── */
@@ -367,73 +399,53 @@ export function Sidebar({
               reference they read a record's structure against, and it holds
               no patient data. */}
           <NavLink {...{ route, navigate, collapsed }} icon="layers"
-                   label={tr(lang, "Шаблони нотаток", "Note templates")}
-                   path="/scribe/templates"
+                   label={tr(lang, "Шаблони", "Templates")}
+                   path="/library/reports" prefix="/library"
                    comingSoon={!FEATURES.templates} />
         </Group>
       ) : (
-      /* ── Workspace ─────────────────────────────────────── */
-      <Group id="workspace" title={tr(lang, "Робочий простір", "Workspace")} icon="folder"
+      /* ── Scribe (one workspace — what used to be Scribe + Dictate) ──
+          The product switcher is gone: consulting, dictating and uploading a
+          recording are one job with three inputs, so they share one nav. The
+          /dictate routes are unchanged; only their place in the tree moved. */
+      <Group id="workspace" title="Scribe" icon="folder"
              openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed} defaultOpen>
-        {product === "scribe" ? (
+        {clinical && (
+          <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Завдання", "Tasks")} path="/scribe" exact />
+        )}
+        {canPatients && (
+          <NavLink {...{ route, navigate, collapsed }} icon="users"
+                   label={tr(lang, "Пацієнти", "Patients")}
+                   path="/scribe/patients" prefix="/scribe/patients"
+                   comingSoon={!FEATURES.patients} />
+        )}
+        {clinical && (
           <>
-            {clinical && (
-              <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Сьогодні", "Today")} path="/scribe" exact />
-            )}
-            {canPatients && (
-              <NavLink {...{ route, navigate, collapsed }} icon="users"
-                       label={tr(lang, "Пацієнти", "Patients")}
-                       path="/scribe/patients" prefix="/scribe/patients"
-                       comingSoon={!FEATURES.patients} />
-            )}
-            {clinical && (
-              <NavLink {...{ route, navigate, collapsed }} icon="fileText"
-                       label={tr(lang, "Нотатки", "Notes")}
-                       path="/scribe/notes"
-                       comingSoon={!FEATURES.notes} />
-            )}
-            <NavLink {...{ route, navigate, collapsed }} icon="layers"
-                     label={tr(lang, "Шаблони нотаток", "Note templates")}
-                     path="/scribe/templates"
-                     comingSoon={!FEATURES.templates} />
-          </>
-        ) : (
-          <>
-            {clinical && (
-              <>
-                <NavLink {...{ route, navigate, collapsed }} icon="inbox" label={tr(lang, "Огляд", "Overview")} path="/dictate" exact />
-                <NavLink {...{ route, navigate, collapsed }} icon="mic"
-                         label={tr(lang, "Студія", "Studio")}
-                         path="/dictate/studio" prefix="/dictate/studio" />
-                <NavLink {...{ route, navigate, collapsed }} icon="fileText"
-                         label={tr(lang, "Звіти", "Reports")}
-                         path="/dictate/reports" prefix="/dictate/reports"
-                         badge={FEATURES.reports && draftReportCount > 0 ? String(draftReportCount) : undefined}
-                         comingSoon={!FEATURES.reports} />
-              </>
-            )}
-            {/* Templates are clinical CONTENT, not a clinical RECORD — an
-                admin curates the tenant's template library. */}
-            <NavLink {...{ route, navigate, collapsed }} icon="layers"
-                     label={tr(lang, "Шаблони", "Templates")}
-                     path="/dictate/templates"
-                     comingSoon={!FEATURES.templates} />
+            {/* No "Dictation" entry: its landing folded into Tasks. What is
+                left of the product is the Studio and the documents it writes. */}
+            <NavLink {...{ route, navigate, collapsed }} icon="mic"
+                     label={tr(lang, "Студія", "Studio")}
+                     path="/dictate/studio" prefix="/dictate/studio" />
+            {/* Reports, notes and transcription jobs are three tabs of one
+                page — three near-identical lists did not deserve three nav
+                rows. The badge stays on the drafts, which is what a doctor
+                comes here to clear. */}
+            <NavLink {...{ route, navigate, collapsed }} icon="fileText"
+                     label={tr(lang, "Документи", "Documents")}
+                     path="/documents/reports" prefix="/documents"
+                     badge={FEATURES.reports && draftReportCount > 0 ? String(draftReportCount) : undefined}
+                     comingSoon={!FEATURES.reports} />
           </>
         )}
+        {/* Templates are clinical CONTENT, not a clinical RECORD — an admin
+            curates the tenant's libraries, so this stays outside the gate.
+            Both libraries — report templates and note structures — are tabs of
+            one page, so they need one row here. */}
+        <NavLink {...{ route, navigate, collapsed }} icon="layers"
+                 label={tr(lang, "Шаблони", "Templates")}
+                 path="/library/reports" prefix="/library"
+                 comingSoon={!FEATURES.templates} />
       </Group>
-      )}
-
-      {/* ── Transcription (ASR — clinical roles only since S14) ── */}
-      {state && clinical && (
-        <Group id="asr" title={tr(lang, "Транскрипція", "Transcription")} icon="bot"
-               openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed}>
-          <NavLink {...{ route, navigate, collapsed }} icon="inbox"
-                   label={tr(lang, "Завдання", "Jobs")}
-                   path="/asr/jobs" prefix="/asr/jobs" />
-          <NavLink {...{ route, navigate, collapsed }} icon="plus"
-                   label={tr(lang, "Нове завдання", "New job")}
-                   path="/asr/new" exact />
-        </Group>
       )}
 
       {/* ── Evidence (embedded module — chat, agents, connectors) ──

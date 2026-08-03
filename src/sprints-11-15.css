@@ -886,11 +886,14 @@
   gap: 14px;
 }
 
-.quick-note-overlay .qno-combobox {
+/* Patient combobox — shared by the quick-note modal and the note editor's
+   patient gate (NoteEditor.jsx PatientCombobox), so these rules are NOT
+   scoped to .quick-note-overlay. */
+.qno-combobox {
   position: relative;
 }
 
-.quick-note-overlay .qno-combobox input {
+.qno-combobox input {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--line);
@@ -900,13 +903,13 @@
   color: var(--text-1);
 }
 
-.quick-note-overlay .qno-combobox input:focus {
+.qno-combobox input:focus {
   border-color: var(--accent);
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-.quick-note-overlay .qno-dropdown {
+.qno-dropdown {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -920,7 +923,7 @@
   overflow-y: auto;
 }
 
-.quick-note-overlay .qno-dropdown-item {
+.qno-dropdown-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -929,8 +932,8 @@
   font-size: 13px;
 }
 
-.quick-note-overlay .qno-dropdown-item:hover,
-.quick-note-overlay .qno-dropdown-item.highlighted {
+.qno-dropdown-item:hover,
+.qno-dropdown-item.highlighted {
   background: var(--accent-soft);
   color: var(--accent);
 }

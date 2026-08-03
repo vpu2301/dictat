@@ -366,6 +366,77 @@ export function SaveStatus({ state, lastSavedAt }) {
   );
 }
 
+// ── Anchored dropdown menu ──────────────────────────────────────────────
+// A menu positioned `fixed` off its trigger's rect rather than absolutely
+// inside it: the sidebar clips horizontal overflow and page headers sit inside
+// scroll containers, so an absolutely-positioned menu gets cut off in both.
+// `place(rect)` maps the trigger rect to { left, top, minWidth }.
+export function useMenuAnchor(place) {
+  const [open, setOpen] = React.useState(false);
+  const [pos, setPos] = React.useState(null);
+  const ref = React.useRef(null);
+  const measure = React.useCallback(() => {
+    const el = ref.current;
+    if (el) setPos(place(el.getBoundingClientRect()));
+  }, [place]);
+  const toggle = () => { if (!open) measure(); setOpen((v) => !v); };
+  React.useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    const onMove = () => setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onMove);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [open]);
+  return { open, setOpen, pos, ref, toggle };
+}
+
+// The menu body itself. `items` are { icon, label, kbd, onClick }.
+export function AnchoredMenu({ pos, items, onClose }) {
+  if (!pos) return null;
+  return (
+    <div className="anchored-menu" role="menu"
+         style={{ left: pos.left, top: pos.top, minWidth: pos.minWidth }}>
+      {items.map((a) => (
+        <button key={a.label} className="anchored-menu-item" role="menuitem"
+                onClick={() => { onClose(); a.onClick(); }}>
+          <Icon name={a.icon} size={14} />
+          <span className="anchored-menu-label">{a.label}</span>
+          {a.kbd && <kbd>{a.kbd}</kbd>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Primary action + caret that drops the alternatives. Used in page headers;
+// the sidebar builds its own trigger markup on the same two primitives.
+export function SplitButton({ primary, actions, lang, className = "btn accent" }) {
+  const { open, setOpen, pos, ref, toggle } = useMenuAnchor(
+    (r) => ({ left: Math.round(r.right - Math.max(240, r.width)), top: Math.round(r.bottom + 6), minWidth: Math.max(240, Math.round(r.width)) }),
+  );
+  return (
+    <div className="split-btn" ref={ref}>
+      <button className={className} onClick={primary.onClick}
+              title={primary.kbd ? `${primary.label} (${primary.kbd})` : primary.label}>
+        {primary.icon && <Icon name={primary.icon} size={14} />} {primary.label}
+      </button>
+      <button className={className + " split-btn-caret"} onClick={toggle}
+              aria-haspopup="menu" aria-expanded={open}
+              title={tr(lang, "Інші дії", "More ways to start")}>
+        <Icon name="chevDown" size={14} />
+      </button>
+      {open && <AnchoredMenu pos={pos} items={actions} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
 // ── Empty state ─────────────────────────────────────────────────────────
 export function Empty({ icon = "fileText", title, body, action }) {
   return (

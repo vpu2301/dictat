@@ -24,13 +24,41 @@ export async function getNote(id) {
   return a(`/notes/${encodeURIComponent(id)}`, { method: "GET" });
 }
 
-// body: { patient_id, encounter_id?, structure, title, sections }
+// NoteCreate is Pydantic extra="forbid" and `patient_id` is REQUIRED — a
+// note with no patient is not a note the server will take. `sections` is a
+// LIST of {key, content} (see src/notes/noteShape.js for the conversion),
+// and `structure` is the lowercase enum soap|apso|dap|free. Everything
+// crossing this boundary goes through the pickers so a stray editor key
+// (or an uppercase "SOAP") cannot 422 the save.
+export function noteCreateBody({ patient_id, encounter_id, structure, title, sections, source_session_id } = {}) {
+  const b = { patient_id };
+  if (encounter_id !== undefined) b.encounter_id = encounter_id;
+  if (structure !== undefined) b.structure = structure;
+  if (title !== undefined) b.title = title;
+  if (sections !== undefined) b.sections = sections;
+  if (source_session_id !== undefined) b.source_session_id = source_session_id;
+  return b;
+}
+
+// NotePatch: title / structure / sections, all optional. patient_id is NOT
+// patchable — a note does not move between patients.
+export function notePatchBody({ title, structure, sections } = {}) {
+  const b = {};
+  if (title !== undefined) b.title = title;
+  if (structure !== undefined) b.structure = structure;
+  if (sections !== undefined) b.sections = sections;
+  return b;
+}
+
 export async function createNote(body) {
-  return a(`/notes`, { method: "POST", body: JSON.stringify(body) });
+  return a(`/notes`, { method: "POST", body: JSON.stringify(noteCreateBody(body)) });
 }
 
 export async function updateNote(id, patch) {
-  return a(`/notes/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+  return a(`/notes/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(notePatchBody(patch)),
+  });
 }
 
 export async function signNote(id) {

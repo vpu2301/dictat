@@ -29,6 +29,7 @@ import {
 } from "../api/patients.js";
 import { useSearchQuery } from "../api/useSearchQuery.js";
 import { checkIpn, stripIpnSeparators } from "./ipn.js";
+import { PatientImportModal } from "./PatientImportModal.jsx";
 import { tr } from "../i18n.js";
 
 // ─── Local avatar helpers (same convention as PatientProfile.jsx) ────────
@@ -69,7 +70,11 @@ const PAGE_SIZE_OPTIONS = [25, 50, 100];
 // what the cursor has already loaded — same as the "show archived" checkbox it
 // replaces. "erased" is deliberately absent: those rows only ever arrive with
 // include_erased=true, which is tenant_admin-only and lives in the privacy queue.
-const STATUS_FILTERS = ["all", "active", "inactive", "deceased"];
+// Active first, and the default: the roster a clinician opens is the list of
+// people they can still see today. Archived and deceased records exist for
+// lookup, not for the daily list — they are one click away in the dropdown.
+const STATUS_FILTERS = ["active", "all", "inactive", "deceased"];
+const DEFAULT_STATUS_FILTER = "active";
 function statusFilterLabel(value, lang) {
   switch (value) {
     case "active":   return tr(lang, "Активні", "Active");
@@ -520,9 +525,10 @@ export function PatientDirectory({ navigate, lang }) {
   };
 
   // Default "all" — clinics look up returning and archived patients alike.
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(DEFAULT_STATUS_FILTER);
   const [sort, setSort] = useState("default");
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editPatient, setEditPatient] = useState(null);
 
   const rows = useMemo(() => {
@@ -624,6 +630,12 @@ export function PatientDirectory({ navigate, lang }) {
             {rows.length}{sq.hasMore ? "+" : ""} {tr(lang, "у вашій карті", "in your panel")}
           </p>
         </div>
+        {/* Import sits beside Add, not inside it: a clinic arriving from
+            another system does this once, on day one, and must not have to
+            find it in a menu. */}
+        <button className="btn" onClick={() => setImportOpen(true)}>
+          <Icon name="download" size={13} /> {tr(lang, "Імпорт", "Import")}
+        </button>
         <button className="btn accent" onClick={() => setAddOpen(true)}>
           <Icon name="plus" size={13} /> {tr(lang, "Новий пацієнт", "Add patient")}
         </button>
@@ -785,6 +797,16 @@ export function PatientDirectory({ navigate, lang }) {
         />
       )}
 
+      {importOpen && (
+        <PatientImportModal
+          lang={lang}
+          onClose={() => setImportOpen(false)}
+          // Reload rather than splice the created rows in: the roster is
+          // cursor-paged and sorted server-side, so a hand-merged list would
+          // not be the page the next scroll asks for.
+          onImported={() => sq.reload()}
+        />
+      )}
       {addOpen && (
         <PatientFormModal lang={lang} patient={null}
           onClose={() => setAddOpen(false)} onSave={handleAdd} onOpenExisting={openExisting} />

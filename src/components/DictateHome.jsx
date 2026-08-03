@@ -1,16 +1,15 @@
-// DictateHome.jsx — Dictate product landing ("overview"), the symmetric twin of
-// ScribeToday. Switching to the Dictate product (sidebar tab) lands here instead
-// of dropping straight into the recording Studio: the clinician sees their work
-// (draft reports to finish, recent reports, quick starts) before recording.
+// DictateHome.jsx — the dictation half of the workspace home page.
+//
+// There used to be a whole second landing here (`DictateToday`, the symmetric
+// twin of ScribeToday) behind the Scribe/Dictate product switch. The switch is
+// gone and so is the twin: one home page now shows the day AND the documents,
+// and it assembles itself from the pieces below — the report row, its status
+// chip, and the quick-start template palette.
 import React, { useState, useEffect, useMemo } from 'react';
 import { Icon, Empty, Modal } from './UI.jsx';
 import { getUsage } from '../api/templatePrefs.js';
-import { LoadGate, asList } from './DataStates.jsx';
-import { useAsync } from '../api/useAsync.js';
-import { useClaims } from '../auth/AuthContext.jsx';
-import { listReports, countReports } from '../api/reports.js';
-import { openReportPath } from './Reports.jsx';
-import { listTemplates, specialtyIcon } from '../api/templates.js';
+import { LoadGate } from './DataStates.jsx';
+import { specialtyIcon } from '../api/templates.js';
 import { SPECIALTIES } from './TemplatesPage.jsx';
 import { tr } from "../i18n.js";
 
@@ -36,14 +35,14 @@ function fmtRel(iso, lang) {
   if (days < 7) return lang === "uk" ? `${days} дн. тому` : `${days} d ago`;
   return fmtDate(iso, lang);
 }
-const reportModified = (r) => r.modified || r.modified_at || r.updated_at || r.created_at;
+export const reportModified = (r) => r.modified || r.modified_at || r.updated_at || r.created_at;
 
 function specialtyLabel(spec, lang) {
   const row = SPECIALTIES.find((s) => s[0] === spec);
   return row ? (lang === "uk" ? row[1] : row[2]) : (spec || "");
 }
 
-function StatusChip({ status, lang }) {
+export function StatusChip({ status, lang }) {
   const labels = {
     draft:     { uk: "Чернетка",   en: "Draft" },
     final:     { uk: "Фінал",      en: "Final" },
@@ -57,14 +56,17 @@ function StatusChip({ status, lang }) {
 }
 
 // One report line, reusing the Scribe "note-row" feed styling.
-function ReportRow({ r, tpl, lang, onClick }) {
+export function ReportRow({ r, tpl, lang, onClick }) {
   return (
     <div className="note-row" onClick={onClick}>
       <div className="tpl-icon sm"><Icon name={tpl?.icon || "fileText"} size={14} /></div>
       <div className="note-row-body">
         <div className="note-row-1">
           <span className="note-row-name">{loc(r.patient?.name, lang) || r.patient?.ref || (tr(lang, "Без пацієнта", "No patient"))}</span>
-          <span className="chip">{loc(tpl?.name, lang) || r.template}</span>
+          {/* Fall back to the report code, never the raw template UUID: a
+              template the library no longer returns (deprecated, deleted)
+              used to print its id into the row. */}
+          <span className="chip">{loc(tpl?.name, lang) || r.code || tr(lang, "Звіт", "Report")}</span>
           <StatusChip status={r.status} lang={lang} />
         </div>
         <div className="note-row-2">{fmtRel(reportModified(r), lang)}</div>
@@ -74,153 +76,11 @@ function ReportRow({ r, tpl, lang, onClick }) {
   );
 }
 
-// ── Dictate landing ───────────────────────────────────────────────────────
-export function DictateToday({ navigate, lang }) {
-  // Reports are tenant-scoped server-side; re-key on the active tenant so the
-  // overview refetches after a clinic switch (mirrors ScribePatients).
-  const activeTid = useClaims()?.tid;
-  const reportsReq  = useAsync(() => listReports({ limit: 50 }), [activeTid]);
-  const templatesReq = useAsync(() => listTemplates({ limit: 200 }), [activeTid]);
-
-  // Exact stat-tile counts (cheap total=exact calls) rather than counting the
-  // truncated 50-row feed fetched above. Order: total(active) / drafts / signed.
-  const statsReq = useAsync(
-    () => Promise.all([
-      countReports({ status: ["draft", "finalized", "signed", "amended"] }),
-      countReports({ status: "draft" }),
-      countReports({ status: ["signed", "amended"] }),
-    ]),
-    [activeTid],
-  );
-  const [totalCount, draftCount, signedCount] = statsReq.data || [];
-
-  // The search endpoint returns PHI-minimised hits (report_id, template_id,
-  // patient_name_redacted, updated_at). Alias them onto the flat shape this
-  // page's row/derivation code expects (id / template / patient / modified).
-  const reports   = asList(reportsReq.data).map((h) => ({
-    ...h,
-    id: h.report_id ?? h.id,
-    template: h.template_id ?? h.template,
-    modified: h.updated_at ?? h.modified,
-    patient: h.patient_name_redacted ? { name: h.patient_name_redacted } : h.patient,
-  }));
-  const templates = asList(templatesReq.data);
-  const tplMap = Object.fromEntries(templates.map((t) => [t.id, t]));
-
-  const isDraft = (r) => r.status === "draft";
-  const isFinal = (r) => r.status === "final" || r.status === "finalized";
-  const isSigned = (r) => r.status === "signed" || r.status === "amended";
-
-  const drafts = reports.filter(isDraft);
-  const recent = [...reports]
-    .sort((a, b) => new Date(reportModified(b) || 0) - new Date(reportModified(a) || 0))
-    .slice(0, 5);
-
-  const stats = [
-    { label: tr(lang, "Усього звітів", "Total reports"), value: totalCount ?? reports.length },
-    { label: tr(lang, "Чернеток", "Drafts"), value: draftCount ?? drafts.length },
-    { label: tr(lang, "Підписаних", "Signed"), value: signedCount ?? reports.filter(isSigned).length },
-  ];
-
-  const openStudio = (tid) => navigate(tid ? `/dictate/studio?template=${tid}` : "/dictate/studio");
-  const [qsOpen, setQsOpen] = useState(false);
-
-  return (
-    <div className="page">
-      <div className="page-h">
-        <div style={{ flex: 1 }}>
-          <h1>{tr(lang, "Диктування", "Dictation")}</h1>
-          <p className="sub">
-            {lang === "uk"
-              ? `${drafts.length} чернеток очікують · ${new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" })}`
-              : `${drafts.length} drafts waiting · ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}`}
-          </p>
-        </div>
-        <button className="btn" style={{ minWidth: 172 }} onClick={() => setQsOpen(true)}>
-          <Icon name="layers" size={14} /> {tr(lang, "Швидкий старт", "Quick start")}
-        </button>
-        <button className="btn accent" style={{ minWidth: 172 }} onClick={() => openStudio()}>
-          <Icon name="mic" size={14} /> {tr(lang, "Нове диктування", "New dictation")}
-        </button>
-      </div>
-
-      <div className="stats-row">
-        {stats.map((s, i) => (
-          <div key={i} className="stat-card">
-            <div className="stat-v">{s.value}</div>
-            <div className="stat-l">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid-2">
-        <section className="panel">
-          <div className="panel-h">
-            <h3>{tr(lang, "Чернетки до завершення", "Drafts to finish")}</h3>
-            <div style={{ flex: 1 }} />
-            <a className="btn ghost sm" onClick={() => navigate("/dictate/reports?tab=draft")}>{tr(lang, "Усі", "All")}</a>
-          </div>
-          <LoadGate req={reportsReq} lang={lang}
-            empty={() => (
-              <Empty icon="fileText" title={tr(lang, "Немає чернеток", "No drafts")}
-                body={tr(lang, "Розпочніть диктування, щоб створити звіт.", "Start a dictation to create a report.")}
-                action={<button className="btn accent" onClick={() => openStudio()}><Icon name="mic" size={13} /> {tr(lang, "Диктувати", "Dictate")}</button>} />
-            )}>
-            {() => (
-              drafts.length === 0 ? (
-                <Empty icon="check" title={tr(lang, "Усі звіти завершено", "All caught up")}
-                  body={tr(lang, "Немає незавершених чернеток.", "No pending drafts.")} />
-              ) : (
-                <div className="note-feed">
-                  {drafts.slice(0, 5).map((r) => (
-                    <ReportRow key={r.id} r={r} tpl={tplMap[r.template]} lang={lang}
-                      onClick={() => navigate(openReportPath(r))} />
-                  ))}
-                </div>
-              )
-            )}
-          </LoadGate>
-        </section>
-
-        <section className="panel">
-          <div className="panel-h">
-            <h3>{tr(lang, "Останні звіти", "Recent reports")}</h3>
-            <div style={{ flex: 1 }} />
-            <a className="btn ghost sm" onClick={() => navigate("/dictate/reports")}>{tr(lang, "Усі", "All")}</a>
-          </div>
-          <LoadGate req={reportsReq} lang={lang}
-            empty={() => <Empty icon="fileText" title={tr(lang, "Ще немає звітів", "No reports yet")} />}>
-            {() => (
-              <div className="note-feed">
-                {recent.map((r) => (
-                  <ReportRow key={r.id} r={r} tpl={tplMap[r.template]} lang={lang}
-                    onClick={() => navigate(openReportPath(r))} />
-                ))}
-              </div>
-            )}
-          </LoadGate>
-        </section>
-      </div>
-
-      {qsOpen && (
-        <QuickStartModal
-          templates={templates}
-          req={templatesReq}
-          lang={lang}
-          onPick={(tid) => { setQsOpen(false); openStudio(tid); }}
-          onManage={() => { setQsOpen(false); navigate("/dictate/templates"); }}
-          onClose={() => setQsOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
-
 // ── Quick-start palette ─────────────────────────────────────────────────────
 // Command-palette style: search on top, most-used templates underneath
 // (usage counts from templatePrefs — the same source the Studio records to).
 // ArrowUp/Down + Enter drive the selection; Esc closes (Modal handles it).
-function QuickStartModal({ templates, req, lang, onPick, onManage, onClose }) {
+export function QuickStartModal({ templates, req, lang, onPick, onManage, onClose }) {
   const [q, setQ] = useState("");
   const [idx, setIdx] = useState(0);
   const usage = useMemo(() => getUsage(), []);
