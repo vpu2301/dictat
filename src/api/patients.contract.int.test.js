@@ -156,6 +156,190 @@ test("contact details: phone/e-mail normalize server-side, address round-trips b
   }));
 });
 
+test("bulk import: dry run decides, the real run writes, a re-upload is skipped", { skip: !GATED }, async () => {
+  const token = await login();
+  const stamp = Date.now();
+  const items = [
+    { name: { uk: "Імпорт Контракт", en: "Import Contract" }, dob: "1980-01-15", sex: "M",
+      mrn: `S11-IMPORT-${stamp}-1`, phone: "+380671112233", email: "import@example.com",
+      address: { street: "вул. Тестова", house: "1", zip: "01001", city: "Київ", country: "Україна" },
+      tags: ["contract-smoke"] },
+    { name: { uk: "Імпорт Контракт 2", en: "Import Contract 2" }, sex: "F", mrn: `S11-IMPORT-${stamp}-2` },
+  ];
+  const post = (body) => fetch(`${CORE}/patients/import`, authed(token, {
+    method: "POST", body: JSON.stringify(body),
+  }));
+
+  // The preview the modal shows: same decisions, nothing written.
+  const dry = await post({ items, dry_run: true });
+  assert.equal(dry.status, 200);
+  const preview = await dry.json();
+  assert.deepEqual(Object.keys(preview).sort(),
+    ["created", "dry_run", "failed", "rows", "skipped", "total"], "PatientImportResult key set");
+  assert.deepEqual(Object.keys(preview.rows[0]).sort(),
+    ["code", "existing_patient_id", "index", "message", "patient_id", "status"], "row key set");
+  assert.equal(preview.created, 0);
+  assert.deepEqual(preview.rows.map((r) => r.status), ["valid", "valid"]);
+
+  // The real run.
+  const real = await (await post({ items })).json();
+  assert.equal(real.created, 2, JSON.stringify(real));
+  assert.equal(real.failed, 0);
+  const [first] = real.rows;
+  assert.equal(first.status, "created");
+  assert.match(first.patient_id, UUID_RE);
+
+  // Contact details survive the batch path exactly as the single create
+  // normalizes them.
+  const one = await (await fetch(`${CORE}/patients/${first.patient_id}`, authed(token))).json();
+  assert.equal(one.phone, "+380671112233");
+  assert.equal(one.email, "import@example.com");
+  assert.equal(one.address.city, "Київ");
+
+  // Re-uploading the same file is the thing a clinic actually does: it must
+  // report duplicates, not create twins.
+  const again = await (await post({ items })).json();
+  assert.equal(again.created, 0);
+  assert.equal(again.skipped, 2);
+  assert.equal(again.rows[0].code, "mrn_exists");
+  assert.equal(again.rows[0].existing_patient_id, first.patient_id);
+
+  // …and "fail" reports the same duplicate as an error instead.
+  const strict = await (await post({ items, on_duplicate: "fail" })).json();
+  assert.equal(strict.failed, 2);
+  assert.equal(strict.skipped, 0);
+
+  // Archive the smoke rows so the roster stays readable.
+  for (const row of real.rows) {
+    await fetch(`${CORE}/patients/${row.patient_id}`, authed(token, {
+      method: "PUT", body: JSON.stringify({ status: "inactive" }),
+    }));
+  }
+});
+
+test("patient documents: upload → list → download the exact bytes → delete", { skip: !GATED }, async () => {
+  const token = await login();
+  // A patient of our own, so the smoke never attaches files to a real record.
+  const patient = await (await fetch(`${CORE}/patients`, authed(token, {
+    method: "POST",
+    body: JSON.stringify({
+      name: { uk: "Смоук Документи", en: "Smoke Documents" },
+      sex: "U", mrn: `S11-DOC-${Date.now()}`,
+    }),
+  }))).json();
+
+  const bytes = `%PDF-1.4 contract smoke ${Date.now()}\n`;
+  const form = new FormData();
+  form.append("file", new Blob([bytes], { type: "application/pdf" }), "Скерування.pdf");
+  form.append("category", "referral");
+  form.append("note", "контрактний смоук");
+  const up = await fetch(`${CORE}/patients/${patient.id}/documents`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },   // no Content-Type: the boundary is the browser's
+    body: form,
+  });
+  const doc = await up.json();
+  assert.equal(up.status, 201, JSON.stringify(doc));
+  assert.deepEqual(Object.keys(doc).sort(),
+    ["byte_size", "category", "content_type", "created_at", "filename", "id",
+     "note", "patient_id", "sha256", "uploaded_by"].sort(), "DocumentOut key set");
+  assert.match(doc.id, UUID_RE);
+  assert.equal(doc.filename, "Скерування.pdf", "a Cyrillic filename survives the multipart round trip");
+  assert.equal(doc.byte_size, new TextEncoder().encode(bytes).length);
+
+  const listed = await (await fetch(`${CORE}/patients/${patient.id}/documents`, authed(token))).json();
+  assert.equal(listed.total, 1);
+  assert.equal(listed.items[0].id, doc.id);
+
+  // The download is an authenticated proxy that decrypts in-process: the
+  // bytes must come back byte-identical, not as ciphertext.
+  const back = await fetch(`${CORE}/patients/${patient.id}/documents/${doc.id}/content`, authed(token));
+  assert.equal(back.status, 200);
+  assert.equal(back.headers.get("cache-control"), "no-store", "PHI must not be cached");
+  assert.equal(await back.text(), bytes);
+
+  // A valid document id under the WRONG patient is a 404, not a read.
+  const other = await (await fetch(`${CORE}/patients`, authed(token, {
+    method: "POST",
+    body: JSON.stringify({ name: { uk: "Смоук Інший", en: "Smoke Other" }, sex: "U" }),
+  }))).json();
+  const crossed = await fetch(`${CORE}/patients/${other.id}/documents/${doc.id}/content`, authed(token));
+  assert.equal(crossed.status, 404);
+
+  const del = await fetch(`${CORE}/patients/${patient.id}/documents/${doc.id}`, authed(token, { method: "DELETE" }));
+  assert.equal(del.status, 204);
+  const after = await (await fetch(`${CORE}/patients/${patient.id}/documents`, authed(token))).json();
+  assert.equal(after.total, 0);
+  // …and the object is gone with the row.
+  const gone = await fetch(`${CORE}/patients/${patient.id}/documents/${doc.id}/content`, authed(token));
+  assert.equal(gone.status, 404);
+
+  for (const p of [patient, other]) {
+    await fetch(`${CORE}/patients/${p.id}`, authed(token, {
+      method: "PUT", body: JSON.stringify({ status: "inactive" }),
+    }));
+  }
+});
+
+test("notes: patient_id is required, structure is lowercase, sections are a LIST", { skip: !GATED }, async () => {
+  // The note editor drifted from all three of these at once and 422'd on
+  // every autosave, silently. Pin them.
+  const token = await login();
+  const patient = await (await fetch(`${CORE}/patients`, authed(token, {
+    method: "POST",
+    body: JSON.stringify({ name: { uk: "Смоук Нотатка", en: "Smoke Note" }, sex: "U" }),
+  }))).json();
+
+  const post = (body) => fetch(`${CORE}/notes`, authed(token, { method: "POST", body: JSON.stringify(body) }));
+
+  // 1. no patient → rejected
+  assert.equal((await post({ structure: "soap", sections: [] })).status, 422, "patient_id is required");
+  // 2. uppercase structure → rejected
+  assert.equal(
+    (await post({ patient_id: patient.id, structure: "SOAP", sections: [] })).status, 422,
+    "structure is the lowercase enum",
+  );
+  // 3. sections as an object → rejected
+  assert.equal(
+    (await post({ patient_id: patient.id, structure: "soap", sections: { subjective: "x" } })).status, 422,
+    "sections is a list, not a map",
+  );
+
+  // The shape the editor now sends.
+  const created = await (await post({
+    patient_id: patient.id,
+    structure: "soap",
+    title: "скарги на кашель",
+    sections: [
+      { key: "subjective", content: "скарги на кашель" },
+      { key: "objective", content: "" },
+      { key: "assessment", content: "ГРВІ" },
+      { key: "plan", content: "спокій" },
+    ],
+  })).json();
+  assert.match(created.id, UUID_RE);
+  assert.equal(created.status, "draft");
+  assert.equal(created.structure, "soap");
+  assert.deepEqual(created.sections.map((s) => s.key), ["subjective", "objective", "assessment", "plan"]);
+
+  // PATCH round-trips the same shape (the editor's autosave path for an
+  // existing note).
+  const patched = await (await fetch(`${CORE}/notes/${created.id}`, authed(token, {
+    method: "PATCH",
+    body: JSON.stringify({ title: "оновлено", sections: [{ key: "plan", content: "контроль" }] }),
+  }))).json();
+  assert.equal(patched.title, "оновлено");
+  assert.deepEqual(patched.sections, [{ key: "plan", content: "контроль" }]);
+
+  // …and reading it back gives the editor what it needs to rehydrate.
+  const read = await (await fetch(`${CORE}/notes/${created.id}`, authed(token))).json();
+  assert.equal(read.sections[0].content, "контроль");
+
+  await fetch(`${CORE}/patients/${patient.id}`, authed(token, {
+    method: "PUT", body: JSON.stringify({ status: "inactive" }),
+  }));
+});
+
 test("consent lifecycle on an encounter: grant verbal → withdraw via the NESTED path", { skip: !GATED }, async () => {
   const token = await login();
   const cr = await fetch(`${CORE}/patients`, authed(token, {

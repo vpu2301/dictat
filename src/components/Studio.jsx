@@ -2020,7 +2020,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
             <button className="btn accent" onClick={reportReq.reload}>
               {tr(lang, "Спробувати ще раз", "Retry")}
             </button>
-            <button className="btn" onClick={() => { location.hash = "/dictate/reports"; }}>
+            <button className="btn" onClick={() => { location.hash = "/documents/reports"; }}>
               {tr(lang, "← До звітів", "← Back to reports")}
             </button>
           </div>

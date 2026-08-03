@@ -12,7 +12,6 @@ import { NotificationToasts } from './components/NotificationToasts.jsx';
 import NotificationPreferencesPage from './pages/NotificationPreferencesPage.jsx';
 import { DictationStudio } from './components/Studio.jsx';
 import { ConversationRoom } from './conversation/ConversationRoom.jsx';
-import { DictateToday } from './components/DictateHome.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
 import { ScribeToday, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
 import { PatientDirectory } from './patients/PatientDirectory.jsx';
@@ -58,6 +57,8 @@ import { SettingsPage } from './pages/SettingsPage.jsx';
 import { AsrSubmitPage } from './pages/AsrSubmitPage.jsx';
 import { AsrJobsListPage } from './pages/AsrJobsListPage.jsx';
 import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
+import { DocumentsPage, docPath, docTabFromRoute } from './pages/DocumentsPage.jsx';
+import { TemplateLibraryPage, libPath, libTabFromRoute } from './pages/TemplateLibraryPage.jsx';
 import { ChatHostRoute, CHAT_BASE_PATH } from './chat/host/ChatHostRoute.jsx';
 import { EmbedHarness as ChatEmbedHarness } from './chat/EmbedHarness.jsx';
 import { useSettings as useChatSettings } from './chat/settingsContract.js';
@@ -71,6 +72,14 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "comfortable",
   "accent": "#0a8a7a"
 }/*EDITMODE-END*/;
+
+// A route that only forwards. Used for paths that were real screens once and
+// are now folded into another one — the hash changes on mount, so the address
+// bar and the back button agree with what is on screen.
+function RouteRedirect({ to, navigate }) {
+  useEffect(() => { navigate(to); }, [to, navigate]);
+  return null;
+}
 
 function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
@@ -227,7 +236,7 @@ function App() {
     fullBleed = true;
   } else if (gateToHome) {
     view = <ScribeToday navigate={navigate} lang={lang} />;
-    title = tr(lang, "Сьогодні", "Today");
+    title = tr(lang, "Завдання", "Tasks");
   }
   // ── auth routes ────────────────────────────────────────────
   else if (r === "/login") {
@@ -290,7 +299,7 @@ function App() {
     // S14 — the day's clinical queue. Admin-only accounts get the standard
     // forbidden state rather than a page of failing requests.
     view = <RequireClinical navigate={navigate}><ScribeToday navigate={navigate} lang={lang} /></RequireClinical>;
-    title = tr(lang, "Сьогодні", "Today");
+    title = tr(lang, "Завдання", "Tasks");
   } else if (r === "/scribe/patients" || r === "/patients") {
     // /patients is the sprint-11 canonical alias; both render the directory.
     // Role-gated since the auditor split: `patients.read` admits clinician /
@@ -353,18 +362,20 @@ function App() {
     );
     showTopbar = false;
   } else if (r === "/scribe/notes") {
-    view = <RequireClinical navigate={navigate}><ScribeNotes navigate={navigate} lang={lang} /></RequireClinical>;
-    crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: tr(lang, "Нотатки", "Notes") }];
+    // The three document lists live on one page now; the old paths forward.
+    view = <RouteRedirect to={docPath("notes")} navigate={navigate} />;
   } else if (r === "/scribe/templates") {
-    view = <ScribeNoteStructures lang={lang} />;
-    crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: tr(lang, "Шаблони", "Templates") }];
+    // Both libraries live on one page now; the old paths forward.
+    view = <RouteRedirect to={libPath("notes")} navigate={navigate} />;
   }
   // ── dictate ────────────────────────────────────────────────
-  // /dictate is the product landing (overview); the recording Studio lives at
-  // /dictate/studio so switching products doesn't drop straight into recording.
+  // /dictate was the second landing, behind the Scribe/Dictate product switch.
+  // Both switch and landing are gone: one home page at /scribe now shows the
+  // day and the documents together, so this path only forwards bookmarks and
+  // old links there. The recording Studio keeps its own route below.
   else if (r === "/dictate" || r === "/dictate/") {
-    view = <RequireClinical navigate={navigate}><DictateToday lang={lang} navigate={navigate} /></RequireClinical>;
-    title = tr(lang, "Диктування", "Dictation");
+    view = <RouteRedirect to="/scribe" navigate={navigate} />;
+    title = tr(lang, "Завдання", "Tasks");
   } else if (r === "/dictate/studio" || r.startsWith("/dictate/studio?") || r.startsWith("/dictate?")) {
     const pm = r.match(/patient=([\w-]+)/);
     const tm = r.match(/template=([\w-]+)/);
@@ -393,15 +404,13 @@ function App() {
     );
     showTopbar = false;
   } else if (r === "/dictate/reports") {
-    view = <RequireClinical navigate={navigate}><ReportsList lang={lang} navigate={navigate} /></RequireClinical>;
-    crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: tr(lang, "Звіти", "Reports") }];
+    view = <RouteRedirect to={docPath("reports")} navigate={navigate} />;
   } else if (r.startsWith("/dictate/reports/")) {
     const id = r.split("/")[3];
     view = <ReportView id={id} lang={lang} navigate={navigate} />;
-    crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: tr(lang, "Звіти", "Reports"), path: "/dictate/reports", onClick: () => navigate("/dictate/reports") }, { label: id }];
+    crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: tr(lang, "Звіти", "Reports"), path: docPath("reports"), onClick: () => navigate(docPath("reports")) }, { label: id }];
   } else if (r === "/dictate/templates") {
-    view = <TemplatesPage lang={lang} navigate={navigate} />;
-    crumbs = [{ label: "Dictate", path: "/dictate", onClick: () => navigate("/dictate") }, { label: tr(lang, "Шаблони", "Templates") }];
+    view = <RouteRedirect to={libPath("reports")} navigate={navigate} />;
   }
   // ── evidence chat (embedded module, mock data only) ────────
   // Dev-only fake host for the module (§6 B-05). Checked BEFORE the module's
@@ -424,12 +433,7 @@ function App() {
   }
   // ── asr (batch transcription) ──────────────────────────────
   else if (r === "/asr" || r === "/asr/jobs") {
-    view = (
-      <RequireClinical navigate={navigate}>
-        <AsrJobsListPage lang={lang} navigate={navigate} />
-      </RequireClinical>
-    );
-    crumbs = [{ label: tr(lang, "Транскрипція", "Transcription") }, { label: tr(lang, "Завдання", "Jobs") }];
+    view = <RouteRedirect to={docPath("transcripts")} navigate={navigate} />;
   } else if (r === "/asr/new") {
     view = (
       <RequireClinical navigate={navigate}>
@@ -437,7 +441,8 @@ function App() {
       </RequireClinical>
     );
     crumbs = [
-      { label: tr(lang, "Транскрипція", "Transcription"), path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },
+      { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
+      { label: tr(lang, "Транскрипції", "Transcriptions"), path: docPath("transcripts"), onClick: () => navigate(docPath("transcripts")) },
       { label: tr(lang, "Нове", "New") },
     ];
   } else if (r.startsWith("/asr/jobs/")) {
@@ -448,9 +453,33 @@ function App() {
       </RequireAuth>
     );
     crumbs = [
-      { label: tr(lang, "Транскрипція", "Transcription"), path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },
-      { label: tr(lang, "Завдання", "Jobs"), path: "/asr/jobs", onClick: () => navigate("/asr/jobs") },
+      { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
+      { label: tr(lang, "Транскрипції", "Transcriptions"), path: docPath("transcripts"), onClick: () => navigate(docPath("transcripts")) },
       { label: String(jid).slice(0, 8) + "…" },
+    ];
+  }
+  // ── documents (reports + notes + transcriptions, one page) ─
+  else if (r === "/documents" || r.startsWith("/documents/")) {
+    view = (
+      <RequireClinical navigate={navigate}>
+        <DocumentsPage tab={docTabFromRoute(routePath)} navigate={navigate} lang={lang} />
+      </RequireClinical>
+    );
+    crumbs = [
+      { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
+      { label: tr(lang, "Документи", "Documents") },
+    ];
+  }
+  // ── templates (report templates + note structures, one page) ─
+  else if (r === "/library" || r.startsWith("/library/")) {
+    view = (
+      <RequireAuth navigate={navigate}>
+        <TemplateLibraryPage tab={libTabFromRoute(routePath)} navigate={navigate} lang={lang} />
+      </RequireAuth>
+    );
+    crumbs = [
+      { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
+      { label: tr(lang, "Шаблони", "Templates") },
     ];
   }
   // ── settings ───────────────────────────────────────────────

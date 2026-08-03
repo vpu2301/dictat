@@ -20,6 +20,7 @@ import { listConsents, withdrawConsent } from '../api/consents.js';
 import { listNotes } from '../api/notes.js';
 import { getAnamnesis } from '../api/anamnesis.js';
 import { requestDsar } from '../api/privacy.js';
+import { PatientDocuments } from '../patients/PatientDocuments.jsx';
 import { tr } from "../i18n.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -445,6 +446,7 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
 
   const cached = pageStateCache.get(id);
   const [tab, setTab] = useState(() => initialTabFromHash() || cached?.tab || "timeline");
+  const [documentCount, setDocumentCount] = useState(null);
   const [feedLimit, setFeedLimit] = useState(cached?.feedLimit || FEED_PAGE);
   const [dsarOpen, setDsarOpen] = useState(false);
   const [encounterOpen, setEncounterOpen] = useState(false);
@@ -568,6 +570,9 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
     anamnesis: null,
     conversations: scribeItems.length,
     consents: consents.length,
+    // Filled in by the tab itself once its list loads — the count comes from
+    // the documents endpoint, not from the timeline.
+    documents: documentCount,
   };
 
   const tabDefs = [
@@ -579,6 +584,9 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
     { id: "conversations", icon: "mic",      uk: "Розмови",      en: "Conversations" },
     { id: "consents",      icon: "shield",   uk: "Згоди",        en: "Consents" },
     { id: "anamnesis",     icon: "heart",    uk: "Анамнез",      en: "Anamnesis" },
+    // 0065 — files the clinic attached to this record. Last in the row: it is
+    // reference material for the clinical tabs before it, not a feed of its own.
+    { id: "documents",     icon: "archive",  uk: "Завантажені",  en: "Uploaded" },
   ];
 
   // DSAR: 202 → the request is already executing; progress lives in the
@@ -1081,6 +1089,17 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
       )}
 
       {/* Consents tab */}
+      {tab === "documents" && (
+        <PatientDocuments
+          patientId={id}
+          lang={lang}
+          // An erased record refuses attachments server-side too (409
+          // patient_erased); hiding the button keeps the UI honest about it.
+          canWrite={patient.status !== "erased"}
+          onCountChange={setDocumentCount}
+        />
+      )}
+
       {tab === "consents" && (
         <div style={{ marginTop: 16 }}>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>

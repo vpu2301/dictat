@@ -33,7 +33,7 @@ function fmtRelative(iso, lang) {
   return new Date(t).toLocaleString();
 }
 
-export function AsrJobsListPage({ lang = "en", navigate }) {
+export function AsrJobsListPage({ lang = "en", navigate, embedded = false }) {
   const [statusFilter, setStatusFilter] = useState("");
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
@@ -74,7 +74,11 @@ export function AsrJobsListPage({ lang = "en", navigate }) {
   const L = (m) => m[lang] ?? m.en;
 
   return (
-    <div className="page asr-jobs">
+    <div className={embedded ? "page-embedded asr-jobs" : "page asr-jobs"}>
+      {/* `embedded`: a tab of the Documents page, which owns the frame, the
+          title and the create button. Refresh moves down next to the status
+          filters so it stays one click away. */}
+      {!embedded && (
       <div className="page-h">
         <div>
           <h1>{tr(lang, "Транскрипції", "Transcription jobs")}</h1>
@@ -93,8 +97,9 @@ export function AsrJobsListPage({ lang = "en", navigate }) {
           </button>
         </div>
       </div>
+      )}
 
-      <div className="tabs" style={{ marginBottom: 14 }}>
+      <div className="tabs" style={{ marginBottom: 14, alignItems: "center" }}>
         {["", ...STATUSES].map((s) => (
           <button
             key={s || "all"}
@@ -105,6 +110,12 @@ export function AsrJobsListPage({ lang = "en", navigate }) {
             {L(STATUS_LABEL[s])}
           </button>
         ))}
+        {embedded && (
+          <button className="btn sm" style={{ marginLeft: "auto" }} onClick={() => pg.reload()} disabled={loading}>
+            <Icon name="refresh" size={13} />
+            <span>{tr(lang, "Оновити", "Refresh")}</span>
+          </button>
+        )}
       </div>
 
       {error && <ApiErrorView error={error} lang={lang} />}

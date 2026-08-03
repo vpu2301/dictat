@@ -61,7 +61,7 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => navigate("/asr/jobs")}>
+          <button className="btn" onClick={() => navigate("/documents/transcripts")}>
             <Icon name="inbox" size={13} />
             <span>{tr(lang, "Усі завдання", "All jobs")}</span>
           </button>

@@ -256,6 +256,29 @@ export async function createPatient(body) {
   return a(`/patients`, { method: "POST", body: JSON.stringify(patientCreateBody(body)) });
 }
 
+// POST /patients/import → PatientImportResult.
+//
+// Bulk roster import. The server answers PER ROW rather than failing the
+// whole file, because a clinic's spreadsheet is never uniformly clean:
+//   { dry_run, total, created, skipped, failed,
+//     rows: [{ index, status: "created"|"valid"|"skipped"|"failed",
+//              patient_id?, code?, message?, existing_patient_id? }] }
+// `index` is positional against the items sent, so the preview table can
+// point at the line that failed.
+//
+// dryRun runs the same validation and duplicate lookups and writes nothing —
+// that is what the modal's preview step calls. onDuplicate decides only how
+// an already-registered MRN/ІПН is REPORTED ("skip" → skipped, "fail" →
+// failed); neither value ever overwrites the record already on file.
+export async function importPatients({ items, dryRun = false, onDuplicate = "skip" } = {}) {
+  const body = {
+    items: (items || []).map(patientCreateBody),
+    dry_run: !!dryRun,
+    on_duplicate: onDuplicate,
+  };
+  return a(`/patients/import`, { method: "POST", body: JSON.stringify(body) });
+}
+
 // PUT /patients/{id} → PatientOut. Archive = updatePatient(id, { status:
 // "inactive" }) — the as-built API has no separate archive route.
 export async function updatePatient(id, body) {
