@@ -14,8 +14,10 @@ import { MenuSelect } from './MenuSelect.jsx';
 // a note is dictated the same way a report is, and a second implementation
 // would drift the moment one of them is fixed.
 import { useSpeechRecognition, LevelMeter } from './Studio.jsx';
-import { listTemplates } from '../api/templates.js';
+import { listTemplates, getTemplate, toStudioTemplate } from '../api/templates.js';
 import { createReport } from '../api/reports.js';
+import { mapNoteToTemplate } from '../notes/promoteMapping.js';
+import { DICTATION_LANGS, asDictationLang, speechLocale } from '../dictation/languages.js';
 import { tr } from "../i18n.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -93,12 +95,31 @@ export function PromoteModal({ lang, onClose, onConfirm }) {
   const confirm = async () => {
     if (!selectedTemplate) return;
     setBusy(true); setError(null);
-    try { await onConfirm(selectedTemplate); }
+    try { await onConfirm(selectedTemplate, templates.find((t) => t.id === selectedTemplate)); }
     catch (e) { setError(e); setBusy(false); }
   };
 
+  // "Request validation failed." tells a clinician nothing. The two failures
+  // this dialog can actually produce are named.
+  const errorText = (e) => {
+    if (!e) return "";
+    const code = (e.problem && (e.problem.code || e.problem.detail)) || "";
+    if (String(code).includes("patient_not_found")) {
+      return tr(lang, "Нотатка не прив'язана до пацієнта — звіт створити не можна.",
+                      "This note has no patient — a report cannot be filed.");
+    }
+    if (e.status === 422) {
+      return tr(lang, "Сервер відхилив дані звіту. Перевірте шаблон і спробуйте ще раз.",
+                      "The server rejected the report data. Check the template and try again.");
+    }
+    return e.message || tr(lang, "Помилка", "Error");
+  };
+
   return (
-    <Modal onClose={onClose}>
+    // `.modal` clips its content (rounded corners); the template dropdown opens
+    // INSIDE it, so this one has to let the menu out — see promote-modal in
+    // sprints-11-15.css.
+    <Modal onClose={onClose} className="promote-modal">
       <div className="modal-h">
         <h2>{tr(lang, "Просунути до звіту", "Promote to report")}</h2>
         <p>{tr(lang, "Нотатка буде перетворена в медичний звіт", "This note will be promoted to a medical report")}</p>
@@ -107,17 +128,33 @@ export function PromoteModal({ lang, onClose, onConfirm }) {
         <div style={{ fontSize: 13.5, color: "var(--text-2)", lineHeight: 1.65, padding: "12px 14px", background: "var(--accent-soft)", borderRadius: "var(--radius)", borderLeft: "3px solid var(--accent)" }}>
           {tr(lang, "Нотатка буде просунута до звіту. Оригінальна нотатка залишається у системі й доступна у вкладці нотаток.", "This note will be promoted to a report. The original note remains in the system and is accessible in the notes tab.")}
         </div>
-        <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "var(--text-2)" }}>
-          {tr(lang, "Шаблон звіту", "Report template")}
-          <select value={selectedTemplate} onChange={e => setSelectedTemplate(e.target.value)}
+        {/* The platform's own dropdown, not the OS one: a native <select>
+            cannot have its open list styled, so a 20-template list rendered as
+            an unbranded system menu spilling past the dialog. */}
+        <div className="promote-field">
+          <span className="label">{tr(lang, "Шаблон звіту", "Report template")}</span>
+          <MenuSelect
+            block
+            icon="fileText"
+            value={selectedTemplate}
+            onChange={setSelectedTemplate}
             disabled={req.loading || !templates.length}
-            style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "var(--radius)", background: "var(--surface)", fontSize: 13, color: "var(--text-1)" }}>
-            {req.loading && <option>{tr(lang, "Завантаження…", "Loading…")}</option>}
-            {!req.loading && !templates.length && <option>{tr(lang, "Немає шаблонів", "No templates")}</option>}
-            {templates.map(t => <option key={t.id} value={t.id}>{loc(t.name, lang)}</option>)}
-          </select>
-        </label>
-        {error && <div style={{ color: "var(--rec,#dc2626)", fontSize: 13 }}>{error.message || (tr(lang, "Помилка", "Error"))}</div>}
+            ariaLabel={tr(lang, "Шаблон звіту", "Report template")}
+            placeholder={req.loading
+              ? tr(lang, "Завантаження…", "Loading…")
+              : tr(lang, "Немає шаблонів", "No templates")}
+            options={templates.map((t) => ({
+              value: t.id,
+              label: loc(t.name, lang),
+              sub: t.code || undefined,
+            }))}
+          />
+        </div>
+        {error && (
+          <div role="alert" style={{ color: "var(--rec,#dc2626)", fontSize: 13, lineHeight: 1.5 }}>
+            {errorText(error)}
+          </div>
+        )}
       </div>
       <div className="modal-foot">
         <button className="btn" onClick={onClose}>{tr(lang, "Скасувати", "Cancel")}</button>
@@ -273,7 +310,15 @@ export function QuickNoteModal({ lang, navigate, onClose }) {
 
 // ─── NoteEditorPage ───────────────────────────────────────────────────────────
 
-export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
+// `embedded` = hosted by the Studio workspace as a document tab. The workspace
+// header already names the patient and owns the way back, so the note's own
+// context bar drops both; everything else (structure rail, microphone, promote
+// and sign) is the same editor it has always been.
+export function NoteEditorPage({ noteId, patientId, lang, navigate, embedded = false, onNoteCreated }) {
+  // Through a ref: the autosave callback is memoised, and a prop captured in
+  // its closure would go stale the first time the workspace re-renders.
+  const onNoteCreatedRef = useRef(onNoteCreated);
+  onNoteCreatedRef.current = onNoteCreated;
   const noteReq = useAsync(() => (noteId ? getNote(noteId) : Promise.resolve(null)), [noteId]);
   const note = noteReq.data;
   // A note REQUIRES a patient server-side (NoteCreate.patient_id). Reached
@@ -364,9 +409,14 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
         const r = await createNote({ patient_id: live.pid, ...wireBody() });
         noteRef.current = r?.id ?? null;
         // Put the new id in the URL so a reload (or the back button) lands on
-        // the saved note rather than a blank "new note" form again.
-        if (r?.id && typeof location !== "undefined") {
-          history.replaceState(null, "", `#/scribe/notes/${r.id}`);
+        // the saved note rather than a blank "new note" form again. Embedded in
+        // the Studio the URL belongs to the workspace — it patches `note=` into
+        // the open tab instead, which is the same promise kept by its owner.
+        if (r?.id) {
+          if (onNoteCreatedRef.current) onNoteCreatedRef.current(r.id);
+          else if (typeof location !== "undefined") {
+            history.replaceState(null, "", `#/scribe/notes/${r.id}`);
+          }
         }
       }
       setSaveState("saved");
@@ -409,7 +459,9 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
   // The hook routes its callbacks through refs, so switching section mid-
   // sentence moves the text with it rather than dictating into the section
   // that happened to be open when the mic went on.
-  const [dictLang, setDictLang] = useState(lang === "en" ? "en" : "uk");
+  // uk / en / de — see dictation/languages.js for why the UI language is
+  // coerced rather than passed through.
+  const [dictLang, setDictLang] = useState(() => asDictationLang(lang));
   const [partial, setPartial] = useState("");
   const appendDictated = useCallback((text) => {
     const chunk = String(text || "").trim();
@@ -466,10 +518,32 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
     }
   };
 
-  const handlePromote = async (templateId) => {
+  // BUG FIX 2026-08-03: this sent only { template_id, body } and every promote
+  // failed with a bare "Request validation failed." — report-service requires
+  // `patient_id` (CreateReportRequest.patient_id: UUID, not optional), the same
+  // patient the note is already filed against. The template's own
+  // schema_version travels with it too; hardcoding 1 files the report against a
+  // schema the template may have outgrown.
+  const handlePromote = async (templateId, template) => {
+    if (!pid) throw new Error(tr(lang, "Спочатку виберіть пацієнта", "Pick a patient first"));
+    // BUG FIX 2026-08-03 (second half): the body used to ship the NOTE's keys
+    // ("S"/"O"/"A"/"P"). The report template has none of those, so the report
+    // was created with the clinician's text addressed to sections that do not
+    // exist — accepted by the API, invisible in the editor. Fetch the template's
+    // real sections and map onto them (notes/promoteMapping.js).
+    const detail = await getTemplate(templateId).catch(() => null);
+    const studioTemplate = detail ? toStudioTemplate(detail) : null;
+    const noteSections = structure === "free"
+      ? [{ id: "note", label: tr(lang, "Нотатка", "Note"), text: freeContent }]
+      : (SECTIONS_MAP[structure] || []).map((s) => ({
+          id: s.id, label: loc(s, lang), text: sectionContents[s.id] || "",
+        }));
     const r = await createReport({
       template_id: templateId,
-      body: structure === "free" ? { note: freeContent } : sectionContents,
+      template_schema_version: studioTemplate?.schema_version ?? template?.schema_version,
+      patient_id: pid,
+      title: title || undefined,
+      body: mapNoteToTemplate(noteSections, studioTemplate?.sections),
     });
     setPromoteOpen(false);
     if (r?.id) navigate(`/dictate/reports/${r.id}`);
@@ -508,7 +582,7 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
     // Same shell as the dictation Studio: section rail on the left, the
     // writing surface in the middle, the microphone on the right. A note and
     // a dictated report are the same job with a different output.
-    <div className="studio note-studio">
+    <div className={`studio note-studio${embedded ? " note-embedded" : ""}`}>
       <aside className="left">
         <div className="rail-h">{tr(lang, "Нотатка", "Note")}</div>
         <div className="ns-rail-block">
@@ -554,17 +628,23 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
       </aside>
 
       <section className="center">
-        {/* Context bar — who this note is about, same strip the Studio shows. */}
+        {/* Context bar — who this note is about, same strip the Studio shows.
+            Embedded, the workspace header says who and how to get back, so this
+            keeps only what is true of the NOTE: its structure and its state. */}
         <div className="studio-context-bar">
-          <button className="tb-back" style={{ marginRight: 2 }}
-                  onClick={() => navigate(patient ? `/scribe/patients/${patient.id}` : "/documents/notes")}>
-            <Icon name="arrowLeft" size={15} />
-          </button>
+          {!embedded && (
+            <button className="tb-back" style={{ marginRight: 2 }}
+                    onClick={() => navigate(patient ? `/scribe/patients/${patient.id}` : "/documents/notes")}>
+              <Icon name="arrowLeft" size={15} />
+            </button>
+          )}
           <Icon name="fileText" size={14} />
-          <span className="scb-name">
-            {patient ? patientName(patient, lang) : tr(lang, "Без пацієнта", "No patient")}
-          </span>
-          {patient?.mrn && <span className="chip">{patient.mrn}</span>}
+          {!embedded && (
+            <span className="scb-name">
+              {patient ? patientName(patient, lang) : tr(lang, "Без пацієнта", "No patient")}
+            </span>
+          )}
+          {!embedded && patient?.mrn && <span className="chip">{patient.mrn}</span>}
           <span className="chip">{structure === "free" ? tr(lang, "Вільний текст", "Free text") : structure}</span>
           {signed
             ? <span className="chip signed">{tr(lang, "підписано", "signed")}</span>
@@ -660,8 +740,13 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate }) {
           <div className="dictate-h">
             <span className="rail-h" style={{ padding: 0 }}>{tr(lang, "Диктування", "Dictation")}</span>
             <div className="lang-switch" role="tablist" aria-label={tr(lang, "Мова диктування", "Dictation language")}>
-              <button type="button" className={dictLang === "uk" ? "on" : ""} onClick={() => setDictLang("uk")}>UK</button>
-              <button type="button" className={dictLang === "en" ? "on" : ""} onClick={() => setDictLang("en")}>EN</button>
+              {DICTATION_LANGS.map((l) => (
+                <button key={l.code} type="button" role="tab"
+                  aria-selected={dictLang === l.code}
+                  className={dictLang === l.code ? "on" : ""}
+                  title={l.label[lang] || l.label.en}
+                  onClick={() => setDictLang(l.code)}>{l.short}</button>
+              ))}
             </div>
           </div>
 

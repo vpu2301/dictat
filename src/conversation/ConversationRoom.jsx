@@ -24,6 +24,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Icon, Empty } from "../components/UI.jsx";
+import { MenuSelect } from "../components/MenuSelect.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { useAsync } from "../api/useAsync.js";
 import { asList } from "../components/DataStates.jsx";
@@ -39,6 +40,7 @@ import { ConsentSheet } from "../patients/ConsentSheet.jsx";
 import { useMicDevices } from "../dictation/useMicDevices.js";
 import { isOpusEncodingSupported } from "../dictation/opusEncoder.js";
 import { explainErrorCode } from "../dictation/wsClient.js";
+import { asDictationLang, asTemplateLang, langLabel } from "../dictation/languages.js";
 import { tr } from "../i18n.js";
 
 import { useConversationSession } from "./useConversationSession.js";
@@ -68,7 +70,12 @@ function Elapsed({ startedAt, lang }) {
   );
 }
 
-export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate }) {
+// `embedded` hosts the room inside the Studio workspace: the workspace header
+// already names the patient and carries the back affordance, so the room keeps
+// only what is true of the RECORDING (the live pill and the clock) and drops
+// the rest. `onDraft` replaces the navigate-to-Studio hand-off — the workspace
+// switches its own mode instead of reloading the route.
+export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate, embedded = false, onDraft }) {
   const [phase, setPhase] = useState("intro");     // intro | live | review | draft
   const [consentOpen, setConsentOpen] = useState(false);
   const [templateId, setTemplateId] = useState(null);
@@ -78,8 +85,15 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
 
   const patientReq = useAsync(() => (patientId ? getPatient(patientId) : Promise.resolve(null)), [patientId]);
   const encounterReq = useAsync(() => (encounterId ? getEncounter(encounterId) : Promise.resolve(null)), [encounterId]);
-  const templatesReq = useAsync(() => listTemplates({ language: lang }), [lang]);
+  // report-service templates are uk|en — German dictation still drafts into
+  // one of those until the service grows a German library.
+  const templatesReq = useAsync(() => listTemplates({ language: asTemplateLang(lang) }), [lang]);
   const promptsReq = useAsync(() => listPrompts(), []);
+
+  // The interface language is NOT the session language: the socket's contract
+  // is ^(uk|en|de)$ and this used to forward whatever the UI was set to, so a
+  // Polish interface opened a session the server could only refuse.
+  const sessionLang = asDictationLang(lang);
 
   const patient = patientReq.data;
   const encounter = encounterReq.data;
@@ -100,9 +114,9 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
   // until the draft exists.
   const promptId = useMemo(() => {
     const list = asList(promptsReq.data);
-    const forLang = list.filter((p) => !p.language || p.language === lang);
+    const forLang = list.filter((p) => !p.language || p.language === sessionLang);
     return (forLang.find((p) => p.is_default) || forLang[0] || list[0] || {}).id || null;
-  }, [promptsReq.data, lang]);
+  }, [promptsReq.data, sessionLang]);
 
   // Closing the tab mid-consultation is the one exit the app cannot make
   // graceful on its own: the unmount handler gets to send end_session, but a
@@ -122,7 +136,7 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
   const consentGate = useConsentGate(patientId, { encounterId, type: CONSENT_TYPE_RECORDING });
 
   const session = useConversationSession({
-    language: lang,
+    language: sessionLang,
     promptId,
     encounterId,
     deviceId: mic.selectedId,
@@ -208,13 +222,14 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
         },
       });
       setPhase("draft");
-      navigate(`/dictate/studio?patient=${patientId}&encounter=${encounterId || ""}&report=${report.id}`);
+      if (onDraft) onDraft(report);
+      else navigate(`/dictate/studio?patient=${patientId}&encounter=${encounterId || ""}&report=${report.id}`);
     } catch (e) {
       setDraftError(e);
     } finally {
       setBusy(false);
     }
-  }, [busy, templateId, reviewSegments, session, lang, patientId, encounterId, navigate]);
+  }, [busy, templateId, reviewSegments, session, lang, patientId, encounterId, navigate, onDraft]);
 
   // ── guards ──────────────────────────────────────────────────────────
   if (patientReq.error) {
@@ -276,22 +291,29 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
 
   return (
     <div className="cv-room" data-testid="conversation-room" data-phase={phase}
+         data-embedded={embedded ? "on" : undefined}
          data-session-status={session.status}>
       <header className="cv-head">
-        <button className="tb-back" onClick={() => navigate(`/patients/${patientId}`)}
-          aria-label={tr(lang, "Назад", "Back")}>
-          <Icon name="arrowLeft" size={16} />
-        </button>
-        <div className="cv-head-meta">
-          <div className="cv-head-name">
-            {patientName}
-            {yob ? <span className="cv-head-sub"> · {tr(lang, `нар. ${yob}`, `b. ${yob}`)}</span> : null}
+        {!embedded && (
+          <button className="tb-back" onClick={() => navigate(`/patients/${patientId}`)}
+            aria-label={tr(lang, "Назад", "Back")}>
+            <Icon name="arrowLeft" size={16} />
+          </button>
+        )}
+        {/* Embedded, the workspace header already says who and which visit —
+            all that is left for this strip is the state of the recording. */}
+        {!embedded && (
+          <div className="cv-head-meta">
+            <div className="cv-head-name">
+              {patientName}
+              {yob ? <span className="cv-head-sub"> · {tr(lang, `нар. ${yob}`, `b. ${yob}`)}</span> : null}
+            </div>
+            <div className="cv-head-sub">
+              {tr(lang, "Розмова", "Conversation")}
+              {encounter?.reason ? ` · ${encounter.reason}` : ""}
+            </div>
           </div>
-          <div className="cv-head-sub">
-            {tr(lang, "Розмова", "Conversation")}
-            {encounter?.reason ? ` · ${encounter.reason}` : ""}
-          </div>
-        </div>
+        )}
         <div style={{ flex: 1 }} />
         {session.recording && (
           <span className="cv-rec" data-testid="cv-recording">
@@ -355,21 +377,34 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
             </div>
           )}
 
+          {/* Platform dropdowns, not native <select>s: the browser draws a
+              native list itself, unstyled, and this screen is shown to the
+              patient as often as to the clinician. */}
           <div className="cv-intro-controls">
-            <label className="cv-field">
+            <div className="cv-field" data-testid="cv-template">
               <span>{tr(lang, "Шаблон для чернетки", "Template for the draft")}</span>
-              <select value={templateId || ""} onChange={(e) => setTemplateId(e.target.value)}
-                data-testid="cv-template">
-                {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </label>
+              <MenuSelect
+                block
+                icon="fileText"
+                value={templateId || ""}
+                onChange={setTemplateId}
+                ariaLabel={tr(lang, "Шаблон для чернетки", "Template for the draft")}
+                placeholder={tr(lang, "Немає шаблонів", "No templates")}
+                options={templates.map((t) => ({ value: t.id, label: t.name, sub: t.code || undefined }))}
+              />
+            </div>
             {mic.devices?.length > 1 && (
-              <label className="cv-field">
+              <div className="cv-field">
                 <span>{tr(lang, "Мікрофон", "Microphone")}</span>
-                <select value={mic.selectedId ?? ""} onChange={(e) => mic.select(e.target.value)}>
-                  {mic.devices.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label}</option>)}
-                </select>
-              </label>
+                <MenuSelect
+                  block
+                  icon="mic"
+                  value={mic.selectedId ?? ""}
+                  onChange={mic.select}
+                  ariaLabel={tr(lang, "Мікрофон", "Microphone")}
+                  options={mic.devices.map((d) => ({ value: d.deviceId, label: d.label }))}
+                />
+              </div>
             )}
           </div>
 

@@ -74,7 +74,7 @@ test("golden path: create patient → прийом → gate blocks → consent �
   await page.locator(".ph-actions .btn.accent", { hasText: /Почати прийом/ }).click();
   await page.locator(".modal textarea").fill("наскрізний E2E-візит");
   await page.locator(".modal .btn.accent", { hasText: /Почати диктування/ }).click();
-  await expect(page).toHaveURL(/dictate\/studio\?patient=[0-9a-f-]{36}&encounter=[0-9a-f-]{36}$/, { timeout: 15000 });
+  await expect(page).toHaveURL(/#\/studio\?mode=dictate&patient=[0-9a-f-]{36}&encounter=[0-9a-f-]{36}(&|$)/, { timeout: 15000 });
   const encounterId = page.url().match(/encounter=([0-9a-f-]{36})/)[1];
   const patientId = page.url().match(/patient=([0-9a-f-]{36})/)[1];
   const bar = page.getByTestId("studio-context-bar");
@@ -83,9 +83,9 @@ test("golden path: create patient → прийом → gate blocks → consent �
 
   // the consent gate BLOCKS the real record button…
   await expect(page.getByTestId("consent-gate-banner")).toBeVisible({ timeout: 10000 });
-  await page.locator(".mic-btn").click();
+  await page.getByTestId("studio-mic").click();
   await expect(page.getByTestId("consent-sheet")).toBeVisible();
-  await expect(page.locator(".mic-btn")).toHaveAttribute("data-state", "idle");
+  await expect(page.getByTestId("studio-mic")).toHaveAttribute("data-state", "idle");
 
   // …verbal consent unblocks it (one POST to the REAL consent endpoint)
   await page.locator(".consent-method", { hasText: /Усно/ }).click();
@@ -136,7 +136,7 @@ test("gate persistence: withdraw → a NEW encounter's recording attempt is bloc
   await page.locator(".ph-actions .btn.accent", { hasText: /Почати прийом/ }).click();
   await page.locator(".modal .btn.accent", { hasText: /Почати диктування/ }).click();
   await expect(page.getByTestId("consent-gate-banner")).toBeVisible({ timeout: 15000 });
-  await page.locator(".mic-btn").click();
+  await page.getByTestId("studio-mic").click();
   await expect(page.getByTestId("consent-sheet")).toBeVisible();
 
   await assertNoPatientPii(page, taps, FIXTURE);

@@ -280,7 +280,9 @@ test("E2E flow: type mid-sentence → ghost → Tab-accept → finalize", async 
   await page.keyboard.press("Tab");
   await expect.poll(() => docText(editor)).toBe(SENTENCE + COMPLETION);
 
-  await page.getByRole("button", { name: /Завершити диктування|Complete dictation/ }).click();
+  // S16: the Studio's footer moved into the workspace header — "Створити"
+  // is the same action (stop, save, open the finished document).
+  await page.getByTestId("sw-create").click();
   await page.getByRole("button", { name: /Інші дії зі звітом|Other report actions/ }).click();
   await page.getByRole("menuitem", { name: /Завершити без підпису|Finalize without signing/ })
     .or(page.getByText(/Завершити без підпису|Finalize without signing/)).first().click();

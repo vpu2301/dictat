@@ -107,7 +107,7 @@ async function loginAndOpenStudio(page) {
   await page.locator('input[type="password"]').fill("dev-password");
   await page.locator('button[type="submit"]').click();
   await expect(page.locator(".sb-brand")).toBeVisible();
-  await page.goto("/#/dictate/studio");
+  await page.goto("/#/studio?mode=dictate");
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await expect(gateRow).toBeVisible({ timeout: 10000 });
   await gateRow.click();
@@ -167,7 +167,7 @@ test.describe("Studio microphone picker", () => {
     await openPicker(page);
     await page.locator(".mic-device .spec-menu-item").nth(2).click(); // iPhone → "bbb"
 
-    await page.locator(".mic-btn").click();
+    await page.getByTestId("studio-mic").click();
     await expect.poll(async () => (await page.evaluate(() => window.__gumCalls)).length).toBeGreaterThan(0);
 
     const calls = await page.evaluate(() => window.__gumCalls);
@@ -204,7 +204,7 @@ test.describe("Studio microphone picker", () => {
     await expect(page.locator(".mic-device-note.warn")).toContainText("iPhone Microphone");
 
     // Dictation still starts — on the system mic rather than failing outright.
-    await page.locator(".mic-btn").click();
+    await page.getByTestId("studio-mic").click();
     await expect.poll(async () => {
       const calls = await page.evaluate(() => window.__gumCalls);
       return calls.some((c) => !c?.audio?.deviceId);

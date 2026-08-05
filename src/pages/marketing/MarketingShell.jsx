@@ -10,6 +10,7 @@
 // Localised via the shared `lang` tweak; no auth required.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, Logo } from "../../components/UI.jsx";
+import { HealthBadge } from "../../components/HealthBadge.jsx";
 import { LANGS } from "../../i18n.js";
 
 /* ── Navigation model ──────────────────────────────────────────
@@ -1014,6 +1015,10 @@ export function MarketingShell({ navigate, lang = "en", tweaks, setTweak, childr
         </div>
         <div className="lp-footer-bar">
           <span>© 2026 Klarnote. {f.rights}</span>
+          {/* Live service status, where a visitor expects it: the footer. Same
+              probe the clinician's account menu runs, same panel behind it. */}
+          <HealthBadge lang={lang} />
+
           {/* Language + country moved here from the navbar (popups open upward). */}
           <div className="lp-footer-pickers">
             <LangSwitcher lang={lang} setTweak={setTweak} />

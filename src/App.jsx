@@ -10,8 +10,8 @@ import { NotificationsProvider } from './notifications/store.jsx';
 import { NotificationBell } from './components/NotificationBell.jsx';
 import { NotificationToasts } from './components/NotificationToasts.jsx';
 import NotificationPreferencesPage from './pages/NotificationPreferencesPage.jsx';
-import { DictationStudio } from './components/Studio.jsx';
-import { ConversationRoom } from './conversation/ConversationRoom.jsx';
+import { StudioWorkspace } from './studio/StudioWorkspace.jsx';
+import { StudioHistoryPage } from './studio/StudioHistoryPage.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
 import { ScribeToday, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
 import { PatientDirectory } from './patients/PatientDirectory.jsx';
@@ -54,7 +54,6 @@ import { AccessReviewPage } from './pages/AccessReviewPage.jsx';
 import { CompliancePage } from './pages/CompliancePage.jsx';
 import { ForbiddenPage } from './pages/ForbiddenPage.jsx';
 import { SettingsPage } from './pages/SettingsPage.jsx';
-import { AsrSubmitPage } from './pages/AsrSubmitPage.jsx';
 import { AsrJobsListPage } from './pages/AsrJobsListPage.jsx';
 import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
 import { DocumentsPage, docPath, docTabFromRoute } from './pages/DocumentsPage.jsx';
@@ -79,6 +78,18 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 function RouteRedirect({ to, navigate }) {
   useEffect(() => { navigate(to); }, [to, navigate]);
   return null;
+}
+
+// The four capture screens became four modes of /studio. Forward the old paths
+// with their context intact — a patient card's "dictate" link, a notification's
+// deep link and a year of bookmarks all point at them.
+function studioRedirect(mode, query) {
+  const q = new URLSearchParams({ mode });
+  for (const k of ["patient", "encounter", "template", "report", "session", "job", "note"]) {
+    const v = query.get(k);
+    if (v) q.set(k, v);
+  }
+  return `/studio?${q}`;
 }
 
 function App() {
@@ -210,7 +221,7 @@ function App() {
     const onKey = (e) => {
       if (e.target.matches("input, textarea, [contenteditable]")) return;
       if (e.key === "n" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/scribe/consult/new"); }
-      if (e.key === "d" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/dictate/studio"); }
+      if (e.key === "d" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate("/studio"); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -377,32 +388,15 @@ function App() {
     view = <RouteRedirect to="/scribe" navigate={navigate} />;
     title = tr(lang, "Завдання", "Tasks");
   } else if (r === "/dictate/studio" || r.startsWith("/dictate/studio?") || r.startsWith("/dictate?")) {
-    const pm = r.match(/patient=([\w-]+)/);
-    const tm = r.match(/template=([\w-]+)/);
-    const rm = r.match(/report=([\w-]+)/);
-    const em = r.match(/encounter=([\w-]+)/);
-    view = (
-      <RequireClinical navigate={navigate}>
-        <DictationStudio lang={lang} patientId={pm?.[1]} encounterId={em?.[1]} initialTemplateId={tm?.[1]} reportId={rm?.[1]}
-          templatesMap={templatesMap} onAddTemplate={handleAddTemplate}
-          templatesLoading={templatesReq.loading} templatesError={templatesReq.error}
-          onRetryTemplates={templatesReq.reload} />
-      </RequireClinical>
-    );
-    showTopbar = false;
+    // S16: the Studio is a MODE of the workspace now, not a screen of its own.
+    // Old links (patient cards, notifications, bookmarks) keep working — their
+    // params carry straight over.
+    view = <RouteRedirect to={studioRedirect("dictate", routeQuery)} navigate={navigate} />;
   } else if (r === "/dictate/conversation" || r.startsWith("/dictate/conversation?")) {
-    // S14 conversation mode: its own surface, not a Studio variant. The Studio
-    // is a section editor for a note the clinician dictates; this is a live
-    // two-voice transcript with a review pass, and it hands off to the Studio
-    // only once a draft exists.
-    const pm = r.match(/patient=([\w-]+)/);
-    const em = r.match(/encounter=([\w-]+)/);
-    view = (
-      <RequireClinical navigate={navigate}>
-        <ConversationRoom lang={lang} patientId={pm?.[1]} encounterId={em?.[1]} navigate={navigate} />
-      </RequireClinical>
-    );
-    showTopbar = false;
+    // Conversation mode kept its own component — it is a live two-voice
+    // transcript, not a section editor — but no longer its own route: it is the
+    // workspace's "scribe" mode, which is where the clinician looks for it.
+    view = <RouteRedirect to={studioRedirect("scribe", routeQuery)} navigate={navigate} />;
   } else if (r === "/dictate/reports") {
     view = <RouteRedirect to={docPath("reports")} navigate={navigate} />;
   } else if (r.startsWith("/dictate/reports/")) {
@@ -411,6 +405,51 @@ function App() {
     crumbs = [{ label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") }, { label: tr(lang, "Звіти", "Reports"), path: docPath("reports"), onClick: () => navigate(docPath("reports")) }, { label: id }];
   } else if (r === "/dictate/templates") {
     view = <RouteRedirect to={libPath("reports")} navigate={navigate} />;
+  }
+  // ── studio workspace (S16) ─────────────────────────────────
+  // One room for dictation, smart dictation, the recorded consultation and
+  // uploaded audio. Everything it needs rides in the hash query, so a session
+  // is a link: /studio?mode=smart&patient=…&report=…
+  // The full work list, opened in its own browser tab from the sidebar. Its own
+  // route (not a Studio mode) precisely because it is NOT a document: it is the
+  // index of them, and it must be linkable and openable alongside one.
+  else if (routePath === "/studio/history") {
+    view = (
+      <RequireClinical navigate={navigate}>
+        <StudioHistoryPage lang={lang} navigate={navigate} />
+      </RequireClinical>
+    );
+    crumbs = [
+      { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
+      { label: tr(lang, "Студія", "Studio"), path: "/studio", onClick: () => navigate("/studio") },
+      { label: tr(lang, "Історія", "History") },
+    ];
+  }
+  else if (routePath === "/studio") {
+    view = (
+      <RequireClinical navigate={navigate}>
+        <StudioWorkspace
+          lang={lang}
+          navigate={navigate}
+          mode={routeQuery.get("mode") || undefined}
+          patientId={routeQuery.get("patient") || undefined}
+          encounterId={routeQuery.get("encounter") || undefined}
+          templateId={routeQuery.get("template") || undefined}
+          reportId={routeQuery.get("report") || undefined}
+          sessionId={routeQuery.get("session") || undefined}
+          jobId={routeQuery.get("job") || undefined}
+          noteId={routeQuery.get("note") || undefined}
+          tabId={routeQuery.get("t") || undefined}
+          templatesMap={templatesMap}
+          onAddTemplate={handleAddTemplate}
+          templatesLoading={templatesReq.loading}
+          templatesError={templatesReq.error}
+          onRetryTemplates={templatesReq.reload}
+          onToast={fireToast}
+        />
+      </RequireClinical>
+    );
+    showTopbar = false;
   }
   // ── evidence chat (embedded module, mock data only) ────────
   // Dev-only fake host for the module (§6 B-05). Checked BEFORE the module's
@@ -434,17 +473,10 @@ function App() {
   // ── asr (batch transcription) ──────────────────────────────
   else if (r === "/asr" || r === "/asr/jobs") {
     view = <RouteRedirect to={docPath("transcripts")} navigate={navigate} />;
-  } else if (r === "/asr/new") {
-    view = (
-      <RequireClinical navigate={navigate}>
-        <AsrSubmitPage lang={lang} navigate={navigate} onToast={fireToast} />
-      </RequireClinical>
-    );
-    crumbs = [
-      { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
-      { label: tr(lang, "Транскрипції", "Transcriptions"), path: docPath("transcripts"), onClick: () => navigate(docPath("transcripts")) },
-      { label: tr(lang, "Нове", "New") },
-    ];
+  } else if (r === "/asr/new" || r.startsWith("/asr/new?")) {
+    // Uploading audio is the workspace's "audio" mode — same form, but the
+    // queued job lands next to the drafts it will become.
+    view = <RouteRedirect to={studioRedirect("audio", routeQuery)} navigate={navigate} />;
   } else if (r.startsWith("/asr/jobs/")) {
     const jid = r.split("/")[3];
     view = (

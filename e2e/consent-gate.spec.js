@@ -130,8 +130,8 @@ async function openStudio(page) {
   await page.locator('input[type="password"]').fill("dev-password");
   await page.locator('button[type="submit"]').click();
   await expect(page.locator(".sb-brand")).toBeVisible();
-  await page.goto(`/#/dictate/studio?patient=${PID}&encounter=${ENC_ID}`);
-  await expect(page.locator(".mic-btn")).toBeVisible({ timeout: 10000 });
+  await page.goto(`/#/studio?mode=dictate&patient=${PID}&encounter=${ENC_ID}`);
+  await expect(page.getByTestId("studio-mic")).toBeVisible({ timeout: 10000 });
 }
 
 test("no consent → recording blocked, sheet opens on the attempt; verbal capture unblocks", async ({ page }) => {
@@ -143,9 +143,9 @@ test("no consent → recording blocked, sheet opens on the attempt; verbal captu
   await expect(page.getByTestId("consent-gate-banner")).toContainText(/Потрібна згода|consent .* required/i);
 
   // record attempt: NOT let through (state stays idle), the sheet opens
-  await page.locator(".mic-btn").click();
+  await page.getByTestId("studio-mic").click();
   await expect(page.getByTestId("consent-sheet")).toBeVisible();
-  await expect(page.locator(".mic-btn")).toHaveAttribute("data-state", "idle");
+  await expect(page.getByTestId("studio-mic")).toHaveAttribute("data-state", "idle");
 
   // capture verbal — the one POST the happy path costs
   await page.locator(".consent-method", { hasText: /Усно|Verbal/ }).click();
@@ -159,7 +159,7 @@ test("no consent → recording blocked, sheet opens on the attempt; verbal captu
   // gate flipped: banner gone and the auto-start attempt went THROUGH the
   // gate (data-state leaves idle — headless has no usable speech engine)
   await expect(page.getByTestId("consent-gate-banner")).toHaveCount(0);
-  await expect(page.locator(".mic-btn")).not.toHaveAttribute("data-state", "idle", { timeout: 5000 });
+  await expect(page.getByTestId("studio-mic")).not.toHaveAttribute("data-state", "idle", { timeout: 5000 });
 });
 
 test("fail CLOSED: consent fetch error blocks recording with a retry — never a silent pass", async ({ page }) => {
@@ -170,10 +170,10 @@ test("fail CLOSED: consent fetch error blocks recording with a retry — never a
   await expect(page.getByTestId("consent-gate-error")).toContainText(/заблоковано|blocked/i);
 
   // attempt: no sheet, no start — blocked
-  await page.locator(".mic-btn").click();
+  await page.getByTestId("studio-mic").click();
   await page.waitForTimeout(400);
   await expect(page.getByTestId("consent-sheet")).toHaveCount(0);
-  await expect(page.locator(".mic-btn")).toHaveAttribute("data-state", "idle");
+  await expect(page.getByTestId("studio-mic")).toHaveAttribute("data-state", "idle");
 
   // retry after the backend recovers → gate re-evaluates to "required"
   ctl.failConsents = false;
@@ -194,8 +194,8 @@ test("re-check on EVERY start: a consent withdrawn elsewhere blocks the next att
   await expect(page.getByTestId("consent-gate-banner")).toHaveCount(0);
 
   // first attempt passes the gate
-  await page.locator(".mic-btn").click();
-  await expect(page.locator(".mic-btn")).not.toHaveAttribute("data-state", "idle", { timeout: 5000 });
+  await page.getByTestId("studio-mic").click();
+  await expect(page.getByTestId("studio-mic")).not.toHaveAttribute("data-state", "idle", { timeout: 5000 });
   const checksAfterFirst = calls.consentList.length;
 
   // consent is withdrawn from another session
@@ -207,7 +207,7 @@ test("re-check on EVERY start: a consent withdrawn elsewhere blocks the next att
   // path runs and the gate re-checks
   let sheetOpen = false;
   for (let i = 0; i < 3 && !sheetOpen; i++) {
-    await page.locator(".mic-btn").click();
+    await page.getByTestId("studio-mic").click();
     sheetOpen = await page.getByTestId("consent-sheet").waitFor({ timeout: 2500 })
       .then(() => true).catch(() => false);
   }
@@ -220,7 +220,7 @@ test("digital: capture → dev (mock) provider sign → envelope linked, badge s
   await installMocks(page, calls);
   await openStudio(page);
 
-  await page.locator(".mic-btn").click();
+  await page.getByTestId("studio-mic").click();
   await page.locator(".consent-method", { hasText: /КЕП/ }).click();
   await page.locator(".modal .btn.accent", { hasText: /Зафіксувати та підписати|Record & sign/ }).click();
 
@@ -237,8 +237,8 @@ test("digital: capture → dev (mock) provider sign → envelope linked, badge s
 
   // the gate is satisfied (consent exists granted) — recording attempt passes
   await page.locator(".modal .btn.accent", { hasText: /Готово|Done/ }).click();
-  await page.locator(".mic-btn").click();
-  await expect(page.locator(".mic-btn")).not.toHaveAttribute("data-state", "idle", { timeout: 5000 });
+  await page.getByTestId("studio-mic").click();
+  await expect(page.getByTestId("studio-mic")).not.toHaveAttribute("data-state", "idle", { timeout: 5000 });
 });
 
 test("Згоди tab: withdraw needs the consequences dialog; withdrawn rows render struck and stay", async ({ page }) => {

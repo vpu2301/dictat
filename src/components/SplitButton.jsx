@@ -11,10 +11,23 @@ import { Icon } from "./UI.jsx";
 
 export function SplitButton({
   label, icon, onClick, busy, busyLabel, disabled,
-  items = [],            // [{ key, label, icon, onSelect, disabled, busy, danger, hint }]
+  // [{ key, label, icon, onSelect, disabled, busy, danger, hint, active }]
+  // `active` marks the option the app is already on. It stays clickable and
+  // fully legible with a check on the right — dimming it to 50% (which is what
+  // `disabled` does) reads as "this option is unavailable", not "you are here".
+  items = [],
   variant = "primary",   // matches .btn modifiers: primary | accent | ghost | ""
   menuLabel,             // aria-label for the caret
   align = "end",         // menu edge alignment: end | start
+  // Which way the menu opens. "up" is the default because this control was
+  // born in page footers, where there is no room below. A split button in a
+  // HEADER has the opposite problem: opening up puts the menu off the top of
+  // the window, which reads as "the caret does nothing".
+  placement = "up",      // up | down
+  // Extra attributes for the PRIMARY half. The Studio workspace's record
+  // control is a split button whose main half is the microphone — it needs to
+  // carry the recorder's state (data-state) the way the old MicCard did.
+  mainProps = {},
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -51,6 +64,7 @@ export function SplitButton({
       <button
         ref={mainRef}
         type="button"
+        {...mainProps}
         className={cls + " split-btn-main"}
         onClick={onClick}
         disabled={disabled || busy}
@@ -76,22 +90,24 @@ export function SplitButton({
           </button>
 
           {open && (
-            <div className={"spec-menu split-btn-menu " + align} role="menu">
+            <div className={`spec-menu split-btn-menu ${align} ${placement}`} role="menu">
               {visible.map(it => (
                 <button
                   key={it.key}
                   type="button"
                   role="menuitem"
-                  className={"spec-menu-item" + (it.danger ? " danger" : "")}
+                  aria-current={it.active ? "true" : undefined}
+                  className={"spec-menu-item" + (it.danger ? " danger" : "") + (it.active ? " on" : "")}
                   disabled={it.disabled || it.busy}
                   onClick={() => { setOpen(false); it.onSelect && it.onSelect(); }}
                 >
-                  <Icon name={it.busy ? "refresh" : (it.icon || "dot")} size={14}
-                    className={it.busy ? "spin" : "muted"} />
+                  <Icon name={it.busy ? "refresh" : (it.icon || "dot")} size={16}
+                    className={it.busy ? "spin" : undefined} />
                   <span className="split-btn-item">
                     <span>{it.label}</span>
                     {it.hint && <span className="split-btn-hint">{it.hint}</span>}
                   </span>
+                  {it.active && <Icon name="check" size={14} className="split-btn-check" />}
                 </button>
               ))}
             </div>

@@ -154,7 +154,7 @@ const ACTIVE_STATUSES = ["draft", "finalized", "signed", "amended"];
 // Everything past draft is read-only/amend-only → the report view.
 export function openReportPath(r) {
   return r?.status === "draft"
-    ? `/dictate/studio?report=${r.id}`
+    ? `/studio?mode=dictate&report=${r.id}`
     : `/dictate/reports/${r.id}`;
 }
 
@@ -295,7 +295,7 @@ export function ReportsList({ navigate, lang, embedded = false }) {
                   onClick={() => { navigator.clipboard?.writeText(location.href); }}>
             <Icon name="download" size={14} /> {tr(lang, "Копіювати посилання", "Copy link")}
           </button>
-          <button className="btn accent" onClick={() => navigate("/dictate/studio")}>
+          <button className="btn accent" onClick={() => navigate("/studio?mode=dictate")}>
             <Icon name="plus" size={14} /> {tr(lang, "Новий звіт", "New report")}
           </button>
         </div>
@@ -1017,7 +1017,7 @@ export function ReportView({ id, navigate, lang }) {
   // routes list rows the same way; this backstops every other path.
   const isDraft = reportReq.data?.status === "draft";
   useEffect(() => {
-    if (isDraft) navigate(`/dictate/studio?report=${id}`);
+    if (isDraft) navigate(`/studio?mode=dictate&report=${id}`);
   }, [isDraft, id, navigate]);
 
   if (reportReq.loading || isDraft) return <div className="page"><Loading lang={lang} /></div>;
@@ -1121,7 +1121,7 @@ export function ReportView({ id, navigate, lang }) {
     setEditing(true);
     try {
       await revertReportToDraft(id);
-      navigate(`/dictate/studio?report=${id}`);
+      navigate(`/studio?mode=dictate&report=${id}`);
     } catch (e) {
       setEditing(false);
       const forbidden = e?.status === 403;

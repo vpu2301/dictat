@@ -2,7 +2,7 @@
 // Workspace / Settings / Admin / Audit / Account. Replaces the flat sidebar.
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Icon, Logo, Modal, useMenuAnchor, AnchoredMenu } from "./UI.jsx";
-import { HealthBadge } from "./HealthBadge.jsx";
+import { useServiceHealth, HealthPanel, healthLabel, healthColor } from "./HealthBadge.jsx";
 import { ClinicMenuSection, CreateClinicModal } from "./TenantSwitcher.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
 import { hasClinicalAccess, isAuditorOnly, canReadPatients } from "../auth/permissions.js";
@@ -12,6 +12,7 @@ import { FEATURES } from "../api/services.js";
 import { useAsync } from "../api/useAsync.js";
 import { countReports } from "../api/reports.js";
 import { useSettings as useChatSettings } from "../chat/settingsContract.js";
+import { SidebarSessions } from "../studio/SidebarSessions.jsx";
 import { tr } from "../i18n.js";
 
 // One collapsible group ── header clickable, body slides under.
@@ -204,6 +205,10 @@ export function Sidebar({
   // workspace-scoped store the module itself reads, so the toggle in
   // /settings hides this block live, no reload).
   const chatEnabled = !!useChatSettings(claims?.tid).settings.moduleEnabled;
+  // The Studio's work list rides in this sidebar, but only while the Studio is
+  // the screen — see where it renders, below the nav.
+  const inStudio = route === "/studio" || route.startsWith("/studio?") || route.startsWith("/studio/");
+
 
   // Live count for the "Reports" nav badge — exact number of draft reports
   // needing attention (mirrors the Reports page's own `mine` count). Uses the
@@ -265,6 +270,11 @@ export function Sidebar({
 
   // User menu popover (Profile / Settings / Sign out).
   const [menuOpen, setMenuOpen] = useState(false);
+  // The backend check: probed only while someone is looking at it (the account
+  // menu open, or its panel open). It used to poll all session for a pill in
+  // the footer nobody had asked to see.
+  const [healthOpen, setHealthOpen] = useState(false);
+  const health = useServiceHealth({ enabled: menuOpen || healthOpen });
   const menuRef = useRef(null);
   useEffect(() => {
     if (!menuOpen) return;
@@ -364,9 +374,9 @@ export function Sidebar({
           }}
           actions={[
             { icon: "waveform", label: tr(lang, "Нове диктування", "New dictation"), kbd: "D", onClick: onNewDictation },
-            { icon: "users", label: tr(lang, "Розмова з пацієнтом", "Conversation mode"), onClick: () => navigate("/dictate/conversation") },
+            { icon: "users", label: tr(lang, "Розмова з пацієнтом", "Conversation mode"), onClick: () => navigate("/studio?mode=scribe") },
             { icon: "fileText", label: tr(lang, "Написати нотатку", "Take a note"), onClick: () => navigate("/scribe/notes/new") },
-            { icon: "bot", label: tr(lang, "Завантажити на транскрипцію", "Upload for transcription"), onClick: () => navigate("/asr/new") },
+            { icon: "bot", label: tr(lang, "Завантажити на транскрипцію", "Upload for transcription"), onClick: () => navigate("/studio?mode=audio") },
           ]}
         />
       )}
@@ -422,10 +432,12 @@ export function Sidebar({
         {clinical && (
           <>
             {/* No "Dictation" entry: its landing folded into Tasks. What is
-                left of the product is the Studio and the documents it writes. */}
+                left of the product is the Studio and the documents it writes.
+                The prefix is the bare path so every mode — dictation, smart
+                dictation, a conversation, an upload — lights the same row. */}
             <NavLink {...{ route, navigate, collapsed }} icon="mic"
                      label={tr(lang, "Студія", "Studio")}
-                     path="/dictate/studio" prefix="/dictate/studio" />
+                     path="/studio" prefix="/studio" />
             {/* Reports, notes and transcription jobs are three tabs of one
                 page — three near-identical lists did not deserve three nav
                 rows. The badge stays on the drafts, which is what a doctor
@@ -463,16 +475,23 @@ export function Sidebar({
         </Group>
       )}
 
-      <div className="sb-spacer" />
+      {/* ── the work list ────────────────────────────────────────
+          Recordings, drafts and uploads, newest first — the same place a chat
+          app keeps its conversations. It takes the leftover height (and does
+          its own scrolling), so the account block below stays pinned.
+          Shown only inside the Studio: everywhere else the sidebar is a map of
+          the app, and a 40-row list under it turns navigation into scrolling.
+          Leaving the Studio also unmounts it, so coming back re-fetches. */}
+      {state && clinical && !collapsed && inStudio ? (
+        <SidebarSessions route={route} navigate={navigate} lang={lang} />
+      ) : (
+        <div className="sb-spacer" />
+      )}
 
       <div className="sb-foot">
-        {!collapsed && (
-          <div className="sb-controls">
-            <HealthBadge lang={lang} />
-            <div style={{ flex: 1 }} />
-            <button className="icon-btn" title="Help"><Icon name="help" size={14} /></button>
-          </div>
-        )}
+        {/* Nothing here any more. The service check moved to the account menu
+            (and the public site's footer), and the "?" beside it opened
+            nothing — a button that does not answer is worse than no button. */}
         <div className="sb-user-wrap" ref={menuRef}>
           <div
             className={"sb-user" + (menuOpen ? " open" : "")}
@@ -508,6 +527,19 @@ export function Sidebar({
                   <button className="sb-user-menu-item" role="menuitem" onClick={pickMenu(() => navigate("/settings"))}>
                     <Icon name="sliders" size={14} />
                     <span>{tr(lang, "Налаштування", "Settings")}</span>
+                  </button>
+                  {/* Next to Settings, because that is what it is: a thing you
+                      go and look at, not a thing that watches you. The dot is
+                      live only while this menu is open — see `health` above. */}
+                  <button
+                    className="sb-user-menu-item"
+                    role="menuitem"
+                    data-testid="sb-health"
+                    onClick={() => { setMenuOpen(false); setHealthOpen(true); }}
+                  >
+                    <span className="health-dot" style={{ background: healthColor(health.overall).dot }} />
+                    <span>{tr(lang, "Стан системи", "System status")}</span>
+                    <span className="sb-user-menu-hint">{healthLabel(health, lang)}</span>
                   </button>
                   <SubMenu icon="home" label={tr(lang, "Клініка", "Clinic")}>
                     <ClinicMenuSection
@@ -588,6 +620,17 @@ export function Sidebar({
           </div>
         </div>
       </Modal>
+    )}
+
+    {/* Outside the account menu on purpose: the menu closes when you pick a
+        row, and the panel must not close with it. */}
+    {healthOpen && (
+      <HealthPanel
+        health={health}
+        lang={lang}
+        onClose={() => setHealthOpen(false)}
+        style={{ left: 16, bottom: 16 }}
+      />
     )}
 
     {createClinicOpen && (

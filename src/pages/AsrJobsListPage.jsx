@@ -91,7 +91,7 @@ export function AsrJobsListPage({ lang = "en", navigate, embedded = false }) {
             <Icon name="refresh" size={14} />
             <span>{tr(lang, "Оновити", "Refresh")}</span>
           </button>
-          <button className="btn accent" onClick={() => navigate("/asr/new")}>
+          <button className="btn accent" onClick={() => navigate("/studio?mode=audio")}>
             <Icon name="plus" size={14} />
             <span>{tr(lang, "Нове завдання", "New job")}</span>
           </button>

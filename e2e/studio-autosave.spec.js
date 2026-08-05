@@ -137,7 +137,7 @@ test("typing in the Studio triggers an autosave create", async ({ page }) => {
   await expect(page.locator(".sb-brand")).toBeVisible();
 
   // studio
-  await page.goto("/#/dictate/studio");
+  await page.goto("/#/studio?mode=dictate");
 
   // patient gate → pick the seeded patient
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
@@ -183,7 +183,7 @@ test("reopening a draft autosaves via PUT (update, not create)", async ({ page }
   await expect(page.locator(".sb-brand")).toBeVisible();
 
   // reopen an existing draft
-  await page.goto("/#/dictate/studio?report=report-9");
+  await page.goto("/#/studio?mode=dictate&report=report-9");
 
   // editor should mount straight into the rehydrated draft (no patient gate)
   const editor = page.locator(".ProseMirror, [contenteditable='true']").first();
@@ -213,7 +213,7 @@ test("a 429 autosave_rate_limited is handled silently and the save still lands",
   await page.locator('button[type="submit"]').click();
   await expect(page.locator(".sb-brand")).toBeVisible();
 
-  await page.goto("/#/dictate/studio?report=report-9");
+  await page.goto("/#/studio?mode=dictate&report=report-9");
   const editor = page.locator(".ProseMirror, [contenteditable='true']").first();
   await expect(editor).toBeVisible({ timeout: 10000 });
   await editor.click();
@@ -246,7 +246,7 @@ test("a 409 optimistic_lock_mismatch (stringified detail) is recovered silently"
 
   // Reopen a draft seeded at version 3; the server (conflictFirstPut) answers
   // the first PUT with a 409 saying current_version is 11.
-  await page.goto("/#/dictate/studio?report=report-9");
+  await page.goto("/#/studio?mode=dictate&report=report-9");
   const editor = page.locator(".ProseMirror, [contenteditable='true']").first();
   await expect(editor).toBeVisible({ timeout: 10000 });
   await editor.click();

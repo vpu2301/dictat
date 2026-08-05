@@ -299,7 +299,7 @@ async function login(page) {
   await expect(page.locator(".sb-brand")).toBeVisible();
 }
 
-const roomUrl = `/#/dictate/conversation?patient=${PID}&encounter=${ENC}`;
+const roomUrl = `/#/studio?mode=scribe&patient=${PID}&encounter=${ENC}`;
 
 // ══════════════════════════════════════════════════════════════════════
 // 1. Consent gating + subprotocol negotiation
@@ -361,7 +361,7 @@ test("dictation still negotiates v1 only, with no mode key (zero regression)", a
   await login(page);
 
   // Drive the shared client the way the dictation path does: v1, no mode.
-  await page.goto(`/#/dictate/studio?patient=${PID}&encounter=${ENC}`);
+  await page.goto(`/#/studio?mode=dictate&patient=${PID}&encounter=${ENC}`);
   await expect(page.locator(".ProseMirror").first()).toBeVisible({ timeout: 10000 });
 
   const wire = await page.evaluate(async () => {
@@ -558,7 +558,7 @@ test("dictation mode still shows the voice-command reference (unchanged)", async
   await installMocks(page, newCalls());
   await installBrowserSeams(page);
   await login(page);
-  await page.goto(`/#/dictate/studio?patient=${PID}&encounter=${ENC}`);
+  await page.goto(`/#/studio?mode=dictate&patient=${PID}&encounter=${ENC}`);
   // (.cmd-ref is shared with the autocomplete settings panel — the first is
   //  the command reference itself)
   await expect(page.locator(".cmd-ref").first()).toBeVisible({ timeout: 10000 });

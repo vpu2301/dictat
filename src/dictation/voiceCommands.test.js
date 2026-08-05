@@ -5,7 +5,7 @@
 //   node --test src/dictation/voiceCommands.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fixPunctuationSpacing, appendUtterance, segmentUtterance } from "./voiceCommands.js";
+import { fixPunctuationSpacing, appendUtterance, segmentUtterance, actionsOf, COMMANDS } from "./voiceCommands.js";
 
 test("adds a space after a period glued to an uppercase sentence start", () => {
   assert.equal(
@@ -54,4 +54,35 @@ test("appendUtterance fixes glued punctuation inside a dictated text run", () =>
 test("appendUtterance still spaces the boundary between the prior text and a new run", () => {
   const parts = segmentUtterance("Також", "uk");
   assert.equal(appendUtterance("базальна.", parts), "базальна. Також");
+});
+
+// ── German (added with the dictation-language registry) ──────────────────
+test("German punctuation commands are recognised mid-utterance", () => {
+  const parts = segmentUtterance("Der Patient klagt über Kopfschmerzen Komma seit zwei Tagen Punkt", "de");
+  const kinds = parts.map((p) => p.type);
+  assert.ok(kinds.includes("command"), "at least one command was found");
+  const cmds = parts.filter((p) => p.type === "command").map((p) => p.row.intent);
+  assert.deepEqual(cmds, ["comma", "period"]);
+  const text = appendUtterance("", parts);
+  assert.equal(text, "Der Patient klagt über Kopfschmerzen, seit zwei Tagen.");
+});
+
+test("capitalised German nouns still match the vocabulary", () => {
+  const parts = segmentUtterance("Befund unauffällig Neuer Absatz Therapie fortführen", "de");
+  const cmds = parts.filter((p) => p.type === "command").map((p) => p.row.intent);
+  assert.deepEqual(cmds, ["newparagraph"]);
+});
+
+test("German action commands surface as actions, not text", () => {
+  const parts = segmentUtterance("Diktat beenden", "de");
+  assert.deepEqual(actionsOf(parts).map((a) => a.op), ["stop_dictation"]);
+});
+
+test("every command carries all three languages", () => {
+  for (const row of COMMANDS) {
+    for (const lang of ["uk", "en", "de"]) {
+      assert.ok(Array.isArray(row[lang]) && row[lang].length,
+        `${row.intent} has no ${lang} phrases`);
+    }
+  }
 });

@@ -226,7 +226,7 @@ export function ConsentScreen({ patientId, lang, navigate }) {
                         "Method: on-screen confirmation. It is saved to the patient record and can be withdrawn at any time.")}
           </p>
           <div className="consent-granted-actions">
-            <button className="btn accent" onClick={() => navigate(`/dictate/studio?patient=${patientId}`)}>
+            <button className="btn accent" onClick={() => navigate(`/studio?mode=dictate&patient=${patientId}`)}>
               <Icon name="mic" size={14} /> {tr(lang, "Розпочати диктування", "Start dictation")}
             </button>
             <button className="btn" onClick={() => navigate(patientId ? `/scribe/patients/${patientId}` : "/scribe")}>

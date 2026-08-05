@@ -42,9 +42,9 @@ export function DocumentsPage({ tab = "reports", navigate, lang }) {
   // kind of document you are looking at. The caret keeps the other two one
   // click away, so no tab is a dead end.
   const make = {
-    reports: { icon: "mic", label: tr(lang, "Новий звіт", "New report"), onClick: () => navigate("/dictate/studio") },
+    reports: { icon: "mic", label: tr(lang, "Новий звіт", "New report"), onClick: () => navigate("/studio?mode=dictate") },
     notes: { icon: "edit", label: tr(lang, "Написати нотатку", "Take a note"), onClick: () => navigate("/scribe/notes/new") },
-    transcripts: { icon: "bot", label: tr(lang, "Нове завдання", "New job"), onClick: () => navigate("/asr/new") },
+    transcripts: { icon: "bot", label: tr(lang, "Нове завдання", "New job"), onClick: () => navigate("/studio?mode=audio") },
   };
   const others = DOC_TABS.filter((k) => k !== tab).map((k) => make[k]);
 

@@ -633,8 +633,8 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
     encReq.reload();
     // Both modes carry the same {patient, encounter} context; they differ in
     // the surface they open (and, downstream, in the protocol they negotiate).
-    const route = mode === "conversation" ? "/dictate/conversation" : "/dictate/studio";
-    navigate(`${route}?patient=${id}&encounter=${enc.id}`);
+    const studioMode = mode === "conversation" ? "scribe" : "dictate";
+    navigate(`/studio?mode=${studioMode}&patient=${id}&encounter=${enc.id}`);
   };
   const handleEditSave = async (body) => {
     await updatePatient(id, body);
@@ -785,7 +785,7 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
           )}
           <button className="btn ghost sm" disabled={deceased}
             title={deceased ? (tr(lang, "Пацієнт позначений як померлий", "Patient is marked deceased")) : undefined}
-            onClick={() => navigate(`/dictate/studio?patient=${id}`)}>
+            onClick={() => navigate(`/studio?mode=dictate&patient=${id}`)}>
             <Icon name="fileText" size={13} /> {tr(lang, "Диктувати звіт", "Dictate report")}
           </button>
           <button className="btn accent" disabled={deceased}
@@ -815,7 +815,7 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
           <button
             type="button"
             className="btn sm"
-            onClick={() => navigate(`/dictate/studio?patient=${id}&encounter=${openEncounter.id}`)}
+            onClick={() => navigate(`/studio?mode=dictate&patient=${id}&encounter=${openEncounter.id}`)}
           >
             {tr(lang, "Відкрити", "Open")}
           </button>

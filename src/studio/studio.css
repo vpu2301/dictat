@@ -1,0 +1,533 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Studio workspace (src/studio/) — the session rail + one editing room.
+
+   Two columns: a rail that lists everything you have going, and a main column
+   whose header carries the whole context (patient, date, template, sections,
+   microphone) so the surface underneath can be nothing but the document.
+
+   Everything here is `sw-` prefixed and token-driven — no colour literals, so
+   the room inherits light/dark and the accent like every other screen.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.app-main:has(.sw) { overflow: hidden; }
+
+/* One column: the work list moved to the app sidebar, so the workspace is
+   the document and nothing else. */
+.sw {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1; min-height: 0; overflow: hidden;
+  background: var(--bg);
+}
+
+/* ── the work list, in the app sidebar ────────────────────────────────── */
+/* Takes the height the nav does not, scrolls on its own, and leaves the
+   account block pinned at the bottom of the sidebar. */
+.sb-sessions {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  border-top: 1px solid var(--line-2);
+  margin-top: 6px; padding-top: 4px;
+}
+.sb-sessions-h {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px 4px 14px;
+}
+.sb-sessions-t {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted);
+}
+.sb-sessions-n {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  background: var(--surface-2); border-radius: 20px; padding: 0 6px;
+}
+.sb-sessions-search {
+  display: flex; align-items: center; gap: 6px;
+  margin: 2px 10px 4px; padding: 4px 8px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface-2); color: var(--muted);
+}
+.sb-sessions-search input {
+  flex: 1; min-width: 0; border: 0; background: transparent;
+  font: inherit; font-size: 12px; color: var(--text-1); outline: none;
+}
+.sb-sessions-list { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 6px; }
+.sb-sessions-msg { padding: 10px 14px; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+.sb-sessions-grp {
+  padding: 8px 14px 3px;
+  font-size: 10px; font-weight: 600; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--muted);
+}
+.sb-session {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  padding: 5px 10px 5px 14px;
+  border: 0; border-left: 2px solid transparent;
+  background: transparent; cursor: pointer; text-align: left;
+  color: var(--text-2); font: inherit;
+}
+.sb-session:hover { background: var(--surface-2); color: var(--text-1); }
+.sb-session.on {
+  background: var(--accent-soft); border-left-color: var(--accent);
+  color: var(--accent-text); font-weight: 550;
+}
+.sb-session-i { flex: none; color: var(--muted); }
+.sb-session.on .sb-session-i { color: var(--accent); }
+.sb-session-t {
+  flex: 1; min-width: 0; font-size: 12.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sb-session-when { flex: none; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sb-session-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.sb-session-dot[data-tone="done"] { background: var(--ok); }
+.sb-session-dot[data-tone="bad"]  { background: var(--rec); }
+.sb-session-dot[data-tone="live"] { background: var(--warn); }
+.sb-session-dot[data-tone="draft"] { background: var(--line); border: 1px solid var(--muted); }
+.sb-sessions-fail {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  margin-top: 4px; padding: 7px 14px; border: 0;
+  background: transparent; color: var(--warn); font: inherit; font-size: 11px;
+  cursor: pointer; text-align: left;
+}
+.sb-sessions-fail:hover { background: var(--warn-soft); }
+.icon-btn.sm { width: 22px; height: 22px; }
+.icon-btn.sm.on { background: var(--accent-soft); color: var(--accent-text); }
+
+.sw-head-sp { flex: 1; }
+
+.sw-iconbtn {
+  width: 28px; height: 28px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: 7px;
+  background: transparent; color: var(--text-3); cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.sw-iconbtn:hover { background: var(--surface-2); color: var(--text-1); }
+.sw-iconbtn.on { background: var(--accent-soft); color: var(--accent-text); }
+.sw-iconbtn.accent { background: var(--accent); color: #fff; }
+.sw-iconbtn.accent:hover { background: var(--accent-2); }
+.sw-iconbtn.sm { width: 22px; height: 22px; }
+
+/* ── main column ──────────────────────────────────────────────────────── */
+.sw-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+.sw-head {
+  flex: 0 0 auto;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.sw-head-1, .sw-head-2 {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 16px;
+}
+.sw-head-2 { padding-top: 0; padding-bottom: 8px; gap: 10px; }
+
+.sw-patient {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: var(--radius);
+  border: 1px solid var(--line); background: var(--surface-2);
+  color: var(--text-1); font: inherit; font-size: 13.5px; font-weight: 600;
+  cursor: pointer; max-width: 380px;
+}
+.sw-patient:hover { background: var(--surface-hover); border-color: var(--text-3); }
+.sw-patient-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-patient-yob { font-weight: 400; font-size: 12px; color: var(--muted); }
+.sw-escape {
+  padding: 4px 8px; border-radius: var(--radius);
+  border: 1px dashed var(--line); background: transparent;
+  color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer;
+}
+.sw-escape:hover { color: var(--warn); border-color: var(--warn); }
+
+.sw-meta {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--muted);
+  /* "3 серпня" broke across two lines when the row got tight, which read as a
+     rendering fault rather than a date. */
+  white-space: nowrap; flex: none;
+}
+.sw-meta-sep { width: 1px; height: 14px; background: var(--line); }
+
+/* Dictation language: a code chip, not a field. Small enough to ignore, big
+   enough to catch when it is wrong (dictating Ukrainian into an English
+   recogniser produces nonsense, so it must stay visible). */
+.sw-lang .menu-select-trigger {
+  width: auto; gap: 3px;
+  padding: 3px 5px 3px 7px;
+  border-color: transparent; background: var(--surface-2);
+  font-size: 11.5px; font-weight: 700; letter-spacing: .04em;
+  color: var(--text-2);
+}
+.sw-lang .menu-select-trigger:hover:not(:disabled) { color: var(--text-1); }
+.sw-lang .menu-select-value { flex: none; }
+.sw-lang .menu-select-trigger .chev { width: 12px; height: 12px; }
+/* Sitting in the action row, it pairs with the record button: same height,
+   no border of its own, a hair of separation from the buttons around it. */
+.sw-head-1 .sw-lang { margin-right: -2px; }
+.sw-head-1 .sw-lang .menu-select-trigger { padding: 6px 6px 6px 9px; }
+/* The trigger is ~46px wide; the menu must size to its own rows instead, and
+   hang off the RIGHT edge so it never runs past the window. */
+.sw-lang .spec-menu { left: auto; right: 0; min-width: 190px; }
+.sw-lang .menu-select-sub { font-family: var(--sans); }
+.sw-progress {
+  font-size: 11.5px; font-weight: 600; color: var(--accent-text);
+  background: var(--accent-soft); border-radius: 20px; padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sw-rec {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--rec);
+}
+.sw-rec-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--rec);
+  animation: sw-pulse 1.6s ease-in-out infinite;
+}
+@keyframes sw-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.sw-clock { font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+/* ── document tabs ────────────────────────────────────────────────────── */
+/* The row: a scrolling strip of tabs, then the `+` and the hint OUTSIDE it.
+   `overflow-x` clips both axes, so anything that opens a menu has to sit in
+   the non-scrolling half. */
+.sw-tabsrow {
+  display: flex; align-items: center;
+  padding: 0 16px; border-top: 1px solid var(--line-2);
+}
+.sw-tabs {
+  display: flex; align-items: center; gap: 2px;
+  min-width: 0; overflow-x: auto; scrollbar-width: thin;
+}
+/* One tab = one open document. The close button lives inside the tab, so the
+   whole thing underlines as a unit. */
+.sw-tab {
+  display: inline-flex; align-items: center; flex: none;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  max-width: 240px;
+}
+.sw-tab:hover { color: var(--text-1); background: var(--surface-2); }
+.sw-tab.on { color: var(--accent-text); border-bottom-color: var(--accent); background: transparent; }
+.sw-tab-main {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  padding: 9px 4px 9px 10px;
+  border: 0; background: transparent; color: inherit;
+  font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
+}
+.sw-tab-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-tab-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; margin-right: 6px; flex: none;
+  border: 0; border-radius: 5px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  opacity: 0; transition: opacity .12s, background .12s;
+}
+.sw-tab:hover .sw-tab-x, .sw-tab.on .sw-tab-x { opacity: 1; }
+.sw-tab-x:hover { background: var(--line); color: var(--text-1); }
+
+.sw-newtab { position: relative; flex: none; }
+.sw-newtab-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; margin: 0 4px;
+  border: 0; border-radius: 7px;
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.sw-newtab-btn:hover, .sw-newtab.open .sw-newtab-btn { background: var(--surface-2); color: var(--text-1); }
+.sw-menu-h {
+  padding: 6px 10px 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted);
+}
+.sw-menu-h2 { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+
+/* The dictation tab carries its own choice (word-by-word vs smart), so the
+   tab and its caret underline as ONE tab. */
+.sw-tabgrp { position: relative; display: inline-flex; align-items: stretch; }
+.sw-tabgrp .sw-tab { padding-right: 4px; }
+.sw-tab-caret {
+  display: inline-flex; align-items: center;
+  padding: 0 8px 0 2px; margin-bottom: -1px;
+  border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.sw-tab-caret:hover { color: var(--text-1); }
+.sw-tab-caret.on { color: var(--accent-text); border-bottom-color: var(--accent); }
+.sw-tabgrp.open .sw-tab-caret svg { transform: rotate(180deg); }
+
+.sw-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 40;
+  min-width: 280px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-3);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.sw-menu-row {
+  display: flex; align-items: flex-start; gap: 9px; width: 100%;
+  padding: 8px 10px; border: 0; border-radius: var(--radius);
+  background: transparent; color: var(--text-2); font: inherit;
+  text-align: left; cursor: pointer;
+}
+.sw-menu-row:hover { background: var(--surface-2); color: var(--text-1); }
+.sw-menu-row.on { background: var(--accent-soft); color: var(--accent-text); }
+.sw-menu-row > svg { margin-top: 2px; flex: none; }
+.sw-menu-b { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.sw-menu-t { font-size: 13px; font-weight: 600; }
+.sw-menu-h { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+.sw-menu-check { flex: none; margin-top: 2px; }
+
+/* The record button's mode menu. Its rows are the ways to capture a
+   consultation, so the icon leads — as a tinted chip, the same shape the
+   session rail badges its rows with, not a hairline next to the label.
+   The chips carry the accent, not a neutral grey: this menu is the one place
+   the four modes are shown side by side, and colour is what makes them
+   scannable. The row you are on inverts (solid accent) instead of merely
+   tinting, so "where am I" survives a glance. */
+.sw-head .split-btn-menu .spec-menu-item > svg:first-child,
+.sw-menu-row > svg:first-child {
+  flex: none; margin-top: 0;
+  width: 28px; height: 28px; padding: 6px;
+  box-sizing: border-box; border-radius: 8px;
+  background: var(--accent-soft); color: var(--accent);
+}
+.sw-head .split-btn-menu .spec-menu-item.on > svg:first-child,
+.sw-menu-row.on > svg:first-child {
+  background: var(--accent); color: #fff;
+}
+.sw-head .split-btn-menu .spec-menu-item,
+.sw-menu-row { align-items: center; }
+.sw-head .split-btn-menu .split-btn-check { margin-top: 0; }
+.sw-tabs-hint {
+  font-size: 11.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── surface ──────────────────────────────────────────────────────────── */
+.sw-surface { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+.sw-pane { flex: 1; min-width: 0; min-height: 0; display: flex; overflow: hidden; }
+/* A hidden pane is a MOUNTED pane (it holds an unsaved draft) — `display:flex`
+   above would otherwise win over the `hidden` attribute and show both. */
+.sw-surface > [hidden] { display: none; }
+/* Surfaces that were written as pages keep their own scrolling. */
+.sw-pane > .page,
+.sw-pane > .consult { flex: 1; min-width: 0; overflow-y: auto; }
+.sw-pane > .cv-room { flex: 1; min-width: 0; height: auto; }
+
+/* The editor, embedded: the workspace header owns the patient bar, the
+   template and the microphone, so only the document column is left. */
+.sw-editor {
+  flex: 1; min-width: 0; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+}
+.sw-editor > .center {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
+}
+.sw-editor > .right {
+  width: 300px; min-height: 0; overflow-y: auto;
+  background: var(--surface); border-left: 1px solid var(--line);
+}
+.sw-gate { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px; }
+
+/* The note editor keeps its own three-column shell (structure rail, writing
+   surface, microphone) — it just stops being a page and becomes the pane. */
+.sw-pane > .note-embedded { flex: 1; min-width: 0; min-height: 0; }
+
+/* Embedded conversation: its own header keeps only the recording state. */
+.cv-room[data-embedded="on"] { height: auto; flex: 1; min-height: 0; background: var(--bg); }
+.cv-room[data-embedded="on"] .cv-head { background: transparent; border-bottom: 0; padding: 8px 16px 0; }
+
+/* ── composer ─────────────────────────────────────────────────────────── */
+.sw-composer {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.sw-composer input {
+  flex: 1; min-width: 0;
+  padding: 9px 12px; border-radius: 22px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  font: inherit; font-size: 13.5px; color: var(--text-1); outline: none;
+}
+.sw-composer input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sw-composer input:disabled { color: var(--muted); cursor: not-allowed; }
+.sw-send {
+  width: 32px; height: 32px; flex: none; border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; cursor: pointer;
+}
+.sw-send:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+
+/* ── patient picker dialog ────────────────────────────────────────────── */
+/* Wide enough to hold three columns — a name alone does not identify anyone,
+   and two Іваненки in one roster is a Tuesday. */
+/* `.modal` caps every dialog at 520px; this one earns more room. */
+.sw-picker { width: min(820px, 94vw); max-width: min(820px, 94vw); }
+.sw-picker .modal-h { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; }
+.sw-picker .modal-h h2 { flex: 1; }
+
+.sw-picker .search-input { width: 100%; }
+.sw-pickhead, .sw-pickrow {
+  display: grid;
+  /* The MRN column is sized to hold a full seeded identifier
+     ("S11-IMPORT-1785770864255-2") without an ellipsis — an identifier you
+     cannot read whole identifies nobody. */
+  grid-template-columns: minmax(0, 1fr) 104px 250px;
+  gap: 14px; align-items: center;
+}
+.sw-pickhead {
+  padding: 12px 10px 6px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line-2);
+}
+.sw-picklist {
+  list-style: none; margin: 4px 0 0; padding: 0;
+  max-height: 58vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.sw-pickrow {
+  width: 100%;
+  padding: 10px; border: 0; border-radius: var(--radius);
+  background: transparent; text-align: left; cursor: pointer; font: inherit;
+}
+.sw-pickrow:hover { background: var(--surface-2); }
+.sw-pickrow-b { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sw-pickrow-name {
+  font-size: 14px; font-weight: 550; color: var(--text-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sw-pickrow-tag {
+  flex: none; font-size: 10px; font-weight: 700; letter-spacing: .03em;
+  padding: 1px 6px; border-radius: 20px;
+  background: var(--accent-soft); color: var(--accent-text);
+}
+/* A record's own state: quiet by default (most rosters carry inactive rows),
+   loud only for the states that should stop you — deceased, erased. */
+.sw-pickrow-tag.state { background: var(--surface-2); color: var(--muted); font-weight: 600; }
+.sw-pickrow-tag.warn { background: var(--warn-soft); color: var(--warn); }
+.sw-pickrow-dob { font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.sw-pickrow-meta {
+  font-family: var(--mono); font-size: 12px; color: var(--text-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  /* One column: the identifier moves under the name rather than off-screen. */
+  .sw-pickhead { display: none; }
+  .sw-pickrow { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+
+/* ── narrow screens ───────────────────────────────────────────────────── */
+@media (max-width: 1180px) {
+  .sw-editor > .right { width: 260px; }
+}
+@media (max-width: 940px) {
+  .sw-editor { grid-template-columns: minmax(0, 1fr); }
+  .sw-editor > .right { display: none; }
+  .sw-tabs-hint { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-rec-dot { animation: none; }
+}
+
+/* A tab whose transcription is still running: the kind icon gives way to a
+   spinner, so "it is still working" survives leaving the tab. */
+.sw-tab.busy { color: var(--info); }
+.sw-tab.busy.on { color: var(--accent-text); }
+.sw-tab-busy {
+  flex: none; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--info-soft); border-top-color: var(--info);
+  animation: sw-spin .9s linear infinite;
+}
+@keyframes sw-spin { to { transform: rotate(360deg); } }
+
+/* Same fact in the sidebar list: a running job pulses instead of sitting as a
+   static amber dot among finished work. */
+.sb-session-dot[data-tone="live"] { animation: sw-pulse 1.4s ease-in-out infinite; }
+@keyframes sw-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.8); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-tab-busy { animation: none; }
+  .sb-session-dot[data-tone="live"] { animation: none; }
+}
+
+/* ── session history (its own browser tab) ────────────────────────────── */
+.sh-tools { display: flex; align-items: center; gap: 8px; }
+.sh-tools .search-input { width: 280px; }
+.sh-filters {
+  display: flex; align-items: center; gap: 6px;
+  margin: 4px 0 14px;
+}
+.sh-filter {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 20px;
+  border: 1px solid var(--line); background: var(--surface);
+  color: var(--text-2); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.sh-filter:hover { border-color: var(--text-3); color: var(--text-1); }
+.sh-filter.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sh-count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sh-msg { padding: 24px; font-size: 13px; color: var(--muted); }
+
+.sh-group { margin-bottom: 18px; }
+.sh-group-h {
+  margin: 0 0 6px; display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted);
+}
+.sh-group-h span {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0;
+  background: var(--surface-2); border-radius: 20px; padding: 1px 7px;
+}
+.sh-table {
+  border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); overflow: hidden;
+}
+.sh-row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) 200px 130px 160px;
+  gap: 14px; align-items: center; width: 100%;
+  padding: 10px 14px; border: 0; border-top: 1px solid var(--line-2);
+  background: transparent; color: var(--text-2); font: inherit;
+  text-align: left; cursor: pointer;
+}
+.sh-row:first-child { border-top: 0; }
+.sh-row:hover:not(.sh-head) { background: var(--surface-2); }
+.sh-head {
+  cursor: default; background: var(--surface-2);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted);
+}
+.sh-kind { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; }
+.sh-kind-mark {
+  width: 22px; height: 22px; flex: none; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2); color: var(--text-3);
+}
+.sh-kind-mark[data-kind="report"]  { background: var(--dictate-soft); color: var(--dictate); }
+.sh-kind-mark[data-kind="note"]    { background: var(--accent-soft);  color: var(--accent-text); }
+.sh-kind-mark[data-kind="dictate"] { background: var(--scribe-soft);  color: var(--scribe); }
+.sh-kind-mark[data-kind="asr"]     { background: var(--info-soft);    color: var(--info); }
+.sh-title { min-width: 0; display: grid; gap: 1px; }
+.sh-title > em {
+  font-style: normal; font-size: 11.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sh-title { font-size: 13.5px; font-weight: 550; color: var(--text-1); }
+.sh-patient, .sh-when { font-size: 12.5px; color: var(--text-3); }
+.sh-when { font-variant-numeric: tabular-nums; }
+.sh-status {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 20px;
+  background: var(--surface-2); color: var(--text-3);
+}
+.sh-status[data-tone="done"] { background: var(--accent-soft); color: var(--accent-text); }
+.sh-status[data-tone="bad"]  { background: var(--rec-soft);    color: var(--rec); }
+.sh-status[data-tone="live"] { background: var(--warn-soft);   color: var(--warn); }
+
+@media (max-width: 1100px) {
+  .sh-row { grid-template-columns: 110px minmax(0, 1fr) 120px 140px; }
+  .sh-patient { display: none; }
+}
