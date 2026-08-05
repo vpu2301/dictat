@@ -24,6 +24,8 @@ import { ConsentSheet } from '../patients/ConsentSheet.jsx';
 import { asList, Loading } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { COMMANDS, segmentUtterance, appendUtterance, actionsOf, findBestSection, INSERT_OPS } from '../dictation/voiceCommands.js';
+import { routeUtterance } from '../dictation/smartRouting.js';
+import { DICTATION_LANGS, speechLocale, asDictationLang, asTemplateLang } from '../dictation/languages.js';
 import {
   AutocompletePills,
   AutocompletePauseToast,
@@ -221,7 +223,9 @@ export function useSpeechRecognition({ lang, onPartial, onFinal, enabled, device
     const r = new SR();
     r.continuous = true;
     r.interimResults = true;
-    r.lang = tr(lang, "uk-UA", "en-US");
+    // uk-UA / en-US / de-DE — one registry, so adding a language is one edit
+    // rather than a hunt through every `tr(lang, "uk-UA", "en-US")`.
+    r.lang = speechLocale(lang);
     r.onresult = (ev) => {
       let interim = "", final = "";
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
@@ -377,7 +381,7 @@ function MicDevicePicker({ mic }) {
 }
 
 // ── Mic card ───────────────────────────────────────────────────────────
-function MicCard({ state, level, dictLang, setDictLang, onClick, hotkey, mic }) {
+function MicCard({ state, level, dictLang, setDictLang, onClick, hotkey, mic, lang = "uk" }) {
   const { t } = useI18n();
   const labels = {
     idle: t("mic.idle"), connecting: t("mic.connecting"), listening: t("mic.listening"),
@@ -405,8 +409,13 @@ function MicCard({ state, level, dictLang, setDictLang, onClick, hotkey, mic }) 
         <span>{t("mic.lang")}</span>
         <div className="spacer" style={{ flex: 1 }} />
         <div className="lang-switch" role="tablist" aria-label="Dictation language" style={{ marginLeft: "auto", padding: 2 }}>
-          <button type="button" className={dictLang === "uk" ? "on" : ""} onClick={() => setDictLang("uk")}>UK</button>
-          <button type="button" className={dictLang === "en" ? "on" : ""} onClick={() => setDictLang("en")}>EN</button>
+          {DICTATION_LANGS.map((l) => (
+            <button key={l.code} type="button" role="tab"
+              aria-selected={dictLang === l.code}
+              className={dictLang === l.code ? "on" : ""}
+              title={l.label[lang] || l.label.en}
+              onClick={() => setDictLang(l.code)}>{l.short}</button>
+          ))}
         </div>
       </div>
       <button className="mic-btn" data-state={state} onClick={onClick}
@@ -484,9 +493,12 @@ function SuggestionsPanel({ suggestions, onAccept }) {
 // ── Voice command ref ──────────────────────────────────────────────────
 // Full vocabulary modal — generated from the matcher's own COMMANDS so it
 // can never drift from what actually works.
-function VoiceCommandModal({ onClose }) {
+function VoiceCommandModal({ onClose, dictLang }) {
   const { t, lang } = useI18n();
-  const L = tr(lang, "uk", "en");
+  // The phrases you can SAY depend on the language you are dictating in, not
+  // the one the interface is drawn in — a German dictation with a Ukrainian UI
+  // needs "neuer Absatz", not «новий абзац».
+  const L = asDictationLang(dictLang || lang);
   const chipOf = (c) => {
     switch (c.op) {
       case "insert_paragraph_break": return "¶";
@@ -543,7 +555,7 @@ function VoiceCommandModal({ onClose }) {
   );
 }
 
-function VoiceCommandRef() {
+function VoiceCommandRef({ dictLang }) {
   const { t } = useI18n();
   const [allOpen, setAllOpen] = useState(false);
   const core = [
@@ -572,7 +584,7 @@ function VoiceCommandRef() {
           {t("ac.help.tabNote")}
         </div>
       </div>
-      {allOpen && <VoiceCommandModal onClose={() => setAllOpen(false)} />}
+      {allOpen && <VoiceCommandModal dictLang={dictLang} onClose={() => setAllOpen(false)} />}
     </details>
   );
 }
@@ -602,7 +614,9 @@ function AddTemplateDialog({ onClose, onCreate }) {
     const def = {
       code: slugify(code, "tpl"),
       name: (lang === "uk" ? nameUk : nameEn).trim() || nameUk.trim() || nameEn.trim(),
-      language: tr(lang, "uk", "en"),
+      // report-service TemplateDefinition.language is ^(uk|en)$ — a German UI
+      // still files its templates under en until that service grows a third.
+      language: asTemplateLang(lang),
       specialty: specialty,
       schema_version: 1,
       sections: sections.map((s, i) => {
@@ -1206,7 +1220,18 @@ function PatientGate({ lang, onSelect }) {
 }
 
 // ── Main: DictationStudio ──────────────────────────────────────────────
-export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId, encounterId: encounterIdProp, initialTemplateId, reportId, templatesLoading = false, templatesError = null, onRetryTemplates }) {
+//
+// Two chromes, one editor. Standalone (`/dictate/studio`) it renders its own
+// three-column screen. Embedded in the Studio workspace (`embedded`), it renders
+// the editor column ONLY: the workspace already owns the patient, the template,
+// the microphone button and the section strip, and two of each on one screen is
+// how a clinician loses track of which one is live. What it gives the workspace
+// back is `apiRef` (imperative: mic, sections, save, complete) and `onSnapshot`
+// (declarative: what to paint in the header). `level` is deliberately NOT in the
+// snapshot — it changes 60× a second and would re-render the whole workspace;
+// the meter reads `apiRef.current.level` on its own frame instead.
+export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onAddTemplate: externalAddTemplate, patient: patientProp, patientId, encounterId: encounterIdProp, initialTemplateId, reportId, templatesLoading = false, templatesError = null, onRetryTemplates,
+  embedded = false, smart = false, active = true, assistOpen = false, apiRef = null, onSnapshot, onRequestPatient, onReportCreated, onEncounterChanged }) {
   const { t } = useI18n();
 
   // Reopening an existing draft (/dictate/studio?report=<id>): fetch the report
@@ -1272,13 +1297,18 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   );
 
   const [body,        setBody]        = useState({});
+  // The document's own date (a reopened draft's encounter/creation date). Null
+  // for a new dictation — that one IS today.
+  const [docDate,     setDocDate]     = useState(null);
   // Sprint 13 — everything a section carries besides prose:
   // { [section_key]: { icd10?, field_specific_metadata? } }. Seeded from a
   // reopened draft and round-tripped through EVERY save — an autosave that
   // dropped it would destroy extractor proposals and confirmed diagnoses.
   const [sectionMeta, setSectionMeta] = useState({});
   const [activeId,    setActiveId]    = useState(null);
-  const [dictLang,    setDictLang]    = useState(lang);
+  // The interface speaks eight languages; the recogniser three. A clinician
+  // reading Polish dictates in English until Polish speech exists.
+  const [dictLang,    setDictLang]    = useState(() => asDictationLang(lang));
   const [partial,     setPartial]     = useState("");
   const [saveState,   setSaveState]   = useState("saved");
   const [lastSavedAt, setLastSavedAt] = useState(null);
@@ -1330,6 +1360,10 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     }
     setBody(nextBody);
     setSectionMeta(sectionMetaFromContent(content));
+    // When this document is FROM: the clinical date the report carries, else
+    // the day it was created. A reopened draft that says "today" is lying about
+    // when the encounter happened, which is the one date a record must get right.
+    setDocDate(content.encounter_date || rep.encounter_date || rep.created_at || null);
     setSaveState("saved");
   }, [reportReq.data]);
 
@@ -1400,7 +1434,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   const [acExplicit, setAcExplicit] = useState(false);  // ArrowDown armed explicit selection
   const acApiRef = useRef(null);                        // { accept } exposed by TipTapEditor
 
-  useEffect(() => { setDictLang(lang); }, [lang]);
+  useEffect(() => { setDictLang(asDictationLang(lang)); }, [lang]);
 
   // ── Toasts ─────────────────────────────────────────────────────────
   // Declared before saveDraft: saveDraft lists pushToast in its dependency
@@ -1542,6 +1576,11 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   const onFinalCb   = useCallback((s, conf) => {
     let trimmed = s.trim();
     if (!trimmed || !activeId) return;
+    // Where this utterance lands. Word-by-word dictation: always the section
+    // the clinician selected. Smart dictation: the section the clinician NAMED,
+    // when they named one — see dictation/smartRouting.js for why that bar is
+    // set where it is.
+    let targetId = activeId;
 
     // Voice commands: detection is client-side on the Web Speech path.
     // Generic section jump first — "перейти до <розділ>" / "go to <section>"
@@ -1554,9 +1593,24 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       const target = findSectionByPhrase(goTo[2], goTo[2]);
       if (target) {
         pickSection(target.id, "voice_command");
+        targetId = target.id;
         if (!goTo[1]) return;       // pure navigation — nothing to insert
         trimmed = trimmed.slice(0, goTo[1].length).trim(); // keep the content prefix
         if (!trimmed) return;
+      }
+    }
+
+    // Smart dictation: «Скарги: болить голова» files itself under Скарги and
+    // moves the caret there, so the whole note can be dictated in one pass.
+    if (smart) {
+      const routed = routeUtterance(template?.sections, trimmed);
+      if (routed.sectionId) {
+        if (routed.sectionId !== targetId) {
+          pickSection(routed.sectionId, "smart_routing");
+          targetId = routed.sectionId;
+        }
+        trimmed = routed.text;
+        if (!trimmed) return;       // a bare heading is a pure section switch
       }
     }
 
@@ -1569,7 +1623,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       const wrap = (t) => (conf > 0 && conf < 0.55 ? `[[${t}]]` : t);
       setBody(prev => ({
         ...prev,
-        [activeId]: appendUtterance(prev[activeId] || "", parts, { wrapText: wrap }),
+        [targetId]: appendUtterance(prev[targetId] || "", parts, { wrapText: wrap }),
       }));
       setSaveState("unsaved");
     }
@@ -1582,7 +1636,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
         if (target) pickSection(target.id, "voice_command");
       }
     }
-  }, [activeId, dictLang, triggerSave, findSectionByPhrase, pickSection]);
+  }, [activeId, dictLang, triggerSave, findSectionByPhrase, pickSection, smart, template]);
 
   // System microphone choice (persisted; live-updates as devices come and go).
   const mic = useMicDevices();
@@ -1766,8 +1820,20 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   }, [saveState, speech.state]);
 
   // ── Hotkeys ────────────────────────────────────────────────────────
+  // `active` is false while the workspace shows another surface (a conversation,
+  // an upload) and keeps this one mounted so the draft survives the switch.
+  // A hidden editor must not answer the space bar, and must not keep the
+  // microphone: two live recorders on one screen is one too many.
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  useEffect(() => {
+    if (active) return;
+    if (speech.state === "listening") speech.pause();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, speech.state]);
   useEffect(() => {
     const onKey = e => {
+      if (!activeRef.current) return;
       const isEditing = e.target?.isContentEditable || e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA";
       // Space = toggle mic (when not editing)
       if (e.code === "Space" && !isEditing && e.target === document.body) {
@@ -1805,6 +1871,98 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   };
   const toggleMicRef = useRef(toggleMic);
   toggleMicRef.current = toggleMic;
+
+  // ── Workspace bridge ───────────────────────────────────────────────
+  // Switching template throws away the body: a draft's sections are keyed by
+  // the template that defined them, so keeping the text would file it under
+  // keys the new template does not have. Extracted from the rail's handler so
+  // the embedded chrome drives the exact same transition.
+  const switchTemplate = useCallback((id) => {
+    if (!id) return;
+    setTemplateId(id);
+    setBody({});
+    setSectionMeta({});
+    reportIdRef.current = null;
+    setLiveReportId(null);
+    setActiveId(null);           // the detail-load effect sets the first section
+  }, []);
+
+  // Typed text from the workspace composer, treated exactly like a dictated
+  // final: same spacing/punctuation rules, same dirty flag, same autosave.
+  const insertIntoActive = useCallback((text) => {
+    const t = String(text || "").trim();
+    if (!t || !activeId) return false;
+    setBody((prev) => ({
+      ...prev,
+      [activeId]: appendUtterance(prev[activeId] || "", [{ type: "text", text: t }]),
+    }));
+    setSaveState("unsaved");
+    return true;
+  }, [activeId]);
+
+  // Imperative half. Reassigned on every render (it closes over `speech`,
+  // whose level ticks per frame) and writes no state, so it cannot loop.
+  useEffect(() => {
+    if (!apiRef) return;
+    apiRef.current = {
+      micState: speech.state,
+      level: speech.level,
+      supported: speech.supported,
+      toggleMic: () => toggleMicRef.current(),
+      stopMic: () => speech.stop(),
+      pickSection,
+      insertText: insertIntoActive,
+      saveDraft: triggerSave,
+      downloadDraft,
+      complete: completeDictation,
+      openSign: () => setSignOpen(true),
+      switchTemplate,
+      addTemplate: onAddTemplate,
+      dictLang,
+      setDictLang,
+      reloadEncounter: () => encounterReq.reload(),
+      reportId: liveReportId,
+    };
+  });
+
+  // Declarative half: what the workspace header paints. Primitives + arrays
+  // that only change identity when the template does — `level` is absent on
+  // purpose (see the component header).
+  const snapshotSections = useMemo(
+    () => (template?.sections || []).map((s) => ({
+      id: s.id,
+      name: (s.name && (s.name[lang] || s.name.en)) || s.id,
+      required: !!s.required,
+    })),
+    [template, lang],
+  );
+  const snapshot = useMemo(() => ({
+    micState: speech.state,
+    micSupported: speech.supported,
+    saveState,
+    lastSavedAt,
+    activeId,
+    templateId,
+    templateName: template ? (template.name?.[lang] || template.name?.en || "") : "",
+    sections: snapshotSections,
+    done: template ? countComplete(template.sections, body, sectionMeta) : 0,
+    total: template?.sections?.length || 0,
+    // "Wrong patient?" is offered while the document is still empty and the
+    // mic is off — same rule as the standalone context bar.
+    canEscape: Object.values(body).every((v) => !String(v || "").trim()) && speech.state !== "listening",
+    patient,
+    encounter,
+    docDate,
+    reportId: liveReportId,
+    dictLang,
+    consent: consentGate.status,
+  }), [speech.state, speech.supported, saveState, lastSavedAt, activeId, templateId,
+       template, snapshotSections, body, sectionMeta, patient, encounter, liveReportId,
+       docDate, dictLang, lang, consentGate.status]);
+  useEffect(() => { onSnapshot?.(snapshot); }, [snapshot, onSnapshot]);
+
+  // The first autosave mints the report id — the rail has a new row to show.
+  useEffect(() => { if (liveReportId) onReportCreated?.(liveReportId); }, [liveReportId, onReportCreated]);
 
   // ── Autocomplete (Sprint 10) ───────────────────────────────────────
   // Single suggestions source for ghost (Layer A) + pills (Layer B).
@@ -2007,13 +2165,18 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   }, [lc.ghost, auth?.claims?.sub]);
   useEffect(() => { if (!lc.ghost) setLcCoach(null); }, [lc.ghost]);
 
+  // Every gate below (load failure, loading, bad encounter, no template) is the
+  // same screen in two chromes: its own three-column page when the Studio owns
+  // the route, a plain panel when the workspace hosts it.
+  const gate = (node) => <div className={embedded ? "sw-gate" : "studio"}>{node}</div>;
+
   // A reopened draft that failed to load must surface the failure. Falling
   // through would render the patient gate and then an empty template state —
   // which reads as "pick a patient / no templates" instead of the real error
   // (and an autosave from that state could even fork a new report).
   if (reportId && reportReq.error) {
-    return (
-      <div className="studio">
+    return gate(
+      <>
         <div style={{ maxWidth: 560, margin: "48px auto", display: "grid", gap: 12 }}>
           <ApiErrorView error={reportReq.error} lang={lang} />
           <div style={{ display: "flex", gap: 8 }}>
@@ -2025,7 +2188,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
             </button>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -2040,10 +2203,20 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     const resolving = (reportId && reportReq.loading) ||
       (effectivePatientId && !patientReq.error && !patientReq.data);
     if (resolving) {
-      return (
-        <div className="studio">
-          <Empty icon="user" title={tr(lang, "Завантаження…", "Loading…")} />
-        </div>
+      return gate(<Empty icon="user" title={tr(lang, "Завантаження…", "Loading…")} />);
+    }
+    // Embedded, the workspace header owns patient selection — a second full
+    // picker underneath it would be two doors to the same room.
+    if (embedded) {
+      return gate(
+        <Empty icon="user"
+          title={tr(lang, "Оберіть пацієнта", "Choose a patient")}
+          body={tr(lang, "Диктування завжди прив'язане до пацієнта.", "Every dictation is filed against a patient.")}
+          action={onRequestPatient
+            ? <button className="btn accent" onClick={onRequestPatient}>
+                {tr(lang, "Обрати пацієнта", "Pick a patient")}
+              </button>
+            : undefined} />,
       );
     }
     return <PatientGate lang={lang} onSelect={setPickedPatient} />;
@@ -2053,17 +2226,15 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   // the encounter block above). Rendered before the recording surface so a
   // bad context can never produce an orphaned or mislinked recording.
   if (encounterInvalid) {
-    return (
-      <div className="studio">
-        <Empty icon="calendar"
-          title={tr(lang, "Прийом не знайдено", "Encounter not found")}
-          body={tr(lang, "Посилання застаріле або прийом було видалено. Поверніться до картки пацієнта та почніть прийом заново.", "The link is stale or the encounter was removed. Return to the patient record and start the encounter again.")}
-          action={
-            <button className="btn accent" onClick={() => { location.hash = `/patients/${patient.id}`; }}>
-              {tr(lang, "Повернутися до пацієнта", "Back to the patient")}
-            </button>
-          } />
-      </div>
+    return gate(
+      <Empty icon="calendar"
+        title={tr(lang, "Прийом не знайдено", "Encounter not found")}
+        body={tr(lang, "Посилання застаріле або прийом було видалено. Поверніться до картки пацієнта та почніть прийом заново.", "The link is stale or the encounter was removed. Return to the patient record and start the encounter again.")}
+        action={
+          <button className="btn accent" onClick={() => { location.hash = `/patients/${patient.id}`; }}>
+            {tr(lang, "Повернутися до пацієнта", "Back to the patient")}
+          </button>
+        } />,
     );
   }
   if (encounterClosed) {
@@ -2077,14 +2248,17 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           status: "in_progress",
         });
         setEncounterId(fresh.id);
-        location.hash = `/dictate/studio?patient=${patient.id}&encounter=${fresh.id}`;
+        // The URL has to name the visit the recording will be filed against.
+        // Standalone we own the hash; embedded the workspace does, and it
+        // patches the one param instead of rewriting the route.
+        if (embedded) onEncounterChanged?.(fresh.id);
+        else location.hash = `/dictate/studio?patient=${patient.id}&encounter=${fresh.id}`;
       } finally {
         setCreatingEncounter(false);
       }
     };
-    return (
-      <div className="studio">
-        <Empty icon="calendar"
+    return gate(
+      <Empty icon="calendar"
           title={tr(lang, "Прийом уже завершено", "This encounter is closed")}
           body={tr(lang, "До завершеного прийому не можна додати новий запис. Створіть новий прийом, щоб продовжити диктування.", "A closed encounter can't take a new recording. Start a fresh encounter to continue dictating.")}
           action={
@@ -2098,8 +2272,7 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
                 {tr(lang, "До пацієнта", "Back to the patient")}
               </button>
             </div>
-          } />
-      </div>
+          } />,
     );
   }
 
@@ -2111,10 +2284,9 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     //   • empty    — the list resolved with zero templates
     const loading = templatesLoading || (!!templateId && detailReq.loading);
     const errored = !loading && !!templatesError;
-    return (
-      <div className="studio">
-        <Empty
-          icon="fileText"
+    return gate(
+      <Empty
+        icon="fileText"
           title={loading
             ? (tr(lang, "Завантаження шаблонів…", "Loading templates…"))
             : errored
@@ -2130,34 +2302,39 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
                 {tr(lang, "Спробувати ще раз", "Retry")}
               </button>
             : undefined}
-        />
-      </div>
+      />,
     );
   }
 
-  return (
-    <div className="studio">
-      <aside className="left">
-        <SectionNav
-          template={template}
-          body={body}
-          sectionMeta={sectionMeta}
-          activeId={activeId}
-          onPick={(id) => pickSection(id, "user_click")}
-          templatesMap={templatesMap}
-          onSelectTemplate={id => {
-            setTemplateId(id);
-            setBody({});
-            setSectionMeta({});
-            reportIdRef.current = null;
-            setLiveReportId(null);
-            setActiveId(null); // the detail-load effect sets the first section
-          }}
-          onAddTemplate={onAddTemplate}
-        />
-      </aside>
+  // The consent gate blocks the microphone, so its banner has to be where the
+  // clinician is looking when the mic refuses: next to the editor when the
+  // workspace hosts us (the assist rail can be closed), in the rail otherwise.
+  const consentBanners = (
+    <>
+      {consentGate.status === "required" && (
+        <div className="consent-gate-banner" data-testid="consent-gate-banner" role="status">
+          <Icon name="shield" size={14} />
+          <span>{tr(lang, "Потрібна згода пацієнта на AI-запис", "Patient consent to AI recording is required")}</span>
+          <button type="button" className="btn accent sm" onClick={() => setConsentSheetOpen(true)}>
+            {tr(lang, "Отримати згоду", "Capture consent")}
+          </button>
+        </div>
+      )}
+      {consentGate.status === "error" && (
+        <div className="consent-gate-banner error" data-testid="consent-gate-error" role="alert">
+          <Icon name="micOff" size={14} />
+          <span>{tr(lang, "Не вдалося перевірити згоду — запис заблоковано", "Couldn't verify consent — recording is blocked")}</span>
+          <button type="button" className="btn sm" onClick={consentGate.refresh}>
+            {tr(lang, "Повторити", "Retry")}
+          </button>
+        </div>
+      )}
+    </>
+  );
 
-      <section className="center">
+  const editorColumn = (
+    <>
+      {!embedded && (
         <StudioContextBar
           patient={patient}
           encounter={encounter}
@@ -2165,16 +2342,25 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           lang={lang}
           onVisitChanged={() => encounterReq.reload()}
         />
+      )}
+      {!embedded && (
         <EditorToolbar
           saveState={saveState}
           lastSavedAt={lastSavedAt}
         />
+      )}
+      {embedded && consentBanners}
+      {/* The active-section strip is standalone-only: in the workspace the
+          section chips above the document already show which one is selected,
+          and the header carries the recording state and the n/total count. */}
+      {!embedded && (
         <DictationStatusBar
           template={template}
           activeId={activeId}
           listening={speech.state === "listening"}
           lang={lang}
         />
+      )}
         {/* Sprint 06: TipTap section-aware editor */}
         <TipTapEditor
           template={template}
@@ -2247,55 +2433,51 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           <AutocompletePauseToast onResume={backoff.resume} lang={lang} />
         )}
 
-        <StudioFooter
-          done={countComplete(template.sections, body, sectionMeta)}
-          total={template.sections.length}
-          onSaveDraft={triggerSave}
-          onDownloadDraft={downloadDraft}
-          onComplete={completeDictation}
-          saveState={saveState}
-          lang={lang}
-        />
-      </section>
+        {!embedded && (
+          <StudioFooter
+            done={countComplete(template.sections, body, sectionMeta)}
+            total={template.sections.length}
+            onSaveDraft={triggerSave}
+            onDownloadDraft={downloadDraft}
+            onComplete={completeDictation}
+            saveState={saveState}
+            lang={lang}
+          />
+        )}
+    </>
+  );
 
-      <aside className="right">
-        <div className="right-pad">
-          {consentGate.status === "required" && (
-            <div className="consent-gate-banner" data-testid="consent-gate-banner" role="status">
-              <Icon name="shield" size={14} />
-              <span>{tr(lang, "Потрібна згода пацієнта на AI-запис", "Patient consent to AI recording is required")}</span>
-              <button type="button" className="btn accent sm" onClick={() => setConsentSheetOpen(true)}>
-                {tr(lang, "Отримати згоду", "Capture consent")}
-              </button>
-            </div>
-          )}
-          {consentGate.status === "error" && (
-            <div className="consent-gate-banner error" data-testid="consent-gate-error" role="alert">
-              <Icon name="micOff" size={14} />
-              <span>{tr(lang, "Не вдалося перевірити згоду — запис заблоковано", "Couldn't verify consent — recording is blocked")}</span>
-              <button type="button" className="btn sm" onClick={consentGate.refresh}>
-                {tr(lang, "Повторити", "Retry")}
-              </button>
-            </div>
-          )}
-          <MicCard
-            state={speech.state}
-            level={speech.level}
-            dictLang={dictLang}
-            setDictLang={setDictLang}
-            onClick={toggleMic}
-            hotkey="Space"
-            mic={mic}
-          />
-          <SuggestionsPanel
-            suggestions={acVisible}
-            onAccept={(s, i) => acApiRef.current?.accept(s, i)}
-          />
-          <VoiceCommandRef />
-          {/* Sprint 10: Autocomplete settings */}
-          <AutocompleteSettings prefs={acPrefs} onChange={setAcPrefs} lang={lang} />
-        </div>
-      </aside>
+  // The assist rail. Embedded, the workspace header owns the microphone, so the
+  // MicCard is dropped rather than duplicated — everything else (suggestions,
+  // the command reference, autocomplete settings) is the same panel.
+  const assistRail = (
+    <div className="right-pad">
+      {!embedded && consentBanners}
+      {!embedded && (
+        <MicCard
+          state={speech.state}
+          level={speech.level}
+          dictLang={dictLang}
+          setDictLang={setDictLang}
+          lang={lang}
+          onClick={toggleMic}
+          hotkey="Space"
+          mic={mic}
+        />
+      )}
+      {embedded && <MicDevicePicker mic={mic} />}
+      <SuggestionsPanel
+        suggestions={acVisible}
+        onAccept={(s, i) => acApiRef.current?.accept(s, i)}
+      />
+      <VoiceCommandRef dictLang={dictLang} />
+      {/* Sprint 10: Autocomplete settings */}
+      <AutocompleteSettings prefs={acPrefs} onChange={setAcPrefs} lang={lang} />
+    </div>
+  );
+
+  const overlays = (
+    <>
 
       {/* Completed dictation → written-report preview */}
       <ReportPreview
@@ -2352,6 +2534,38 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           <Toast key={t.id} message={t.message} onClose={() => setToasts(s => s.filter(x => x.id !== t.id))} />
         ))}
       </div>
+    </>
+  );
+
+  // ── chrome A: hosted by the Studio workspace ────────────────────────
+  if (embedded) {
+    return (
+      <div className="sw-editor" data-testid="studio-embedded" data-smart={smart ? "on" : undefined}>
+        <section className="center">{editorColumn}</section>
+        {assistOpen && <aside className="right">{assistRail}</aside>}
+        {overlays}
+      </div>
+    );
+  }
+
+  // ── chrome B: the Studio owns the screen ────────────────────────────
+  return (
+    <div className="studio">
+      <aside className="left">
+        <SectionNav
+          template={template}
+          body={body}
+          sectionMeta={sectionMeta}
+          activeId={activeId}
+          onPick={(id) => pickSection(id, "user_click")}
+          templatesMap={templatesMap}
+          onSelectTemplate={switchTemplate}
+          onAddTemplate={onAddTemplate}
+        />
+      </aside>
+      <section className="center">{editorColumn}</section>
+      <aside className="right">{assistRail}</aside>
+      {overlays}
     </div>
   );
 }

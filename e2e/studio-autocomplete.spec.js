@@ -136,7 +136,7 @@ async function openStudio(page) {
   await page.locator('input[type="password"]').fill("dev-password");
   await page.locator('button[type="submit"]').click();
   await expect(page.locator(".sb-brand")).toBeVisible();
-  await page.goto("/#/dictate/studio");
+  await page.goto("/#/studio?mode=dictate");
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await expect(gateRow).toBeVisible({ timeout: 10000 });
   await gateRow.click();

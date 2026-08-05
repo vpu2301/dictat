@@ -63,7 +63,7 @@ export function EvidenceInfoDialog({
   return (
     <ModalLayer {...modal}>
     <div className="ec-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="ec-dialog" role="dialog" aria-modal="true" aria-labelledby="ec-evinfo-title">
+      <div className="ec-dialog ec-dialog-memo" role="dialog" aria-modal="true" aria-labelledby="ec-evinfo-title">
         <div className="ec-modal-h">
           <h2 id="ec-evinfo-title">{t(locale, "Як читати позначки", "How to read the badges")}</h2>
           <p>{t(locale,
@@ -71,7 +71,7 @@ export function EvidenceInfoDialog({
             "Two scales next to every answer: what the evidence base is, and how well the sources back it.")}</p>
         </div>
 
-        <div className="ec-modal-b">
+        <div className="ec-modal-b ec-memo-b">
           <section className="ec-memo-sec" data-focus={topic === "evidence" || undefined}>
             <h3 className="ec-memo-t">
               <Icon name="book" size={13} />
@@ -125,7 +125,7 @@ export function EvidenceInfoDialog({
               "The score reflects how many independent sources were found, their level, and how much they agree. In this demo build the values are fixtures.")}</p>
           </section>
 
-          <section className="ec-memo-sec">
+          <section className="ec-memo-sec ec-memo-sec-full">
             <h3 className="ec-memo-t">
               <Icon name="check" size={13} />
               {t(locale, "Як перевірити самому", "How to verify it yourself")}

@@ -8,6 +8,7 @@
 // warn styling for "fallback") with links to the report and the patient.
 import React, { useEffect, useRef, useState } from "react";
 import { Icon, Modal } from "./UI.jsx";
+import { MenuSelect } from "./MenuSelect.jsx";
 import { tr } from "../i18n.js";
 import { listPatients } from "../api/patients.js";
 import { listTemplates } from "../api/templates.js";
@@ -166,7 +167,7 @@ export function AssignTranscriptModal({ jobId, jobLanguage, lang, navigate, onCl
               <Icon name="user" size={13} /> {tr(lang, "До пацієнта", "Patient page")}
             </button>
           )}
-          <button className="btn accent" onClick={() => go(`/dictate/studio?report=${result.id}`)}>
+          <button className="btn accent" onClick={() => go(`/studio?mode=dictate&report=${result.id}`)}>
             <Icon name="fileText" size={13} /> {tr(lang, "Відкрити звіт", "Open report")}
           </button>
         </div>
@@ -211,15 +212,22 @@ export function AssignTranscriptModal({ jobId, jobLanguage, lang, navigate, onCl
 
         {/* ── right: template + meta ── */}
         <div className="assign-pane">
-          <label className="np-row">
+          {/* Platform dropdown: a native <select> draws its own unstyled list,
+              and this one can be 20 templates long. */}
+          <div className="np-row">
             <span>{tr(lang, "Шаблон", "Template")}</span>
-            <select className="ti" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-              <option value="">{tr(lang, "Автоматично (за змістом)", "Automatic (by content)")}</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </label>
+            <MenuSelect
+              block
+              icon="fileText"
+              value={templateId}
+              onChange={setTemplateId}
+              ariaLabel={tr(lang, "Шаблон", "Template")}
+              options={[
+                { value: "", label: tr(lang, "Автоматично (за змістом)", "Automatic (by content)") },
+                ...templates.map((t) => ({ value: t.id, label: t.name, sub: t.code || undefined })),
+              ]}
+            />
+          </div>
           <label className="np-row">
             <span>{tr(lang, "Назва звіту (необов'язково)", "Report title (optional)")}</span>
             <input className="ti" value={title}

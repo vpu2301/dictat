@@ -2594,18 +2594,25 @@ a.ph-contact-item:hover > svg { color: var(--accent); }
 }
 /* Hover must light BOTH halves, or the seam re-reads as two controls. */
 .split-btn:hover > .btn.primary { background: color-mix(in srgb, var(--text-1) 86%, #fff); }
-.split-btn > .btn.split-btn-caret .chev { transition: transform .12s; }
+/* The caret is half of the BUTTON, so its chevron takes the button's own
+   colour. `.chev` defaults to --muted, which on the accent half (dark green,
+   white label) rendered as a grey wedge nobody could see. */
+.split-btn > .btn.split-btn-caret .chev { color: inherit; transition: transform .12s; }
 .split-btn > .btn.split-btn-caret .chev.up { transform: rotate(180deg); }
 
 .split-btn-menu { top: auto; bottom: calc(100% + 6px); min-width: 240px; }
 .split-btn-menu.end { left: auto; right: 0; }
 .split-btn-menu.start { left: 0; right: auto; }
+/* placement="down" — for a split button in a header, where "up" is off-screen. */
+.split-btn-menu.down { top: calc(100% + 6px); bottom: auto; }
 /* `.spec-menu-item` is space-between (MenuSelect puts a check on the far
    right). Here the row is icon → label, so it has to pack left. */
 .split-btn-menu .spec-menu-item {
   align-items: flex-start; justify-content: flex-start; gap: 9px;
 }
 .split-btn-menu .spec-menu-item svg { margin-top: 1px; }
+.split-btn-menu .spec-menu-item.on { background: var(--accent-soft); }
+.split-btn-check { margin-left: auto; margin-top: 3px; color: var(--accent-text); }
 .split-btn-menu .spec-menu-item[disabled] { opacity: .5; cursor: not-allowed; }
 .split-btn-menu .spec-menu-item.danger { color: var(--rec); }
 .split-btn-item { display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0; }
@@ -2904,3 +2911,79 @@ a.ph-contact-item:hover > svg { color: var(--accent); }
 .search-tip + .search-tip { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-2); }
 .search-tip-h { font-size: 12.5px; font-weight: 650; color: var(--text-1); margin-bottom: 3px; }
 .search-tip-b { font-size: 12.5px; line-height: 1.5; color: var(--text-2); }
+
+/* ══════════════════════════════════════════════════════════════════
+   Promote-to-report dialog (note editor)
+   The template picker is the platform's MenuSelect now, not a native
+   <select> whose open list the browser draws itself (unstyled, spilling
+   past the dialog). A MenuSelect opens INSIDE the dialog, so this one
+   must not clip — and its list is capped so it cannot run off a laptop
+   screen either.
+   ══════════════════════════════════════════════════════════════════ */
+.modal.promote-modal { overflow: visible; }
+.promote-field { position: relative; }
+.promote-field .label { margin-bottom: 6px; }
+.promote-modal .spec-menu { max-height: 260px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   Transcription in progress (ASR job, queued/running)
+   A running job used to look like a details dump with a small pill.
+   This is the one state where the screen has nothing to show yet, so
+   it has to show the WORK: a moving waveform (the audio being read),
+   how long it has been going, and permission to walk away.
+   ══════════════════════════════════════════════════════════════════ */
+/* The tinted wash stays — it is what marks this panel as live. What goes is
+   the accent bar down the left edge: a coloured rule reads as an alert. */
+.asr-progress {
+  display: flex; align-items: center; gap: 18px;
+  margin: 14px 0; padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, var(--info-soft), var(--surface) 70%);
+}
+.asr-progress[data-state="queued"] { background: linear-gradient(90deg, var(--warn-soft), var(--surface) 70%); }
+.asr-progress-b { min-width: 0; }
+.asr-progress-b h2 { margin: 0 0 4px; font-size: 15px; font-weight: 650; color: var(--text-1); }
+.asr-progress-b p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-3); max-width: 62ch; }
+.asr-progress-meta {
+  display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.asr-progress-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.asr-progress-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--line); }
+
+/* The waveform: bars rising and falling, the sound being listened to. It is
+   NOT a progress bar — the backend reports no percentage, and a bar that
+   invents one lies about how much is left. */
+.asr-progress-wave {
+  display: flex; align-items: center; gap: 3px; flex: none;
+  height: 42px; width: 76px;
+}
+.asr-progress-wave i {
+  display: block; width: 5px; border-radius: 3px;
+  background: var(--info);
+  animation: asr-wave 1.1s ease-in-out infinite;
+}
+.asr-progress[data-state="queued"] .asr-progress-wave i { background: var(--warn); animation-duration: 2.2s; opacity: .65; }
+@keyframes asr-wave {
+  0%, 100% { height: 22%; opacity: .55; }
+  50%      { height: 100%; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .asr-progress-wave i { animation: none; height: 60%; }
+}
+
+/* Cancel-job dialog: the two facts that decide the answer. */
+.asr-cancel-facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+.asr-cancel-facts li {
+  display: flex; align-items: flex-start; gap: 9px;
+  font-size: 13px; line-height: 1.5; color: var(--text-2);
+}
+.asr-cancel-facts li > svg { flex: none; margin-top: 2px; color: var(--muted); }
+
+/* A field-level note that explains a LIMIT rather than an error: German is a
+   dictation language, not (yet) an upload one. */
+.asr-field-note {
+  display: block; margin-top: 6px;
+  font-size: 11.5px; line-height: 1.5; color: var(--muted);
+}

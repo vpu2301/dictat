@@ -110,7 +110,7 @@ test("fresh login → open Studio from a patient → template loads (not 'No tem
 
   // Enter the Studio directly from a patient (no ?template= — relies on the
   // shared template list + auto-select, exactly the reported flow).
-  await page.goto(`/#/dictate/studio?patient=${PATIENT_ID}`);
+  await page.goto(`/#/studio?mode=dictate&patient=${PATIENT_ID}`);
 
   // The editor must mount. The regression rendered the "No templates available"
   // empty state here instead.

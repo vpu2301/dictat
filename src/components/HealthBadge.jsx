@@ -71,14 +71,17 @@ async function probe(base) {
   }
 }
 
-export function HealthBadge({ intervalMs = 30000, lang = "en" }) {
+// The probing itself, separated from where it is shown: the same check now
+// answers in three places (the account menu, the panel it opens, the public
+// site's footer), and each of them wants a different amount of it.
+//
+// `enabled` exists because this used to poll every 30 s for the whole session
+// just to keep a pill in the sidebar footer current. Behind a menu, the honest
+// contract is: check when someone is looking.
+export function useServiceHealth({ intervalMs = 30000, enabled = true } = {}) {
   const [services, setServices] = useState({});   // name → { state, detail, ms }
   const [checkedAt, setCheckedAt] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [panelPos, setPanelPos] = useState({ left: 0, bottom: 0 });
-  const wrapRef = useRef(null);
-  const panelRef = useRef(null);
 
   const check = useCallback(async () => {
     setBusy(true);
@@ -91,6 +94,7 @@ export function HealthBadge({ intervalMs = 30000, lang = "en" }) {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     let cancelled = false;
     let timer;
     const loop = async () => {
@@ -99,7 +103,32 @@ export function HealthBadge({ intervalMs = 30000, lang = "en" }) {
     };
     loop();
     return () => { cancelled = true; if (timer) clearTimeout(timer); };
-  }, [check, intervalMs]);
+  }, [check, intervalMs, enabled]);
+
+  const rows = Object.entries(services);
+  const bad = rows.filter(([, v]) => v.state !== "ready");
+  const overall = !rows.length ? "checking"
+    : bad.some(([, v]) => v.state === "down") ? "down"
+    : bad.length ? "notready" : "ready";
+
+  return { services, rows, bad, overall, checkedAt, busy, check };
+}
+
+// The one-line summary, in whatever language: "Готово", "Недоступно · 2/9".
+export function healthLabel(health, lang) {
+  const palette = STATE[health.overall];
+  return tr(lang, palette.uk, palette.en)
+    + (health.bad.length ? ` · ${health.bad.length}/${health.rows.length}` : "");
+}
+export function healthColor(overall) { return STATE[overall] || STATE.checking; }
+
+export function HealthBadge({ intervalMs = 30000, lang = "en", enabled = true }) {
+  const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState({ left: 0, bottom: 0 });
+  const wrapRef = useRef(null);
+  const panelRef = useRef(null);
+  const health = useServiceHealth({ intervalMs, enabled });
+  const { services, rows, bad, overall, checkedAt, busy, check } = health;
 
   // Anchor the portalled panel to the pill: sit just above it, aligned to the
   // sidebar's left edge, and never spill off the viewport.
@@ -134,15 +163,10 @@ export function HealthBadge({ intervalMs = 30000, lang = "en" }) {
     return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
   }, [open]);
 
-  const rows = Object.entries(services);
-  const bad = rows.filter(([, v]) => v.state !== "ready");
-  const overall = !rows.length ? "checking"
-    : bad.some(([, v]) => v.state === "down") ? "down"
-    : bad.length ? "notready" : "ready";
   const palette = STATE[overall];
 
   const L = (uk, en) => tr(lang, uk, en);
-  const label = L(palette.uk, palette.en) + (bad.length ? ` · ${bad.length}/${rows.length}` : "");
+  const label = healthLabel(health, lang);
   const readyCount = rows.length - bad.length;
   const slowest = rows.filter(([, v]) => v.state === "ready").sort((a, b) => b[1].ms - a[1].ms)[0];
 
@@ -171,90 +195,119 @@ export function HealthBadge({ intervalMs = 30000, lang = "en" }) {
         <span>{label}</span>
       </button>
 
-      {/* Portalled to <body>: the sidebar clips overflow, so an in-place panel
-          could never be wider than ~236px. */}
-      {open && createPortal(
-        <div
-          className="health-panel"
-          role="dialog"
-          aria-label={L("Стан сервісів", "Service status")}
-          ref={panelRef}
-          style={panelPos}
-        >
-          <div className="health-panel-h">
-            <div>
-              <strong>{L("Стан сервісів", "Service status")}</strong>
-              <div className="health-panel-sub">
-                {L(`${readyCount} з ${rows.length} готові`, `${readyCount} of ${rows.length} ready`)}
-                {slowest && ` · ${L("найповільніший", "slowest")} ${slowest[0]} ${slowest[1].ms} ms`}
-              </div>
-            </div>
-            <button className="btn btn-ghost health-recheck" onClick={check} disabled={busy}>
-              <Icon name="refresh" size={12} /> {busy ? L("Перевірка…", "Checking…") : L("Оновити", "Re-check")}
-            </button>
-          </div>
-
-          {bad.length > 0 && (
-            <div className="health-summary">
-              <strong>{L("Не готові", "Not ready")}: {bad.map(([k]) => k).join(", ")}</strong>
-              <div>
-                {L("Постраждалі функції: ", "Affected features: ")}
-                {bad.map(([k]) => (ROLE_OF[k] ? L(ROLE_OF[k].uk, ROLE_OF[k].en) : k)).join("; ")}
-              </div>
-            </div>
-          )}
-
-          <ul className="health-list">
-            {rows.map(([name, v]) => (
-              <li key={name} className={"health-row s-" + v.state}>
-                <span className="health-dot" style={{ background: STATE[v.state].dot }} />
-                <span className="health-name">{name}</span>
-                {/* Order matters: the grid is dot | name | role | state. */}
-                <span className="health-role">{ROLE_OF[name] ? L(ROLE_OF[name].uk, ROLE_OF[name].en) : ""}</span>
-                <span className="health-state" style={{ color: STATE[v.state].fg }}>
-                  {L(STATE[v.state].uk, STATE[v.state].en)}
-                </span>
-                <span className="health-meta">
-                  {v.base}
-                  {v.state === "ready" && ` · ${v.ms} ms`}
-                </span>
-                {v.state !== "ready" && (
-                  <span className="health-detail">
-                    {v.state === "down" ? (
-                      <>
-                        {L("Браузер не отримав відповіді. Сервіс не запущено, або він не надсилає заголовки CORS — з боку клієнта це не розрізнити.",
-                           "The browser got no response. Either the service is not running, or it sends no CORS headers — the client cannot tell these apart.")}
-                        <span className="health-hint">{L("Перевірте: ", "Check: ")}<code>curl {v.base}/readyz</code></span>
-                      </>
-                    ) : (
-                      <>
-                        {L("Сервіс відповідає, але не готовий обслуговувати запити.", "The service answers but is not ready to serve.")}
-                        {v.detail && <span className="health-hint"><code>{v.detail}</code></span>}
-                      </>
-                    )}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-
-          <div className="health-foot">
-            <span>
-              {checkedAt
-                ? L(`Перевірено ${new Date(checkedAt).toLocaleTimeString("uk-UA")}`,
-                    `Checked at ${new Date(checkedAt).toLocaleTimeString("en-GB")}`)
-                : L("Перевірка…", "Checking…")}
-              {" · "}
-              {L("кожні 30 с", "every 30 s")}
-              {" · GET /readyz"}
-            </span>
-            <button className="btn btn-ghost health-copy" onClick={copyReport}>
-              <Icon name="copy" size={12} /> {L("Копіювати звіт", "Copy report")}
-            </button>
-          </div>
-        </div>,
-        document.body,
+      {open && (
+        <HealthPanel health={health} lang={lang} style={panelPos} panelRef={panelRef} />
       )}
     </div>
+  );
+}
+
+
+// ── the panel ──────────────────────────────────────────────────────────
+// Portalled to <body>: every place that opens it (the sidebar's account menu,
+// the pill in the public footer) sits inside something that clips overflow.
+// `style` positions it; without one it centres itself near the bottom-left,
+// which is where both of its triggers live.
+export function HealthPanel({ health, lang = "en", style, panelRef, onClose }) {
+  const { rows, bad, checkedAt, busy, check } = health;
+  const L = (uk, en) => tr(lang, uk, en);
+  const readyCount = rows.length - bad.length;
+  const slowest = rows.filter(([, v]) => v.state === "ready").sort((a, b) => b[1].ms - a[1].ms)[0];
+
+  const copyReport = () => {
+    const text = [
+      `backend status @ ${new Date(checkedAt || Date.now()).toISOString()}`,
+      `${readyCount}/${rows.length} ready`,
+      ...rows.map(([n, v]) => `${n}\t${v.state}\t${v.base}\t${v.ms}ms\t${v.detail || ""}`),
+    ].join("\n");
+    try { navigator.clipboard.writeText(text); } catch { /* clipboard unavailable */ }
+  };
+
+  return createPortal(
+    <div
+      className="health-panel"
+      role="dialog"
+      aria-label={L("Стан сервісів", "Service status")}
+      ref={panelRef}
+      style={style || { left: 16, bottom: 16 }}
+    >
+      <div className="health-panel-h">
+        <div>
+          <strong>{L("Стан сервісів", "Service status")}</strong>
+          <div className="health-panel-sub">
+            {L(`${readyCount} з ${rows.length} готові`, `${readyCount} of ${rows.length} ready`)}
+            {slowest && ` · ${L("найповільніший", "slowest")} ${slowest[0]} ${slowest[1].ms} ms`}
+          </div>
+        </div>
+        <button className="btn btn-ghost health-recheck" onClick={check} disabled={busy}>
+          <Icon name="refresh" size={12} /> {busy ? L("Перевірка…", "Checking…") : L("Оновити", "Re-check")}
+        </button>
+        {onClose && (
+          <button className="icon-btn sm" onClick={onClose} aria-label={L("Закрити", "Close")}>
+            <Icon name="x" size={13} />
+          </button>
+        )}
+      </div>
+
+      {bad.length > 0 && (
+        <div className="health-summary">
+          <strong>{L("Не готові", "Not ready")}: {bad.map(([k]) => k).join(", ")}</strong>
+          <div>
+            {L("Постраждалі функції: ", "Affected features: ")}
+            {bad.map(([k]) => (ROLE_OF[k] ? L(ROLE_OF[k].uk, ROLE_OF[k].en) : k)).join("; ")}
+          </div>
+        </div>
+      )}
+
+      <ul className="health-list">
+        {rows.map(([name, v]) => (
+          <li key={name} className={"health-row s-" + v.state}>
+            <span className="health-dot" style={{ background: STATE[v.state].dot }} />
+            <span className="health-name">{name}</span>
+            {/* Order matters: the grid is dot | name | role | state. */}
+            <span className="health-role">{ROLE_OF[name] ? L(ROLE_OF[name].uk, ROLE_OF[name].en) : ""}</span>
+            <span className="health-state" style={{ color: STATE[v.state].fg }}>
+              {L(STATE[v.state].uk, STATE[v.state].en)}
+            </span>
+            <span className="health-meta">
+              {v.base}
+              {v.state === "ready" && ` · ${v.ms} ms`}
+            </span>
+            {v.state !== "ready" && (
+              <span className="health-detail">
+                {v.state === "down" ? (
+                  <>
+                    {L("Браузер не отримав відповіді. Сервіс не запущено, або він не надсилає заголовки CORS — з боку клієнта це не розрізнити.",
+                       "The browser got no response. Either the service is not running, or it sends no CORS headers — the client cannot tell these apart.")}
+                    <span className="health-hint">{L("Перевірте: ", "Check: ")}<code>curl {v.base}/readyz</code></span>
+                  </>
+                ) : (
+                  <>
+                    {L("Сервіс відповідає, але не готовий обслуговувати запити.", "The service answers but is not ready to serve.")}
+                    {v.detail && <span className="health-hint"><code>{v.detail}</code></span>}
+                  </>
+                )}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      <div className="health-foot">
+        <span>
+          {checkedAt
+            ? L(`Перевірено ${new Date(checkedAt).toLocaleTimeString("uk-UA")}`,
+                `Checked at ${new Date(checkedAt).toLocaleTimeString("en-GB")}`)
+            : L("Перевірка…", "Checking…")}
+          {" · "}
+          {L("кожні 30 с", "every 30 s")}
+          {" · GET /readyz"}
+        </span>
+        <button className="btn btn-ghost health-copy" onClick={copyReport}>
+          <Icon name="copy" size={12} /> {L("Копіювати звіт", "Copy report")}
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }

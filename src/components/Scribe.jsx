@@ -216,7 +216,7 @@ export function ScribeToday({ navigate, lang }) {
   ];
 
   const reloadOpen = () => { open.reload(); sched.reload(); };
-  const openStudio = (tid) => navigate(tid ? `/dictate/studio?template=${tid}` : "/dictate/studio");
+  const openStudio = (tid) => navigate(tid ? `/studio?mode=dictate&template=${tid}` : "/studio?mode=dictate");
   const [qsOpen, setQsOpen] = useState(false);
 
   return (
@@ -247,13 +247,13 @@ export function ScribeToday({ navigate, lang }) {
           }}
           actions={[
             { icon: "waveform", label: tr(lang, "Нове диктування", "New dictation"), kbd: "D",
-              onClick: () => navigate("/dictate/studio") },
+              onClick: () => navigate("/studio?mode=dictate") },
             { icon: "users", label: tr(lang, "Розмова з пацієнтом", "Conversation mode"),
-              onClick: () => navigate("/dictate/conversation") },
+              onClick: () => navigate("/studio?mode=scribe") },
             { icon: "fileText", label: tr(lang, "Написати нотатку", "Take a note"),
               onClick: () => navigate("/scribe/notes/new") },
             { icon: "bot", label: tr(lang, "Завантажити на транскрипцію", "Upload for transcription"),
-              onClick: () => navigate("/asr/new") },
+              onClick: () => navigate("/studio?mode=audio") },
             { icon: "layers", label: tr(lang, "Диктувати за шаблоном", "Dictate from a template"),
               onClick: () => setQsOpen(true) },
           ]}
@@ -293,7 +293,7 @@ export function ScribeToday({ navigate, lang }) {
           <button
             className="btn accent"
             onClick={() =>
-              navigate(`/dictate/studio?patient=${liveNow.patient?.id || ""}&encounter=${liveNow.id}`)
+              navigate(`/studio?mode=dictate&patient=${liveNow.patient?.id || ""}&encounter=${liveNow.id}`)
             }
           >
             <Icon name="mic" size={13} /> {tr(lang, "Розпочати запис", "Begin recording")}
@@ -776,7 +776,7 @@ function ConsultView({ session, patientId, navigate, lang }) {
                 "Автоматичне створення нотатки з транскрипту ще не доступне. Створіть чернетку звіту на основі цієї розмови та відредагуйте її у Студії.",
                 "Generating a note from the transcript is not available yet. Create a report draft from this conversation and edit it in the Studio.")}
               action={turns.length ? (
-                <button className="btn accent" onClick={() => navigate(`/dictate/studio?patient=${pid || ""}`)}>
+                <button className="btn accent" onClick={() => navigate(`/studio?mode=dictate&patient=${pid || ""}`)}>
                   <Icon name="fileText" size={13} /> {tr(lang, "До Студії", "Open the Studio")}
                 </button>
               ) : null} />

@@ -13,6 +13,7 @@ import { JsonViewer } from "../components/JsonViewer.jsx";
 import { getJob, cancelJob, getJobResult, ASR_ACTIVE, ASR_TERMINAL } from "../api/asr.js";
 import { reportsBySourceJobs } from "../api/reports.js";
 import { AssignTranscriptModal } from "../components/AssignTranscriptModal.jsx";
+import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
 import { tr } from "../i18n.js";
 
 const POLL_MS = 2000;
@@ -28,6 +29,19 @@ function fmtRelative(iso, lang) {
   return new Date(t).toLocaleString();
 }
 
+// How long this job has been going: since it started running, else since it
+// was queued. Re-rendered by the 2s poll, so it stays honest without a timer.
+function elapsedLabel(job, lang) {
+  const from = job?.started_at || job?.queued_at;
+  const t = from ? Date.parse(from) : NaN;
+  if (Number.isNaN(t)) return tr(lang, "щойно", "just now");
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  const mmss = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  return job?.started_at
+    ? tr(lang, `в обробці ${mmss}`, `running for ${mmss}`)
+    : tr(lang, `у черзі ${mmss}`, `queued for ${mmss}`);
+}
+
 function Field({ label, children, mono }) {
   return (
     <div className="me-field">
@@ -39,7 +53,10 @@ function Field({ label, children, mono }) {
   );
 }
 
-export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
+// `embedded` = hosted by the Studio workspace, which owns the back affordance
+// (its session rail) and wants the assignment handed to it rather than turned
+// into a link the clinician has to notice.
+export function AsrJobDetailPage({ id, lang = "en", navigate, onToast, embedded = false, onAssigned, onStatus }) {
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,6 +72,12 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
   const [assignment, setAssignment] = useState(null); // {report_id, code, status, patient_id} | null
   const [assignOpen, setAssignOpen] = useState(false);
 
+  // Who gets to see the service's raw answer. Auditors and tenant admins do
+  // the reconciling; a clinician transcribing a consultation has no use for it
+  // and every reason not to be shown a UUID soup mid-workflow.
+  const { state: auth } = useAuth();
+  const auditView = hasAnyRole(auth?.claims, ["auditor", "tenant_admin", "super_admin"]);
+
   const pollRef = useRef(null);
   const cancelledRef = useRef(false);
 
@@ -67,6 +90,13 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
       return j;
     } catch (e) {
       if (cancelledRef.current) return;
+      // A poll that lands on an expired access token is not a failure of the
+      // job: the client refreshes and the next tick succeeds. Painting
+      // "Unauthorized (401) — Token expired" over a running transcription
+      // reported the session's plumbing as the job's outcome. A 401 that is
+      // really terminal ends the session anyway (RootGate), so nothing is
+      // swallowed by staying quiet here.
+      if (e?.status === 401) return;
       setError(e);
     } finally {
       if (!cancelledRef.current) setLoading(false);
@@ -96,6 +126,13 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
       if (pollRef.current) clearTimeout(pollRef.current);
     };
   }, [id, refresh]);
+
+  // Tell whoever is hosting this page what the job is doing, so a running
+  // transcription is visible from OUTSIDE the tab it lives in — the whole
+  // promise of "you can walk away" depends on it being announced elsewhere.
+  useEffect(() => {
+    if (job?.status) onStatus?.(job.status);
+  }, [job?.status, onStatus]);
 
   // Fetch the transcript once the job reaches "complete".
   // NOTE: resultLoading must stay OUT of this effect's guard and deps —
@@ -197,10 +234,12 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => navigate("/documents/transcripts")}>
-            <Icon name="arrowLeft" size={13} />
-            <span>{tr(lang, "До списку", "Back")}</span>
-          </button>
+          {!embedded && (
+            <button className="btn" onClick={() => navigate("/documents/transcripts")}>
+              <Icon name="arrowLeft" size={13} />
+              <span>{tr(lang, "До списку", "Back")}</span>
+            </button>
+          )}
           <button className="btn" onClick={refresh} disabled={loading}>
             <Icon name="refresh" size={13} />
             <span>{tr(lang, "Оновити", "Refresh")}</span>
@@ -235,6 +274,39 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
       )}
 
       {error && <ApiErrorView error={error} lang={lang} />}
+
+      {/* While it runs, the screen should say so in one glance. The details
+          card is for afterwards; a clinician watching a transcription wants to
+          know it is alive, roughly how long it has been going, and that they
+          are free to walk away. */}
+      {active && (
+        <section className="asr-progress" data-state={job.status} role="status" aria-live="polite"
+          data-testid="asr-progress">
+          <div className="asr-progress-wave" aria-hidden="true">
+            {Array.from({ length: 9 }, (_, i) => <i key={i} style={{ animationDelay: `${i * 0.09}s` }} />)}
+          </div>
+          <div className="asr-progress-b">
+            <h2>
+              {job.status === "queued"
+                ? tr(lang, "У черзі на розпізнавання", "Queued for transcription")
+                : tr(lang, "Розпізнаємо аудіо…", "Transcribing the audio…")}
+            </h2>
+            <p>
+              {job.status === "queued"
+                ? tr(lang, "Файл прийнято. Обробка почнеться, щойно звільниться робітник.",
+                           "The file is accepted. Processing starts as soon as a worker frees up.")
+                : tr(lang, "Готовий транскрипт з'явиться просто тут. Можна закрити вкладку або зайнятися іншим документом — обробка триває на сервері.",
+                           "The finished transcript appears right here. You can close the tab or work on another document — processing continues on the server.")}
+            </p>
+            <div className="asr-progress-meta">
+              <span><Icon name="clock" size={12} /> {elapsedLabel(job, lang)}</span>
+              <span className="asr-progress-sep" />
+              <span>{tr(lang, "оновлюється кожні 2 с", "refreshed every 2s")}</span>
+              {job.language && <><span className="asr-progress-sep" /><span>{String(job.language).toUpperCase()}</span></>}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="card me-section">
         <header className="me-section-h">
@@ -287,27 +359,58 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
         </section>
       )}
 
-      <details className="card me-section">
-        <summary style={{ cursor: "pointer", fontWeight: 500 }}>
-          {tr(lang, "Сирий JSON", "Raw JSON")}
-        </summary>
-        <div style={{ marginTop: 12 }}>
-          <JsonViewer value={{ job, result }} />
-        </div>
-      </details>
+      {/* The raw envelope is evidence, not workflow: an auditor reconciling a
+          transcript against what the service actually returned needs it, a
+          clinician transcribing a consultation never does. Role-gated rather
+          than deleted — removing it would cost the audit trail a primary
+          source. */}
+      {auditView && (
+        <details className="card me-section">
+          <summary style={{ cursor: "pointer", fontWeight: 500 }}>
+            {tr(lang, "Сирий JSON (для аудиту)", "Raw JSON (for audit)")}
+          </summary>
+          <div style={{ marginTop: 12 }}>
+            <JsonViewer value={{ job, result }} />
+          </div>
+        </details>
+      )}
 
+      {/* The platform's dialog shell (header / body / footer), not a stack of
+          inline styles: this one was raw markup dropped into `.modal`, so it
+          rendered without padding and with its buttons hard against the edge. */}
       {confirmCancel && (
-        <Modal onClose={() => setConfirmCancel(false)}>
-          <h3 style={{ margin: 0 }}>{tr(lang, "Скасувати завдання?", "Cancel this job?")}</h3>
-          <p style={{ color: "var(--muted)" }}>
-            {tr(lang, "Поточне завдання буде скасоване. Якщо обробка вже почалася, її буде зупинено.", "The job will be cancelled. If processing has started, it will be stopped.")}
-          </p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+        <Modal onClose={() => setConfirmCancel(false)} className="dialog-modal">
+          <div className="modal-h">
+            <h2>{tr(lang, "Скасувати завдання?", "Cancel this job?")}</h2>
+            <p>
+              {tr(lang, "Поточне завдання буде скасоване. Якщо обробка вже почалася, її буде зупинено.",
+                        "The job will be cancelled. If processing has started, it will be stopped.")}
+            </p>
+          </div>
+          <div className="modal-body">
+            {/* What is actually lost, said plainly — the audio survives, the
+                transcript does not exist yet, and the job cannot be resumed. */}
+            <ul className="asr-cancel-facts">
+              <li>
+                <Icon name="audio" size={13} />
+                {tr(lang, "Завантажене аудіо залишиться у системі.", "The uploaded audio stays in the system.")}
+              </li>
+              <li>
+                <Icon name="fileText" size={13} />
+                {tr(lang, "Транскрипт створено не буде — доведеться поставити завдання заново.",
+                          "No transcript will be produced — you would have to queue the job again.")}
+              </li>
+            </ul>
+          </div>
+          <div className="modal-foot">
             <button className="btn" onClick={() => setConfirmCancel(false)} disabled={cancelling}>
-              {tr(lang, "Назад", "Back")}
+              {tr(lang, "Не скасовувати", "Keep processing")}
             </button>
             <button className="btn btn-danger" onClick={doCancel} disabled={cancelling}>
-              {cancelling ? "…" : (tr(lang, "Скасувати", "Cancel job"))}
+              <Icon name={cancelling ? "refresh" : "x"} size={13} className={cancelling ? "spin" : undefined} />
+              {cancelling
+                ? tr(lang, "Скасування…", "Cancelling…")
+                : tr(lang, "Скасувати завдання", "Cancel the job")}
             </button>
           </div>
         </Modal>
@@ -320,10 +423,13 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast }) {
           lang={lang}
           navigate={navigate}
           onClose={() => setAssignOpen(false)}
-          onAssigned={(res) => setAssignment({
-            report_id: res.id, code: res.code,
-            status: res.status || "draft", patient_id: res.patient_id,
-          })}
+          onAssigned={(res) => {
+            setAssignment({
+              report_id: res.id, code: res.code,
+              status: res.status || "draft", patient_id: res.patient_id,
+            });
+            onAssigned?.(res);
+          }}
         />
       )}
     </div>

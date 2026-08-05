@@ -130,7 +130,7 @@ test("golden path: Почати прийом → in_progress encounter → studi
   expect(calls.encounterCreate[0]).toEqual({ kind: "visit", reason: "плановий огляд", status: "in_progress" });
 
   // studio route carries BOTH uuids and nothing else identifying
-  await expect(page).toHaveURL(/#\/dictate\/studio\?patient=[0-9a-f-]{36}&encounter=[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/#\/studio\?mode=dictate&patient=[0-9a-f-]{36}&encounter=[0-9a-f-]{36}(&|$)/);
 
   // context bar: name + year of birth + reason — never full DOB or MRN
   const bar = page.getByTestId("studio-context-bar");
@@ -175,7 +175,7 @@ test("encounter_closed: specific copy + 'створити новий прийо�
   await installMocks(page, calls);
   await login(page);
 
-  await page.goto(`/#/dictate/studio?patient=${PID}&encounter=${CLOSED_ENC}`);
+  await page.goto(`/#/studio?mode=dictate&patient=${PID}&encounter=${CLOSED_ENC}`);
   await expect(page.getByText(/Прийом уже завершено|This encounter is closed/)).toBeVisible({ timeout: 10000 });
 
   await page.getByRole("button", { name: /Створити новий прийом|Start a new encounter/ }).click();
@@ -184,7 +184,8 @@ test("encounter_closed: specific copy + 'створити новий прийо�
   expect(calls.encounterCreate[0]).toEqual({ kind: "visit", reason: "завершений візит", status: "in_progress" });
 
   // context swapped: URL now carries the new encounter, editor renders
-  await expect(page).toHaveURL(/encounter=dddddddd-dddd-4ddd-8ddd-000000000001$/);
+  // (`&t=…` may follow: the Studio carries the open-tab id in the URL.)
+  await expect(page).toHaveURL(/encounter=dddddddd-dddd-4ddd-8ddd-000000000001(&|$)/);
   await expect(page.getByTestId("studio-context-bar")).toContainText("завершений візит");
   await expect(page.locator(".ProseMirror").first()).toBeVisible();
 });
@@ -193,7 +194,7 @@ test("encounter_invalid: not-found copy + return to the patient", async ({ page 
   await installMocks(page, newCalls());
   await login(page);
 
-  await page.goto(`/#/dictate/studio?patient=${PID}&encounter=${GHOST_ENC}`);
+  await page.goto(`/#/studio?mode=dictate&patient=${PID}&encounter=${GHOST_ENC}`);
   await expect(page.getByText(/Прийом не знайдено|Encounter not found/)).toBeVisible({ timeout: 10000 });
   await page.getByRole("button", { name: /Повернутися до пацієнта|Back to the patient/ }).click();
   await expect(page).toHaveURL(new RegExp(`#/patients/${PID}$`));
@@ -224,7 +225,7 @@ test("ad-hoc dictation without a patient is unchanged (gate, no context bar)", a
   await installMocks(page, newCalls());
   await login(page);
 
-  await page.goto("/#/dictate/studio");
+  await page.goto("/#/studio?mode=dictate");
   await expect(page.locator("[data-testid='patient-gate-row']").first()).toBeVisible({ timeout: 10000 });
   await expect(page.getByTestId("studio-context-bar")).toHaveCount(0);
 });

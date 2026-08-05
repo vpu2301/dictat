@@ -86,7 +86,7 @@ async function openLiveStudio(page, errors) {
     if (src.includes("/readyz") || txt.includes("/readyz") || txt.includes(":8002")) return;
     errors.push(`console: ${txt}`);
   });
-  await page.goto("/#/dictate/studio");
+  await page.goto("/#/studio?mode=dictate");
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await expect(gateRow).toBeVisible({ timeout: 15000 });
   await gateRow.click();
@@ -232,7 +232,7 @@ test("live 4 — chaos: service stopped mid-flight → typing verbatim, silent; 
     await page.locator('input[type="password"]').fill("dev-password");
     await page.locator('button[type="submit"]').click();
   }
-  await page.goto("/#/dictate/studio");
+  await page.goto("/#/studio?mode=dictate");
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   const editor2 = page.locator(".ProseMirror").first();
   await expect(editor2.or(gateRow).first()).toBeVisible({ timeout: 20000 });

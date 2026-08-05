@@ -123,7 +123,7 @@ export async function login(page) {
 
 export async function openStudio(page) {
   await login(page);
-  await page.goto("/#/dictate/studio");
+  await page.goto("/#/studio?mode=dictate");
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await gateRow.waitFor({ state: "visible", timeout: 15000 });
   await gateRow.click();

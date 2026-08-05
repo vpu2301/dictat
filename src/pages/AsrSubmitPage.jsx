@@ -6,22 +6,28 @@ import { PromptPicker } from "../components/PromptPicker.jsx";
 import { MenuSelect } from "../components/MenuSelect.jsx";
 import { AudioDrop } from "../components/AudioDrop.jsx";
 import { submitJob } from "../api/asr.js";
+import { UPLOAD_CODES, asUploadLang, langLabel, supportsUpload } from "../dictation/languages.js";
 import { tr } from "../i18n.js";
 
-// The backend pins `language` to ^(uk|en)$ (Body_submit_job_asr_jobs_post).
-// There is NO auto-detect: sending "auto" is a 422, so it is not offered.
-const ASR_LANGUAGES = ["uk", "en"];
-const defaultLanguage = (uiLang) => (ASR_LANGUAGES.includes(uiLang) ? uiLang : "uk");
+// asr-service pins `language` to ^(uk|en)$ (routers/jobs.py, and the same
+// pattern on /asr/prompts). There is NO auto-detect: sending "auto" is a 422,
+// so it is not offered — and neither is German, which the LIVE recogniser
+// (dictation-service + nlp-service) accepts but this batch service does not.
+// See dictation/languages.js: UPLOAD_CODES is the single place that says so.
+const defaultLanguage = (uiLang) => asUploadLang(uiLang);
 
 // `encounter_id` is a UUID on the wire; anything else is a 422 the user can
 // only read as "the page is broken". Caught here instead.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
+// `embedded` = the Studio workspace hosts the form; it keeps the queued job in
+// its own state (and its own URL) instead of routing to the detail page, and
+// supplies the encounter from the session context rather than a pasted UUID.
+export function AsrSubmitPage({ lang = "en", navigate, onToast, embedded = false, onQueued, encounterId: encounterFixed }) {
   const [file, setFile] = useState(null);
   const [language, setLanguage] = useState(() => defaultLanguage(lang));
   const [promptId, setPromptId] = useState("");
-  const [encounterId, setEncounterId] = useState("");
+  const [encounterId, setEncounterId] = useState(encounterFixed || "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -43,7 +49,8 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
       });
       if (onToast) onToast(tr(lang, "Завдання поставлено в чергу", "Job queued"));
       // Optimistic route to detail; detail polls regardless of initial state.
-      navigate(`/asr/jobs/${encodeURIComponent(job.id)}`);
+      if (onQueued) onQueued(job);
+      else navigate(`/asr/jobs/${encodeURIComponent(job.id)}`);
     } catch (err) {
       setError(err);
     } finally {
@@ -61,10 +68,12 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => navigate("/documents/transcripts")}>
-            <Icon name="inbox" size={13} />
-            <span>{tr(lang, "Усі завдання", "All jobs")}</span>
-          </button>
+          {!embedded && (
+            <button className="btn" onClick={() => navigate("/documents/transcripts")}>
+              <Icon name="inbox" size={13} />
+              <span>{tr(lang, "Усі завдання", "All jobs")}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -88,11 +97,15 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
               onChange={setLanguage}
               disabled={submitting}
               ariaLabel={tr(lang, "Мова аудіо", "Audio language")}
-              options={[
-                { value: "uk", label: tr(lang, "Українська", "Ukrainian") },
-                { value: "en", label: tr(lang, "Англійська", "English") },
-              ]}
+              options={UPLOAD_CODES.map((c) => ({ value: c, label: langLabel(c, lang) }))}
             />
+            {!supportsUpload(lang) && lang === "de" && (
+              <span className="asr-field-note">
+                {tr(lang,
+                  "Німецькою можна диктувати наживо; для завантаження файлів сервіс розпізнавання поки приймає лише UK та EN.",
+                  "German is available for live dictation; for uploaded files the transcription service still accepts UK and EN only.")}
+              </span>
+            )}
           </label>
 
           <label className="asr-label">
@@ -106,7 +119,10 @@ export function AsrSubmitPage({ lang = "en", navigate, onToast }) {
             />
           </label>
 
-          <label className="asr-label">
+          {/* Embedded, the visit comes from the session the workspace is on —
+              asking the clinician to paste its UUID would be asking them to
+              retype something the screen already knows. */}
+          <label className="asr-label" hidden={!!(embedded && encounterFixed)}>
             <span>{tr(lang, "ID візиту (опціонально)", "Encounter ID (optional)")}</span>
             <input
               type="text"

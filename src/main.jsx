@@ -9,6 +9,7 @@ import './app-extra.css'
 import './sprints-06-10.css'
 import './sprints-11-15.css'
 import './dashboard.css'
+import './studio/studio.css'
 import './company/company.css'
 
 // Path → hash bridge. The SPA is hash-routed, but the owner console is shared

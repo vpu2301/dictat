@@ -113,7 +113,7 @@ async function loginUI(page) {
 }
 
 async function openStudio(page) {
-  await page.goto(`/#/dictate/studio?report=${S.reportId}`);
+  await page.goto(`/#/studio?mode=dictate&report=${S.reportId}`);
   // The typed widgets mount once the template detail + draft rehydrate land.
   await expect(
     page.locator('section[data-section-id="smoking_status"] .field-widget-mount'),
