@@ -1,0 +1,170 @@
+# EVA-S01 — the gates that keep evidence types and permission strings honest.
+#
+# This is the repo's first workflow: fifteen sprints ran on `npm run test:unit`
+# and `npm run e2e` typed by hand. It is deliberately narrow — contracts,
+# permissions, the contracts lint rule, and the flag-off invisibility probe.
+# Widening it into a general CI pipeline is a separate decision.
+name: evidence contracts
+
+on:
+  push:
+    branches: [main, evidence]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Nightly, for the corpus-fixture regeneration smoke (EVA-S02) — the one
+    # job that needs a live dev backend and therefore cannot gate a PR.
+    - cron: "17 3 * * *"
+
+jobs:
+  contracts:
+    name: contracts:types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # The pinned schema artifact (evidence-contracts-{sha}.tar.gz, produced by
+      # the evidence-backend CI). With a source configured, the committed
+      # src/types/evidence.d.ts is regenerated and compared byte for byte: a
+      # hand-edited or stale generated file fails here and nowhere later.
+      - name: Regenerate types from the pinned artifact and compare
+        if: vars.EVIDENCE_CONTRACTS_ARTIFACT_URL != ''
+        env:
+          EVIDENCE_CONTRACTS_ARTIFACT_URL: ${{ vars.EVIDENCE_CONTRACTS_ARTIFACT_URL }}
+        run: npm run contracts:check:ci
+
+      # Until that URL exists, do NOT pretend the regeneration ran. The
+      # committed types are still compiled under strict TS, and the drift test
+      # (unit job) still ties the EvidenceAction union to the permission MATRIX
+      # — but the "is this file current?" question stays open, loudly.
+      - name: Compile the committed types (no artifact source configured)
+        if: vars.EVIDENCE_CONTRACTS_ARTIFACT_URL == ''
+        run: |
+          echo "::warning title=contracts::EVIDENCE_CONTRACTS_ARTIFACT_URL is unset —"\
+               "src/types/evidence.d.ts was compiled but NOT regenerated. Set the"\
+               "repository variable to the evidence-backend artifact base URL to"\
+               "close this gap (see handoff.md § Contracts typegen)."
+          npx tsc -p tsconfig.contracts.json
+
+      - name: Fail loudly on a missing artifact (negative control)
+        run: |
+          # The pipeline's own rule — "never stale-compile" — proven, not
+          # asserted: with an impossible pin and --require-artifact, typegen
+          # must exit non-zero rather than fall back to a local checkout.
+          if EVIDENCE_CONTRACTS_DIR=/nonexistent \
+             node scripts/contracts-typegen.mjs --check --require-artifact; then
+            echo "typegen succeeded without an artifact — the loud-failure rule is broken"
+            exit 1
+          fi
+          echo "ok — typegen refuses to run without its pinned artifact"
+
+  permissions-and-lint:
+    name: permissions mirror + contracts lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Vendored CSV vs the backend's copy. SKIPs (exit 0, loud) when the
+      # backend is not checked out beside this repo, which is the normal case
+      # on a frontend-only runner.
+      - run: npm run auth:permissions -- --check
+
+      # CSV ↔ MATRIX, both directions, plus the nine evidence rows and the
+      # EvidenceAction union.
+      - run: node --test src/auth/permissionsDrift.test.js src/auth/roles.test.js
+
+      # `evidence/no-handwritten-contract-types`, including the planted-violation
+      # proof (the rule test writes a violating file, lints it with this same
+      # config, and deletes it).
+      - run: npm run lint:contracts
+      - run: node --test eslint-rules/no-handwritten-contract-types.test.js
+
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:unit
+
+  corpus-fixtures:
+    name: corpus fixtures (nightly regeneration smoke)
+    # Hermetic CI reads the COMMITTED fixtures (the unit job validates them);
+    # this job is the other half — proving the export still runs against a real
+    # corpus, so the fixtures never quietly become unregenerable.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Export from the dev corpus and validate the result
+        if: vars.EVIDENCE_DB_URL_CONFIGURED == 'true'
+        env:
+          EVIDENCE_DB_URL: ${{ secrets.EVIDENCE_DB_URL }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+          npm run fixtures:corpus              # rewrites the working copy
+          node --test e2e/fixtures/corpus/corpusFixtures.test.js
+          # A re-export that no longer satisfies the edge-state inventory fails
+          # above. A re-export that merely DIFFERS is expected — the corpus
+          # grows — so the diff is reported, not failed on.
+          git --no-pager diff --stat e2e/fixtures/corpus/ || true
+
+      - name: No dev corpus configured
+        if: vars.EVIDENCE_DB_URL_CONFIGURED != 'true'
+        run: |
+          echo "::warning title=corpus fixtures::EVIDENCE_DB_URL is not configured —"\
+               "the regeneration smoke did not run. The committed fixtures are still"\
+               "validated by the unit job. Set the secret plus the"\
+               "EVIDENCE_DB_URL_CONFIGURED variable to enable this (see"\
+               "e2e/fixtures/corpus/README.md)."
+          # Prove the script still fails loudly rather than writing an empty corpus.
+          if npm run fixtures:corpus --silent; then
+            echo "export succeeded with no database — the loud-failure rule is broken"
+            exit 1
+          fi
+          echo "ok — the export refuses to run without a corpus"
+
+  flag-off:
+    name: flag-off invisibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Route probe + nav snapshot over BOTH modules' paths (chat and the S03
+      # devtools), plus the control that turns each on and watches it appear.
+      - run: npx playwright test e2e/evidence-flag-off.spec.js
+      # The devtools themselves, route-mocked against the S02 corpus fixtures:
+      # results / loading / empty / error / degraded, filter round-trip, and
+      # the role gate.
+      - run: npx playwright test e2e/evidence-retrieval-playground.spec.js
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: flag-off-traces
+          path: test-results/
+          retention-days: 7

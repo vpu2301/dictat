@@ -127,6 +127,63 @@ export async function apiAt(baseUrl, path, init = {}) {
   return request(baseUrl, path, init);
 }
 
+// ── streaming addendum (EVA-S04) ────────────────────────────────────────
+//
+// `request()` above buys the whole response before returning it, which is
+// right for JSON and wrong for a server-sent-event stream whose entire point
+// is arriving in pieces. `streamAt` is the same call with the same auth — the
+// in-memory bearer, the single-flight refresh, the ApiError shape — stopping
+// one step earlier and handing back the live `Response`.
+//
+// WHY NOT `EventSource`. It cannot set a header. Authenticating a stream would
+// mean either a cookie (this platform has none for the API) or the token in
+// the query string, where it lands in every proxy access log between the
+// clinic and the service. A `fetch` with `Authorization` is the only version
+// of this that is not a credential leak, and its body is a ReadableStream, so
+// nothing is given up. See src/api/sse.js for the frame parser.
+//
+// THE 401 THAT MATTERS IS THE FIRST ONE. A token that expires mid-stream does
+// not produce a second 401 — the response is already open and stays open. So
+// the refresh-retry here is pre-flight only, exactly like `request()`. A drop
+// after the headers is a transport failure, and the caller recovers by
+// re-reading the resource with an ordinary GET (which refreshes normally).
+// That is why the answer service must let a stream be resumed as a fetch.
+export async function streamAt(baseUrl, path, init = {}) {
+  const exec = async () => {
+    const headers = new Headers(init.headers || {});
+    headers.set("Accept", "text/event-stream");
+    if (inMemoryAccessToken) headers.set("Authorization", `Bearer ${inMemoryAccessToken}`);
+    if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    return fetch(`${baseUrl}${path}`, { ...init, headers, credentials: "include" });
+  };
+
+  let r;
+  try {
+    r = await exec();
+  } catch (e) {
+    throw new ApiError(0, { title: "Network error", detail: String(e && e.message ? e.message : e) });
+  }
+
+  if (r.status === 401 && inMemoryAccessToken && !replayDetected) {
+    try {
+      await refreshOnce();
+      r = await exec();
+    } catch {
+      setAccessToken(null);
+      if (typeof window !== "undefined" && !location.hash.startsWith("#/login")) {
+        location.hash = "/login";
+      }
+      throw new ApiError(401, { title: "Session expired", detail: "Please log in again." });
+    }
+  }
+
+  if (!r.ok) {
+    const problem = await r.json().catch(() => ({ detail: r.statusText, title: `HTTP ${r.status}` }));
+    throw new ApiError(r.status, problem);
+  }
+  return r;
+}
+
 // RootGate bootstrap: try refresh once, surface the new access token.
 // Returns null on any failure (replay or otherwise) — never throws.
 export async function tryRefresh() {

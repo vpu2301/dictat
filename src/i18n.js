@@ -37,6 +37,53 @@ export const tr = (lang, uk, en) => {
   return (d && d[en]) || en;
 };
 
+// ── EVA-S01: reserved key namespace for the evidence segment kinds ────
+// The answer envelope splits a clinical answer into segments, each carrying a
+// `kind` from the closed `SegmentKind` union in src/types/evidence.d.ts
+// (generated from the backend contract — rule FE7/RC2, final for v1):
+//
+//   evidence · patient_fact · interpretation · uncertainty · missing_info · next_step
+//
+// When S04 labels them, the key is the enum value verbatim, prefixed `kind.`:
+// `kind.evidence`, `kind.patient_fact`, `kind.interpretation`,
+// `kind.uncertainty`, `kind.missing_info`, `kind.next_step`.
+//
+// Written down now, before any of those keys exist, because the alternative is
+// a parallel vocabulary: someone types `kind.patientFact` or `segment.fact`,
+// and from then on the contract value and the translation key have to be
+// mapped through a lookup table that will be wrong the first time the backend
+// adds a seventh kind. There is no mapping — the enum value IS the key suffix,
+// and a v2 kind arrives as a new key with the same shape.
+//
+// ── EVA-S02: Ukrainian corpus terminology ─────────────────────────────
+// No keys yet — S03 writes them. What is fixed HERE is the vocabulary, because
+// terminology is the thing two sprints invent twice: S03 labels a retrieved
+// passage «джерело», S08 calls the same object «посилання», and the product
+// now has two words for one thing in front of a clinician who has to trust it.
+//
+// Contract value → Ukrainian → English
+//   document                    джерело               source
+//     …when it is a guideline   настанова             guideline
+//     …a national protocol      протокол              protocol
+//   passage / chunk             фрагмент              passage
+//   corpus                      база джерел           corpus
+//   corpus snapshot             зріз бази             corpus snapshot
+//   retracted = true            відкликано            retracted
+//   superseded version          застаріло/замінено    superseded
+//   valid_until in the past     втратив чинність      expired
+//
+// «відкликано» and «застаріло/замінено» are deliberately different words: a
+// retracted paper was withdrawn because it should never have been relied on;
+// a superseded protocol was correct and has been replaced. One label for both
+// would tell a clinician the wrong thing about what they read last year.
+//
+// Enum labels follow the same rule as the segment kinds above — the contract
+// value is the key suffix: `tier.guideline`, `tier.systematic_review`,
+// `authority.national`, `license.public_domain`. No parallel vocabulary.
+//
+// STATUS: proposed by EVA-S02 and used by the S02 corpus fixtures. Clinical
+// sign-off is still OUTSTANDING — S03 must not ship user-visible strings built
+// on these words until a reviewing clinician has confirmed them here.
 export const STRINGS = {
   uk: {
     // Nav
@@ -222,6 +269,102 @@ export const STRINGS = {
     "common.draft": "Чернетка",
     "common.now": "зараз",
     "common.minute": "хв",
+
+    // ── evidence (EVA-S04) ──────────────────────────────────────────────
+    // The six segment-kind labels. The key suffix IS the contract enum value
+    // (src/types/evidence.d.ts) — the convention EVA-S01 fixed above, so a
+    // seventh kind cannot arrive under a name nobody mapped.
+    "kind.evidence": "Доказ",
+    "kind.patient_fact": "Дані пацієнта",
+    "kind.interpretation": "Тлумачення",
+    "kind.uncertainty": "Невизначеність",
+    "kind.missing_info": "Бракує даних",
+    "kind.next_step": "Наступний крок",
+
+    // Evidence tiers (rule SC2) and source authority (rule RR3), on the
+    // terminology EVA-S02 fixed in the header of this file.
+    "tier.guideline": "настанова",
+    "tier.systematic_review": "систематичний огляд",
+    "tier.rct": "РКД",
+    "tier.observational": "обсерваційне дослідження",
+    "tier.other": "інше",
+    "authority.tenant": "клініка",
+    "authority.national": "національний",
+    "authority.international": "міжнародний",
+    "authority.primary_literature": "первинна література",
+    "authority.other": "інше",
+    "trust.government": "державне джерело",
+    "trust.professional_society": "фахове товариство",
+    "trust.guideline_registry": "реєстр настанов",
+    "trust.journal": "журнал",
+    "trust.other": "інше",
+    "source_group.corpus": "База джерел",
+    "source_group.web": "Веб",
+    "source_group.drug": "Лікарські засоби",
+
+    "evidence.title": "Доказова база",
+    "evidence.subtitle": "Клінічне питання — відповідь із посиланнями на джерела.",
+
+    "ask.label": "Клінічне питання",
+    "ask.placeholder": "Наприклад: яка перша лінія терапії артеріальної гіпертензії?",
+    "ask.submit": "Запитати",
+    "ask.asking": "Шукаю…",
+    "ask.generic_mode": "Загальний режим",
+    "ask.generic_hint": "Без даних пацієнта — питання загальне.",
+    "ask.forbidden": "Ваша роль не має дозволу ставити запити до доказової бази.",
+    "ask.examples": "Приклади:",
+    "ask.suggestions": "Пропозиції:",
+    "ask.example_1": "Яка перша лінія терапії артеріальної гіпертензії?",
+    "ask.example_2": "Коли призначати статини для первинної профілактики?",
+    "ask.example_3": "Які протипоказання до метформіну?",
+
+    "answer.region": "Відповідь",
+    "answer.unverified": "Неперевірено: відповідь сформовано автоматично. Перевірте джерела перед клінічним рішенням.",
+    "answer.sources": "Джерела",
+    "answer.no_sources": "Жодного джерела не наведено.",
+    "answer.detail": "Докладно",
+    "answer.strength": "Сила доказу",
+    "answer.web_accessed_at": "переглянуто",
+    "answer.open_source": "Відкрити",
+    "answer.cached_copy": "збережена копія",
+    "answer.cached_copy_soon": "Збережені копії веб-джерел з’являться пізніше.",
+    "answer.checking_web": "перевіряю актуальні веб-джерела…",
+    "answer.web_unavailable": "лише база джерел — веб недоступний",
+    "answer.citation_label": "Джерело {n}: {title}",
+    "answer.citation_pending": "Джерело ще завантажується",
+    "answer.copy": "Копіювати як текст",
+    "answer.copied": "Скопійовано",
+    "answer.connection_lost": "З’єднання втрачено",
+    "answer.resume": "Відновити",
+    "answer.resume_hint": "Відповідь збережено — її можна дочитати без повторного запиту.",
+    "answer.resume_unavailable": "Відповідь не встигла зберегтися. Запитайте ще раз.",
+    "answer.ask_again": "Запитати ще раз",
+    "answer.resuming": "Відновлення відповіді…",
+    "answer.overloaded": "Сервіс перевантажений",
+    "answer.overloaded_body": "Забагато запитів одночасно. Спробуйте за мить.",
+    "answer.retry": "Повторити",
+    "answer.retry_in": "Повторити через {n} с",
+    "answer.failed": "Не вдалося отримати відповідь.",
+    "answer.insufficient_title": "Недостатньо підстав",
+    "answer.insufficient_body": "У базі джерел немає матеріалу, щоб відповісти на це питання.",
+    "answer_status.ok": "готово",
+    "answer_status.insufficient_basis": "недостатньо підстав",
+    "answer_status.deflected": "відхилено",
+
+    "deflect.title": "Це питання краще не вирішувати тут",
+    "deflect.body": "Питання виходить за межі загальних доказових довідок. Скористайтеся клінічним протоколом або зверніться до колеги.",
+    "deflect.note": "Це не помилка сервісу — запит опрацьовано і свідомо відхилено.",
+
+    "mode.quick": "швидкий",
+    "history.title": "Історія запитів",
+    "history.subtitle": "Ваші питання та відповіді, новіші згори.",
+    "history.empty": "Запитів ще не було",
+    "history.empty_body": "Поставте перше клінічне питання — воно з’явиться тут.",
+    "history.try_example": "Спробувати приклад",
+    "history.page": "Сторінка {n}",
+    "common.prev": "Назад",
+    "common.next": "Далі",
+    "common.close": "Закрити",
   },
 
   en: {
@@ -395,6 +538,97 @@ export const STRINGS = {
     "common.draft": "Draft",
     "common.now": "now",
     "common.minute": "min",
+
+    // ── evidence (EVA-S04) ──────────────────────────────────────────────
+    "kind.evidence": "Evidence",
+    "kind.patient_fact": "Patient fact",
+    "kind.interpretation": "Interpretation",
+    "kind.uncertainty": "Uncertainty",
+    "kind.missing_info": "Missing info",
+    "kind.next_step": "Next step",
+
+    "tier.guideline": "guideline",
+    "tier.systematic_review": "systematic review",
+    "tier.rct": "RCT",
+    "tier.observational": "observational",
+    "tier.other": "other",
+    "authority.tenant": "clinic",
+    "authority.national": "national",
+    "authority.international": "international",
+    "authority.primary_literature": "primary literature",
+    "authority.other": "other",
+    "trust.government": "government",
+    "trust.professional_society": "professional society",
+    "trust.guideline_registry": "guideline registry",
+    "trust.journal": "journal",
+    "trust.other": "other",
+    "source_group.corpus": "Corpus",
+    "source_group.web": "Web",
+    "source_group.drug": "Drug reference",
+
+    "evidence.title": "Evidence",
+    "evidence.subtitle": "Ask a clinical question — get an answer with its sources.",
+
+    "ask.label": "Clinical question",
+    "ask.placeholder": "e.g. what is first-line therapy for arterial hypertension?",
+    "ask.submit": "Ask",
+    "ask.asking": "Searching…",
+    "ask.generic_mode": "Generic mode",
+    "ask.generic_hint": "No patient data — this question is general.",
+    "ask.forbidden": "Your role is not permitted to ask evidence questions.",
+    "ask.examples": "Examples:",
+    "ask.suggestions": "Suggestions:",
+    "ask.example_1": "What is first-line therapy for arterial hypertension?",
+    "ask.example_2": "When are statins indicated for primary prevention?",
+    "ask.example_3": "What are the contraindications to metformin?",
+
+    "answer.region": "Answer",
+    "answer.unverified": "Unverified: this answer was generated automatically. Check the sources before acting on it.",
+    "answer.sources": "Sources",
+    "answer.no_sources": "No sources were cited.",
+    "answer.detail": "Detail",
+    "answer.strength": "Evidence strength",
+    "answer.web_accessed_at": "accessed",
+    "answer.open_source": "Open",
+    "answer.cached_copy": "cached copy",
+    "answer.cached_copy_soon": "Cached copies of web sources arrive in a later release.",
+    "answer.checking_web": "checking current web sources…",
+    "answer.web_unavailable": "corpus only — web unavailable",
+    "answer.citation_label": "Source {n}: {title}",
+    "answer.citation_pending": "Source still loading",
+    "answer.copy": "Copy as text",
+    "answer.copied": "Copied",
+    "answer.connection_lost": "Connection lost",
+    "answer.resume": "Resume",
+    "answer.resume_hint": "The answer was saved — it can be re-read without asking again.",
+    "answer.resume_unavailable": "The answer was not saved in time. Please ask again.",
+    "answer.ask_again": "Ask again",
+    "answer.resuming": "Resuming the answer…",
+    "answer.overloaded": "The service is busy",
+    "answer.overloaded_body": "Too many questions at once. Try again in a moment.",
+    "answer.retry": "Retry",
+    "answer.retry_in": "Retry in {n}s",
+    "answer.failed": "The answer could not be produced.",
+    "answer.insufficient_title": "Insufficient basis",
+    "answer.insufficient_body": "The corpus holds nothing that answers this question.",
+    "answer_status.ok": "answered",
+    "answer_status.insufficient_basis": "insufficient basis",
+    "answer_status.deflected": "declined",
+
+    "deflect.title": "This is not a question to settle here",
+    "deflect.body": "This falls outside general evidence lookups. Use your clinical protocol or speak to a colleague.",
+    "deflect.note": "This is not a service failure — the question was processed and deliberately declined.",
+
+    "mode.quick": "quick",
+    "history.title": "Question history",
+    "history.subtitle": "Your questions and answers, newest first.",
+    "history.empty": "No questions yet",
+    "history.empty_body": "Ask your first clinical question — it will appear here.",
+    "history.try_example": "Try an example",
+    "history.page": "Page {n}",
+    "common.prev": "Back",
+    "common.next": "Next",
+    "common.close": "Close",
   },
 
   pl: {

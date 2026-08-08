@@ -1,0 +1,945 @@
+/* evidence.css — the evidence module's styles (EVA-S03, extended by S04).
+ *
+ * Every rule is prefixed `evd-` and scoped to the module's own screens. No new
+ * design tokens: colours resolve through the platform's existing variables
+ * (--text-1, --text-3, --line, --accent, --ok, --info, --warn, --rec) so the
+ * module follows the theme without owning a copy of it. `evidence-quicksearch
+ * .spec.js` proves the containment by checking, from a non-evidence screen,
+ * that every selector in this file matches zero elements.
+ *
+ * TWO ERAS, TWO SETS OF CONSTRAINTS:
+ *   S03 (below)         the devtools. Desktop-first — developer screens on a
+ *                       developer's monitor — collapsing at 768px.
+ *   S04 (further down)  the clinician surface. Usable at 360px, WCAG AA on
+ *                       every string, and the six segment kinds carry an icon
+ *                       and a text label so colour is never the signal. */
+
+.evd-page {
+  max-width: 1400px;
+}
+
+.evd-head h1 {
+  font-size: 20px;
+  font-weight: 650;
+  margin: 0 0 4px;
+}
+.evd-sub,
+.evd-note {
+  color: var(--text-3);
+  font-size: 13px;
+  margin: 0 0 16px;
+  max-width: 70ch;
+}
+.evd-note {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+/* ── layout ─────────────────────────────────────────────────────────── */
+.evd-split {
+  display: grid;
+  grid-template-columns: minmax(320px, 380px) 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 768px) {
+  .evd-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.evd-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 12px;
+}
+@media (max-width: 768px) {
+  .evd-form {
+    position: static;
+  }
+}
+
+.evd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.evd-field-row {
+  flex-direction: row;
+  gap: 12px;
+}
+.evd-subfield {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.evd-subfield-k {
+  max-width: 90px;
+}
+.evd-query {
+  font-family: inherit;
+  resize: vertical;
+}
+.evd-hint {
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+.evd-fieldset {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+.evd-fieldset legend {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.evd-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.evd-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.evd-actions {
+  display: flex;
+  gap: 8px;
+}
+.evd-issues {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--warn, #b45309);
+  font-size: 12.5px;
+}
+
+/* ── results ────────────────────────────────────────────────────────── */
+.evd-results {
+  min-width: 0;
+}
+.evd-updating,
+.evd-stale-note {
+  color: var(--text-3);
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+.evd-stale {
+  opacity: 0.55;
+}
+
+.evd-connectors {
+  margin-bottom: 16px;
+}
+.evd-banner {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.evd-banner-warn {
+  background: var(--warn-soft, #fef3c7);
+  border: 1px solid var(--warn, #d97706);
+  color: var(--text-1);
+}
+
+.evd-chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 0;
+}
+.evd-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11.5px;
+  font-family: var(--mono, monospace);
+}
+.evd-chip-status {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+.evd-chip-ms,
+.evd-chip-num {
+  color: var(--muted);
+}
+.evd-connectors-sum {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+/* Tone is carried by a border and a label, never by colour alone. */
+.evd-tone-ok {
+  border-color: var(--ok, #059669);
+}
+.evd-tone-warn {
+  border-color: var(--warn, #d97706);
+}
+.evd-tone-bad {
+  border-color: var(--rec, #dc2626);
+}
+.evd-tone-info {
+  border-color: var(--line);
+}
+
+/* ── a result row ───────────────────────────────────────────────────── */
+.evd-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.evd-row {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.evd-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+.evd-rank {
+  font-weight: 650;
+  font-size: 13px;
+}
+.evd-score {
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  color: var(--muted);
+}
+.evd-scores-btn {
+  font-size: 11.5px;
+  padding: 2px 8px;
+}
+
+.evd-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 12%);
+  padding: 10px 12px;
+  min-width: 260px;
+}
+.evd-scores {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+.evd-scores th,
+.evd-scores td {
+  text-align: left;
+  padding: 2px 10px 2px 0;
+  font-weight: 400;
+}
+.evd-scores thead th {
+  color: var(--muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.evd-scores td {
+  font-family: var(--mono, monospace);
+}
+.evd-ids {
+  margin: 8px 0 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  font-size: 11px;
+}
+.evd-ids dt {
+  color: var(--muted);
+}
+.evd-ids dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.evd-badges {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.evd-badge {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 7px;
+  font-size: 11px;
+}
+.evd-muted {
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.evd-crumbs {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.evd-crumb-sep {
+  margin: 0 5px;
+}
+
+.evd-text {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.evd-text-table {
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre;
+}
+.evd-more {
+  font-size: 11.5px;
+  padding: 2px 8px;
+}
+.evd-row-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-family: var(--mono, monospace);
+}
+
+.evd-applied {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.evd-error {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.evd-error-note {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin: 0;
+  max-width: 70ch;
+}
+
+/* ── json ───────────────────────────────────────────────────────────── */
+.evd-json {
+  margin-top: 12px;
+}
+.evd-json-head {
+  display: flex;
+  gap: 4px;
+}
+.evd-pre {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2, #f8fafc);
+  font-family: var(--mono, monospace);
+  font-size: 11.5px;
+  line-height: 1.5;
+  max-height: 420px;
+  overflow: auto;
+}
+
+/* ── devtools index ─────────────────────────────────────────────────── */
+.evd-tools {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 70ch;
+}
+.evd-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.evd-tool:hover {
+  border-color: var(--accent, #0a8a7a);
+}
+.evd-tool-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+.evd-tool-body {
+  color: var(--text-2, var(--muted));
+  font-size: 13px;
+}
+.evd-tool-meta {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-family: var(--mono, monospace);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EVA-S04 — the clinician surface (#/evidence)
+   ═══════════════════════════════════════════════════════════════════════
+   Still no new design tokens. The six segment kinds resolve their colour
+   through --accent / --ok / --info / --warn (see segmentKinds.js for which
+   and why), and every one of them also carries an icon and a text label, so
+   the palette is reinforcement and never the signal.
+
+   Ask column caps at 760px: a clinical answer is prose, and prose past ~90
+   characters a line is measurably harder to read — the constraint is the
+   text's, not the viewport's. */
+
+.evd-ask-page {
+  max-width: 760px;
+}
+
+/* ── the ask box ─────────────────────────────────────────────────────── */
+.evd-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.evd-ask-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.evd-ask-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 14.5px;
+  line-height: 1.5;
+  resize: none;          /* the height is computed from the content */
+  overflow-y: auto;
+}
+.evd-ask-submit {
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.evd-ask-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 2px 0 0;
+}
+.evd-mode-badge {
+  border-color: var(--accent);
+  color: var(--accent-text, var(--accent));
+}
+
+.evd-examples,
+.evd-suggestions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.evd-example,
+.evd-suggestion {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-2, inherit);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 3px 11px;
+  cursor: pointer;
+  text-align: left;
+}
+.evd-example:hover:not(:disabled),
+.evd-suggestion:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+.evd-suggestion-list {
+  margin: 0;
+}
+
+/* ── the answer ──────────────────────────────────────────────────────── */
+.evd-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.evd-question {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--line);
+  color: var(--text-1);
+}
+
+/* AC-S04-F-2: unconditional, undismissable, and styled to be read rather
+   than skipped — but not as an alarm, because it is true of every answer. */
+.evd-unverified {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 7px 11px;
+  border: 1px solid var(--warn);
+  background: var(--warn-soft);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--text-1);
+}
+
+.evd-answer-body {
+  min-height: 24px;
+}
+
+/* ── segments: the FE7 kind styling, and the only place it is defined ── */
+.evd-segments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* TWO variables per kind, not one, and the reason is a contrast failure the
+   axe pass caught: `--accent` (#0a8a7a) reads at 3.97:1 on `--bg`, which is
+   fine for a 3px rule and NOT fine for a 10.5px label — WCAG AA wants 4.5:1.
+   So the rule keeps the vivid token and the text gets the readable sibling.
+   Every `--evd-kind-ink` value clears 4.5:1 in both themes; that is the
+   constraint any future kind has to meet too. */
+.evd-kind {
+  --evd-kind-color: var(--text-3);
+  --evd-kind-ink: var(--text-3);
+  padding-left: 11px;
+  border-left: 3px solid var(--evd-kind-color);
+}
+.evd-kind-evidence       { --evd-kind-color: var(--accent); --evd-kind-ink: var(--accent-text); }
+.evd-kind-patient_fact   { --evd-kind-color: var(--ok);     --evd-kind-ink: var(--ok); }
+.evd-kind-interpretation { --evd-kind-color: var(--info);   --evd-kind-ink: var(--info); }
+.evd-kind-uncertainty    { --evd-kind-color: var(--warn);   --evd-kind-ink: var(--warn); }
+.evd-kind-missing_info   { --evd-kind-color: var(--warn);   --evd-kind-ink: var(--warn); }
+.evd-kind-next_step      { --evd-kind-color: var(--accent); --evd-kind-ink: var(--accent-text); }
+/* A kind from a contract this build predates: neutral, labelled, legible. */
+.evd-kind-unknown        { --evd-kind-color: var(--text-3);  --evd-kind-ink: var(--text-3); border-left-style: dashed; }
+
+.evd-kind-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--evd-kind-ink);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.evd-kind-name {
+  color: inherit;
+}
+.evd-seg-text {
+  margin: 3px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-1);
+}
+
+/* ── citations ───────────────────────────────────────────────────────── */
+.evd-cites {
+  white-space: nowrap;
+}
+.evd-cite {
+  border: none;
+  background: none;
+  padding: 0 1px;
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  /* --accent-text, not --accent: a superscript "[2]" is 12px, which puts it
+     under WCAG AA's 4.5:1 in the vivid accent (3.97:1). A citation marker is
+     the smallest interactive target on the screen and the one a reader most
+     needs to be able to find. */
+  color: var(--accent-text);
+  cursor: pointer;
+  vertical-align: super;
+  line-height: 1;
+}
+.evd-cite:hover { text-decoration: underline; }
+.evd-cite-pending {
+  color: var(--text-3);
+  cursor: default;
+}
+
+.evd-detail {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  margin-top: 12px;
+}
+.evd-detail-toggle {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-bottom: 10px;
+}
+
+/* ── the sources strip ───────────────────────────────────────────────── */
+.evd-sources-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.evd-sources-label {
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin-right: 2px;
+}
+.evd-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.evd-source-chip:hover { border-color: var(--accent); }
+.evd-source-chip-title {
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.evd-source-chip[data-kind="web"] { border-style: dashed; }
+
+.evd-late-chip,
+.evd-notice-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* ── web source description ──────────────────────────────────────────── */
+.evd-web {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 11.5px;
+}
+.evd-web-domain { font-family: var(--mono, monospace); }
+.evd-web-accessed { color: var(--text-3); }
+/* With evidenceExternalLinks off this is the ONLY thing where a link would
+   be — a labelled, inert slot S08 fills with the snapshot. */
+.evd-web-cached {
+  color: var(--text-3);
+  border-bottom: 1px dotted var(--muted);
+  cursor: help;
+}
+
+/* ── streaming affordances ───────────────────────────────────────────── */
+.evd-shimmer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.evd-shimmer span {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--line-2) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: evd-shimmer 1.4s ease-in-out infinite;
+}
+.evd-shimmer span:nth-child(2) { width: 88%; }
+.evd-shimmer span:nth-child(3) { width: 62%; }
+@keyframes evd-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+/* Motion is decoration here; the shimmer's job is done by its presence. */
+@media (prefers-reduced-motion: reduce) {
+  .evd-shimmer span { animation: none; }
+}
+
+/* ── the terminal states ─────────────────────────────────────────────── */
+.evd-answer-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.evd-answer-error-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+/* A deflection is not an error and must not look like one: its own card, in
+   the informational tone, with no retry affordance anywhere near it. */
+.evd-deflect {
+  border: 1px solid var(--info);
+  background: var(--info-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.evd-deflect:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.evd-deflect-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 6px;
+  font-size: 14.5px;
+  font-weight: 650;
+}
+.evd-deflect-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.evd-deflect-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.evd-answer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── the sources drawer ──────────────────────────────────────────────── */
+.evd-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgb(11 18 32 / 28%);
+  z-index: 40;
+}
+.evd-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(440px, 100vw);
+  z-index: 41;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow-3);
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+.evd-drawer:focus { outline: none; }
+.evd-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.evd-drawer-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.evd-drawer-close {
+  padding: 4px 8px;
+}
+.evd-drawer-group + .evd-drawer-group {
+  margin-top: 18px;
+}
+.evd-drawer-group-title {
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+.evd-source-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.evd-source {
+  display: flex;
+  gap: 9px;
+}
+.evd-source:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.evd-source-n {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--text-3);
+  flex: 0 0 auto;
+}
+.evd-source-body { min-width: 0; }
+.evd-source-title {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.evd-source-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 5px 0 0;
+}
+
+/* The shared <Empty> body is `--muted`, which is 4.41:1 on --bg — just under
+   WCAG AA. Overridden inside this module rather than globally: --muted is a
+   platform-wide token and restyling every empty state in the app is not this
+   sprint's change to make (handoff.md records it). */
+.evd-page .empty p {
+  color: var(--text-3);
+}
+
+/* ── history ─────────────────────────────────────────────────────────── */
+.evd-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.evd-history-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--line);
+}
+.evd-history-open {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-1);
+  text-align: left;
+  cursor: pointer;
+}
+.evd-history-open:hover { color: var(--accent); }
+.evd-history-dead {
+  color: var(--text-3);
+  cursor: default;
+}
+.evd-history-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── responsive: usable at 360px ─────────────────────────────────────── */
+@media (max-width: 900px) {
+  /* The drawer becomes a bottom sheet — same markup, same focus trap, the
+     geometry a thumb can reach. */
+  .evd-drawer {
+    top: auto;
+    left: 0;
+    width: 100%;
+    max-height: 78vh;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    border-radius: 14px 14px 0 0;
+  }
+  /* The ask box follows the reader down: on a phone the answer is longer than
+     the viewport, and scrolling back up to ask the next question is the whole
+     interaction. */
+  .evd-ask {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    padding-top: 6px;
+  }
+}
+@media (max-width: 420px) {
+  .evd-ask-row { flex-direction: column; }
+  .evd-ask-submit { align-self: stretch; justify-content: center; }
+  .evd-source-chip-title { max-width: 20ch; }
+}

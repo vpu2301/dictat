@@ -21,9 +21,9 @@ import { useAsync } from "../api/useAsync.js";
 import { usePermission } from "../auth/permissions.js";
 import { getStarredIds, toggleStar } from "../api/templatePrefs.js";
 import {
-  listTemplates, getTemplate, cloneTemplate, updateTemplate, deleteTemplate, getSectionPrompt,
-  validateDefinition, classifyEdit, isSlug, FIELD_TYPES, ASR_PROMPT_MAX, SYNTHESIS_PROMPT_MAX,
-  MAX_SECTIONS, specialtyIcon,
+  listTemplates, getTemplate, cloneTemplate, createTemplate, updateTemplate, deleteTemplate,
+  getSectionPrompt, validateDefinition, classifyEdit, isSlug, FIELD_TYPES, CHOICE_FIELD_TYPES,
+  ASR_PROMPT_MAX, SYNTHESIS_PROMPT_MAX, MAX_SECTIONS, MIN_OPTIONS, MAX_OPTIONS, specialtyIcon,
 } from "../api/templates.js";
 import { tr } from "../i18n.js";
 
@@ -57,6 +57,8 @@ const FIELD_TYPE_LABELS = {
   date:                 ["Дата",                "Date"],
   date_with_note:       ["Дата з приміткою",    "Date + note"],
   numeric_with_unit:    ["Число з одиницею",    "Numeric + unit"],
+  choice:               ["Один варіант",        "Single choice"],
+  multi_choice:         ["Кілька варіантів",    "Multiple choice"],
 };
 
 // ── Error → message mapping (§6) ─────────────────────────────────────────────
@@ -143,12 +145,12 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
     setStars(getStarredIds());
   }, []);
 
-  const [viewMode, setViewMode]     = useState("grid"); // "grid" | "list"
   const [page, setPage]             = useState(1);
   const [pageSize, setPageSize]     = useState(TEMPLATE_PAGE_SIZE_OPTIONS[0]);
 
   const [openId, setOpenId]   = useState(null);   // detail modal target
   const [cloneFor, setCloneFor] = useState(null); // summary being cloned
+  const [creating, setCreating] = useState(false);// blank-template form
   const [toast, setToast]     = useState(null);
 
   const req = useAsync(
@@ -215,6 +217,14 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
     } else {
       fireToast(T(lang, "Без змін", "No changes"));
     }
+  }, [req, lang, fireToast]);
+
+  // After a create: reload + open the fresh template's detail.
+  const onCreated = useCallback((res) => {
+    setCreating(false);
+    req.reload();
+    if (res?.id) setOpenId(res.id);
+    fireToast(T(lang, "Шаблон створено", "Template created"));
   }, [req, lang, fireToast]);
 
   const onDeprecated = useCallback(() => {
@@ -303,26 +313,11 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
         </button>
 
         <div style={{ flex: 1 }} />
-        <div className="seg" role="group" aria-label={T(lang, "Вигляд", "View")}>
-          <button
-            type="button"
-            className={"seg-btn" + (viewMode === "grid" ? " on" : "")}
-            onClick={() => setViewMode("grid")}
-            aria-pressed={viewMode === "grid"}
-            title={T(lang, "Сітка", "Grid")}
-          >
-            <Icon name="grid" size={14} />
+        {canWrite && (
+          <button type="button" className="btn accent" onClick={() => setCreating(true)}>
+            <Icon name="plus" size={13} /> {T(lang, "Новий шаблон", "New template")}
           </button>
-          <button
-            type="button"
-            className={"seg-btn" + (viewMode === "list" ? " on" : "")}
-            onClick={() => setViewMode("list")}
-            aria-pressed={viewMode === "list"}
-            title={T(lang, "Список", "List")}
-          >
-            <Icon name="list" size={14} />
-          </button>
-        </div>
+        )}
       </div>
 
       {/* Body states */}
@@ -335,20 +330,16 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
           icon="layers"
           title={T(lang, "Шаблонів не знайдено", "No templates found")}
           body={T(lang, "Спробуйте змінити фільтри.", "Try adjusting the filters.")}
+          action={canWrite ? (
+            <button type="button" className="btn accent" onClick={() => setCreating(true)}>
+              <Icon name="plus" size={13} /> {T(lang, "Новий шаблон", "New template")}
+            </button>
+          ) : null}
         />
       ) : (
         <>
-          {viewMode === "grid" ? (
-            <div className="tpl-grid">
-              {pageItems.map((tpl) => (
-                <TemplateCard key={tpl.id} tpl={tpl} lang={lang} onOpen={() => setOpenId(tpl.id)}
-                  starred={stars.has(tpl.id)} onToggleStar={onToggleStar} />
-              ))}
-            </div>
-          ) : (
-            <TemplateTable items={pageItems} lang={lang} onOpen={setOpenId}
-              stars={stars} onToggleStar={onToggleStar} />
-          )}
+          <TemplateTable items={pageItems} lang={lang} onOpen={setOpenId}
+            stars={stars} onToggleStar={onToggleStar} />
           <Pagination
             page={safePage}
             pageCount={pageCount}
@@ -377,6 +368,15 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
         />
       )}
 
+      {/* Create-from-scratch form */}
+      {creating && (
+        <TemplateFormModal
+          lang={lang}
+          onClose={() => setCreating(false)}
+          onSaved={onCreated}
+        />
+      )}
+
       {/* Clone modal (can be triggered from detail) */}
       {cloneFor && (
         <CloneModal
@@ -388,36 +388,6 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
       )}
 
       {toast && <div className="tpl-toast" role="status">{toast}</div>}
-    </div>
-  );
-}
-
-// ── Card ─────────────────────────────────────────────────────────────────────
-function TemplateCard({ tpl, lang, onOpen, starred, onToggleStar }) {
-  const specLabel = SPECIALTIES.find((s) => s[0] === tpl.specialty);
-  return (
-    <div className="tpl-card-wrap" style={{ opacity: tpl.status === "deprecated" ? 0.6 : 1 }}>
-      <button className="tpl-card as-button" onClick={onOpen}>
-        <div className="tpl-card-top">
-          <div className="tpl-card-icon"><Icon name={specialtyIcon(tpl.specialty)} size={18} /></div>
-          <div className="tpl-card-meta">
-            <div className="tpl-card-name">{tpl.name}</div>
-            <div className="tpl-card-sub">
-              <span className="chip" style={{ fontSize: 11 }}>{tpl.code}</span>
-              <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                {specLabel ? T(lang, specLabel[1], specLabel[2]) : tpl.specialty}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="tpl-card-badges">
-          <OriginBadge tpl={tpl} lang={lang} />
-          <span className="tpl-badge lang">{(tpl.language || "").toUpperCase()}</span>
-          <span className="tpl-badge version">v{tpl.schema_version}</span>
-          <StatusBadge status={tpl.status} lang={lang} />
-        </div>
-      </button>
-      <StarButton starred={starred} lang={lang} onToggle={() => onToggleStar(tpl.id)} />
     </div>
   );
 }
@@ -506,7 +476,7 @@ function TemplateDetailModal({ id, lang, canWrite, onClose, onClone, onEdited, o
   // Hand off to the full editor once we have the detail in hand.
   if (editing && tpl) {
     return (
-      <EditTemplateModal
+      <TemplateFormModal
         detail={tpl}
         lang={lang}
         onClose={() => setEditing(false)}
@@ -627,6 +597,13 @@ function SectionRow({ s, idx, lang, templateId }) {
         {s.voice_aliases?.length > 0 && (
           <div className="tpl-aliases">
             {s.voice_aliases.map((a) => <span key={a} className="tpl-alias">«{a}»</span>)}
+          </div>
+        )}
+        {s.options?.length > 0 && (
+          <div className="tpl-aliases">
+            {s.options.map((o) => (
+              <span key={o.value} className="chip" style={{ fontSize: 11 }}>{o.label || o.value}</span>
+            ))}
           </div>
         )}
         {s.asr_prompt && (
@@ -756,12 +733,14 @@ function DeprecateConfirm({ tpl, lang, onClose, onDone }) {
   );
 }
 
-// ── Full editor (§2.4 + §3) ──────────────────────────────────────────────────
+// ── Full form: create from scratch + edit (§2.4 + §3) ────────────────────────
 const blankSection = () => ({
   _origId: null, id: "", name: "", field_type: "free_text", required: false,
   min_chars: 0, asr_prompt: "", synthesis_prompt: "", default_content: "",
-  voice_aliases: "",
+  voice_aliases: "", options: [],
 });
+
+const blankOption = () => ({ value: "", label: "", voice_aliases: "" });
 
 function fromSection(s) {
   return {
@@ -775,33 +754,82 @@ function fromSection(s) {
     synthesis_prompt: s.synthesis_prompt || "",
     default_content: s.default_content || "",
     voice_aliases: (s.voice_aliases || []).join(", "),
+    options: (s.options || []).map((o) => ({
+      value: o.value || "",
+      label: o.label || "",
+      voice_aliases: (o.voice_aliases || []).join(", "),
+    })),
   };
 }
 
 const parseAliases = (raw) =>
   String(raw || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
 
-function EditTemplateModal({ detail, lang, onClose, onSaved }) {
-  const originalDef = detail.schema_jsonb || {};
-  const [code, setCode]           = useState(originalDef.code || detail.code || "");
-  const [name, setName]           = useState(originalDef.name || detail.name || "");
-  const [language, setLanguage]   = useState(originalDef.language || detail.language || "uk");
-  const [specialty, setSpecialty] = useState(originalDef.specialty || detail.specialty || "");
+// Draft → wire options. Only meaningful for choice/multi_choice sections.
+// `baseOptions` are the originals we were served: round-trip them by value so
+// fields the backend added (and we don't edit) survive the PUT.
+const buildOptions = (s, baseOptions = []) => {
+  const byValue = new Map(baseOptions.map((o) => [o.value, o]));
+  return (s.options || []).map((o) => {
+    const value = o.value.trim();
+    const out = { ...(byValue.get(value) || {}), value, label: o.label.trim() };
+    const aliases = parseAliases(o.voice_aliases);
+    if (aliases.length) out.voice_aliases = aliases;
+    else delete out.voice_aliases;
+    return out;
+  });
+};
+
+// `detail` present → edit that tenant template (PUT). Absent → create a blank
+// one (POST). The two differ only in the seed state, the save call and the
+// structural-change gate (a brand-new template has no old version to warn about).
+function TemplateFormModal({ detail = null, lang, onClose, onSaved }) {
+  const creating = !detail;
+  const originalDef = detail?.schema_jsonb || {};
+  const [code, setCode]           = useState(originalDef.code || detail?.code || "");
+  const [name, setName]           = useState(originalDef.name || detail?.name || "");
+  const [language, setLanguage]   = useState(originalDef.language || detail?.language || "uk");
+  const [specialty, setSpecialty] = useState(originalDef.specialty || detail?.specialty || "");
   const [meta, setMeta] = useState({
     moh_order_ref: originalDef.metadata?.moh_order_ref || "",
     billing_code:  originalDef.metadata?.billing_code || "",
     fhir_template: originalDef.metadata?.fhir_template || "",
   });
-  const [sections, setSections] = useState(
-    () => (originalDef.sections || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(fromSection),
-  );
+  const [sections, setSections] = useState(() => {
+    const seeded = (originalDef.sections || [])
+      .slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(fromSection);
+    return seeded.length ? seeded : [blankSection()];
+  });
 
   const [confirmStructural, setConfirmStructural] = useState(null); // built def awaiting confirm
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
+  // Switching a section to/from choice/multi_choice moves the options with it:
+  // the choice types need 2..50, every other type must carry none (§3).
   const setSection = (i, key, val) =>
-    setSections((prev) => prev.map((s, idx) => (idx === i ? { ...s, [key]: val } : s)));
+    setSections((prev) => prev.map((s, idx) => {
+      if (idx !== i) return s;
+      const next = { ...s, [key]: val };
+      if (key === "field_type") {
+        if (CHOICE_FIELD_TYPES.includes(val)) {
+          if (!next.options.length) next.options = [blankOption(), blankOption()];
+        } else {
+          next.options = [];
+        }
+      }
+      return next;
+    }));
+  const setOption = (i, oi, key, val) =>
+    setSections((prev) => prev.map((s, idx) => (idx === i
+      ? { ...s, options: s.options.map((o, oidx) => (oidx === oi ? { ...o, [key]: val } : o)) }
+      : s)));
+  const addOption = (i) =>
+    setSections((prev) => prev.map((s, idx) => (idx === i
+      ? { ...s, options: [...s.options, blankOption()] } : s)));
+  const removeOption = (i, oi) =>
+    setSections((prev) => prev.map((s, idx) => (idx === i
+      ? { ...s, options: s.options.filter((_, oidx) => oidx !== oi) } : s)));
   const addSection = () => setSections((prev) => [...prev, blankSection()]);
   const removeSection = (i) => setSections((prev) => prev.filter((_, idx) => idx !== i));
   const move = (i, dir) => setSections((prev) => {
@@ -833,6 +861,8 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
       else delete out.synthesis_prompt;
       if (s.default_content.trim()) out.default_content = s.default_content.trim();
       else delete out.default_content;
+      if (CHOICE_FIELD_TYPES.includes(s.field_type)) out.options = buildOptions(s, base.options || []);
+      else delete out.options;
       return out;
     });
     const def = {
@@ -861,6 +891,7 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
         id: s.id.trim(), name: s.name, field_type: s.field_type,
         asr_prompt: s.asr_prompt, synthesis_prompt: s.synthesis_prompt,
         voice_aliases: parseAliases(s.voice_aliases),
+        options: CHOICE_FIELD_TYPES.includes(s.field_type) ? buildOptions(s) : [],
       })),
     };
     return validateDefinition(projected, lang);
@@ -869,7 +900,7 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
   const doSave = async (def) => {
     setBusy(true); setError(null);
     try {
-      const res = await updateTemplate(detail.id, def);
+      const res = creating ? await createTemplate(def) : await updateTemplate(detail.id, def);
       onSaved(res);
     } catch (e) {
       setError(e);
@@ -878,9 +909,18 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
     }
   };
 
+  // The definition-level validator doesn't cover `name` (the backend does);
+  // block the obvious empty-name save here so it never round-trips.
+  const nameMissing = !name.trim();
+  const canSave = validation.ok && !nameMissing && !busy;
+
   const onSaveClick = () => {
-    if (!validation.ok) return;
+    if (!canSave) return;
     const def = buildDefinition();
+    if (creating) {          // nothing to version against yet
+      doSave(def);
+      return;
+    }
     const kind = classifyEdit(originalDef, def);
     if (kind === "structural") {
       setConfirmStructural(def);   // gate behind the new-version warning
@@ -894,8 +934,14 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
       <div className="tpl-modal" onClick={(e) => e.stopPropagation()}>
         <div className="tpl-modal-head">
           <div>
-            <h2>{T(lang, "Редагувати шаблон", "Edit template")}</h2>
-            <p>{T(lang, "Зміни структури створюють нову версію", "Structural changes create a new version")}</p>
+            <h2>{creating
+              ? T(lang, "Новий шаблон", "New template")
+              : T(lang, "Редагувати шаблон", "Edit template")}</h2>
+            <p>{creating
+              ? T(lang, "Створюється у вашій клініці зі статусом «чернетка»",
+                        "Created in your tenant with status “draft”")
+              : T(lang, "Зміни структури створюють нову версію",
+                        "Structural changes create a new version")}</p>
           </div>
           <button className="icon-btn" onClick={onClose}><Icon name="x" size={16} /></button>
         </div>
@@ -904,11 +950,14 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
           <div className="tpl-build-row two">
             <label className="tpl-field">
               <span>{T(lang, "Назва", "Name")}</span>
-              <input className="ti" value={name} onChange={(e) => setName(e.target.value)} />
+              <input className="ti" value={name} onChange={(e) => setName(e.target.value)}
+                placeholder={T(lang, "Напр. Кардіологічний огляд", "e.g. Cardiology consult")} />
+              {nameMissing && <span className="tpl-inline-err">{T(lang, "Назва обов'язкова", "Name is required")}</span>}
             </label>
             <label className="tpl-field">
               <span>{T(lang, "Код", "Code")}</span>
-              <input className="ti mono" value={code} onChange={(e) => setCode(e.target.value)} />
+              <input className="ti mono" value={code} onChange={(e) => setCode(e.target.value)}
+                placeholder="cardiology_consult" />
               {validation.errors.code && <span className="tpl-inline-err">{validation.errors.code}</span>}
             </label>
           </div>
@@ -922,7 +971,13 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
             </label>
             <label className="tpl-field">
               <span>{T(lang, "Спеціальність", "Specialty")}</span>
-              <input className="ti mono" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+              <input className="ti mono" value={specialty} list="tpl-specialties"
+                onChange={(e) => setSpecialty(e.target.value)} placeholder="family_medicine" />
+              <datalist id="tpl-specialties">
+                {SPECIALTIES.map(([v, uk, en]) => (
+                  <option key={v} value={v}>{T(lang, uk, en)}</option>
+                ))}
+              </datalist>
             </label>
           </div>
 
@@ -944,6 +999,9 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
                 key={i} s={s} idx={i} lang={lang} errors={validation.errors}
                 count={sections.length}
                 onChange={(k, v) => setSection(i, k, v)}
+                onOptionChange={(oi, k, v) => setOption(i, oi, k, v)}
+                onAddOption={() => addOption(i)}
+                onRemoveOption={(oi) => removeOption(i, oi)}
                 onRemove={() => removeSection(i)}
                 onUp={() => move(i, -1)} onDown={() => move(i, 1)}
               />
@@ -970,8 +1028,11 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
         <div className="tpl-modal-foot">
           <button className="btn" onClick={onClose} disabled={busy}>{T(lang, "Скасувати", "Cancel")}</button>
           <div style={{ flex: 1 }} />
-          <button className="btn accent" onClick={onSaveClick} disabled={!validation.ok || busy}>
-            <Icon name="save" size={13} /> {busy ? T(lang, "Збереження…", "Saving…") : T(lang, "Зберегти", "Save")}
+          <button className="btn accent" onClick={onSaveClick} disabled={!canSave}>
+            <Icon name="save" size={13} />
+            {busy
+              ? T(lang, "Збереження…", "Saving…")
+              : creating ? T(lang, "Створити шаблон", "Create template") : T(lang, "Зберегти", "Save")}
           </button>
         </div>
 
@@ -1001,10 +1062,14 @@ function EditTemplateModal({ detail, lang, onClose, onSaved }) {
   );
 }
 
-function SectionEditor({ s, idx, lang, errors, count, onChange, onRemove, onUp, onDown }) {
+function SectionEditor({
+  s, idx, lang, errors, count, onChange,
+  onOptionChange, onAddOption, onRemoveOption, onRemove, onUp, onDown,
+}) {
   const e = (k) => errors[`sec.${idx}.${k}`];
   const asrLen = s.asr_prompt.length;
   const synLen = s.synthesis_prompt.length;
+  const hasOptions = CHOICE_FIELD_TYPES.includes(s.field_type);
   return (
     <div className="tpl-edit-section">
       <div className="tpl-edit-section-head">
@@ -1038,6 +1103,37 @@ function SectionEditor({ s, idx, lang, errors, count, onChange, onRemove, onUp, 
           </select>
         </label>
       </div>
+
+      {hasOptions && (
+        <div className="tpl-opt-block">
+          <div className="tpl-build-sections-head">
+            <span className="tpl-build-label" style={{ margin: 0 }}>
+              {T(lang, "Варіанти", "Options")}{" "}
+              <span className="psub">{s.options.length}/{MAX_OPTIONS}</span>
+            </span>
+            <button className="btn ghost sm" type="button" onClick={onAddOption}
+              disabled={s.options.length >= MAX_OPTIONS}>
+              <Icon name="plus" size={12} /> {T(lang, "Додати варіант", "Add option")}
+            </button>
+          </div>
+          {s.options.map((o, oi) => (
+            <div key={oi} className="tpl-opt-row">
+              <input className="ti mono" value={o.value} placeholder={T(lang, "значення (slug)", "value (slug)")}
+                onChange={(ev) => onOptionChange(oi, "value", ev.target.value)} />
+              <input className="ti" value={o.label} placeholder={T(lang, "Підпис", "Label")}
+                onChange={(ev) => onOptionChange(oi, "label", ev.target.value)} />
+              <input className="ti" value={o.voice_aliases}
+                placeholder={T(lang, "голосові псевдоніми", "voice aliases")}
+                onChange={(ev) => onOptionChange(oi, "voice_aliases", ev.target.value)} />
+              <button className="iconbtn danger" type="button" onClick={() => onRemoveOption(oi)}
+                disabled={s.options.length <= MIN_OPTIONS} aria-label={T(lang, "Видалити варіант", "Remove option")}>
+                <Icon name="x" size={13} />
+              </button>
+            </div>
+          ))}
+          {e("options") && <span className="tpl-inline-err">{e("options")}</span>}
+        </div>
+      )}
 
       <div className="tpl-build-row two" style={{ alignItems: "center" }}>
         <label className="tpl-sec-req">

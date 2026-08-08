@@ -22,13 +22,26 @@
 //     detach — that is the hook the host's audit log wires into, and it should
 //     be wired before this ships to a real clinic (see src/chat/README.md).
 //
-// The answers are still fixtures. A real patient in the context panel does not
-// make a demo answer clinical advice, and the disclaimer stays on every screen.
+// ── The answers are real when a backend is configured ────────────────────
+// `backend` (below) points the module at an answer API — by default this
+// platform's own `evidence-answer` (:8013), under the session's own Keycloak
+// token. Given one, answers are model-generated from retrieved sources and the
+// disclaimer under every answer changes to say so; given none, the module stays
+// on its fixtures and the disclaimer says that instead. Which backend, and why
+// there is more than one candidate, is src/api/evidenceChat.js `chatBackend()`.
+//
+// NOTE, while `evidence-answer` serves quick-search only: its request body has
+// no patient field, so an attached patient does NOT reach it. That is not
+// silent — the answer carries a line saying its data was not used (see
+// data/platformMapping.js NOTES). The de-identifying mapper that the other
+// backend needs is still the only door out for patient data:
+// src/chat/data/answerMapping.js toPatientContext.
 
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { ChatEmbed } from "../ChatEmbed.jsx";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import { listPatients, displayName } from "../../api/patients.js";
+import { chatBackend } from "../../api/evidenceChat.js";
 
 export const CHAT_BASE_PATH = "/chat";
 
@@ -86,11 +99,18 @@ export function ChatHostRoute({ route, navigate, lang = "en", theme = "light", o
     name: dbUser?.tenant_name || claims?.tenant_name || (lang === "uk" ? "Ваша клініка" : "Your clinic"),
   };
 
+  // The answer backend, when this environment has one configured AND can
+  // authenticate against it (src/api/evidenceChat.js). Null everywhere else,
+  // and null is not a failure state: the module answers from its fixtures and
+  // says so in the disclaimer under every answer.
+  const backend = useMemo(() => chatBackend(), []);
+
   return (
     <div className="page">
       <ChatEmbed
         user={user}
         workspace={workspace}
+        backend={backend}
         allowPatientImport
         basePath={CHAT_BASE_PATH}
         path={route}

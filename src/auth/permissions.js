@@ -15,6 +15,9 @@ import { useAuth } from "./AuthContext.jsx";
 export {
   ADMIN_ROLES,
   CLINICAL_ROLES,
+  EVIDENCE_ACTIONS,
+  KNOWLEDGE_ROLES,
+  MATRIX,
   PATIENT_ROLES,
   canReadPatients,
   hasAnyRole,
@@ -22,6 +25,7 @@ export {
   isAdminOnly,
   isAllowed,
   isAuditorOnly,
+  isKnowledgeAdminOnly,
 } from "./roles.js";
 
 import { isAllowed } from "./roles.js";

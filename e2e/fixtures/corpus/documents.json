@@ -1,0 +1,266 @@
+{
+  "documents": [
+    {
+      "id": "d0000000-0000-4000-8000-000000000001",
+      "canonical_id": "doi:10.1234/who.2024.001",
+      "title": "WHO Guideline on Diabetes Care",
+      "source_authority": "international",
+      "evidence_tier": "guideline",
+      "jurisdiction": null,
+      "specialty": ["endocrinology"],
+      "published_at": "2024-03-15",
+      "valid_until": null,
+      "license_class": "licensed_internal",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000002",
+      "canonical_id": "doi:10.7777/nice.ng28",
+      "title": "Type 2 diabetes in adults: management",
+      "source_authority": "international",
+      "evidence_tier": "guideline",
+      "jurisdiction": "GB",
+      "specialty": ["endocrinology"],
+      "published_at": "2024-06-19",
+      "valid_until": null,
+      "license_class": "restricted",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000003",
+      "canonical_id": "doi:10.3333/moz.2022.15",
+      "title": "Протокол лікування артеріальної гіпертензії",
+      "source_authority": "national",
+      "evidence_tier": "guideline",
+      "jurisdiction": "UA",
+      "specialty": ["cardiology"],
+      "published_at": "2022-05-12",
+      "valid_until": null,
+      "license_class": "public_domain",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000004",
+      "canonical_id": "moz:1234",
+      "title": "Клінічна настанова з ведення пацієнтів",
+      "source_authority": "national",
+      "evidence_tier": "guideline",
+      "jurisdiction": "UA",
+      "specialty": ["cardiology", "general_practice"],
+      "published_at": "2023-11-02",
+      "valid_until": null,
+      "license_class": "public_domain",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000005",
+      "canonical_id": "doi:10.5555/pmc.2023.42",
+      "title": "Hypertension management in primary care",
+      "source_authority": "primary_literature",
+      "evidence_tier": "systematic_review",
+      "jurisdiction": null,
+      "specialty": ["cardiology"],
+      "published_at": "2023-07-04",
+      "valid_until": null,
+      "license_class": "licensed_redistributable",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000006",
+      "canonical_id": "pmid:36000002",
+      "title": "Statin therapy for primary prevention",
+      "source_authority": "primary_literature",
+      "evidence_tier": "observational",
+      "jurisdiction": null,
+      "specialty": ["cardiology"],
+      "published_at": "2022-09-01",
+      "valid_until": null,
+      "license_class": "licensed_redistributable",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000007",
+      "canonical_id": "sha256:f31733ed1dd9e8ccd4b66a5b7b5ea1368207b4d371130d76f594a3b2841f86df",
+      "title": "Klinichnyi protokol nadannia medychnoi dopomohy",
+      "source_authority": "national",
+      "evidence_tier": "guideline",
+      "jurisdiction": "UA",
+      "specialty": ["cardiology"],
+      "published_at": "2023-01-21",
+      "valid_until": null,
+      "license_class": "public_domain",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000008",
+      "canonical_id": "doi:10.9999/jcem.2021.0407",
+      "title": "Intensive glycaemic control in frail older adults: a randomised trial",
+      "source_authority": "primary_literature",
+      "evidence_tier": "rct",
+      "jurisdiction": null,
+      "specialty": ["endocrinology", "geriatrics"],
+      "published_at": "2021-04-12",
+      "valid_until": null,
+      "license_class": "licensed_redistributable",
+      "retracted": true
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000009",
+      "canonical_id": "tenant:kn-2025-014",
+      "title": "Внутрішній протокол клініки: ведення пацієнтів із ЦД 2 типу",
+      "source_authority": "tenant",
+      "evidence_tier": "other",
+      "jurisdiction": "UA",
+      "specialty": ["endocrinology"],
+      "published_at": "2025-09-30",
+      "valid_until": null,
+      "license_class": "licensed_internal",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000010",
+      "canonical_id": "doi:10.1002/14651858.CD012345",
+      "title": "Metformin dosing in chronic kidney disease stage 3: a systematic review",
+      "source_authority": "primary_literature",
+      "evidence_tier": "systematic_review",
+      "jurisdiction": null,
+      "specialty": ["endocrinology", "nephrology"],
+      "published_at": "2023-02-15",
+      "valid_until": null,
+      "license_class": "open_license",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000011",
+      "canonical_id": "spl:0093-1048",
+      "title": "Metformin hydrochloride tablets — prescribing information",
+      "source_authority": "other",
+      "evidence_tier": "other",
+      "jurisdiction": "US",
+      "specialty": ["endocrinology"],
+      "published_at": "2024-11-05",
+      "valid_until": null,
+      "license_class": "public_domain",
+      "retracted": false
+    },
+    {
+      "id": "d0000000-0000-4000-8000-000000000012",
+      "canonical_id": "moz:0899",
+      "title": "Уніфікований протокол: артеріальна гіпертензія (2018)",
+      "source_authority": "national",
+      "evidence_tier": "guideline",
+      "jurisdiction": "UA",
+      "specialty": ["cardiology"],
+      "published_at": "2018-06-01",
+      "valid_until": "2023-06-01",
+      "license_class": "public_domain",
+      "retracted": false
+    }
+  ],
+  "versions": [
+    {
+      "id": "de000000-0000-4000-8000-000000000001",
+      "document_id": "d0000000-0000-4000-8000-000000000001",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/who_guideline.pdf",
+      "parsed_ref": "s3://eva-corpus/global/parsed/who_guideline.json",
+      "checksum": "sha256:1a0f4c6b8d2e5f7091a3b5c7d9e1f3a5b7c9d1e3f5a7b9c1d3e5f7091a3b5c7d"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000002",
+      "document_id": "d0000000-0000-4000-8000-000000000002",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/nice_guideline.html",
+      "parsed_ref": "s3://eva-corpus/global/parsed/nice_guideline.json",
+      "checksum": "sha256:2b1e5d7c9f3a5b7d91c3e5f7a9b1d3f5a7c9e1b3d5f7a9c1e3b5d7f91a3c5e7b"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000003",
+      "document_id": "d0000000-0000-4000-8000-000000000003",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/moz_protocol_2022.md",
+      "parsed_ref": "s3://eva-corpus/global/parsed/moz_protocol_2022.json",
+      "checksum": "sha256:3c2f6e8d1a4b6c8e02d4f6a8c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000004",
+      "document_id": "d0000000-0000-4000-8000-000000000003",
+      "version": 2,
+      "content_ref": "s3://eva-corpus/global/moz_protocol_2024.md",
+      "parsed_ref": "s3://eva-corpus/global/parsed/moz_protocol_2024.json",
+      "checksum": "sha256:4d3a7f9e2b5c7d9f13e5a7c9e2f4b6d8a1c3e5f7b9d1a3c5e7f9b1d3a5c7e9f1"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000005",
+      "document_id": "d0000000-0000-4000-8000-000000000004",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/clinical_note.docx",
+      "parsed_ref": "s3://eva-corpus/global/parsed/clinical_note.json",
+      "checksum": "sha256:5e4b8a1f3c6d8e0a24f6b8d1a3c5e7f9b2d4a6c8e1f3b5d7a9c1e3f5b7d9a1c3"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000006",
+      "document_id": "d0000000-0000-4000-8000-000000000005",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/pmc_article.xml",
+      "parsed_ref": "s3://eva-corpus/global/parsed/pmc_article.json",
+      "checksum": "sha256:6f5c9b2a4d7e9f1b35a7c9e2f4b6d8a1c3e5f7b9d2a4c6e8f1b3d5a7c9e2f4b6"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000007",
+      "document_id": "d0000000-0000-4000-8000-000000000006",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/medline_abstract.xml",
+      "parsed_ref": "s3://eva-corpus/global/parsed/medline_abstract.json",
+      "checksum": "sha256:7a6d1c3b5e8f0a2c46b8d1f3a5c7e9b2d4f6a8c1e3b5d7f9a2c4e6b8d1f3a5c7"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000008",
+      "document_id": "d0000000-0000-4000-8000-000000000007",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/moz_protocol.pdf",
+      "parsed_ref": "s3://eva-corpus/global/parsed/moz_protocol_pdf.json",
+      "checksum": "sha256:8b7e2d4c6f9a1b3d57c9e2f4a6b8d1e3f5a7c9b2d4e6f8a1c3b5d7e9f2a4c6b8"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000009",
+      "document_id": "d0000000-0000-4000-8000-000000000008",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/jcem_2021_0407.xml",
+      "parsed_ref": "s3://eva-corpus/global/parsed/jcem_2021_0407.json",
+      "checksum": "sha256:9c8f3e5d7a1b2c4e68d1f3a5c7e9b2d4f6a8c1e3b5d7f9a2c4e6b8d1f3a5c7e9"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000010",
+      "document_id": "d0000000-0000-4000-8000-000000000009",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/tenant-a/kn-2025-014.docx",
+      "parsed_ref": "s3://eva-corpus/tenant-a/parsed/kn-2025-014.json",
+      "checksum": "sha256:1d9a4f6e8b2c3d5f79e2a4c6e8b1d3f5a7c9e2b4d6f8a1c3e5b7d9f2a4c6e8b1"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000011",
+      "document_id": "d0000000-0000-4000-8000-000000000010",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/cd012345.xml",
+      "parsed_ref": "s3://eva-corpus/global/parsed/cd012345.json",
+      "checksum": "sha256:2e1b5a7f9c3d4e6a81f3b5d7a9c2e4f6b8d1a3c5e7f9b2d4a6c8e1f3b5d7a9c2"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000012",
+      "document_id": "d0000000-0000-4000-8000-000000000011",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/spl_0093_1048.xml",
+      "parsed_ref": "s3://eva-corpus/global/parsed/spl_0093_1048.json",
+      "checksum": "sha256:3f2c6b8a1d4e5f7b92a4c6e8b1d3f5a7c9e2b4d6f8a1c3e5b7d9f2a4c6e8b1d3"
+    },
+    {
+      "id": "de000000-0000-4000-8000-000000000013",
+      "document_id": "d0000000-0000-4000-8000-000000000012",
+      "version": 1,
+      "content_ref": "s3://eva-corpus/global/moz_0899_2018.pdf",
+      "parsed_ref": "s3://eva-corpus/global/parsed/moz_0899_2018.json",
+      "checksum": "sha256:4a3d7c9b2e5f6a8c13b5d7f9a2c4e6b8d1f3a5c7e9b2d4f6a8c1e3b5d7f9a2c4"
+    }
+  ]
+}

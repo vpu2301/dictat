@@ -11,6 +11,7 @@
 //      the one the token is scoped to.
 import { test, expect } from "@playwright/test";
 import { installMocks, login, staffLogin, staffLoginTo, OWNER_EMAIL } from "./helpers/companyMocks.js";
+import { FEATURES } from "../src/api/services.js";
 
 test.describe("Klarnote owner console", () => {
   test("the plain /company path reaches the console", async ({ page }) => {
@@ -387,7 +388,11 @@ test.describe("Operations, errors and security", () => {
 
     const flags = page.locator(".co-flaglist li");
     await expect(flags.first()).toBeVisible({ timeout: 10000 });
-    await expect(flags).toHaveCount(7);          // FEATURES in api/services.js
+    // Derived from FEATURES rather than a literal: the assertion is "the
+    // console reports every flag the build has", and a magic number turns
+    // that into "the console reports the flags it had in sprint 13" — which
+    // fails on the next sprint that adds one, for no reason a reader can see.
+    await expect(flags).toHaveCount(Object.keys(FEATURES).length);
     await expect(page.locator(".co-flaglist")).toContainText("notifications");
   });
 

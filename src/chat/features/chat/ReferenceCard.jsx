@@ -62,12 +62,24 @@ export function ReferenceCard({ source, index, highlighted, locale = "en", answe
               {identifiers.map((id) => <span className="ec-mono ec-ref-id" key={id}>{id}</span>)}
             </div>
           )}
-          {/* Not an <a href>: opening a real source is the host's call, and a
-              "#" href would navigate the host page out from under the module. */}
-          <span className="ec-ref-link">
-            <Icon name="link" size={11} />
-            <span>{t(locale, "Посилання — демо", "Link — demo only")}</span>
-          </span>
+          {/* Not an <a href>: a "#" href would navigate the host page out from
+              under the module. A source with a real address opens in a new tab;
+              a fixture, whose url is "#", says plainly that it goes nowhere. */}
+          {/^https?:\/\//.test(source.url || "") ? (
+            <button
+              type="button"
+              className="ec-ref-link ec-ref-open"
+              onClick={() => window.open(source.url, "_blank", "noopener,noreferrer")}
+            >
+              <Icon name="link" size={11} />
+              <span>{t(locale, "Відкрити джерело", "Open source")}</span>
+            </button>
+          ) : (
+            <span className="ec-ref-link">
+              <Icon name="link" size={11} />
+              <span>{t(locale, "Посилання — демо", "Link — demo only")}</span>
+            </span>
+          )}
         </div>
       )}
     </li>

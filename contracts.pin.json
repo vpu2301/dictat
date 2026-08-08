@@ -1,0 +1,9 @@
+{
+  "$comment": "EVA-S01 — which build of the evidence contracts src/types/evidence.d.ts was generated from. Bumping the sha and re-running `npm run contracts:types` is the ONLY supported way to change the generated types; see handoff.md § Contracts typegen.",
+  "repo": "evidence-backend",
+  "sha": "4cbe13c52bb1c448145cd9bc1868a83212a3634c",
+  "artifact": "evidence-contracts-{sha}.tar.gz",
+  "artifactBaseUrl": null,
+  "contractsVersion": "v1",
+  "schemaCount": 15
+}

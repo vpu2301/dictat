@@ -1,0 +1,92 @@
+[
+  {
+    "id": "w0000000-0000-4000-8000-000000000001",
+    "title": "Diabetes — fact sheet",
+    "lang": "en",
+    "excerpt": "About 830 million people worldwide have diabetes, the majority living in low- and middle-income countries. More than half are not receiving treatment.",
+    "publisher": "World Health Organization",
+    "published_at": "2024-11-14",
+    "ref": {
+      "url": "https://www.who.int/news-room/fact-sheets/detail/diabetes",
+      "domain": "who.int",
+      "trust_tier": "government",
+      "accessed_at": "2026-07-28T09:14:00Z",
+      "snapshot_ref": "s3://eva-web-cache/2026-07-28/who-int-diabetes-fact-sheet.html"
+    }
+  },
+  {
+    "id": "w0000000-0000-4000-8000-000000000002",
+    "title": "Наказ № 121 від 14.02.2024 — зміни до протоколу з артеріальної гіпертензії",
+    "lang": "uk",
+    "excerpt": "Наказ МОЗ України № 121 від 14.02.2024 про внесення змін до клінічного протоколу з артеріальної гіпертензії набирає чинності з дня опублікування.",
+    "publisher": "МОЗ України",
+    "published_at": "2024-02-14",
+    "ref": {
+      "url": "https://moz.gov.ua/uk/nakazy/nakaz-121-2024",
+      "domain": "moz.gov.ua",
+      "trust_tier": "government",
+      "accessed_at": "2026-07-30T11:02:00Z",
+      "snapshot_ref": "s3://eva-web-cache/2026-07-30/moz-gov-ua-nakaz-121.html"
+    }
+  },
+  {
+    "id": "w0000000-0000-4000-8000-000000000003",
+    "title": "2024 ESC Guidelines for the management of elevated blood pressure",
+    "lang": "en",
+    "excerpt": "Confirmed office blood pressure of 140/90 mmHg or higher establishes hypertension; treatment targets a systolic pressure of 120-129 mmHg where tolerated.",
+    "publisher": "European Society of Cardiology",
+    "published_at": "2024-08-30",
+    "ref": {
+      "url": "https://www.escardio.org/Guidelines/Clinical-Practice-Guidelines/elevated-blood-pressure",
+      "domain": "escardio.org",
+      "trust_tier": "professional_society",
+      "accessed_at": "2026-07-28T09:16:00Z",
+      "snapshot_ref": "s3://eva-web-cache/2026-07-28/escardio-org-bp-guidelines.html"
+    }
+  },
+  {
+    "id": "w0000000-0000-4000-8000-000000000004",
+    "title": "NVL Typ-2-Diabetes — Registereintrag nvl-001",
+    "lang": "de",
+    "excerpt": "S3-Leitlinie Nationale VersorgungsLeitlinie Typ-2-Diabetes, Registernummer nvl-001, gültig bis 31.03.2026.",
+    "publisher": "AWMF",
+    "published_at": "2023-03-31",
+    "ref": {
+      "url": "https://register.awmf.org/de/leitlinien/detail/nvl-001",
+      "domain": "register.awmf.org",
+      "trust_tier": "guideline_registry",
+      "accessed_at": "2026-07-28T09:20:00Z",
+      "snapshot_ref": null
+    }
+  },
+  {
+    "id": "w0000000-0000-4000-8000-000000000005",
+    "title": "Empagliflozin in patients with chronic kidney disease",
+    "lang": "en",
+    "excerpt": "Among patients with chronic kidney disease at risk of progression, empagliflozin reduced the risk of progression of kidney disease or cardiovascular death.",
+    "publisher": "New England Journal of Medicine",
+    "published_at": "2023-01-12",
+    "ref": {
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa2204233",
+      "domain": "nejm.org",
+      "trust_tier": "journal",
+      "accessed_at": "2026-07-29T15:41:00Z",
+      "snapshot_ref": "s3://eva-web-cache/2026-07-29/nejm-org-empagliflozin-ckd.html"
+    }
+  },
+  {
+    "id": "w0000000-0000-4000-8000-000000000006",
+    "title": "Metformin — patient information leaflet",
+    "lang": "en",
+    "excerpt": "Take metformin with or just after a meal to reduce stomach upset. Tell your doctor before any scan that uses contrast dye.",
+    "publisher": "Independent medicines reference",
+    "published_at": "2025-05-20",
+    "ref": {
+      "url": "https://example-medicines.org/leaflets/metformin",
+      "domain": "example-medicines.org",
+      "trust_tier": "other",
+      "accessed_at": "2026-08-01T08:05:00Z",
+      "snapshot_ref": "s3://eva-web-cache/2026-08-01/example-medicines-org-metformin.html"
+    }
+  }
+]
