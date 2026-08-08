@@ -34,8 +34,11 @@ export function newCalls() {
 // Base app mocks: auth, templates, patients, drafts. Every spec layers its own
 // feature routes on top (Playwright matches the most recently registered
 // handler first).
+// `opts.roles` overrides the session's roles — EVA-S03 needs a tenant_admin
+// for the evidence devtools and a clinician to prove they are forbidden.
 export async function installBaseMocks(page, calls, opts = {}) {
   const ctl = { sessionOpen: false, layerCEnabled: opts.layerCEnabled !== false };
+  const roles = opts.roles ?? ["clinician"];
 
   const isApi = (url) =>
     url.hostname === "localhost" && API_PORTS.includes(url.port);
@@ -62,8 +65,8 @@ export async function installBaseMocks(page, calls, opts = {}) {
     if (path.endsWith("/auth/me")) {
       if (!ctl.sessionOpen) return json(401, { title: "expired" });
       return json(200, {
-        claims: { sub: "user-123", tid: TENANT_A, roles: ["clinician"], scope: "openid", iss: "mock", mfa: false },
-        db_user: { email: "user@tenant-a.example", display_name: "Dr Test", role: "clinician", status: "active" },
+        claims: { sub: "user-123", tid: TENANT_A, roles, scope: "openid", iss: "mock", mfa: false },
+        db_user: { email: "user@tenant-a.example", display_name: "Dr Test", role: roles[0], status: "active" },
       });
     }
 

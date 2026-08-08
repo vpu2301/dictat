@@ -4,6 +4,9 @@
 // audit events); two copies would drift the moment one is updated.
 import { expect } from "@playwright/test";
 
+/** The Vite dev server this suite drives — see playwright.config.js. */
+const DEV_SERVER_PORT = "5173";
+
 export const TENANT_A = "00000000-0000-0000-0000-00000000000a";
 export const TENANT_B = "00000000-0000-0000-0000-00000000000b";
 export const KLINIC = "0000c111-0000-0000-0000-000000000001";
@@ -73,9 +76,19 @@ export async function installMocks(page, {
   roles = ["tenant_admin", "clinician", "auditor"],
   auditEvents = AUDIT_EVENTS,
 } = {}) {
+  // EVERY backend port, rather than a hand-written list. The owner console's
+  // job is to probe every configured service, so any port this mock does not
+  // answer becomes a "down" row and an alarm — which is exactly what happened
+  // when the evidence services arrived: three new entries in SERVICES, a
+  // frozen port list here, and two console specs failing for a reason that
+  // had nothing to do with the console.
+  //
+  // Deriving the set from `SERVICES` is not enough either: this file runs in
+  // Node, where Vite has not applied `.env.local`, so a service whose URL is
+  // only configured there resolves to its default and its real port is
+  // invisible. Anything on localhost that is not the dev server is backend.
   const isApi = (url) =>
-    url.hostname === "localhost" &&
-    ["8000", "8001", "8002", "8003", "8004", "8005", "8006", "8007", "8008"].includes(url.port);
+    url.hostname === "localhost" && !!url.port && url.port !== DEV_SERVER_PORT;
   let sessionOpen = false;
 
   await page.route(isApi, async (route) => {

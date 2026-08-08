@@ -33,6 +33,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { SessionProvider } from "./SessionContext.jsx";
 import { EmbedProvider } from "./EmbedContext.jsx";
 import { useSettings } from "./data/useSettings.js";
+import { configureBackend, isLiveBackend } from "./data/backend.js";
 import { fetchPatient } from "./data/hooks.js";
 import { buildPath, parsePath } from "./routing.js";
 import { ChatPage } from "./features/chat/ChatPage.jsx";
@@ -95,9 +96,18 @@ export function ChatEmbed({
   // and dims the viewport, for a host that owns the whole content area and
   // wants its own modal behaviour. See ui/ModalLayer.jsx.
   modalHost = "panel",
+  // Where real answers come from: `{ baseUrl, getToken }`. Omit it and the
+  // module answers from its fixtures — which is what the harness, the tests
+  // and any host without an evidence backend get. The module never discovers
+  // this for itself; a base URL and a token are host knowledge.
+  backend = null,
   className = "",
 }) {
   const mode = theme?.mode === "dark" ? "dark" : "light";
+  // Applied during render, before any child can ask for data. Comparing the
+  // config inside means a re-render does not rebuild the client.
+  useMemo(() => configureBackend(backend && { ...backend, locale }), [backend, locale]);
+  const live = isLiveBackend();
   const { settings, update: updateSettings, reset: resetSettings } = useSettings(workspace?.id);
 
   const [internalPath, setInternalPath] = useState(basePath);
@@ -188,7 +198,7 @@ export function ChatEmbed({
       <SessionProvider user={user} workspace={workspace}>
         <EmbedProvider
           value={{
-            basePath, locale, navigate, emit, route,
+            basePath, locale, navigate, emit, route, live,
             settings, updateSettings, resetSettings,
             patient, patientLocked, allowPatientImport,
             hasHostPicker: typeof onRequestPatient === "function",

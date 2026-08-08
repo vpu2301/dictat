@@ -9,6 +9,10 @@
 // always; /readyz returns 200 {status:"ready"} or 503 {status:"not_ready"}.
 // signing-service answers {"status":"ok"} — same meaning, different word.
 //
+// That convention is ours, and it only binds services we build. `evidenceChat`
+// is a separate product with its own contract, so its path is an exception in
+// READY_PATH_OF rather than a reason to report a healthy service as broken.
+//
 // Failure modes we distinguish, because they need different fixes:
 //   down    — no HTTP response at all (service stopped, wrong port), OR the
 //             browser blocked the response because the service sends no CORS
@@ -20,7 +24,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./UI.jsx";
-import { SERVICES } from "../api/services.js";
+import { SERVICES, DEFAULT_READY_PATH, readyPathFor } from "../api/services.js";
 import { tr } from "../i18n.js";
 
 const READY_WORDS = ["ready", "ok", "healthy"];
@@ -38,7 +42,12 @@ const ROLE_OF = {
   signing:      { uk: "Підписання документів",             en: "Document signing" },
   core:         { uk: "Пацієнти, прийоми, згоди",          en: "Patients, encounters, consents" },
   notification: { uk: "Сповіщення",                        en: "Notifications" },
+  evidenceRetrieval: { uk: "Пошук у доказовій базі",       en: "Evidence retrieval" },
+  evidenceAnswer:    { uk: "Конвеєр доказових відповідей", en: "Evidence answer pipeline" },
+  evidenceWebsearch: { uk: "Швидкий вебпошук джерел",      en: "Quick web source search" },
+  evidenceChat:      { uk: "Доказовий чат (зовнішній API)", en: "Evidence chat (external API)" },
 };
+
 
 const STATE = {
   ready:    { dot: "#10b981", fg: "#047857", bg: "rgba(4,120,87,.12)",   uk: "Готово",     en: "Ready" },
@@ -48,10 +57,10 @@ const STATE = {
 };
 
 // One probe. Returns { state, detail, ms } — never throws.
-async function probe(base) {
+async function probe(base, path = DEFAULT_READY_PATH) {
   const t0 = performance.now();
   try {
-    const r = await fetch(`${base}/readyz`, { method: "GET" });
+    const r = await fetch(`${base}${path}`, { method: "GET" });
     const ms = Math.round(performance.now() - t0);
     let body = null;
     try { body = await r.json(); } catch { /* non-JSON body */ }
@@ -86,7 +95,14 @@ export function useServiceHealth({ intervalMs = 30000, enabled = true } = {}) {
   const check = useCallback(async () => {
     setBusy(true);
     const entries = await Promise.all(
-      Object.entries(SERVICES).map(async ([name, base]) => [name, { ...(await probe(base)), base }]),
+      // Blank base = not configured, not "down". See fetchPlatformHealth in
+      // src/api/company.js for why probing one reports a phantom outage.
+      Object.entries(SERVICES)
+        .filter(([, base]) => !!base)
+        .map(async ([name, base]) => [
+          name,
+          { ...(await probe(base, readyPathFor(name))), base, path: readyPathFor(name) },
+        ]),
     );
     setServices(Object.fromEntries(entries));
     setCheckedAt(Date.now());
@@ -279,7 +295,7 @@ export function HealthPanel({ health, lang = "en", style, panelRef, onClose }) {
                   <>
                     {L("Браузер не отримав відповіді. Сервіс не запущено, або він не надсилає заголовки CORS — з боку клієнта це не розрізнити.",
                        "The browser got no response. Either the service is not running, or it sends no CORS headers — the client cannot tell these apart.")}
-                    <span className="health-hint">{L("Перевірте: ", "Check: ")}<code>curl {v.base}/readyz</code></span>
+                    <span className="health-hint">{L("Перевірте: ", "Check: ")}<code>curl {v.base}{v.path || DEFAULT_READY_PATH}</code></span>
                   </>
                 ) : (
                   <>
@@ -301,7 +317,8 @@ export function HealthPanel({ health, lang = "en", style, panelRef, onClose }) {
             : L("Перевірка…", "Checking…")}
           {" · "}
           {L("кожні 30 с", "every 30 s")}
-          {" · GET /readyz"}
+          {/* Per-row, since evidenceChat serves readiness elsewhere. */}
+          {" · GET "}{DEFAULT_READY_PATH}
         </span>
         <button className="btn btn-ghost health-copy" onClick={copyReport}>
           <Icon name="copy" size={12} /> {L("Копіювати звіт", "Copy report")}

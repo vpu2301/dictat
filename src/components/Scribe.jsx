@@ -823,21 +823,28 @@ export function ScribeNoteStructures({ lang, embedded = false }) {
       <LoadGate req={req} lang={lang}
         empty={() => <Empty icon="layers" title={tr(lang, "Немає шаблонів", "No note templates")} />}>
         {(data) => (
-          <div className="grid-2" style={{ gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+          // List, not cards — the Templates page is one list surface (the
+          // report-templates tab dropped its grid view too).
+          <div className="ptable">
+            <div className="nst-thead">
+              <span>{tr(lang, "Назва", "Name")}</span>
+              <span>{tr(lang, "Код", "Code")}</span>
+              <span>{tr(lang, "Розділи", "Sections")}</span>
+            </div>
             {/* GET /note-structures returns { code, name, sections } — there
                 is no `id` on the wire, so keying on it gave every card the
                 same undefined key. */}
             {asList(data).map((t) => (
-              <div key={t.code || t.id} className="card" style={{ padding: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div key={t.code || t.id} className="nst-row">
+                <div className="nst-name">
                   <Icon name="layers" size={14} />
-                  <strong style={{ fontSize: 14 }}>{loc(t.name, lang)}</strong>
-                  {t.code && <span className="chip">{t.code}</span>}
+                  <span>{loc(t.name, lang)}</span>
                 </div>
-                <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 6 }}>
+                <span>{t.code ? <code>{t.code}</code> : null}</span>
+                <span className="nst-sections">
                   {loc(t.description ?? t.desc, lang)
                     || (Array.isArray(t.sections) ? t.sections.map((s) => loc(s.label, lang)).join(" · ") : "")}
-                </div>
+                </span>
               </div>
             ))}
           </div>

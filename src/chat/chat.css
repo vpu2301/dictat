@@ -449,6 +449,15 @@
 .ec-ref-ids { display: flex; gap: 6px; flex-wrap: wrap; }
 .ec-ref-id { padding: 2px 7px; border-radius: 6px; background: var(--ec-surface-2); color: var(--ec-muted); }
 .ec-ref-link { display: inline-flex; align-items: center; gap: 5px; color: var(--ec-muted); font-size: 11px; }
+/* The same row as a control, for a source that has a real address to open.
+   A button rather than an anchor: the module never renders an <a href>, which
+   is what keeps a click inside it from navigating the host page away. */
+.ec-ref-link.ec-ref-open {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--ec-accent); font: inherit; font-size: 11px; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ec-ref-link.ec-ref-open:hover { color: var(--ec-text); }
 
 /* ── past turns ─────────────────────────────────────────────────────────── */
 .ec-pasts {

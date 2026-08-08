@@ -3,3 +3,6 @@
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# EVA-S01 contracts artifact cache (evidence-contracts-<sha>.tar.gz)
+/.contracts-cache/

@@ -28,6 +28,16 @@ export function hasAnyRole(claims, roles) {
 export const CLINICAL_ROLES = ["clinician", "nurse"];
 export const ADMIN_ROLES = ["tenant_admin", "super_admin"];
 
+// ── EVA-S01: the corpus-curation role ─────────────────────────────────
+// `knowledge_admin` curates the evidence corpus and the web-search domain
+// allowlist. It is NOT an admin role: docs/auth/permissions.csv denies it
+// every tenant.*, user.*, patient.*, report.* and audit.* action explicitly.
+// Deliberately its own constant rather than a member of ADMIN_ROLES — a
+// curator who inherited the admin console would be exactly the privilege
+// creep the CSV rows were written to prevent. It holds no clinical access
+// either, so `hasClinicalAccess`/`isAdminOnly` already report false for it.
+export const KNOWLEDGE_ROLES = ["knowledge_admin"];
+
 // Who may open the patient roster. An auditor is deliberately absent: their
 // subject is the trail — who touched what, when — not the people in it.
 // Single source for the `patient.*` matrix rows below and for the route gate.
@@ -63,9 +73,19 @@ export function canReadPatients(claims) {
   return isAllowed(claims, "patients.read", "patient");
 }
 
+/** A corpus curator: knowledge_admin and nothing else. */
+export function isKnowledgeAdminOnly(claims) {
+  return hasAnyRole(claims, KNOWLEDGE_ROLES)
+    && !hasClinicalAccess(claims)
+    && !hasAnyRole(claims, ADMIN_ROLES)
+    && !hasAnyRole(claims, ["auditor"]);
+}
+
 // Map: action → target_kind → roles allowed.
 // Mirrors docs/auth/permissions.csv; the server is authoritative.
-const MATRIX = {
+// Exported for the drift test (permissionsDrift.test.js), which reads the CSV
+// and asserts this table against it in both directions. Treat it as read-only.
+export const MATRIX = {
   // ── dictation (sprint 04; tenant_admin dropped in S14) ────────────────
   "dictation.start":    { dictation: ["clinician", "nurse"] },
   "dictation.read":     { dictation: ["clinician", "nurse"] },
@@ -119,7 +139,40 @@ const MATRIX = {
   "privacy.dsar":    { patient: ["tenant_admin", "super_admin"] },
   "privacy.request": { patient: ["tenant_admin", "super_admin"] },
   "privacy.approve": { patient: ["tenant_admin", "super_admin"] },
+
+  // ── evidence (EVA-S01) ────────────────────────────────────────────────
+  // Nine actions over two target kinds, mirrored verbatim from the CSV rows
+  // the backend added this sprint. No screen consumes them yet (S01 ships
+  // plumbing only) — they land now so that from S03 onward every evidence
+  // surface gates on a string that already exists on both sides.
+  //
+  // Two shapes are worth reading twice, because they are the sprint's whole
+  // security argument in table form:
+  //  · `evidence.ask` admits tenant_admin but `evidence.context.read` does
+  //    NOT — the S14 admin ⟂ PHI split, carried into evidence: an admin may
+  //    ask a generic clinical question, never one about a patient (ADR-0033).
+  //  · `evidence.corpus.manage` / `evidence.domains.manage` are the only
+  //    rows knowledge_admin appears in at all.
+  "evidence.ask":             { evidence: ["clinician", "nurse", "tenant_admin"] },
+  "evidence.context.read":    { evidence: ["clinician", "nurse"] },
+  "evidence.acts.manage":     { evidence: ["clinician", "tenant_admin"] },
+  "evidence.deeptrace.run":   { evidence: ["clinician", "tenant_admin"] },
+  "evidence.drugs.read":      { evidence: ["clinician", "nurse", "tenant_admin"] },
+  "evidence.drugs.predict":   { evidence: ["clinician"] },
+  "evidence.ops.read":        { evidence: ["auditor", "tenant_admin"] },
+  "evidence.corpus.manage":   { evidence_corpus: ["knowledge_admin", "tenant_admin"] },
+  "evidence.domains.manage":  { evidence_corpus: ["knowledge_admin"] },
 };
+
+/**
+ * The evidence action vocabulary, derived from the MATRIX so it cannot drift
+ * from it. The generated `EvidenceAction` union in src/types/evidence.d.ts is
+ * asserted equal to this list by the drift test — that is the tie between the
+ * compile-time union and the runtime table.
+ */
+export const EVIDENCE_ACTIONS = Object.keys(MATRIX)
+  .filter((a) => a.startsWith("evidence."))
+  .sort();
 
 export function isAllowed(claims, action, target_kind) {
   const entry = MATRIX[action];

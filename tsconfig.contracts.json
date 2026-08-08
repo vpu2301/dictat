@@ -1,0 +1,15 @@
+{
+  "//": "EVA-S01 — the contracts type-compile smoke, NOT a build config. The app is plain JSX built by Vite; this compiles only the generated evidence types plus their usage fixture, under strict, so a contract that stops resolving fails CI. `npm run contracts:check`.",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": false,
+    "forceConsistentCasingInFileNames": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "files": ["src/types/evidence.d.ts", "src/types/evidence.usage.ts"]
+}

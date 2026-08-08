@@ -34,7 +34,7 @@
 
 import { listTenants, getTenant, listMembers } from "./tenants.js";
 import { listAuditEvents, listUsers, readyz, healthz } from "./endpoints.js";
-import { SERVICES } from "./services.js";
+import { SERVICES, readyPathFor } from "./services.js";
 import {
   cutoffMs,
   lastNDays,
@@ -183,13 +183,21 @@ export const SERVICE_ROLE = {
  */
 export async function fetchPlatformHealth() {
   const entries = await Promise.all(
-    Object.entries(SERVICES).map(async ([key, base]) => {
+    // CONFIGURED, not merely listed. A `SERVICES` entry may be deliberately
+    // blank — `evidenceChat` is, because that backend belongs to a separate
+    // product and most deployments do not have one. Probing a blank base
+    // resolves `/readyz` against the SPA's own origin, which answers with
+    // index.html, which parses as "not ready" — a permanent phantom outage in
+    // the owner console for a service nobody has deployed or expects to.
+    Object.entries(SERVICES).filter(([, base]) => !!base).map(async ([key, base]) => {
       const t0 = Date.now();
       let state = "down";
       let detail = "";
       let body = null;
       try {
-        const r = await fetch(`${base}/readyz`, { method: "GET" });
+        // Not always /readyz — see readyPathFor(); a foreign service probed at
+        // our path 404s and would be reported down while it is serving.
+        const r = await fetch(`${base}${readyPathFor(key)}`, { method: "GET" });
         try { body = await r.json(); } catch { body = null; }
         const status = String(body?.status || "").toLowerCase();
         if (r.ok && READY_WORDS.includes(status)) {

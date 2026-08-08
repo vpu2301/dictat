@@ -1,11 +1,13 @@
 // chat/data/hooks.js — the seam.
 //
-// Screens call these. Screens never call `mockClient` directly and never see a
-// fetch or a stream. When the real chat/retrieval API lands, this file changes
-// and nothing above it does — the streaming interface already matches.
+// Screens call these. Screens never call a client directly and never see a
+// fetch or a stream. Which client answers is decided once at mount, in
+// `backend.js`: the mock when the module is embedded without a backend, the
+// real evidence API when the host configured one. That swap happened here and
+// nowhere above — the streaming interface was built to match, and it did.
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { mockClient } from "./mockClient.js";
+import { getClient } from "./backend.js";
 import { demoPrompts } from "./fixtures.js";
 import { useQuery } from "./useQuery.js";
 
@@ -22,32 +24,32 @@ export function suggestedPrompts(language = "en") {
 export function usePatients(search = "", source = null) {
   return useQuery(
     `patients:${source ? "host" : "mock"}:${search}`,
-    () => (source ? source(search) : mockClient.getPatients(search)),
+    () => (source ? source(search) : getClient().getPatients(search)),
   );
 }
 
 export function useAgents() {
-  return useQuery("agents", () => mockClient.getAgents());
+  return useQuery("agents", () => getClient().getAgents());
 }
 
 export function useConnectors() {
-  return useQuery("connectors", () => mockClient.getConnectors());
+  return useQuery("connectors", () => getClient().getConnectors());
 }
 
 // Writes go straight to the client and the caller refetches: with four rows on
 // screen, optimistic updates would be more machinery than the flow deserves.
-export function createAgent(draft) { return mockClient.createAgent(draft); }
-export function deleteAgent(id) { return mockClient.deleteAgent(id); }
-export function setConnectorState(id, connected) { return mockClient.setConnectorState(id, connected); }
+export function createAgent(draft) { return getClient().createAgent(draft); }
+export function deleteAgent(id) { return getClient().deleteAgent(id); }
+export function setConnectorState(id, connected) { return getClient().setConnectorState(id, connected); }
 
 export function useSessions() {
-  return useQuery("sessions", () => mockClient.getSessions());
+  return useQuery("sessions", () => getClient().getSessions());
 }
 
 export function useSessionDetail(id, language = "en") {
   return useQuery(
     `session:${id}:${language}`,
-    () => mockClient.getSession(id, { language }),
+    () => getClient().getSession(id, { language }),
     { enabled: !!id },
   );
 }
@@ -55,7 +57,7 @@ export function useSessionDetail(id, language = "en") {
 // Not a hook: resuming a session needs one patient by id at a moment that isn't
 // a render. Kept here so the embed never has to reach for the client itself.
 export function fetchPatient(id) {
-  return mockClient.getPatient(id);
+  return getClient().getPatient(id);
 }
 
 // ── the chat thread ───────────────────────────────────────────────────────
@@ -162,7 +164,11 @@ const titleFrom = (text) => {
   return clean.length > 48 ? `${clean.slice(0, 48)}…` : clean;
 };
 
-export function useChat({ patientId = null, language = "en", onEvent } = {}) {
+// `patient` is the whole record and `patientId` the key the thread is saved
+// under. Both, because the mock selects its scripted variant by id while the
+// real API takes a de-identified context built from the record — and the
+// record must never be reconstructed from an id inside the data layer.
+export function useChat({ patientId = null, patient = null, language = "en", onEvent } = {}) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const abortRef = useRef(null);
   const emitRef = useRef(onEvent);
@@ -182,7 +188,7 @@ export function useChat({ patientId = null, language = "en", onEvent } = {}) {
   const persist = useCallback((patientForSession) => {
     const s = stateRef.current;
     if (!s.sessionId || !s.messages.length) return;
-    mockClient.saveSession({
+    getClient().saveSession({
       id: s.sessionId,
       title: s.title || titleFrom(s.messages[0]?.text || "Chat"),
       patientId: patientForSession,
@@ -195,7 +201,9 @@ export function useChat({ patientId = null, language = "en", onEvent } = {}) {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const stream = mockClient.streamAnswer(question, { patientId, language, signal: controller.signal });
+      const stream = getClient().streamAnswer(question, {
+        patientId, patient, language, signal: controller.signal,
+      });
       let finished = false;
       for await (const part of stream) {
         if (controller.signal.aborted) break;
@@ -224,7 +232,7 @@ export function useChat({ patientId = null, language = "en", onEvent } = {}) {
     } finally {
       abortRef.current = null;
     }
-  }, [patientId, language, persist]);
+  }, [patientId, patient, language, persist]);
 
   const send = useCallback((text) => {
     const question = String(text || "").trim();

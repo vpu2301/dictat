@@ -85,6 +85,12 @@
   --rec-soft: rgba(248, 113, 113, 0.12);
   --info: #60a5fa;
   --info-soft: rgba(96, 165, 250, 0.12);
+  /* --ok had no dark value, so the light one (#047857) carried over and every
+     use of it AS TEXT in dark mode sat at 3.5:1 — under WCAG AA, on a signed/
+     verified/complete indicator, which is exactly the kind of thing a reader
+     needs to be able to make out. #34d399 is the same green a step lighter:
+     10.1:1 on --bg, 9.4:1 on --surface. Found by the EVA-S04 axe pass. */
+  --ok: #34d399;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
   --shadow-2: 0 4px 14px -4px rgba(0, 0, 0, 0.45);
@@ -2512,6 +2518,39 @@ kbd {
 .tpl-edit-section-head { display: flex; gap: 8px; align-items: center; }
 .tpl-sec-move { display: inline-flex; flex-direction: column; gap: 1px; }
 .tpl-sec-move .iconbtn:first-child svg { transform: rotate(180deg); }
+
+/* Note-structures list (Templates → note templates tab) */
+.nst-thead, .nst-row {
+  display: grid; grid-template-columns: 1.6fr 1fr 3fr;
+  gap: 12px; align-items: center; padding: 11px 18px;
+}
+.nst-thead {
+  font-size: 11.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.nst-row { border-bottom: 1px solid var(--line-2); }
+.nst-row:last-child { border-bottom: 0; }
+.nst-name { display: flex; align-items: center; gap: 10px; min-width: 0;
+  font-size: 13.5px; font-weight: 500; }
+.nst-sections { color: var(--muted); font-size: 12.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* choice / multi_choice option rows */
+.tpl-opt-block {
+  display: flex; flex-direction: column; gap: 8px;
+  border: 1px dashed var(--line); border-radius: var(--radius);
+  padding: 10px; background: var(--surface);
+}
+.tpl-opt-row {
+  display: grid; grid-template-columns: 1fr 1.2fr 1.4fr auto;
+  gap: 8px; align-items: center;
+}
+@media (max-width: 720px) {
+  .tpl-opt-row { grid-template-columns: 1fr 1fr; }
+}
 
 /* Toast */
 .tpl-toast {

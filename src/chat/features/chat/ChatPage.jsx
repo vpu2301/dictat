@@ -36,7 +36,7 @@ import { t } from "../../i18n.js";
 export function ChatPage({ sessionId }) {
   const { user } = useSession();
   const {
-    locale, settings, emit, navigate,
+    locale, settings, emit, navigate, live,
     patient, patientLocked, allowPatientImport, hasHostPicker,
     attachPatient, attachPatientById, removePatient, requestPatientFromHost,
     onCreateDocument,
@@ -44,6 +44,7 @@ export function ChatPage({ sessionId }) {
 
   const chat = useChat({
     patientId: patient?.id || null,
+    patient,
     language: settings.answerLanguage,
     onEvent: emit,
   });
@@ -225,7 +226,7 @@ export function ChatPage({ sessionId }) {
             </div>
           </div>
 
-          <DisclaimerBanner locale={locale} />
+          <DisclaimerBanner locale={locale} live={live} />
         </div>
       ) : (
         /* ── DOCUMENT ─────────────────────────────────────── */
@@ -258,7 +259,16 @@ export function ChatPage({ sessionId }) {
             <div className="ec-inline-error" role="alert">
               <Icon name="alert" size={13} />
               <span>
-                {t(locale, "Не вдалося отримати відповідь.", "The answer failed to come back.")}
+                {/* The data layer already writes a typed, localised sentence for
+                    every failure it knows how to name (evidenceApi.js: the
+                    service is unreachable, the model timed out, the session
+                    expired). Showing the generic line over it threw that away
+                    and left "it failed" as the only diagnosis the reader ever
+                    got. Anything without a `code` is an unnamed error, and its
+                    raw message is not UI copy. */}
+                {chat.error.code
+                  ? chat.error.message
+                  : t(locale, "Не вдалося отримати відповідь.", "The answer failed to come back.")}
                 {chat.error.status ? ` (${chat.error.status})` : ""}
               </span>
               <button type="button" className="ec-linkbtn" onClick={chat.regenerate}>
@@ -285,7 +295,7 @@ export function ChatPage({ sessionId }) {
               />
             )}
             {composer("bar")}
-            <DisclaimerBanner locale={locale} />
+            <DisclaimerBanner locale={locale} live={live} />
           </div>
         </>
       )}

@@ -91,7 +91,9 @@ export function AnswerDocument({
       : []),
   ];
 
-  const confidenceBand = answer && confidenceBandOf(answer.confidence);
+  const confidenceBand = typeof answer?.confidence === "number"
+    ? confidenceBandOf(answer.confidence)
+    : null;
 
   return (
     <article className="ec-doc">
@@ -127,7 +129,13 @@ export function AnswerDocument({
             )}
             {/* Confidence sits in the meta line, not in a chip row under the
                 recommendation: it qualifies the whole answer, and one row of
-                metadata reads faster than two. */}
+                metadata reads faster than two.
+
+                Not every backend scores one. A pipeline that reports no
+                confidence gets no pill — rendering 0.00, or quietly banding a
+                missing value as "low", would put a number on the screen that
+                nothing computed. */}
+            {typeof answer.confidence === "number" && (
             <button type="button" className="ec-pill ec-pill-btn ec-conf" data-band={confidenceBand}
                     title={`${t(locale,
                       "Наскільки джерела підтримують цю відповідь",
@@ -136,6 +144,7 @@ export function AnswerDocument({
               {t(locale, "Впевненість", "Confidence")} {answer.confidence.toFixed(2)}
               <Icon name="info" size={10} />
             </button>
+            )}
           </div>
         )}
       </header>
@@ -144,7 +153,11 @@ export function AnswerDocument({
         <StageProgress stage={message.stage} entities={message.entities} locale={locale} />
       )}
 
-      {!!answer && !answer.abstained && (
+      {/* Sources are offered whenever there are any — including on an
+          abstention. When the pipeline declines for low confidence or a failed
+          verification it HAS retrieved real sources; withholding them would
+          keep from the reader the one thing still worth reading. */}
+      {!!answer && (!answer.abstained || sources.length > 0) && (
         <div className="ec-tabs" role="tablist">
           {tabs.map((x) => (
             <button

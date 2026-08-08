@@ -58,6 +58,7 @@ import { AsrJobsListPage } from './pages/AsrJobsListPage.jsx';
 import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
 import { DocumentsPage, docPath, docTabFromRoute } from './pages/DocumentsPage.jsx';
 import { TemplateLibraryPage, libPath, libTabFromRoute } from './pages/TemplateLibraryPage.jsx';
+import { EvidenceRoutes, evidenceCrumbs, isEvidenceRoute } from './components/evidence/EvidenceRoutes.jsx';
 import { ChatHostRoute, CHAT_BASE_PATH } from './chat/host/ChatHostRoute.jsx';
 import { EmbedHarness as ChatEmbedHarness } from './chat/EmbedHarness.jsx';
 import { useSettings as useChatSettings } from './chat/settingsContract.js';
@@ -450,6 +451,16 @@ function App() {
       </RequireClinical>
     );
     showTopbar = false;
+  }
+  // ── evidence module (EVA) ──────────────────────────────────
+  // ONE branch, and it is the only thing App.jsx knows about the module: the
+  // route table, the flag and the role gate all live in EvidenceRoutes.jsx.
+  // `isEvidenceRoute` is false when the devtools flag is off, so those paths
+  // fall through to the 404 exactly like any other unknown route — which is
+  // what the flag-off invisibility spec asserts.
+  else if (isEvidenceRoute(routePath)) {
+    view = <EvidenceRoutes route={r} navigate={navigate} />;
+    crumbs = evidenceCrumbs(routePath, lang) || [];
   }
   // ── evidence chat (embedded module, mock data only) ────────
   // Dev-only fake host for the module (§6 B-05). Checked BEFORE the module's

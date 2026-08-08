@@ -5,7 +5,7 @@ import { Icon, Logo, Modal, useMenuAnchor, AnchoredMenu } from "./UI.jsx";
 import { useServiceHealth, HealthPanel, healthLabel, healthColor } from "./HealthBadge.jsx";
 import { ClinicMenuSection, CreateClinicModal } from "./TenantSwitcher.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
-import { hasClinicalAccess, isAuditorOnly, canReadPatients } from "../auth/permissions.js";
+import { hasClinicalAccess, isAllowed, isAuditorOnly, canReadPatients } from "../auth/permissions.js";
 import { isPlatformOwner } from "../company/ownerAccess.js";
 import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
@@ -104,6 +104,11 @@ function NavLink({ route, navigate, path, prefix, exact, icon, label, badge, col
   return (
     <a
       className={cls}
+      // Navigation is by onClick (hash routing), so this anchor has no href —
+      // which left every "the nav carries no link to X" assertion in the e2e
+      // suite matching nothing and passing for the wrong reason. `data-path`
+      // makes a nav row addressable without making it a real link.
+      data-path={path}
       aria-disabled={disabled || undefined}
       onClick={(e) => {
         e.preventDefault();
@@ -205,6 +210,10 @@ export function Sidebar({
   // workspace-scoped store the module itself reads, so the toggle in
   // /settings hides this block live, no reload).
   const chatEnabled = !!useChatSettings(claims?.tid).settings.moduleEnabled;
+  // EVA-S04. Flag first, then permission — the same order EvidenceRoutes uses,
+  // so a role that may not ask never sees a nav row that leads to a forbidden
+  // page, and a build with the flag off carries no evidence entry at all.
+  const evidenceAskable = FEATURES.evidence && isAllowed(claims, "evidence.ask", "evidence");
   // The Studio's work list rides in this sidebar, but only while the Studio is
   // the screen — see where it renders, below the nav.
   const inStudio = route === "/studio" || route.startsWith("/studio?") || route.startsWith("/studio/");
@@ -237,7 +246,7 @@ export function Sidebar({
   // Auto-open the group matching the active route on navigation.
   useEffect(() => {
     let want = null;
-    if (route.startsWith("/chat")) want = "evidence";
+    if (route.startsWith("/chat") || route.startsWith("/evidence")) want = "evidence";
     else if (route.startsWith("/audit")) want = "audit";
     // /asr now lives inside Scribe's workspace group, not a category of its own.
     else if (route.startsWith("/scribe") || route.startsWith("/dictate") || route.startsWith("/asr")) want = "workspace";
@@ -460,18 +469,39 @@ export function Sidebar({
       </Group>
       )}
 
-      {/* ── Evidence (embedded module — chat, agents, connectors) ──
-          Behind the settings gate: a demo module nobody switched on
-          must not advertise itself in the nav. */}
-      {state && clinical && chatEnabled && (
+      {/* ── Evidence ─────────────────────────────────────────────
+          Two independent things share this group, and each brings its own
+          gate — the group appears when EITHER is on and lists only what is:
+
+            · the EvidenzAI chat module, behind the /settings toggle (a demo
+              module nobody switched on must not advertise itself in the nav)
+            · the EVA evidence surface (S04), behind FEATURES.evidence and
+              the `evidence.ask` permission — which is clinician, nurse and
+              tenant_admin, a WIDER set than `clinical`, so it is checked
+              against the permission table rather than reusing that flag. */}
+      {state && (evidenceAskable || (clinical && chatEnabled)) && (
         <Group id="evidence" title={tr(lang, "Доказова база", "Evidence")} icon="sparkle"
                openSet={openSet} setOpenSet={setOpenSet} collapsed={collapsed}>
-          <NavLink {...{ route, navigate, collapsed }} icon="sparkle"
-                   label={tr(lang, "Платформа", "Evidence platform")}
-                   path="/chat" exact />
-          <NavLink {...{ route, navigate, collapsed }} icon="users"
-                   label={tr(lang, "Агенти", "Agents")}
-                   path="/chat/agents" prefix="/chat/agents" />
+          {evidenceAskable && (
+            <>
+              <NavLink {...{ route, navigate, collapsed }} icon="search"
+                       label={tr(lang, "Запит", "Ask")}
+                       path="/evidence" exact />
+              <NavLink {...{ route, navigate, collapsed }} icon="clock"
+                       label={tr(lang, "Історія", "History")}
+                       path="/evidence/history" prefix="/evidence/history" />
+            </>
+          )}
+          {clinical && chatEnabled && (
+            <>
+              <NavLink {...{ route, navigate, collapsed }} icon="sparkle"
+                       label={tr(lang, "Платформа", "Evidence platform")}
+                       path="/chat" exact />
+              <NavLink {...{ route, navigate, collapsed }} icon="users"
+                       label={tr(lang, "Агенти", "Agents")}
+                       path="/chat/agents" prefix="/chat/agents" />
+            </>
+          )}
         </Group>
       )}
 
