@@ -1,7 +1,11 @@
 # E2E suites
 
-Two tiers, one runner (Playwright; Vite dev server auto-starts via
-`playwright.config.js`):
+Two tiers, one runner (Playwright). `playwright.config.js` starts TWO servers:
+the Vite **dev** server on :5173, which almost every spec drives, and a
+**preview** server on :4173 serving the production build with the production
+security headers, which only `csp.spec.js` drives (sprint 16 — the dev server
+has to hand Vite a nonce for its own injected tags, so "zero CSP violations"
+there would prove a weaker policy than the one a clinic runs).
 
 ## Hermetic (CI-safe) — `npm run e2e`
 
@@ -12,6 +16,23 @@ steps 02–05: rendering, keyboard protocol, snippets, telemetry batching,
 memo, degraded budget, micro-backoff, master toggle). The autocomplete
 mocks enforce the real wire contract (`extra="forbid"`, 80-char prefix) so
 a contract regression fails hermetically.
+
+Sprint 16 adds three:
+
+- `csp.spec.js` — the production artifact under the ENFORCED policy. Asserts
+  the header itself, then exercises everything the policy could break (login,
+  both WebSockets, blob audio, a blob PDF download, the MFA QR canvas, the
+  Swagger iframe, the self-hosted fonts) with the violation log asserted empty.
+- `mfa.spec.js` — TOTP enrolment and the login second step. The codes are the
+  real RFC 6238 computation over RFC 4226's test-vector secret, so the fixture
+  accepts only the code an authenticator app would show. Includes the
+  assertion that the enrolment secret never reaches storage, the URL or the
+  console.
+- `session-revocation.spec.js` — a session killed before its token expires
+  (ADR-0040). Drives a real recording over a routed WebSocket, revokes
+  mid-consultation, and asserts the IndexedDB ring survives and the next
+  sign-in offers it back — including that restoring RESUMES the old session
+  and replays the preserved frames.
 
 ## Live (backend required) — `npm run e2e:live` / `e2e:live:chaos`
 

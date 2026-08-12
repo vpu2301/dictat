@@ -696,6 +696,12 @@
 }
 .company .colog-btn:hover:not(:disabled) { background: var(--surface-2); }
 .company .colog-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text, #fff); }
+/* A half-transparent accent on the console's light surface reads as a broken
+   button rather than a disabled one — go fully neutral instead. */
+.company .colog-btn:disabled {
+  opacity: 1; background: var(--surface-2); border-color: var(--line, var(--surface-2)); color: var(--muted);
+}
+.company .colog-btn.ghost:disabled { background: transparent; border-color: transparent; }
 .company .colog-btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); }
 .co-btn-sm { padding: 6px 11px !important; font-size: 12px !important; }
 .co-field-err { display: block; font-style: normal; font-size: 11.5px; color: #dc2626; margin-top: 4px; }
@@ -705,6 +711,15 @@
   font-size: 12px; color: var(--text-2); cursor: pointer; white-space: nowrap;
 }
 .co-check input { accent-color: var(--accent); }
+
+/* The role-set editor (People tab) is a ROW of checkboxes, not a list: the set
+   is chosen as a whole, so the ticks belong side by side where they can be read
+   as one answer to "what will this person hold after saving". */
+.co-checkrow { display: flex; flex-wrap: wrap; gap: 14px; padding: 8px 0; }
+
+/* A synonym group's terms are one comma-separated field, and it sits inside the
+   flex row of a .co-flaglist item — so it has to be told to take the space. */
+.co-syn-edit { flex: 1; min-width: 16rem; }
 
 .co-rowactions { text-align: right; white-space: nowrap; }
 .co-statecell { white-space: nowrap; }
@@ -742,16 +757,34 @@
 }
 .co-validation code { font-size: 11px; }
 
+/* The shared .modal shell carries no padding of its own — every dialog owns
+   its own header / body / footer bands, so these three must supply it or the
+   form ends up flush against the rounded corners. The body scrolls on its own
+   so a long form (the template editor) never pushes the footer off-screen. */
 .co-modal { max-width: 640px; width: 100%; }
+.co-modal > form { display: flex; flex-direction: column; max-height: min(82vh, 780px); min-height: 0; }
 .co-modal-h {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; margin-bottom: 14px;
+  gap: 12px; flex: none;
+  padding: 17px 22px 14px;
+  border-bottom: 1px solid var(--line-2, var(--surface-2));
 }
 .co-modal-h h2 { margin: 0; font-size: 17px; }
-.co-modal-f {
-  display: flex; justify-content: flex-end; gap: 10px;
-  margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line, var(--surface-2));
+.co-modal-h .co-search-x {
+  display: inline-flex; padding: 5px; margin: -5px -5px -5px 0; border-radius: 7px;
 }
+.co-modal-h .co-search-x:hover { background: var(--surface-2); color: var(--text-1); }
+.co-modal-b { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px 22px; }
+.co-modal-b > :first-child { margin-top: 0; }
+.co-modal-b > :last-child { margin-bottom: 0; }
+.co-modal-f {
+  display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex: none;
+  padding: 13px 22px; border-top: 1px solid var(--line-2, var(--surface-2));
+  background: var(--surface-2);
+}
+/* .colog-btn.primary nudges itself down 4px to sit under a stacked sign-in
+   form; in a side-by-side footer that just misaligns it with Cancel. */
+.co-modal-f .colog-btn { margin-top: 0; }
 
 /* ── Staff sign-in (#/company/login) ──────────────────────────────────────
    Deliberately unlike the clinic's /login: a dark, quiet, internal-tool shell

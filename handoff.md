@@ -33,14 +33,32 @@ npm run contracts:check     # CI: regenerate to a buffer, fail if the committed 
 npm run lint:contracts      # the one ESLint rule: no hand-written contract types
 npm run auth:permissions -- --check   # vendored docs/auth/permissions.csv vs the backend's copy
 EVIDENCE_DB_URL=… npm run fixtures:corpus   # EVA-S02 — regenerate the mock corpus from a dev backend
+
+# Sprint 16 — production hardening
+npm run verify:bundle       # build, then assert dist/ ships no dev seam, no inline
+                            # script/style, no third-party origin, and an ENFORCING policy
+npm run verify:bundle:selftest  # seed each regression into a copy of dist/ and prove the gate catches it
+npm run fonts:vendor        # re-download the self-hosted webfonts → public/fonts + src/fonts.css
 ```
+
+**Security headers.** The CSP is computed from the service map
+(`src/security/csp.js` over `resolveServices`), so it cannot drift from the app.
+`vite.config.js` serves it on the dev server (plus a nonce for Vite's own
+injected tags) and on `vite preview` (the exact production policy), and writes
+`dist/_headers` + `dist/security-headers.nginx.conf` at build. `VITE_CSP_MODE`
+switches `enforce` / `report-only` / `off` — see `.env.example`. Two things the
+policy depends on and that a refactor could quietly undo: the webfonts are
+self-hosted (`src/fonts.css`), and TipTap's runtime `<style>` injection is off
+(`injectCSS: false`, with its stylesheet shipped as `src/prosemirror.css`).
+`e2e/csp.spec.js` drives the built artifact under the enforced policy and
+asserts the violation log is empty.
 
 The unit net is `npm run test:unit` (plain `node --test`, no framework) plus
 `npm run build` (full module transform; catches import/syntax errors) and Playwright e2e.
 After any change, run `npm run build` before declaring done.
 
 **Tech stack:** React 18, Vite 6, **TipTap 3** (section-aware editor), DOMPurify (paste
-sanitization), `qrcode` (Дія signing), `diff-match-patch` (report amendments),
+sanitization), `qrcode` (Дія signing + the sprint-16 MFA enrolment QR), `diff-match-patch` (report amendments),
 `@floating-ui` (popovers). No CSS framework — hand-rolled CSS with design tokens.
 
 ---
@@ -294,8 +312,14 @@ Route map (current):
 | `/profile` | **ProfilePage** (user-facing, added this session) |
 | `/me` | MePage (token/claims inspector — dev/identity view) |
 | `/settings` | SettingsPage |
-| `/admin/users`, `/audit/events`, `/audit/verify` | admin/audit (role-gated) |
+| `/admin`, `/admin/*` | **Admin console (S17)** — delegated sub-router `src/admin/AdminRoutes.jsx` (the EvidenceRoutes pattern; App.jsx has ONE branch). Surfaces: `/admin/templates[/{id}]` (lifecycle + live cosmetic/structural banner + re-bind), `/admin/dictionary` (abbreviations CRUD + `/nlp/process` sandbox + voice-command reference), `/admin/autocomplete` (phrases/snippets + acceptance columns + PII gate), `/admin/synonyms`, `/admin/users` (real roster, invite/deactivate/reactivate, multi-role editor, last-admin 409), `/admin/audit[/verify]` (filters + chain verify, deliberately NO export), `/admin/privacy` (pre-S17 page, folded in). Gate: `tenant_admin` (audit also `auditor`). Bare `/admin` → templates. |
+| `/audit/events`, `/audit/verify` | auditor-facing audit pages (pre-S17, kept) |
 | `/forbidden` | 403 |
+
+MFA grace (S16→S17): any mutation 403 with `code:"mfa_enrolment_required"` is
+intercepted in `src/api/client.js` and routed to `/mfa?required=1&return=<hash>`;
+MfaPage's done-state returns to the validated `return` path (`src/auth/mfaGrace.js`
+owns the route builder + sanitizer).
 
 ---
 
@@ -307,7 +331,11 @@ src/
   main.jsx           # providers + CSS imports
   i18n.js            # STRINGS{uk,en} + I18nProvider/useI18n (see §6)
   api/               # one file per backend domain + useAsync/useCursorPages + services.js
-  auth/              # AuthContext, RequireRole, permissions, RootGate
+  admin/             # S17 admin console: AdminRoutes (route table), AdminLayout,
+                     # ConfirmDialog, useLimitedList, pieces/ (problemCode, corpusRules),
+                     # pages/ (TemplatesAdmin, DictionaryAdmin, AutocompleteAdmin,
+                     # SynonymsAdmin, UsersAdmin, AuditAdmin), admin-*.css
+  auth/              # AuthContext, RequireRole, permissions, RootGate, mfaGrace (return-to)
   components/        # shared UI + big feature components (Studio, Reports, NoteEditor, SigningFlow…)
     UI.jsx           # Icon set, Sidebar, TopBar, Empty, SaveStatus, Modal, Toast, Logo
     Sidebar.jsx      # left nav + account menu (Profile/Settings/Audit/Sign out)

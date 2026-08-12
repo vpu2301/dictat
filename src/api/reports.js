@@ -26,7 +26,7 @@ export async function listReports({
   // terms search the tips popover documents. Only `false` is serialised: the
   // default must stay off the wire so pre-S15 backends keep working.
   expand,
-} = {}) {
+} = {}, init = {}) {
   const qs = new URLSearchParams();
   // `status` may be a single value or an array; the backend `?status=` is a
   // `list[str]`, so emit one repeated param per value (lets "All" mean "all
@@ -45,7 +45,10 @@ export async function listReports({
   if (cursor)   qs.set("cursor", cursor);
   if (expand === false) qs.set("expand", "false");
   const tail = qs.toString() ? `?${qs}` : "";
-  return a(`/v1/reports/search${tail}`, { method: "GET" });
+  // `init` carries an AbortSignal for the topbar search: a keystroke's request
+  // must be cancellable, or a slow answer to "pet" lands after "petrenko".
+  // Same shape as listPatients, so both sources of the palette abort alike.
+  return a(`/v1/reports/search${tail}`, { method: "GET", ...init });
 }
 
 // Synonym groups that broadened the last query, e.g.

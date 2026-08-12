@@ -17,7 +17,11 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   flex: 1; min-height: 0; overflow: hidden;
-  background: var(--bg);
+  /* No ground of its own: the shell paints the wash (.app in styles.css) and
+     a flat --bg here would stamp a plain rectangle across the middle of it,
+     with a visible edge under the now-transparent topbar. The panels inside
+     still carry --surface, so nothing that holds text lost its contrast. */
+  background: transparent;
 }
 
 /* ── the work list, in the app sidebar ────────────────────────────────── */
@@ -112,8 +116,12 @@
 
 .sw-head {
   flex: 0 0 auto;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  /* Part of the same continuous chrome as the topbar and the nav: no ground
+     and no closing rule. The full-width hairline that used to sit here was
+     the last thing cutting the header off from the document below it. The
+     active tab keeps its own 2px underline, which is what actually marks the
+     open document. */
+  background: transparent;
 }
 .sw-head-1, .sw-head-2 {
   display: flex; align-items: center; gap: 8px;
@@ -192,16 +200,17 @@
 .sw-tabsrow {
   display: flex; align-items: center;
   padding: 0 16px; border-top: 1px solid var(--line-2);
+  /* The -1px pull-up went with the header's bottom border: there is no rule
+     left for the active tab's underline to sit on, so nothing to overlap. */
 }
 .sw-tabs {
   display: flex; align-items: center; gap: 2px;
-  min-width: 0; overflow-x: auto; scrollbar-width: thin;
+  min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
 }
 /* One tab = one open document. The close button lives inside the tab, so the
    whole thing underlines as a unit. */
 .sw-tab {
   display: inline-flex; align-items: center; flex: none;
-  margin-bottom: -1px;
   border-bottom: 2px solid transparent;
   color: var(--muted);
   max-width: 240px;
@@ -327,6 +336,37 @@
 }
 .sw-gate { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px; }
 
+/* ── the chooser ──────────────────────────────────────────────────────── */
+/* Nothing open yet. The five ways to capture a note, side by side, instead of
+   a dictation tab the clinician did not ask for. */
+.sw-start {
+  flex: 1; min-width: 0; overflow-y: auto;
+  display: flex; align-items: center; justify-content: center; padding: 32px 24px;
+}
+.sw-start-b { width: 100%; max-width: 640px; }
+.sw-start-t { margin: 0; font-size: 19px; font-weight: 650; color: var(--text-1); }
+.sw-start-s { margin: 6px 0 20px; font-size: 13px; color: var(--text-2); }
+.sw-start-grid { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sw-start-card {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); color: var(--text-2); font: inherit;
+  text-align: left; cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.sw-start-card:hover { border-color: var(--accent); background: var(--surface-2); color: var(--text-1); }
+.sw-start-card > svg:first-child {
+  flex: none; width: 30px; height: 30px; padding: 7px;
+  box-sizing: border-box; border-radius: 8px;
+  background: var(--accent-soft); color: var(--accent);
+}
+/* An odd count leaves the last card alone on its row — let it take the width
+   rather than sit half-empty. */
+.sw-start-grid > .sw-start-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+@media (max-width: 700px) {
+  .sw-start-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* The note editor keeps its own three-column shell (structure rail, writing
    surface, microphone) — it just stops being a page and becomes the pane. */
 .sw-pane > .note-embedded { flex: 1; min-width: 0; min-height: 0; }
@@ -335,28 +375,9 @@
 .cv-room[data-embedded="on"] { height: auto; flex: 1; min-height: 0; background: var(--bg); }
 .cv-room[data-embedded="on"] .cv-head { background: transparent; border-bottom: 0; padding: 8px 16px 0; }
 
-/* ── composer ─────────────────────────────────────────────────────────── */
-.sw-composer {
-  flex: 0 0 auto;
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--line);
-  background: var(--surface);
-}
-.sw-composer input {
-  flex: 1; min-width: 0;
-  padding: 9px 12px; border-radius: 22px;
-  border: 1px solid var(--line); background: var(--surface-2);
-  font: inherit; font-size: 13.5px; color: var(--text-1); outline: none;
-}
-.sw-composer input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.sw-composer input:disabled { color: var(--muted); cursor: not-allowed; }
-.sw-send {
-  width: 32px; height: 32px; flex: none; border: 0; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--accent); color: #fff; cursor: pointer;
-}
-.sw-send:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+/* The docked composer that used to live at the bottom of .sw-main was
+   removed 2026-08-11 — see the note in StudioWorkspace.jsx. Its styles
+   (.sw-composer, .sw-send) went with it. */
 
 /* ── patient picker dialog ────────────────────────────────────────────── */
 /* Wide enough to hold three columns — a name alone does not identify anyone,

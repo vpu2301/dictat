@@ -488,6 +488,20 @@ export function TipTapEditor({
   }, [acceptSuggestion, handleLcKeyDown])
 
   const editor = useEditor({
+    // CSP (sprint 16). @tiptap/core's default is to build a <style> element at
+    // runtime and set its innerHTML (utilities/createStyleTag.ts) — an inline
+    // stylesheet, and the ONE thing in this app that would have forced
+    // `style-src 'unsafe-inline'` into the policy. TipTap offers a nonce
+    // instead; a nonce means threading a per-response value from the server
+    // into a React component, and the app is served as static files with no
+    // server to mint one. The stylesheet is thirty lines of ProseMirror
+    // plumbing that never changes, so the honest fix is to ship it as CSS:
+    // src/prosemirror.css holds it verbatim, imported by main.jsx.
+    //
+    // If a TipTap upgrade changes that stylesheet, the editor's caret and
+    // whitespace handling break visibly and e2e/typed-fields.spec.js fails —
+    // it is not a silent divergence.
+    injectCSS: false,
     extensions: [
       StarterKit.configure({
         heading:    { levels: [2, 3] },

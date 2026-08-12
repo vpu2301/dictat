@@ -28,6 +28,21 @@ export function hasAnyRole(claims, roles) {
 export const CLINICAL_ROLES = ["clinician", "nurse"];
 export const ADMIN_ROLES = ["tenant_admin", "super_admin"];
 
+// ── What NOT to show a human ──────────────────────────────────────────
+// Keycloak puts its own housekeeping roles in the same `roles` claim as
+// ours: `offline_access` and `uma_authorization` are protocol scopes and
+// `default-roles-<realm>` is the composite every new account is given.
+// None of them grants anything in this product. Anywhere the claim is
+// RENDERED — the account block, the access-denied screen — it has to come
+// through here first, or "your roles" reads as a debug dump with the one
+// role that matters buried in it.
+//
+// Authorisation is unaffected: hasAnyRole() and the matrix below still see
+// the raw claim. This is a display filter and nothing else.
+const KEYCLOAK_INTERNAL = /^(offline_access|uma_authorization|default-roles-.*)$/;
+export const productRoles = (roles) =>
+  (roles || []).filter((r) => typeof r === "string" && !KEYCLOAK_INTERNAL.test(r));
+
 // ── EVA-S01: the corpus-curation role ─────────────────────────────────
 // `knowledge_admin` curates the evidence corpus and the web-search domain
 // allowlist. It is NOT an admin role: docs/auth/permissions.csv denies it
@@ -71,6 +86,19 @@ export function isAuditorOnly(claims) {
 /** Can this user open the patient roster? */
 export function canReadPatients(claims) {
   return isAllowed(claims, "patients.read", "patient");
+}
+
+/**
+ * May this user MINT a break-glass grant?
+ *
+ * Admin-only, and the check matters on the REFUSAL screens as much as on the
+ * buttons: a 403 `phi_access_required` reaching a clinical role is a stale
+ * token or a deep link, not an invitation. Offering "Request access" there
+ * would put a door in front of someone who cannot open it — and, if a server
+ * ever agreed, would mint a grant on the one role that must never hold one.
+ */
+export function canRequestPhiAccess(claims) {
+  return isAllowed(claims, "phi_access.request", "phi_access_request");
 }
 
 /** A corpus curator: knowledge_admin and nothing else. */
@@ -119,6 +147,19 @@ export const MATRIX = {
   // S14: `report.*` and `note.*` are clinical-only. `patient.*` is NOT —
   // the roster is exactly the surface an administrator's job needs, and
   // it is the one clinical-adjacent list they keep.
+  // ── signing (the 2026-08-09 hotfix) ───────────────────────────────────
+  // The three actions that carry SIGNING authority, as distinct from
+  // authorship. Before the hotfix every signing surface gated on
+  // `report.write` / `patient.write` — both held by nurse — so the authority
+  // to affix a qualified signature had no representation in this matrix at
+  // all, and the UI offered the act to everyone who could type.
+  //
+  // `report.finalize` is deliberately NOT here: finalizing is the structural
+  // draft → finalized transition, it applies no signature, and nurses keep it.
+  "report.sign":   { report:  ["clinician"] },
+  "report.amend":  { report:  ["clinician"] },
+  "consent.sign":  { consent: ["clinician"] },
+
   "reports.create":   { report:  ["clinician", "nurse"] },
   "reports.read":     { report:  ["clinician", "nurse"] },
   "notes.read":       { note:    ["clinician", "nurse"] },
@@ -126,10 +167,14 @@ export const MATRIX = {
   "patients.read":    { patient: PATIENT_ROLES },
   "patients.write":   { patient: PATIENT_ROLES },
 
-  // ── break-glass (S14) ─────────────────────────────────────────────────
-  // Only an admin requests it — a clinician already holds report.read, so
-  // offering them the modal would be a dead end. `phi_access.read` is the
-  // oversight log: who broke glass, on what, and why.
+  // ── break-glass (S14; re-asserted 2026-08-09) ─────────────────────────
+  // Only an admin requests it. A clinical role holds `patient.read_full` and
+  // `report.read` outright — standing access, with the treatment relationship
+  // RECORDED in the audit event rather than required — so there is no door
+  // left for a clinician to walk through. A permission with no reachable use
+  // is not harmless: it is grant-minting power sitting on the role that least
+  // needs it. `phi_access.read` is the oversight log: who broke glass, on
+  // what, and why.
   "phi_access.request": { phi_access_request: ["tenant_admin", "super_admin"] },
   "phi_access.read":    { phi_access_request: ["tenant_admin", "super_admin", "auditor"] },
 
@@ -173,6 +218,46 @@ export const MATRIX = {
 export const EVIDENCE_ACTIONS = Object.keys(MATRIX)
   .filter((a) => a.startsWith("evidence."))
   .sort();
+
+// ── signing (sprint 09; clinician-only as of the 2026-08-09 hotfix) ────
+//
+// A qualified electronic signature is a doctor's legal act. It attests that
+// THIS clinician takes responsibility for the content — which is why the law
+// binds it to a personal KEP and why no one may perform it on another's
+// behalf. Before this, the sign, amend and КЕП-consent affordances rendered
+// for nurse, tenant_admin and auditor alike.
+//
+// Backed by a REAL server-side action: signing-service gates every signing
+// route on `report.sign` (see the MATRIX rows above, mirrored from the
+// backend's own table). So this is an ordinary permission check, not a
+// cosmetic one — hiding the button and refusing the call now agree.
+export const SIGNING_ROLES = ["clinician"];
+
+/** May this user affix a qualified signature to a REPORT? */
+export function canSign(claims) {
+  return isAllowed(claims, "report.sign", "report");
+}
+
+/** …and to a patient CONSENT (the КЕП option in the consent sheet). */
+export function canSignConsent(claims) {
+  return isAllowed(claims, "consent.sign", "consent");
+}
+
+/** Amending a signed report re-signs it — the same act, the same authority. */
+export function canAmend(claims) {
+  return isAllowed(claims, "report.amend", "report");
+}
+
+/**
+ * Is this error the server refusing a signing act for want of standing?
+ *
+ * Anything the signing/report services answer 403 to on a signing path is
+ * this: the FE gate is advisory, so a 403 here means a stale tab, a deep
+ * link, or a role that changed under the user — never a bug to shout about.
+ */
+export function isSigningForbidden(err) {
+  return err?.status === 403;
+}
 
 export function isAllowed(claims, action, target_kind) {
   const entry = MATRIX[action];

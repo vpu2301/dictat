@@ -28,16 +28,34 @@ const CTA = {
   ar: { type: "cta", title: "هل أنت مستعد لتجربة Klarnote؟", sub: "سجّل الآن وأعِد للأطباء وقتهم.", primary: { label: "التسجيل", path: "/signup" }, secondary: { label: "تحدّث إلينا", path: "/contact" } },
   es: { type: "cta", title: "¿Listo para probar Klarnote?", sub: "Regístrese y devuelva a los médicos su tiempo.", primary: { label: "Registrarse", path: "/signup" }, secondary: { label: "Hable con nosotros", path: "/contact" } },
   pt: { type: "cta", title: "Pronto para experimentar o Klarnote?", sub: "Registe-se e devolva aos médicos o seu tempo.", primary: { label: "Registar-se", path: "/signup" }, secondary: { label: "Fale connosco", path: "/contact" } },
+  lt: { type: "cta", title: "Pasiruošę išbandyti Klarnote?", sub: "Užsiregistruokite ir grąžinkite gydytojams jų laiką.", primary: { label: "Registruotis", path: "/signup" }, secondary: { label: "Susisiekite su mumis", path: "/contact" } },
 };
 
 import { buildCompanyLegal } from "./content-company.js";
 import { buildProductPages } from "./content-product.js";
 import { buildFeatureDetail } from "./content-features.js";
+import { buildPlatformPages } from "./content-platform.js";
+import { buildRcmPages } from "./content-rcm.js";
+import { buildValidationPages } from "./content-validation.js";
 
-/* Public resolver used by ContentPage. Returns null for unknown slugs. */
+/* Public resolver used by ContentPage. Returns null for unknown slugs.
+   Platform pages are consulted first: /platform and the two pillar pages
+   under /product are the category story, and if a slug ever collides the
+   positioning-driven page is the one that should win. */
 export function getContent(slug, lang) {
   const cta = CTA[lang] ?? CTA.en;
   const m = slug.match(/^features\/(.+)$/);
   if (m) return buildFeatureDetail(m[1], lang, cta);
-  return buildCompanyLegal(lang, cta)[slug] || buildProductPages(lang, cta)[slug] || null;
+  /* /rcm is consulted before the rest for the same reason /platform is: the
+     Bill pillar's page is part of the category story, and a country slug like
+     "rcm/de" must never be shadowed by a page that happens to share a prefix. */
+  if (slug === "rcm" || slug.startsWith("rcm/")) return buildRcmPages(lang, cta)[slug] || null;
+  return buildPlatformPages(lang, cta)[slug]
+    /* /validation before the rest for the same reason: it is the page that
+       says which of this site's claims have been measured, so nothing may
+       shadow it. */
+    || buildValidationPages(lang, cta)[slug]
+    || buildCompanyLegal(lang, cta)[slug]
+    || buildProductPages(lang, cta)[slug]
+    || null;
 }

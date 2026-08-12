@@ -226,8 +226,12 @@ test("ad-hoc dictation without a patient is unchanged (gate, no context bar)", a
   await login(page);
 
   await page.goto("/#/studio?mode=dictate");
-  await expect(page.locator("[data-testid='patient-gate-row']").first()).toBeVisible({ timeout: 10000 });
+  // The gate is the dictation surface's own prompt now — no modal on arrival —
+  // and it still leads to the same patient list.
+  await expect(page.getByRole("button", { name: /Обрати пацієнта|Pick a patient/ })).toBeVisible({ timeout: 10000 });
   await expect(page.getByTestId("studio-context-bar")).toHaveCount(0);
+  await page.getByRole("button", { name: /Обрати пацієнта|Pick a patient/ }).click();
+  await expect(page.locator("[data-testid='patient-gate-row']").first()).toBeVisible({ timeout: 10000 });
 });
 
 test("deceased patient: Почати прийом disabled with explanation", async ({ page }) => {

@@ -8,6 +8,7 @@
 import React from "react";
 import { Icon } from "../../components/UI.jsx";
 import { MarketingShell } from "./MarketingShell.jsx";
+import { AuthSelect } from "../SignupFlow.jsx";
 import { SERVICES } from "../../api/services.js";
 
 /* Slug → service registry entry + bilingual copy. Order matches the footer. */
@@ -40,30 +41,32 @@ export function ApiDocsPage({ svc, navigate, lang, tweaks, setTweak }) {
       </header>
 
       <section className="apidocs">
-        <div className="apidocs-tabs" role="tablist" aria-label={uk ? "Сервіси" : "Services"}>
-          {API_DOC_SERVICES.map((s) => (
-            <a
-              key={s.key}
-              role="tab"
-              aria-selected={s.key === active.key}
-              className={`apidocs-tab${s.key === active.key ? " is-active" : ""}`}
-              href={`#/developers/api/${s.key}`}
-              onClick={go(`/developers/api/${s.key}`)}
-            >
-              <span className="apidocs-tab-label">{s.label}</span>
-              <span className="apidocs-tab-desc">{s.desc[lang] ?? s.desc.en}</span>
-            </a>
-          ))}
-        </div>
-
-        <div className="apidocs-bar">
-          <span className="apidocs-bar-title">{active.label} API</span>
-          <div className="apidocs-bar-links">
-            <a href={`${active.base}/openapi.json`} target="_blank" rel="noreferrer">openapi.json</a>
-            <a href={`${active.base}/docs`} target="_blank" rel="noreferrer">
-              {uk ? "Відкрити в новій вкладці" : "Open in new tab"} <Icon name="arrowRight" size={13} />
-            </a>
-          </div>
+        {/* ONE control, not eight. This was a 4x2 grid of bordered cards — a
+            wall of buttons for what is a single choice, and the loudest thing
+            on a page whose subject is the panel underneath. The site's own
+            dropdown (the one the contact and signup forms use) says the same
+            thing in one line and looks like the rest of the site. */}
+        <div className="apidocs-pick">
+          <label className="apidocs-pick-l" htmlFor="apidocs-svc">
+            {uk ? "Сервіс" : "Service"}
+          </label>
+          <AuthSelect
+            value={active.key}
+            onChange={(key) => navigate(`/developers/api/${key}`)}
+            opts={API_DOC_SERVICES.map((sv) => ({
+              value: sv.key,
+              label: `${sv.label} — ${sv.desc[lang] ?? sv.desc.en}`,
+            }))}
+            label={uk ? "Сервіс" : "Service"}
+            placeholder={uk ? "Оберіть сервіс" : "Choose a service"}
+          />
+          {/* The one link worth keeping. `openapi.json` went with the button
+              wall: Swagger prints that link itself, at the top of the panel
+              below, so a second copy up here was the same link twice. */}
+          <a className="apidocs-open" href={`${active.base}/docs`} target="_blank" rel="noreferrer">
+            {uk ? "Відкрити окремо" : "Open on its own"}
+            <Icon name="external" size={13} />
+          </a>
         </div>
 
         <div className="apidocs-frame">
@@ -76,7 +79,7 @@ export function ApiDocsPage({ svc, navigate, lang, tweaks, setTweak }) {
         </div>
         <p className="apidocs-note">
           {uk
-            ? "Документація надається самим сервісом. Якщо сторінка порожня — сервіс недоступний із вашої мережі."
+            ? "Документація надається самим сервісом. Якщо панель порожня — сервіс недоступний із вашої мережі."
             : "Docs are served by the service itself. If this pane is blank, the service isn't reachable from your network."}
         </p>
       </section>

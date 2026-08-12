@@ -106,7 +106,10 @@ export function ChatHostRoute({ route, navigate, lang = "en", theme = "light", o
   const backend = useMemo(() => chatBackend(), []);
 
   return (
-    <div className="page">
+    // `wide` + the host class: the answer wants the height and the width of
+    // the whole content area, not the 1280px reading column a form page uses.
+    // The module keeps its own measure inside — see --ec-measure.
+    <div className="page wide chat-host-page">
       <ChatEmbed
         user={user}
         workspace={workspace}
@@ -122,7 +125,18 @@ export function ChatHostRoute({ route, navigate, lang = "en", theme = "light", o
         theme={{
           mode: theme === "dark" ? "dark" : "light",
           tokens: {
-            bg: "var(--bg)",
+            // NOT var(--bg): that is the flat ground, and the shell paints a
+            // wash over it (.app, styles.css). Handing the module the flat
+            // colour made it repaint a plain slab across the middle of a lit
+            // page — a rectangle with visible edges where the wash stopped.
+            // Transparent lets the same light fall across the panel.
+            bg: "transparent",
+            // The dock needs no ground of its own HERE: `fill` below gives the
+            // module a fixed height and the thread scrolls inside .ec-scroll,
+            // so nothing ever passes under the composer. An opaque dock just
+            // stamped a second rectangle across the bottom of the page — the
+            // composer is already a card with its own surface and shadow.
+            "dock-bg": "transparent",
             surface: "var(--surface)",
             "surface-2": "var(--surface-2)",
             hover: "var(--surface-hover)",
@@ -139,8 +153,18 @@ export function ChatHostRoute({ route, navigate, lang = "en", theme = "light", o
             // and let the module fill it — the ask box then sits at the bottom
             // of the page rather than at the bottom of a guessed box. The
             // viewport maths lives here, in the adapter, not in the module.
-            // 52px topbar + 24px page padding above, 20px breathing room below.
-            fill: "calc(100vh - 152px)",
+            //
+            // The budget, measured rather than guessed (the old 152 was short
+            // by ~14px, which is why the pane itself used to scroll):
+            //   52  app topbar
+            //   10  .chat-host-page padding-top
+            //   51  the module's own nav row (42 + its 9px margin)
+            //   12  .chat-host-page padding-bottom
+            //    6  slack, so a rounding error cannot start a scrollbar
+            // Every one of those but the topbar is set in app-extra.css
+            // (.chat-host-page) or chat.css (.ec-topline) — change a number
+            // there and change this.
+            fill: "calc(100vh - 131px)",
           },
         }}
         // This host owns the content area, so the module's dialogs behave like

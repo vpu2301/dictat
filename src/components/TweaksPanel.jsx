@@ -112,12 +112,49 @@ const __TWEAKS_STYLE = `
 `;
 
 // ── useTweaks ───────────────────────────────────────────────────────────────
+// Where the user's display choices live between visits. Until this existed,
+// `useTweaks` held them in React state alone: picking an accent, a theme, a
+// density or a language lasted exactly as long as the tab, and every reload
+// silently reset the app to TWEAK_DEFAULTS. A setting that does not survive a
+// refresh is not a setting.
+const TWEAKS_KEY = 'klarnote.tweaks.v1';
+
+// The design tool drives these from a host frame AND rewrites TWEAK_DEFAULTS in
+// the source. A value stored on some previous visit would silently outrank what
+// the tool just set, so inside a frame we neither read nor write. A cross-origin
+// parent throws on access — treat that as "framed" too, which is the safe answer.
+function inHostFrame() {
+  try { return window.parent !== window; } catch { return true; }
+}
+
+function readTweaks(defaults) {
+  if (inHostFrame()) return defaults;
+  try {
+    const saved = JSON.parse(localStorage.getItem(TWEAKS_KEY) || 'null');
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return defaults;
+    // Merged OVER the defaults, never used in place of them: a key added to
+    // TWEAK_DEFAULTS after someone's last visit has to arrive with its default
+    // rather than as undefined.
+    return { ...defaults, ...saved };
+  } catch {
+    return defaults;   // malformed JSON, or storage blocked in private mode
+  }
+}
+
 export function useTweaks(defaults) {
-  const [values, setValues] = React.useState(defaults);
+  const [values, setValues] = React.useState(() => readTweaks(defaults));
   const setTweak = React.useCallback((keyOrEdits, val) => {
     const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
       ? keyOrEdits : { [keyOrEdits]: val };
-    setValues((prev) => ({ ...prev, ...edits }));
+    setValues((prev) => {
+      const next = { ...prev, ...edits };
+      if (!inHostFrame()) {
+        // In-memory state stays authoritative; a storage failure (private
+        // mode, quota) costs the persistence, not the setting.
+        try { localStorage.setItem(TWEAKS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      }
+      return next;
+    });
     window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
     window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
   }, []);

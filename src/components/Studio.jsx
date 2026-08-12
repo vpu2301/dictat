@@ -44,6 +44,7 @@ import { sectionProgress, countComplete, gapLabel } from '../reports/sectionComp
 import { applyOperations } from '../dictation/operations.js';
 import { openMicStream, isMacPlatform, looksLikeIPhone } from '../dictation/micDevices.js';
 import { useMicDevices } from '../dictation/useMicDevices.js';
+import { canSign, signingForbiddenMessage } from "./SignGate.jsx";
 
 // Coerce arbitrary text into a backend slug: ^[a-z][a-z0-9_]*$.
 function slugify(input, fallback = "item") {
@@ -1243,12 +1244,26 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     [reportId],
     { enabled: !!reportId },
   );
+  // The envelope, only while it is still THIS document's. `useAsync` hands back
+  // its last result long after `enabled` went false, and this editor is handed
+  // a new document by prop change rather than by remounting — so an unmatched
+  // leftover is the report the previous document reopened, and reading
+  // `patient_id` off it is how the next document got filed against them.
+  const reopened = reportId && reportReq.data?.id === reportId ? reportReq.data : null;
+
+  // A patient chosen in the gate (when the Studio is opened without one).
+  // Cleared whenever the document changes: this editor is not remounted per
+  // document — the workspace keeps one instance alive behind the other modes
+  // because it holds an unsaved draft — so a pick that outlives its document
+  // is the previous patient waiting to be filed against the next one.
+  const [pickedPatient, setPickedPatient] = useState(null);
+  useEffect(() => { setPickedPatient(null); }, [patientId, reportId]);
 
   // When dictation is launched from a patient (/dictate/studio?patient=<id>) or a
   // reopened draft, resolve the patient so the report is filed against them and
   // the toolbar shows the context. An explicit `patient` prop wins over the
   // fetched one; a reopened draft supplies its patient_id from the envelope.
-  const effectivePatientId = patientId || reportReq.data?.patient_id || null;
+  const effectivePatientId = patientId || reopened?.patient_id || pickedPatient?.id || null;
   const patientReq = useAsync(
     () => (effectivePatientId ? getPatient(effectivePatientId) : Promise.resolve(null)),
     [effectivePatientId],
@@ -1268,18 +1283,30 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     [encounterId],
     { enabled: !!encounterId },
   );
-  const encounter = encounterReq.data || null;
+  // Matched against the id that asked for it: `useAsync` keeps its last result
+  // after `enabled` goes false, and this editor is handed a new document by
+  // prop change (one instance serves the whole workspace) rather than by
+  // remounting — so an unmatched leftover is the PREVIOUS document's visit.
+  const encounter = encounterId && encounterReq.data?.id === encounterId ? encounterReq.data : null;
   const encounterInvalid = !!encounterId && encounterReq.error?.status === 404;
   const encounterClosed = !!encounter && ["completed", "cancelled"].includes(encounter.status);
   const [creatingEncounter, setCreatingEncounter] = useState(false);
 
-  // A patient chosen in the gate (when the Studio is opened without one).
-  const [pickedPatient, setPickedPatient] = useState(null);
   const patient = useMemo(() => {
     if (patientProp) return normalizePatient(patientProp, lang);
-    if (pickedPatient) return pickedPatient;
-    return normalizePatient(patientReq.data, lang) || undefined;
-  }, [patientProp, pickedPatient, patientReq.data, lang]);
+    // Both of the remaining sources OUTLIVE the document they belong to: a
+    // gate pick is state, and `useAsync` hands back its last result long after
+    // `enabled` went false. This editor is not remounted per document — the
+    // workspace keeps it alive behind the other modes because it holds an
+    // unsaved draft — so an unmatched leftover here is the previous patient,
+    // and reporting them in the snapshot is what put a draft's patient on the
+    // audio job in the next tab.
+    if (pickedPatient && pickedPatient.id === effectivePatientId) return pickedPatient;
+    if (patientReq.data && patientReq.data.id === effectivePatientId) {
+      return normalizePatient(patientReq.data, lang) || undefined;
+    }
+    return undefined;
+  }, [patientProp, pickedPatient, patientReq.data, effectivePatientId, lang]);
   const templatesList = useMemo(() => Object.values(templatesMap), [templatesMap]);
   const [templateId,  setTemplateId]  = useState(initialTemplateId || null);
 
@@ -1342,8 +1369,16 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   // later autosave-driven data refresh can't clobber in-progress edits.
   const seededReportRef = useRef(null);
   useEffect(() => {
-    const rep = reportReq.data;
+    const rep = reopened;
     if (!rep?.id || seededReportRef.current === rep.id) return;
+    if (reportIdRef.current === rep.id) {
+      // Our own draft, which the workspace has just named in the URL. The
+      // envelope is a mirror of our last autosave — adopt it as the document we
+      // hold (so the reset below knows what "this document" means) but do NOT
+      // rehydrate from it: what is on screen is newer than what was fetched.
+      seededReportRef.current = rep.id;
+      return;
+    }
     seededReportRef.current = rep.id;
     const content = rep.content || {};
     reportIdRef.current = rep.id;
@@ -1365,7 +1400,56 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
     // when the encounter happened, which is the one date a record must get right.
     setDocDate(content.encounter_date || rep.encounter_date || rep.created_at || null);
     setSaveState("saved");
-  }, [reportReq.data]);
+  }, [reopened]);
+
+  // ── letting go of a document ───────────────────────────────────────
+  // This editor is not remounted when the clinician moves to another document:
+  // the workspace keeps ONE instance alive behind the upload and the
+  // conversation because it holds an unsaved draft, so a different document
+  // arrives as a prop change and nothing above resets on its own. Which means
+  // that without this, `reportIdRef` still pointed at the report the previous
+  // document reopened — and the next autosave PUT the new dictation into it,
+  // under the previous patient's name. (The visible half of the same leak: an
+  // uploaded audio job inherited the patient of the draft in the tab beside it.)
+  //
+  // The document is what the URL says it is. When that changes, everything the
+  // editor holds belongs to the document being left.
+  const docKey = `${reportId || ""}|${patientId || ""}`;
+  const docKeyRef = useRef(docKey);
+  useEffect(() => {
+    if (docKeyRef.current === docKey) return;
+    docKeyRef.current = docKey;
+    // The document did not change — it got NAMED. The first autosave mints a
+    // report and the workspace writes its id into the URL; that is this same
+    // draft acquiring an identity, not a different one arriving.
+    if (reportId && reportIdRef.current === reportId) return;
+    // Autosave is a debounce, and leaving is not a save — flush what is still
+    // owed to the report it belongs to before letting go of it, or a tab
+    // switch costs the last sentence dictated.
+    // …unless a save is already in flight with the same version — a second PUT
+    // behind it is the 409 the autosave serializer exists to prevent.
+    if (saveState === "unsaved" && reportIdRef.current && !savingRef.current) {
+      updateReport(reportIdRef.current, {
+        expected_version: reportVersionRef.current,
+        template_id: templateId,
+        template_schema_version: template?.schema_version,
+        body: latestBodyRef.current,
+        section_meta: latestSectionMetaRef.current,
+      }).catch(() => {});
+    }
+    seededReportRef.current = null;
+    reportIdRef.current = null;
+    setLiveReportId(null);
+    reportVersionRef.current = 0;
+    reportStatusRef.current = "draft";
+    setBody({});
+    setSectionMeta({});
+    setDocDate(null);
+    setSaveState("saved");
+    // Only `docKey` may trigger this — the rest is read at the moment the
+    // document changed, which is exactly the state that has to be flushed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docKey]);
 
   // Live dictation WebSocket client, when a session is running. Section-aware
   // ASR is driven over this socket via switch_section (templates §4): no HTTP
@@ -1394,14 +1478,14 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   // default first pick.
   useEffect(() => {
     if (templateId || !templatesList.length) return;
-    if (reportId && !reportReq.data) return;
+    if (reportId && !reopened) return;
     // Reopened draft with its own template: the rehydrate effect above sets it
     // in this same commit, but `templateId` in this closure is still null —
     // check the envelope directly or this pick would overwrite it (and the
     // next autosave would rewrite the draft's template_id).
-    if (reportId && reportReq.data?.content?.template_id) return;
+    if (reportId && reopened?.content?.template_id) return;
     setTemplateId(templatesList[0].id);
-  }, [templatesList, templateId, reportId, reportReq.data]);
+  }, [templatesList, templateId, reportId, reopened]);
 
   // Once the detail (with sections) loads, default the active section.
   useEffect(() => {
@@ -1699,12 +1783,21 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   // per-section reasons in the preview and signing never opens), and only
   // then does the signing modal appear.
   const signFromPreview = useCallback(async () => {
+    // Signing is a physician's act (2026-08-09 hotfix). The preview already
+    // offers a nurse «Завершити» instead of «Підписати», so reaching here
+    // without the role means a stale tab or a voice command — finalize the
+    // report (which IS theirs) and say plainly why the signature did not
+    // follow, rather than opening a КЕП dialog that ends in a 403.
     if (reportStatusRef.current === "draft" || !reportIdRef.current) {
       await finalizeFromPreview(); // throws w/ .problems → preview surfaces them
     }
     setPreviewOpen(false);
+    if (!canSign(auth?.claims)) {
+      pushToast({ message: signingForbiddenMessage(lang) });
+      return;
+    }
     setSignOpen(true);
-  }, [finalizeFromPreview]);
+  }, [finalizeFromPreview, auth?.claims, lang, pushToast]);
 
   // ── Sprint 13 step 07 — typed-field voice ops (backend step 07) ─────
   // Server-computed set/add/remove_choice + mark_diagnosis_text arrive as
@@ -1915,7 +2008,16 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
       saveDraft: triggerSave,
       downloadDraft,
       complete: completeDictation,
-      openSign: () => setSignOpen(true),
+      // Voice ("підписати") and the workspace both come through here. Same
+      // rule, same sentence — a seam that bypassed the gate would put the
+      // signing dialog in front of a nurse who said the word out loud.
+      openSign: () => {
+        if (!canSign(auth?.claims)) {
+          pushToast({ message: signingForbiddenMessage(lang) });
+          return;
+        }
+        setSignOpen(true);
+      },
       switchTemplate,
       addTemplate: onAddTemplate,
       dictLang,
@@ -2200,8 +2302,11 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
   // where the envelope just supplied patient_id but the fetch effect hasn't
   // flipped `loading` yet; a failed patient fetch still falls back to the gate.
   if (!patient) {
-    const resolving = (reportId && reportReq.loading) ||
-      (effectivePatientId && !patientReq.error && !patientReq.data);
+    const resolving = (reportId && (reportReq.loading || !reopened)) ||
+      // `patientReq.data` may still be the PREVIOUS document's patient (see
+      // `patient` above), which is not this one resolving — it is this one not
+      // having started. Match it, or the gate shows before the fetch lands.
+      (effectivePatientId && !patientReq.error && patientReq.data?.id !== effectivePatientId);
     if (resolving) {
       return gate(<Empty icon="user" title={tr(lang, "Завантаження…", "Loading…")} />);
     }
@@ -2512,7 +2617,10 @@ export function DictationStudio({ onSignedNavigate, lang, templatesMap = {}, onA
           }}
         />
       )}
-      {signOpen && (
+      {/* The gate again at the mount, not only at the openers: `signOpen`
+          has three writers, and a dialog this consequential should not depend
+          on all of them staying correct. */}
+      {signOpen && canSign(auth?.claims) && (
         <SigningFlow
           // BUG FIX 2026-07-24: reportId was never passed here, so the dev
           // password flow signed /v1/reports/undefined/sign and every

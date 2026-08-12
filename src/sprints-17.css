@@ -1,0 +1,196 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Sprint 17 — the admin console (/admin): shell, dense tables, the shared
+   destructive-action dialog.
+
+   An operations tool: information density over air, every destructive
+   affordance in the recording-red (--rec) family — there is no --danger
+   token, and --rec is the established "this bites" colour.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Shell: left rail + content ───────────────────────────────────────── */
+
+.adm-shell {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.adm-nav {
+  position: sticky;
+  top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 12px);
+}
+
+.adm-nav-title {
+  padding: 2px 10px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.adm-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+}
+.adm-nav-link:hover { background: var(--surface-2); color: var(--text-1); }
+.adm-nav-link.on {
+  background: var(--accent-soft);
+  color: var(--accent-text, var(--accent));
+  font-weight: 600;
+}
+
+.adm-content { min-width: 0; }
+.adm-page { display: flex; flex-direction: column; gap: 14px; }
+
+@media (max-width: 900px) {
+  .adm-shell { grid-template-columns: 1fr; }
+  .adm-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  .adm-nav-title { width: 100%; }
+}
+
+/* ── Dense tables ─────────────────────────────────────────────────────── */
+
+.adm-table { width: 100%; }
+.adm-table th {
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.adm-table td { padding: 7px 10px; font-size: 13px; }
+.adm-table tbody tr { cursor: default; }
+.adm-table .row-deactivated td { opacity: .55; }
+
+.adm-table-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line);
+}
+.adm-table-foot .adm-order-note { font-size: 12px; margin-right: auto; }
+
+.adm-row-actions { display: flex; gap: 6px; white-space: nowrap; }
+.adm-danger-link { color: var(--rec); }
+.adm-danger-link:hover:not(:disabled) { background: var(--rec-soft); color: var(--rec); }
+
+/* ── User detail (expanded row) ───────────────────────────────────────── */
+
+.adm-user-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 20px;
+  padding: 10px 6px;
+}
+.adm-user-detail > div { display: flex; flex-direction: column; gap: 3px; }
+.adm-user-detail span { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.adm-user-detail b { font-weight: 500; font-size: 13px; }
+
+/* ── Role editor ──────────────────────────────────────────────────────── */
+
+.adm-roles-list { display: flex; flex-direction: column; gap: 6px; }
+.adm-role-row {
+  display: grid;
+  grid-template-columns: auto 130px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.adm-role-row:hover { background: var(--surface-2); }
+.adm-role-name { font-family: var(--mono); font-size: 13px; }
+.adm-roles-caveat { margin: 10px 0 0; font-size: 12px; line-height: 1.45; }
+
+/* ── Dialogs ──────────────────────────────────────────────────────────── */
+
+.adm-confirm .modal-body { display: flex; flex-direction: column; gap: 12px; }
+
+.adm-dialog-person {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.adm-dialog-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--rec);
+  background: var(--rec-soft);
+  color: var(--text-1);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.adm-typed-word { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.adm-typed-word input {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: var(--mono);
+  background: var(--surface);
+  color: var(--text-1);
+}
+.adm-typed-word input:focus {
+  outline: none;
+  border-color: var(--rec);
+  box-shadow: 0 0 0 3px var(--rec-soft);
+}
+
+/* ── Audit filters ────────────────────────────────────────────────────── */
+
+.adm-audit-tabs { margin-bottom: 2px; }
+
+.adm-audit-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px 14px;
+  padding: 14px 16px;
+}
+.adm-audit-filters label { display: flex; flex-direction: column; gap: 4px; }
+.adm-audit-filters label > span { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.adm-audit-filters input,
+.adm-audit-filters select {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-1);
+  font-size: 13px;
+}
+.adm-audit-filters input:focus,
+.adm-audit-filters select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.adm-audit-filter-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 8px;
+}

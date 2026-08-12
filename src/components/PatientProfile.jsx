@@ -8,8 +8,9 @@ import { Loading, asList } from './DataStates.jsx';
 import { ApiErrorView } from './ApiErrorView.jsx';
 import { useAsync } from '../api/useAsync.js';
 import { useClaims, hasAnyRole } from '../auth/AuthContext.jsx';
-import { hasClinicalAccess } from '../auth/permissions.js';
+import { canRequestPhiAccess, hasClinicalAccess } from '../auth/permissions.js';
 import { RequestAccessModal } from './RequestAccessModal.jsx';
+import { isPhiAccessRequired } from '../api/phiAccess.js';
 import { getPatient, getPatientTimeline, updatePatient, hasContact, hasAddress, formatAddress } from '../api/patients.js';
 import { mergeFeed } from '../patients/feed.js';
 import { PatientFormModal } from '../patients/PatientDirectory.jsx';
@@ -22,6 +23,10 @@ import { getAnamnesis } from '../api/anamnesis.js';
 import { requestDsar } from '../api/privacy.js';
 import { PatientDocuments } from '../patients/PatientDocuments.jsx';
 import { tr } from "../i18n.js";
+import { canSign } from './SignGate.jsx';
+import { BreakGlassBanner } from '../patients/BreakGlassBanner.jsx';
+import { activeBreakGlass } from '../patients/breakGlass.js';
+import { BreakGlassGate } from '../patients/BreakGlassGate.jsx';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -432,17 +437,35 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   const anamReq    = useAsync(() => getAnamnesis(id), [id]);
 
   const claims = useClaims();
+  // The session's note that THIS record is open on an exception. Held in
+  // state, seeded from sessionStorage, so it survives a reload of the page
+  // and updates the moment a grant is minted.
+  //
+  // Scoped to the viewer: sessionStorage outlives a sign-out, and an
+  // administrator's episode showing up as the next clinician's banner told
+  // them their own entitled read was an exception being counted (2026-08-09).
+  const subject = claims?.sub;
+  const [breakGlass, setBreakGlass] = useState(() =>
+    typeof sessionStorage !== "undefined"
+      ? activeBreakGlass(sessionStorage, "patient", id, { subject })
+      : null);
+  useEffect(() => {
+    if (typeof sessionStorage !== "undefined") {
+      setBreakGlass(activeBreakGlass(sessionStorage, "patient", id, { subject }));
+    }
+  }, [id, subject]);
   // Privacy surfaces are admin-only in the UI (menu entries role-gated at
   // render); the backend additionally enforces its scopes on every call.
   const isPrivacyAdmin = hasAnyRole(claims, ["tenant_admin", "super_admin"]);
   // S14 — only an administrator WITHOUT clinical standing breaks glass. A
   // clinician already holds report.read, so offering them the button
-  // would be a control that does nothing.
-  const canBreakGlass = isPrivacyAdmin && !hasClinicalAccess(claims);
+  // would be a control that does nothing. The capability itself comes from
+  // the permission mirror (`phi_access.request`, admin-only) so this button,
+  // the gate and the modal cannot disagree about who may mint a grant.
+  const canBreakGlass = canRequestPhiAccess(claims) && !hasClinicalAccess(claims);
   const [accessTarget, setAccessTarget] = useState(null); // timeline report row | null
   // S15 — the patient record itself is behind the same wall: the GET
   // answers 403 phi_access_required until a patient-kind grant exists.
-  const [patientAccessOpen, setPatientAccessOpen] = useState(false);
 
   const cached = pageStateCache.get(id);
   const [tab, setTab] = useState(() => initialTabFromHash() || cached?.tab || "timeline");
@@ -476,43 +499,28 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
   if (patientReq.error) {
     // S15 — an admin without a live patient-kind grant gets a 403 with a
     // machine-readable code; turn it into the request flow rather than a
-    // dead-end "forbidden".
+    // dead-end "forbidden". The gate is its own component (2026-08-09 hotfix)
+    // so the rule it enforces — the record is NOT rendered while it stands —
+    // is something a test can point at: see patients/BreakGlassGate.jsx.
     if (isPhiAccessRequired(patientReq.error)) {
       return (
-        <div className="page wide">
-          <Empty
-            icon="shield"
-            title={tr(lang, "Картку пацієнта захищено", "This patient record is protected")}
-            body={tr(lang,
-              "Як адміністратор ви бачите лише ім'я в реєстрі. Щоб відкрити картку — демографію, історію візитів і хронологію — запитайте тимчасовий доступ із зазначенням причини.",
-              "As an administrator you see only the name in the roster. To open the record — demographics, visit history and timeline — request temporary access with a stated reason.")}
-            action={
-              <button className="btn accent" onClick={() => setPatientAccessOpen(true)}>
-                <Icon name="shield" size={13} />
-                {tr(lang, "Запитати доступ", "Request access")}
-              </button>
-            }
-          />
-          {patientAccessOpen && (
-            <RequestAccessModal
-              lang={lang}
-              resourceKind="patient"
-              resourceId={id}
-              onClose={() => setPatientAccessOpen(false)}
-              onGranted={() => {
-                setPatientAccessOpen(false);
-                // The grant exists now — every record surface reloads
-                // under it.
-                patientReq.reload();
-                tlReq.reload();
-                encReq.reload();
-                conReq.reload();
-                notesReq.reload();
-                anamReq.reload();
-              }}
-            />
-          )}
-        </div>
+        <BreakGlassGate
+          error={patientReq.error}
+          lang={lang}
+          resourceKind="patient"
+          resourceId={id}
+          onLeave={() => navigate("/patients")}
+          onGranted={(_grant, entry) => {
+            setBreakGlass(entry);
+            // The grant exists now — every record surface reloads under it.
+            patientReq.reload();
+            tlReq.reload();
+            encReq.reload();
+            conReq.reload();
+            notesReq.reload();
+            anamReq.reload();
+          }}
+        />
       );
     }
     return <div className="page wide"><ApiErrorView error={patientReq.error} lang={lang} /></div>;
@@ -711,6 +719,10 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
 
   return (
     <div className="page wide">
+      {/* If this record was opened by breaking glass, say so for as long as it
+          is open. Above the header, not beside it: the first thing read on
+          the page must be the terms on which it is being read. */}
+      <BreakGlassBanner entry={breakGlass} lang={lang} />
       {/* Profile header — full identity is appropriate on the record itself */}
       <div className="ph-card">
         <PatientAvatar patient={patient} lang={lang} size={56} />
@@ -880,7 +892,7 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
       {/* Encounters tab */}
       {tab === "encounters" && (
         <div style={{ marginTop: 16 }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
             <button className="btn accent sm" onClick={() => setStartOpen(true)} disabled={deceased}>
               <Icon name="mic" size={13} /> {tr(lang, "Почати прийом", "Start encounter")}
             </button>
@@ -927,7 +939,7 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
       {/* Notes tab */}
       {tab === "notes" && (
         <div style={{ marginTop: 16 }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
             <button className="btn accent sm" onClick={() => navigate(`/scribe/notes/new?patient=${id}`)}>
               <Icon name="plus" size={13} /> {tr(lang, "Нова нотатка", "New note")}
             </button>
@@ -1102,7 +1114,7 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
 
       {tab === "consents" && (
         <div style={{ marginTop: 16 }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
             <button className="btn accent sm" onClick={() => navigate(`/scribe/consent/new?patient=${id}`)}>
               <Icon name="plus" size={13} /> {tr(lang, "Запит згоди", "Request consent")}
             </button>
@@ -1139,7 +1151,9 @@ export function EnhancedScribePatient({ id, navigate, lang }) {
                   <span className={`status-badge ${c.status}`}>
                     {({ granted: tr(lang, "Надано", "Granted"), declined: tr(lang, "Відхилено", "Declined"), withdrawn: tr(lang, "Відкликано", "Withdrawn") })[c.status] || c.status}
                   </span>
-                  {c.method === "digital" && !c.signed_envelope_id && c.status === "granted" && (
+                  {/* Finishing an unsigned КЕП consent IS the signing act
+                      (2026-08-09 hotfix) — physician only. */}
+                  {c.method === "digital" && !c.signed_envelope_id && c.status === "granted" && canSign(claims) && (
                     <button className="btn ghost sm" style={{ fontSize: 12 }} onClick={() => setSignTarget(c)}>
                       {tr(lang, "Підписати", "Sign")}
                     </button>

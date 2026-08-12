@@ -29,14 +29,18 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Modal, Icon } from "./UI.jsx";
+import { MenuSelect } from "./MenuSelect.jsx";
 import { tr } from "../i18n.js";
 import { reauth } from "../api/endpoints.js";
 import { listAccessReasons, requestPhiAccess } from "../api/phiAccess.js";
+import { useClaims } from "../auth/AuthContext.jsx";
+import { canRequestPhiAccess } from "../auth/roles.js";
+import { rememberBreakGlass } from "../patients/breakGlass.js";
 
 // Shown until /reasons answers, and as the fallback if it fails — the
 // modal must stay usable when a metadata call is the only thing broken.
 // Kept in lockstep with the CHECK on phi_access_requests.reason_code.
-const FALLBACK_REASONS = [
+export const FALLBACK_REASONS = [
   { code: "patient_complaint", label_uk: "Скарга пацієнта", label_en: "Patient complaint", requires_note: false },
   { code: "legal_request", label_uk: "Юридичний запит", label_en: "Legal or regulatory request", requires_note: false },
   { code: "billing_dispute", label_uk: "Спір щодо оплати", label_en: "Billing dispute", requires_note: false },
@@ -90,6 +94,13 @@ export function RequestAccessModal({
 }) {
   const targetId = resourceId ?? reportId;
   const isPatient = resourceKind === "patient";
+  const claims = useClaims();
+  // Second lock, behind the gate's (2026-08-09). Break-glass is an
+  // administrator's only way into a clinical record; a clinical role already
+  // holds standing access, so a dialog offered to one is either a stale token
+  // or a call site that forgot to check. Either way it must not become a
+  // password prompt that mints a grant.
+  const mayRequest = canRequestPhiAccess(claims);
   const [reasons, setReasons] = useState(FALLBACK_REASONS);
   const [ttlMinutes, setTtlMinutes] = useState(60);
   const [noteMin, setNoteMin] = useState(DEFAULT_NOTE_MIN);
@@ -101,8 +112,17 @@ export function RequestAccessModal({
   const [error, setError] = useState(null);
 
   const passwordRef = useRef(null);
+  // Guards the post-await setState/callbacks against a dialog that closed
+  // mid-flight. It must be re-armed on MOUNT, not only cleared on unmount:
+  // StrictMode runs mount → unmount → mount in development, so a ref that is
+  // only ever set to false stayed false for the rest of the component's life
+  // — and `onGranted` was never called. The grant was minted server-side, the
+  // audit event was written, and the record silently refused to open.
   const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,9 +141,41 @@ export function RequestAccessModal({
     return () => { cancelled = true; };
   }, []);
 
+  // After every hook, so the early return cannot change the hook order.
+  if (!mayRequest) {
+    return (
+      <Modal onClose={onClose} className="bg-modal">
+        <div className="modal-h bg-modal-h">
+          <span className="bg-modal-badge quiet"><Icon name="shield" size={16} /></span>
+          <div>
+            <h2>{tr(lang, "Запит доступу недоступний", "Access request unavailable")}</h2>
+          </div>
+        </div>
+        <div className="dsar-modal-body">
+          <div className="dsar-info">
+            {tr(lang,
+              "Ваша роль не передбачає запиту доступу в режимі «розбити скло». Зверніться до адміністратора клініки.",
+              "Your role does not include requesting break-glass access. Please ask a clinic administrator.")}
+          </div>
+          <div className="modal-foot">
+            <button type="button" className="btn" onClick={onClose}>
+              {tr(lang, "Закрити", "Close")}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
   const selected = reasons.find((r) => r.code === reasonCode) || null;
-  const noteRequired = Boolean(selected?.requires_note);
-  const noteTooShort = noteRequired && note.trim().length < noteMin;
+  // ALWAYS required as of the 2026-08-09 hotfix, not only for `other`. A
+  // reason code is a category; the justification is the account of THIS
+  // access, and it is the only field a reviewer can actually weigh six months
+  // later. The server still enforces its own rule (it hard-requires a note
+  // for `other`); this is the stricter client rule on top, so nothing is
+  // recorded with a category and nothing else.
+  const noteRequired = true;
+  const noteTooShort = note.trim().length < noteMin;
   const canSubmit = Boolean(reasonCode) && Boolean(password) && !noteTooShort && !busy;
 
   const submit = async (e) => {
@@ -143,7 +195,24 @@ export function RequestAccessModal({
         reauthTicket: ticket,
       });
       if (!alive.current) return;
-      onGranted?.(grant);
+      // Remember it for the session, so the record carries a standing banner
+      // instead of rendering as though the viewer were entitled to it.
+      // Advisory only — the server's grant is what actually opens the data.
+      const entry = rememberBreakGlass(
+        typeof sessionStorage !== "undefined" ? sessionStorage : null,
+        {
+          // Whose episode this is. Without it the next account to use this tab
+          // inherits the banner — see patients/breakGlass.js.
+          subject: claims?.sub,
+          kind: resourceKind,
+          id: targetId,
+          reasonCode,
+          reasonLabel: (lang === "uk" ? selected?.label_uk : selected?.label_en) || reasonCode,
+          note: note.trim(),
+          ttlMinutes,
+        },
+      );
+      onGranted?.(grant, entry);
     } catch (err) {
       if (!alive.current) return;
       setError(err);
@@ -156,23 +225,31 @@ export function RequestAccessModal({
   };
 
   return (
-    <Modal onClose={busy ? undefined : onClose}>
-      <div className="modal-h">
-        <h2>
-          {isPatient
-            ? tr(lang, "Запит доступу до картки пацієнта", "Request access to patient record")
-            : tr(lang, "Запит доступу до звіту", "Request access to report")}
-        </h2>
-        <p>
-          {isPatient
-            ? (patientLabel || targetId)
-            : (
-              <>
-                {reportCode ? `${reportCode}` : targetId}
-                {patientLabel ? ` · ${patientLabel}` : ""}
-              </>
-            )}
-        </p>
+    <Modal onClose={busy ? undefined : onClose} className="bg-modal">
+      <div className="modal-h bg-modal-h">
+        <span className="bg-modal-badge"><Icon name="shield" size={16} /></span>
+        <div>
+          <h2>
+            {isPatient
+              ? tr(lang, "Запит доступу до картки пацієнта", "Request access to patient record")
+              : tr(lang, "Запит доступу до звіту", "Request access to report")}
+          </h2>
+          {/* A record with no name to show falls back to its id, and an id is
+              a technical string — it is set in mono at chip size rather than
+              dressed up as a subtitle, so it reads as a reference, not a name. */}
+          {isPatient ? (
+            patientLabel
+              ? <p>{patientLabel}</p>
+              : <p className="bg-modal-id">{targetId}</p>
+          ) : (
+            <p>
+              {reportCode
+                ? reportCode
+                : <span className="bg-modal-id">{targetId}</span>}
+              {patientLabel ? ` · ${patientLabel}` : ""}
+            </p>
+          )}
+        </div>
       </div>
 
       <form className="dsar-modal-body" onSubmit={submit}>
@@ -212,39 +289,48 @@ export function RequestAccessModal({
           )}
         </div>
 
-        <label>
-          {tr(lang, "Причина доступу", "Reason for access")}
-          <select
+        {/* The platform dropdown, not the OS one. A native <select> can be
+            styled shut but its open list cannot: it drew a bare system menu
+            over a dialog that is otherwise entirely our own. MenuSelect is
+            the same control the rest of the app uses.
+
+            Not a <label> wrapper: MenuSelect's trigger is a button, which a
+            label does not name. The caption is tied on with aria-label. */}
+        <div className="dsar-field" data-testid="bg-reason">
+          <span className="dsar-field-label" id="bg-reason-label">
+            {tr(lang, "Причина доступу", "Reason for access")}
+          </span>
+          <MenuSelect
+            block
             value={reasonCode}
-            onChange={(e) => setReasonCode(e.target.value)}
+            onChange={setReasonCode}
             disabled={busy}
-            required
-          >
-            <option value="" disabled>
-              {tr(lang, "Оберіть причину…", "Select a reason…")}
-            </option>
-            {reasons.map((r) => (
-              <option key={r.code} value={r.code}>
-                {lang === "uk" ? r.label_uk : r.label_en}
-              </option>
-            ))}
-          </select>
-        </label>
+            ariaLabel={tr(lang, "Причина доступу", "Reason for access")}
+            placeholder={tr(lang, "Оберіть причину…", "Select a reason…")}
+            options={reasons.map((r) => ({
+              value: r.code,
+              label: lang === "uk" ? r.label_uk : r.label_en,
+            }))}
+          />
+        </div>
 
         <label>
-          {noteRequired
-            ? tr(lang, `Опис причини (мін. ${noteMin} символів)`, `Describe the reason (min ${noteMin} characters)`)
-            : tr(lang, "Додаткові деталі (необов'язково)", "Additional detail (optional)")}
+          {tr(lang, `Обґрунтування (мін. ${noteMin} символів)`, `Justification (min ${noteMin} characters)`)}
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder={tr(lang, "Напр.: судовий запит №12/2026", "e.g. court order 12/2026")}
+            placeholder={tr(lang,
+              "Напр.: судовий запит №12/2026; або: підміняю д-ра К. на час відпустки",
+              "e.g. court order 12/2026; or: covering for Dr K. while she is on leave")}
             rows={3}
+            required
+            aria-required="true"
+            data-testid="bg-justification"
             disabled={busy}
           />
         </label>
         {noteTooShort && note.length > 0 && (
-          <div style={{ fontSize: 12, opacity: 0.75 }}>
+          <div className="bg-hint">
             {tr(lang,
               `Ще ${noteMin - note.trim().length} символів.`,
               `${noteMin - note.trim().length} more characters.`)}
@@ -266,8 +352,9 @@ export function RequestAccessModal({
         </label>
 
         {error && (
-          <div role="alert" style={{ color: "var(--rec,#dc2626)", fontSize: 13 }}>
-            {errorMessage(error, lang, resourceKind)}
+          <div role="alert" className="bg-error">
+            <Icon name="alert" size={14} />
+            <span>{errorMessage(error, lang, resourceKind)}</span>
           </div>
         )}
 

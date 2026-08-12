@@ -75,7 +75,13 @@ function Elapsed({ startedAt, lang }) {
 // only what is true of the RECORDING (the live pill and the clock) and drops
 // the rest. `onDraft` replaces the navigate-to-Studio hand-off — the workspace
 // switches its own mode instead of reloading the route.
-export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate, embedded = false, onDraft }) {
+export function ConversationRoom({
+  lang = "uk", patientId, encounterId, navigate, embedded = false, onDraft,
+  // Sprint 16 — the session id of an interrupted recording whose audio is
+  // still in the local ring. Arrives from the studio's `?recover=` parameter,
+  // which the recovery banner sets.
+  recoverSessionId = null,
+}) {
   const [phase, setPhase] = useState("intro");     // intro | live | review | draft
   const [consentOpen, setConsentOpen] = useState(false);
   const [templateId, setTemplateId] = useState(null);
@@ -140,6 +146,10 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
     promptId,
     encounterId,
     deviceId: mic.selectedId,
+    patientId,
+    // Sprint 16: reopen the interrupted session and replay its preserved
+    // frames instead of starting a new one (src/dictation/recovery.js).
+    recoverSessionId: recoverSessionId || null,
   });
 
   // ── start: consent is re-checked against the server on EVERY start, so a
@@ -263,7 +273,18 @@ export function ConversationRoom({ lang = "uk", patientId, encounterId, navigate
   const errorBanner = session.error ? (
     <div className="consent-gate-banner error" data-testid="cv-error" role="alert">
       <Icon name="micOff" size={14} />
-      <span>{session.error.message || explainErrorCode(session.error.code, lang)}</span>
+      <span>
+        {/* The session dying underneath a live recording is the one failure
+            where the first thing to say is not what broke but what survived.
+            A clinician whose screen went blank mid-consultation assumes the
+            audio is gone; it is not, and telling them so immediately is the
+            difference between carrying on and re-dictating from memory. */}
+        {session.error.audioPreserved
+          ? tr(lang,
+               "Сеанс завершено під час запису. Аудіо збережено на цьому комп'ютері — увійдіть знову, і Студія запропонує його відновити.",
+               "Your session ended while recording. The audio is safe on this computer — sign in again and the Studio will offer to restore it.")
+          : (session.error.message || explainErrorCode(session.error.code, lang))}
+      </span>
       {session.error.code === "consent_required" && (
         <button type="button" className="btn sm" onClick={() => setConsentOpen(true)}>
           {tr(lang, "Отримати згоду", "Capture consent")}

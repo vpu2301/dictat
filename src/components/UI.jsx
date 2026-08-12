@@ -2,6 +2,12 @@
 import React from 'react';
 import { useI18n , tr } from "../i18n.js";
 import { relativeTime } from "../notifications/relativeTime.js";
+import { SearchPalette } from "./SearchPalette.jsx";
+
+// Which modifier the search hint prints. Read once: it cannot change, and
+// asking the UA on every render of every topbar is a cost for nothing.
+const IS_MAC = typeof navigator !== "undefined"
+  && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
 
 export const Icon = ({ name, size = 16, ...rest }) => {
   const paths = {
@@ -267,9 +273,42 @@ export function DictateTopBar({ route, navigate, lang, setLang, theme, setTheme 
 }
 
 // ── TopBar ──────────────────────────────────────────────────────────────
-export function TopBar({ title, subtitle, crumbs, back, onBack, right, search, lang }) {
+// The bar carries no ground of its own — it sits in the shell's wash like the
+// rest of the page. That only holds while nothing has scrolled beneath it, so
+// it watches its own scroller (`.app-main`) and marks itself `.is-stuck`, at
+// which point the CSS fades in a translucent ground and the hairline.
+export function TopBar({ title, subtitle, crumbs, back, onBack, right, search, lang, navigate }) {
+  const barRef = React.useRef(null);
+  const [stuck, setStuck] = React.useState(false);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+
+  // ⌘K / Ctrl-K — the binding a field of this shape is expected to have. It is
+  // NOT taken while the caret is in a field: a clinician mid-dictation pressing
+  // ctrl-k in the editor must keep whatever the editor does with it.
+  React.useEffect(() => {
+    if (search === false) return undefined;
+    const onKey = (e) => {
+      if (!(e.metaKey || e.ctrlKey) || (e.key !== "k" && e.key !== "K")) return;
+      const el = document.activeElement;
+      if (el && el.matches && el.matches("input, textarea, [contenteditable=''], [contenteditable='true']")) return;
+      e.preventDefault();
+      setSearchOpen(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [search]);
+
+  React.useEffect(() => {
+    const scroller = barRef.current && barRef.current.closest(".app-main");
+    if (!scroller) return undefined;
+    const onScroll = () => setStuck(scroller.scrollTop > 4);
+    onScroll(); // a route entered mid-scroll starts in the right state
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="tb">
+    <header className={"tb" + (stuck ? " is-stuck" : "")} ref={barRef}>
       {back && (
         <button className="tb-back" onClick={onBack} title="Back"><Icon name="arrowLeft" size={16} /></button>
       )}
@@ -277,7 +316,14 @@ export function TopBar({ title, subtitle, crumbs, back, onBack, right, search, l
         <nav className="tb-crumbs">
           {crumbs.map((c, i) => (
             <React.Fragment key={i}>
-              {i > 0 && <span className="sep">/</span>}
+              {/* A chevron, not a slash: the trail is a descent, and "/" reads
+                  as a path fragment rather than "inside". Marked aria-hidden
+                  because the nav element already announces the relationship. */}
+              {i > 0 && (
+                <span className="sep" aria-hidden="true">
+                  <Icon name="chevRight" size={13} />
+                </span>
+              )}
               {c.path ? <a onClick={c.onClick}>{c.label}</a> : <span className="cur">{c.label}</span>}
             </React.Fragment>
           ))}
@@ -289,24 +335,32 @@ export function TopBar({ title, subtitle, crumbs, back, onBack, right, search, l
         </div>
       )}
       <div className="tb-spacer" />
-      {/* Global search is NOT built: this input has never had a handler and no
-          ⌘K binding exists anywhere in the app. Left live it invites every
-          user — an auditor hunting an event most of all — to type a query that
-          silently goes nowhere, so it is disabled and labelled until there is
-          something behind it. */}
+      {/* Global search. It WAS a disabled field labelled "coming soon", because
+          a search box that accepts a query and does nothing is worse than none
+          — an auditor hunting an event would type into it and believe the empty
+          result. It now opens SearchPalette, which really searches.
+
+          A BUTTON dressed as a field, not an input: what it does is open a
+          dialog, and an input that ignores your typing and pops a modal on the
+          first keystroke is the same lie in a new costume. ⌘K opens it too. */}
       {search !== false && (
-        <div className="tb-search is-soon"
-          title={tr(lang, "Глобальний пошук — незабаром", "Global search — coming soon")}>
+        <button
+          type="button"
+          className="tb-search"
+          onClick={() => setSearchOpen(true)}
+          aria-haspopup="dialog"
+          aria-label={tr(lang, "Пошук", "Search")}
+          data-testid="tb-search"
+        >
           <Icon name="search" size={14} />
-          <input
-            placeholder={tr(lang, "Пошук…", "Search…")}
-            disabled
-            aria-label={tr(lang, "Глобальний пошук (незабаром)", "Global search (coming soon)")}
-          />
-          <span className="soon-pill">{tr(lang, "незабаром", "soon")}</span>
-        </div>
+          <span className="tb-search-ph">{tr(lang, "Пошук…", "Search…")}</span>
+          <kbd className="tb-search-k">{IS_MAC ? "⌘K" : "Ctrl K"}</kbd>
+        </button>
       )}
       {right}
+      {searchOpen && (
+        <SearchPalette lang={lang} navigate={navigate} onClose={() => setSearchOpen(false)} />
+      )}
     </header>
   );
 }

@@ -127,6 +127,8 @@ export async function login(page) {
 export async function openStudio(page) {
   await login(page);
   await page.goto("/#/studio?mode=dictate");
+  // The workspace no longer opens the picker on arrival; the header asks.
+  await page.locator("[data-testid='sw-patient']").click();
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await gateRow.waitFor({ state: "visible", timeout: 15000 });
   await gateRow.click();

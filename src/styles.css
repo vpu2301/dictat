@@ -3,11 +3,13 @@
    Two products: Scribe (conversation notes) + Dictate (medical reports)
    ───────────────────────────────────────────────────────────────────────── */
 
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap");
-/* Marketing-only typeface — Manrope (full Cyrillic — the public site is
-   Ukrainian-first). Applied only under `.lp` for both headings and body;
-   the logged-in platform stays on Geist. */
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+/* Geist (platform), Geist Mono (numerals/code) and Manrope (marketing-only —
+   the public site is Ukrainian-first and wants a full Cyrillic display face,
+   applied under `.lp`; the logged-in platform stays on Geist) are all
+   SELF-HOSTED as of sprint 16. They used to be two `@import url(…)` calls to
+   fonts.googleapis.com, which the CSP no longer allows and which sent every
+   clinician's IP to Google on page load. See src/fonts.css. */
+@import url("./fonts.css");
 
 :root {
   /* Type */
@@ -26,10 +28,22 @@
   --line: #e3e7ec;
   --line-2: #ebeef2;
 
+  /* The accent FAMILY, derived from --accent rather than written out beside
+     it. The accent tweak (App.jsx) sets `--accent` inline on <html> and only
+     that one — so while these three were literal teal, picking Indigo painted
+     the button indigo and left its hover, its soft tint and its text colour
+     green. Anything that needs a shade of the accent must be a color-mix of
+     it, never a second hex. */
   --accent: #0a8a7a;
-  --accent-2: #086e62;
-  --accent-soft: #e6f4f1;
-  --accent-text: #0a5e54;
+  /* Pressed / hover: the same hue, walked toward black. */
+  --accent-2: color-mix(in srgb, var(--accent) 84%, #000);
+  /* The tint behind an active nav row or a focus ring. Opaque on purpose:
+     it sits over --surface AND over --surface-2, and a translucent tint
+     reads as two different colours across those two grounds. */
+  --accent-soft: color-mix(in srgb, var(--accent) 11%, #fff);
+  /* Accent as TEXT on a light ground — the raw accent is a button colour and
+     several of the palette's hues are too light to read at 13px. */
+  --accent-text: color-mix(in srgb, var(--accent) 76%, #000);
 
   --scribe: #0a8a7a;
   --scribe-soft: #e6f4f1;
@@ -38,8 +52,21 @@
 
   --warn: #b45309;
   --warn-soft: #fdf3e2;
+  /* --rec is the RECORDING colour: the live dot, the pulsing ring, the "this
+     is being captured" signal. It is meant to be loud. */
   --rec: #dc2626;
   --rec-soft: #fee2e2;
+  /* --danger is DESTRUCTIVE UI: delete, revoke, cancel, sign out. Same
+     family, deliberately quieter — a red that says "this is irreversible",
+     not one that competes with a live microphone. The two used to be the
+     same token (plus a couple of literal #dc2626s), so every confirm dialog
+     shouted at the same volume as a recording in progress.
+     Saturation is what carries the difference, not lightness: this still
+     clears 4.5:1 with white text, which .btn.danger relies on. */
+  --danger: #b4443e;
+  --danger-2: color-mix(in srgb, var(--danger) 86%, #000);
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, #fff);
+  --danger-text: color-mix(in srgb, var(--danger) 84%, #000);
   --ok: #047857;
   --info: #2563eb;
   --info-soft: #e9effd;
@@ -55,6 +82,23 @@
   --sidebar-w: 248px;
   --topbar-h: 52px;
   --density: 1;
+
+  /* Ambient washes ─────────────────────────────────────────────────────
+     Very low-alpha gradients layered BEHIND the flat token backgrounds so
+     long pages read as a lit room rather than a flat slab. They are painted
+     on the shell/chrome only — never on a card, a table row or anything
+     carrying text, so contrast ratios stay exactly where the token pair put
+     them. Alphas stay low enough that the wash reads as light in the room
+     rather than as a coloured panel you could point at. */
+  /* Percentages are relative to `.app`, i.e. INCLUDING the sidebar column —
+     32 % of a 1440 px window lands just inside the content area, which is
+     where the light should appear to fall from. */
+  --wash-page:
+    radial-gradient(1100px 520px at 32% -12%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%),
+    radial-gradient(900px 460px at 100% -6%, color-mix(in srgb, var(--dictate) 15%, transparent), transparent 66%),
+    radial-gradient(900px 500px at 88% 108%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%);
+  --wash-bar: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent);
+  --wash-panel: linear-gradient(180deg, color-mix(in srgb, var(--text-1) 3%, transparent), transparent);
 }
 
 [data-theme="dark"] {
@@ -69,10 +113,14 @@
   --line: #232a35;
   --line-2: #1d242e;
 
+  /* Same family, inverted: on a dark ground the accent's shades go toward
+     white, not black. NOTE the same trap the wash comment below describes —
+     `--accent` here is whatever LIGHT hex the accent tweak set inline, so
+     these lighten it rather than assuming the dark default. */
   --accent: #2dd4bf;
-  --accent-2: #5eead4;
-  --accent-soft: rgba(45, 212, 191, 0.10);
-  --accent-text: #5eead4;
+  --accent-2: color-mix(in srgb, var(--accent) 68%, #fff);
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-text: color-mix(in srgb, var(--accent) 66%, #fff);
 
   --scribe: #2dd4bf;
   --scribe-soft: rgba(45, 212, 191, 0.10);
@@ -83,6 +131,12 @@
   --warn-soft: rgba(245, 158, 11, 0.10);
   --rec: #f87171;
   --rec-soft: rgba(248, 113, 113, 0.12);
+  /* Lightened just enough to sit on a dark ground while keeping white text
+     legible on the filled button. */
+  --danger: #bb4c45;
+  --danger-2: color-mix(in srgb, var(--danger) 78%, #fff);
+  --danger-soft: color-mix(in srgb, var(--danger) 16%, transparent);
+  --danger-text: color-mix(in srgb, var(--danger) 60%, #fff);
   --info: #60a5fa;
   --info-soft: rgba(96, 165, 250, 0.12);
   /* --ok had no dark value, so the light one (#047857) carried over and every
@@ -95,6 +149,25 @@
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
   --shadow-2: 0 4px 14px -4px rgba(0, 0, 0, 0.45);
   --shadow-3: 0 12px 28px -8px rgba(0, 0, 0, 0.55);
+
+  /* Dark needs its own recipe for two reasons.
+     1. The wash has to LIFT, not tint: a 7 %-alpha colour over #0a0e14 that
+        isn't lighter than the ground paints nothing at all. Hence the
+        `55 %, #fff` lightening step and the white panel wash.
+     2. --accent is re-set INLINE on <html> by the accent tweak (App.jsx), and
+        an inline custom property beats this block — so in dark mode
+        var(--accent) is whatever LIGHT hex the user picked, not #2dd4bf. The
+        lightening step is what keeps the wash visible regardless. */
+  --wash-page:
+    radial-gradient(1100px 520px at 32% -12%,
+      color-mix(in srgb, color-mix(in srgb, var(--accent) 55%, #fff) 14%, transparent), transparent 70%),
+    radial-gradient(900px 460px at 100% -6%,
+      color-mix(in srgb, color-mix(in srgb, var(--dictate) 65%, #fff) 12%, transparent), transparent 66%),
+    radial-gradient(900px 500px at 88% 108%,
+      color-mix(in srgb, color-mix(in srgb, var(--accent) 55%, #fff) 10%, transparent), transparent 68%);
+  --wash-bar: linear-gradient(180deg,
+    color-mix(in srgb, color-mix(in srgb, var(--accent) 55%, #fff) 7%, transparent), transparent);
+  --wash-panel: linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent);
 }
 
 [data-density="compact"] { --density: 0.85; }
@@ -131,7 +204,10 @@ kbd {
   grid-template-columns: auto 1fr;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg);
+  /* The wash lives on the shell, not on `.app-main`, so it stays put while the
+     page scrolls — a gradient that scrolls with the content reads as a banner
+     and pulls the eye on every wheel tick. */
+  background: var(--wash-page), var(--bg);
 }
 .app-main {
   display: flex; flex-direction: column;
@@ -142,7 +218,12 @@ kbd {
 /* ─── Sidebar ────────────────────────────────────────────────────────── */
 .sb {
   display: flex; flex-direction: column;
-  background: var(--surface);
+  /* No ground of its own, like the topbar: the shell's wash (.app) runs
+     through the nav so the chrome is one continuous surface rather than a
+     white panel butted against a lit page. The hairline stays — it is a
+     1px divider, not a background, and without it the nav and the content
+     lose their edge on a pale wash. */
+  background: transparent;
   border-right: 1px solid var(--line);
   padding: 12px 10px 14px;
   overflow-y: auto; overflow-x: hidden;
@@ -167,8 +248,13 @@ kbd {
 /* Product switcher fills 52 px; two 1fr columns = 26 px each */
 .sb.collapsed .sb-product        { margin: 8px 0 10px; }
 .sb.collapsed .sb-product button { padding: 7px 0; justify-content: center; gap: 0; }
-/* CTA: 40 px pill centered */
-.sb.collapsed .sb-cta { justify-content: center; width: 40px; height: 40px; padding: 0; margin: 2px auto; border-radius: 10px; }
+/* CTA: 40 px square centered. Collapsed there is no label to sit on a dark
+   pill, so the button itself goes bare and the icon chip carries the dark
+   fill — a "+" tile in the rail rather than a wide block with a tiny glyph. */
+.sb.collapsed .sb-cta { justify-content: center; width: 40px; height: 40px; padding: 0; margin: 2px auto; border-radius: 10px; background: transparent; }
+.sb.collapsed .sb-cta:hover { opacity: 1; }
+.sb.collapsed .sb-cta:hover .sb-cta-icon { opacity: .92; }
+.sb.collapsed .sb-cta-icon { width: 32px; height: 32px; border-radius: 9px; background: var(--text-1); color: var(--surface); }
 /* Nav links: full 52 px width, icon only */
 .sb.collapsed .sb-section        { padding: 4px 0 8px; }
 .sb.collapsed .sb-link           { justify-content: center; padding: 9px 0; margin: 1px 0; border-radius: 8px; }
@@ -432,8 +518,8 @@ kbd {
   border: 0;
 }
 .sb-user-menu-item:hover { background: var(--surface-2); }
-.sb-user-menu-item.danger { color: #c13b3b; }
-.sb-user-menu-item.danger:hover { background: rgba(193, 59, 59, 0.08); }
+.sb-user-menu-item.danger { color: var(--danger-text); }
+.sb-user-menu-item.danger:hover { background: var(--danger-soft); }
 .sb-user-menu-sep { height: 1px; background: var(--line); margin: 4px 2px; }
 
 /* Flyout submenu — folds Clinic / Admin / Audit into side panels so the
@@ -476,19 +562,13 @@ kbd {
 
 .sb-controls { display: flex; align-items: center; gap: 4px; padding: 0 4px; }
 
-/* ── Backend health pill + diagnostic panel (sidebar footer) ───────────── */
-.health-wrap { position: relative; }
-.health-pill {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 8px; border: 0; border-radius: 999px;
-  font: inherit; font-size: 11px; font-weight: 500; line-height: 1.3;
-  cursor: pointer;
-}
-.health-pill:hover { filter: brightness(.96); }
+/* ── Backend health rows + diagnostic panel ───────────────────────────── */
+/* Rows are shared between the account drop-up and the public #/status page
+   (see .st-* in app-extra.css for what the page adds on top). */
 .health-dot { width: 6px; height: 6px; border-radius: 999px; flex: none; }
 
 /* Portalled to <body> (the sidebar clips overflow), positioned from JS above
-   the pill — hence `position: fixed` with left/bottom set inline. */
+   its trigger — hence `position: fixed` with left/bottom set inline. */
 .health-panel {
   position: fixed;
   z-index: 120; width: min(420px, calc(100vw - 24px));
@@ -560,17 +640,38 @@ kbd {
   color: var(--muted);
 }
 .icon-btn:hover { background: var(--surface-2); color: var(--text-1); }
-.icon-btn.danger { color: var(--rec); }
+.icon-btn.danger { color: var(--danger); }
 
 /* ─── Topbar ─────────────────────────────────────────────────────────── */
+/* Part of the page, not a strip laid over it: no background and no rule, so
+   the shell's wash runs unbroken from the first pixel down through the
+   content. `.app-main` is transparent, so what shows here IS `.app`.
+   It is still sticky, so it cannot stay see-through once the page moves —
+   .is-stuck (set by TopBar from the scroller's position) fades in a
+   translucent ground and the hairline only while there is something
+   underneath to separate from. */
 .tb {
   display: flex; align-items: center; gap: 14px;
   height: var(--topbar-h);
   flex-shrink: 0;
   padding: 0 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  background: transparent;
+  border-bottom: 1px solid transparent;
   position: sticky; top: 0; z-index: 10;
+  transition: background-color .18s ease, border-color .18s ease, backdrop-filter .18s ease;
+}
+.tb.is-stuck {
+  /* Opaque enough that a row sliding under it is a soft shadow rather than
+     legible text competing with the breadcrumb. */
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: saturate(1.6) blur(14px);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom-color: var(--line);
+}
+/* Where the blur is unavailable the bar must still be opaque — a
+   see-through header with rows sliding under it is worse than a seam. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .tb.is-stuck { background: var(--bg); }
 }
 .tb-back {
   width: 30px; height: 30px;
@@ -584,7 +685,9 @@ kbd {
 .tb-crumbs { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .tb-crumbs a { padding: 3px 6px; border-radius: 5px; }
 .tb-crumbs a:hover { background: var(--surface-2); color: var(--text-1); }
-.tb-crumbs .sep { color: var(--line); }
+/* Visible enough to read as a step, quiet enough not to compete with the
+   labels it separates — the old hairline `/` was effectively invisible. */
+.tb-crumbs .sep { display: inline-flex; align-items: center; color: var(--text-3, var(--muted)); opacity: .55; }
 .tb-crumbs .cur { color: var(--text-1); font-weight: 500; padding: 3px 6px; }
 .tb-spacer { flex: 1; }
 .tb-search {
@@ -636,11 +739,21 @@ kbd {
 .btn.accent:hover { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); }
 .btn.ghost:hover { background: var(--surface-2); color: var(--text-1); }
-.btn.danger { background: var(--rec); border-color: var(--rec); color: white; }
-.btn.danger:hover {
-  background: color-mix(in srgb, var(--rec) 88%, #000);
-  border-color: color-mix(in srgb, var(--rec) 88%, #000);
-  color: #fff;
+/* TINTED, not filled. A destructive button does not need to be the loudest
+   thing on the screen to be understood — it needs to be unmistakably red and
+   unmistakably not the neutral option. A solid red slab next to a plain-text
+   "Cancel" was shouting, and in a dialog whose whole job is a calm second
+   thought that is the wrong tone. It is still the stronger of the two: it has
+   a ground and a colour where Cancel has neither. */
+.btn.danger {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 26%, transparent);
+  color: var(--danger-text);
+}
+.btn.danger:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--danger) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  color: var(--danger-text);
 }
 .btn.sm { padding: 4px 8px; font-size: 12px; gap: 5px; border-radius: 6px; }
 .btn.lg { padding: 10px 16px; font-size: 14px; }
@@ -688,6 +801,9 @@ kbd {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--line-2);
+  /* Composites over the panel's own --surface; the header sits a hair above
+     the body instead of relying on the hairline alone. */
+  background: var(--wash-panel);
 }
 .panel-h h3 {
   margin: 0;
@@ -731,6 +847,39 @@ kbd {
 }
 .label { font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; display: block; }
 .help { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+/* Platform checkbox — replaces the browser default (blue) box. */
+.chk {
+  appearance: none; -webkit-appearance: none;
+  flex: none;
+  width: 15px; height: 15px; margin: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+  display: inline-block;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.chk:hover:not(:disabled) { border-color: var(--accent); }
+.chk:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  /* white check mark */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
+  background-size: 12px 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* On the bright dark-mode accent a dark check reads better than a white one. */
+[data-theme="dark"] .chk:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%230a0e14' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
+}
+.chk:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.chk:disabled { cursor: not-allowed; opacity: .5; }
 
 /* ─── Modal ──────────────────────────────────────────────────────────── */
 .modal-overlay {
@@ -851,6 +1000,61 @@ kbd {
 
 /* ─── Two-column page grid ───────────────────────────────────────────── */
 .grid-2 { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+
+/* ─── Today (Tasks) ──────────────────────────────────────────────────── */
+/* One working column and one context rail, both starting at the top. The page
+   used to be two stacked `.grid-2` rows — four equal boxes with no hierarchy,
+   the bottom two permanently below the fold. */
+.today-grid {
+  display: grid; gap: 16px; align-items: start;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+}
+.today-col { display: grid; gap: 16px; align-content: start; min-width: 0; }
+/* The rail is short and the working column is long — pinning it keeps the day's
+   schedule beside the feed instead of scrolling it away into white space. */
+@media (min-width: 1181px) {
+  .today-col:last-child { position: sticky; top: 0; }
+}
+@media (max-width: 1180px) {
+  /* One column: context first (it is three rows tall), then the queue and the
+     feed — rather than burying "what's next" under everything that already
+     happened. */
+  /* `align-items: start` is a grid instruction; left on a column flex box it
+     shrinks each column to its content width. */
+  .today-grid { display: flex; flex-direction: column; align-items: stretch; }
+  .today-col:last-child { order: -1; }
+}
+/* A panel that is partly degraded says so above its rows, not instead of them. */
+.today-note {
+  padding: 8px 16px;
+  font-size: 12px; color: var(--muted);
+  background: var(--surface-2); border-bottom: 1px solid var(--line-2);
+}
+/* The KPI row leads somewhere, so it is made of buttons — and reads as one
+   scale with the panels below rather than four billboards above them. */
+.today .stats-row { margin-bottom: 16px; }
+.today .stat-card {
+  padding: 12px 14px; text-align: left; width: 100%;
+  font: inherit; cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.today .stat-card:hover { border-color: var(--accent); background: var(--surface-hover); }
+.today .stat-h { display: flex; align-items: center; gap: 8px; }
+.today .stat-v { font-size: 23px; line-height: 1.15; }
+.today .stat-i { margin-left: auto; color: var(--muted); }
+.today .stat-card:hover .stat-i { color: var(--accent); }
+/* The rail is context, not content: an empty day there should read as a quiet
+   line, not as a 150 px hole beside a full working column. */
+.today-col:last-child .empty { padding: 28px 20px; }
+.today-col:last-child .empty svg { margin-bottom: 8px; }
+.today-col:last-child .empty h3 { font-size: 13.5px; }
+/* A transcript has no patient avatar to show — it gets the tile the row shape
+   expects, so the feed keeps one left edge whatever produced the row. */
+.note-row-ico {
+  width: 32px; height: 32px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 9px; background: var(--accent-soft); color: var(--accent);
+}
 
 /* ─── Schedule list ──────────────────────────────────────────────────── */
 .schedule { padding: 6px 0; }
@@ -1256,7 +1460,8 @@ kbd {
   display: grid;
   grid-template-columns: 260px 1fr 320px;
   flex: 1; min-height: 0; overflow: hidden;
-  background: var(--bg);
+  /* Transparent for the same reason .sw is — see studio.css. */
+  background: transparent;
 }
 .studio > .left, .studio > .right {
   background: var(--surface);
@@ -1351,6 +1556,14 @@ kbd {
 .menu-select-trigger .chev.up { transform: rotate(180deg); }
 .menu-select .spec-menu { left: 0; right: 0; min-width: 0; }
 .menu-select-opt { display: flex; flex-direction: column; gap: 1px; min-width: 0; text-align: left; }
+/* Accent picker rows: the swatch leads, the name carries it. Colour alone
+   would leave the choice unreadable to anyone who cannot tell these hues
+   apart — and unspeakable to a screen reader. */
+.accent-opt { display: inline-flex; align-items: center; gap: 8px; }
+.accent-dot {
+  width: 12px; height: 12px; border-radius: 50%; flex: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+}
 .menu-select-sub { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
 .tpl-dropdown-h {
   padding: 10px 14px 6px;
@@ -1549,8 +1762,8 @@ kbd {
 .req-toggle span { font-size: 11px; font-weight: 700; color: var(--rec); padding: 2px 6px; border: 1px dashed var(--rec); border-radius: 4px; }
 .iconbtn { width: 28px; height: 28px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
 .iconbtn:hover { background: var(--surface-2); color: var(--text-1); }
-.iconbtn.danger { color: var(--rec); }
-.iconbtn.danger:hover { background: var(--rec-soft); }
+.iconbtn.danger { color: var(--danger); }
+.iconbtn.danger:hover { background: var(--danger-soft); }
 .icon-pick { display: flex; gap: 6px; }
 .icon-opt { position: relative; width: 32px; height: 32px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--muted); }
 .icon-opt:hover { background: var(--surface-2); color: var(--text-1); }
@@ -1883,12 +2096,27 @@ kbd {
 .tpl-trow .tpl-cell-mut { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ─── Report view (two-column) ────────────────────────────────────────── */
+/* Two columns — the document and its rail — with a FULL-WIDTH row above them
+   for a standing banner.
+   The row exists whether or not the banner does: `auto` collapses it to 0 when
+   nothing is in it, and both columns are placed on row 2 explicitly rather
+   than by auto-flow. Without that, a banner rendered as a child of this grid
+   (BreakGlassBanner, in Reports.jsx) took the first CELL — so it stretched to
+   the full height of the row while .report-main was pushed into the 288px rail
+   column and the whole report wrapped three words to a line. */
 .report-page {
   display: grid;
   grid-template-columns: 1fr 288px;
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
   overflow: hidden;
 }
+.report-page > .bg-banner {
+  grid-row: 1;
+  grid-column: 1 / -1;
+}
+.report-page > .report-main { grid-row: 2; grid-column: 1; }
+.report-page > .report-side { grid-row: 2; grid-column: 2; }
 .app-main:has(.report-page) { overflow: hidden; }
 .report-main {
   display: flex; flex-direction: column;
@@ -2519,24 +2747,12 @@ kbd {
 .tpl-sec-move { display: inline-flex; flex-direction: column; gap: 1px; }
 .tpl-sec-move .iconbtn:first-child svg { transform: rotate(180deg); }
 
-/* Note-structures list (Templates → note templates tab) */
-.nst-thead, .nst-row {
-  display: grid; grid-template-columns: 1.6fr 1fr 3fr;
-  gap: 12px; align-items: center; padding: 11px 18px;
+/* Note-structures list (Templates → note templates tab). Same rows as the
+   report-templates tab — only the column set differs, so it rides on
+   .tpl-thead/.tpl-trow and overrides the grid. */
+.tpl-thead.nst, .tpl-trow.nst {
+  grid-template-columns: 2fr 1.2fr 0.8fr 1fr 3fr;
 }
-.nst-thead {
-  font-size: 11.5px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .06em;
-  color: var(--muted);
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-2);
-}
-.nst-row { border-bottom: 1px solid var(--line-2); }
-.nst-row:last-child { border-bottom: 0; }
-.nst-name { display: flex; align-items: center; gap: 10px; min-width: 0;
-  font-size: 13.5px; font-weight: 500; }
-.nst-sections { color: var(--muted); font-size: 12.5px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* choice / multi_choice option rows */
 .tpl-opt-block {

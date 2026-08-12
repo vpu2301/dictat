@@ -19,6 +19,8 @@ import { synthesizeReport, downloadReportPdf } from "../api/reports.js";
 import { ViolationNotice } from "../reports/finalizeViolations.js";
 import { DiagnosisBody } from "../reports/renderers/DiagnosisBody.js";
 import { tr } from "../i18n.js";
+import { canSign } from "./SignGate.jsx";
+import { useClaims } from "../auth/AuthContext.jsx";
 
 const T = (lang, uk, en) => tr(lang, uk, en);
 
@@ -76,6 +78,7 @@ export function ReportPreview({
   // path for confirmed codes.
   sectionMeta = {}, onJumpToViolation, onSectionMetaChange,
 }) {
+  const claims = useClaims();
   // Synthesis state.
   const [synthState, setSynthState] = useState("idle"); // idle | loading | ready | error
   const [synthErr, setSynthErr] = useState(null);
@@ -200,6 +203,10 @@ export function ReportPreview({
   };
   const handleFinalize = () => runGated(onFinalize, "finalize");
   const handleSign = () => runGated(onSign, "sign");
+  // Signing is a physician's act (2026-08-09 hotfix). For a nurse the primary
+  // action becomes «Завершити» — finalizing is theirs, the signature is not —
+  // rather than a sign button that would 403 at the end of a long dialog.
+  const maySign = canSign(claims);
 
   const changedCount = Object.entries(proposed)
     .filter(([k, v]) => v?.text != null && v.text !== (body[k] || "") && !accepted[k]).length;
@@ -381,9 +388,11 @@ export function ReportPreview({
           <div style={{ flex: 1 }} />
           <SplitButton
             variant="primary"
-            icon="sign"
-            label={T(lang, "Підписати звіт", "Sign report")}
-            onClick={handleSign}
+            icon={maySign ? "sign" : "check"}
+            label={maySign
+              ? T(lang, "Підписати звіт", "Sign report")
+              : T(lang, "Завершити звіт", "Finalize report")}
+            onClick={maySign ? handleSign : handleFinalize}
             busy={finalizing}
             busyLabel={busyAction === "finalize"
               ? T(lang, "Завершення…", "Finalizing…")

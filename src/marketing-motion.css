@@ -1,0 +1,456 @@
+/* marketing-motion.css — motion for the public site.
+ *
+ * SITE ONLY. Every selector below starts at `.lp`, the marketing wrapper, so
+ * nothing here can reach the logged-in platform. Loaded last so it wins over
+ * the static marketing rules in app-extra.css by source order.
+ *
+ * The vocabulary is what the ambient-clinical-AI category has converged on —
+ * a drifting aurora behind the first screen, blocks that rise into place as
+ * you scroll, a light that follows the pointer across a card — held to this
+ * site's ink discipline: distances are small (12-18px), durations are slow
+ * enough to read as easing rather than as movement, and the only hue that
+ * ever appears is the teal/mint the accent block already owns.
+ *
+ * MOTION IS FOR CONTENT ARRIVING, NOT FOR THE CTA. See section 4.
+ *
+ * TWO RULES THE WHOLE FILE OBEYS:
+ *
+ *   1. Nothing here may hide content on its own. The reveal's opacity: 0 is
+ *      keyed to `[data-reveal]`, an attribute that exists only because
+ *      useMarketingMotion put it there at runtime. No JS, no attribute, no
+ *      hidden copy — the page is simply static.
+ *
+ *   2. `prefers-reduced-motion: reduce` turns ALL of it off, at the bottom of
+ *      the file. Vestibular triggers are not a taste setting, and a site that
+ *      reads clinical notes to people has no business ignoring the one OS
+ *      switch that says "this makes me ill".
+ */
+
+/* ════════════════════════════════════════════════════════════════════
+   1. Scroll reveal
+   ════════════════════════════════════════════════════════════════════ */
+
+.lp [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  /* The stagger is the element's index in its row, set by the hook. 70ms is
+     under the ~100ms where a cascade stops reading as one gesture and starts
+     reading as items arriving separately. */
+  transition:
+    opacity .62s cubic-bezier(.22, .61, .36, 1) calc(var(--reveal-i, 0) * 70ms),
+    transform .62s cubic-bezier(.22, .61, .36, 1) calc(var(--reveal-i, 0) * 70ms);
+  will-change: opacity, transform;
+}
+.lp [data-reveal].is-inview {
+  opacity: 1;
+  transform: none;
+  will-change: auto;   /* released once it has arrived — it is a hint, not a
+                          permanent promotion of a few dozen cards to layers */
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   2. Hero entrance
+   ════════════════════════════════════════════════════════════════════
+   The first screen is already in the viewport, so it is animated from CSS on
+   load rather than waiting for an IntersectionObserver callback a frame or
+   two later. `backwards` fill holds the from-state during the delay; without
+   it the headline paints once at full size and then jumps back to start. */
+@keyframes lp-rise {
+  from { opacity: 0; transform: translate3d(0, 20px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+.lp .lp-hero-text > *,
+.lp .lp-hero-art {
+  animation: lp-rise .72s cubic-bezier(.22, .61, .36, 1) backwards;
+}
+/* The delays follow the PAINTED order, not the DOM order. Since the hero
+   became an editorial split the lead sits in the right column level with the
+   buttons, so it arrives after them — a left-to-right sweep across the row —
+   rather than before them, which looked like the right column jumping the
+   queue. Below 900px the grid collapses back to DOM order and the two are
+   stacked, where 80ms apart is imperceptible either way. */
+.lp .lp-hero-text > .lp-eyebrow   { animation-delay: .02s; }
+.lp .lp-hero-text > .lp-h1        { animation-delay: .09s; }
+.lp .lp-hero-text > .lp-hero-cta  { animation-delay: .18s; }
+.lp .lp-hero-text > .lp-lead      { animation-delay: .26s; }
+.lp .lp-hero-text > .lp-hero-note { animation-delay: .30s; }
+.lp .lp-hero-art                  { animation-delay: .40s; }
+
+/* ════════════════════════════════════════════════════════════════════
+   3. Aurora drift
+   ════════════════════════════════════════════════════════════════════
+   The hero wash already exists as a pair of blurred radial blobs behind the
+   headline (app-extra.css, accent block). Here it breathes.
+
+   The transform is deliberately tiny — a 3% translate and a 6% scale over 18
+   seconds. Behind a 50px blur that is not perceived as an object moving; it
+   is perceived as light that will not sit still, which is the whole point of
+   the effect. Anything larger and the reader notices the shape instead of the
+   sentence. */
+@keyframes lp-aurora {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  33%  { transform: translate3d(2.5%, -1.5%, 0) scale(1.06); }
+  66%  { transform: translate3d(-2%, 1.5%, 0) scale(.97); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+.lp[data-accent="on"] .lp-hero::before {
+  animation: lp-aurora 18s ease-in-out infinite;
+  /* The blob is already `position: absolute; z-index: -1` — the transform
+     origin keeps it swelling towards the headline rather than away. */
+  transform-origin: 34% 44%;
+}
+
+/* ── Hero waveform ───────────────────────────────────────────────────
+   A bar waveform lying across the back of the first screen. Markup and the
+   height envelope come from HeroWave in LandingPage.jsx; this file gives it a
+   shape and makes it move.
+
+   GREY, and only grey. The hero already carries the site's one hue in the
+   aurora wash behind it — a second coloured layer in the same 600px would be
+   two things competing to be the background. `--line` is the hairline token,
+   which means the bars are the exact grey the page already rules its sections
+   with, and it follows the theme without a dark-mode override.
+
+   It sits BEHIND everything at z-index -1, in the layer the aurora already
+   occupies, so it never touches the contrast of the headline in front of it:
+   #1b2422 ink over #e3e6e4 bars still measures ~13:1, far past AA.
+
+   The mask fades both ends into the page. Without it the row terminates in a
+   hard vertical edge at the hero's box, which reads as a clipped element
+   rather than as a signal running off the screen. */
+.lp .lp-hero { position: relative; isolation: isolate; }
+.lp .lp-hero-wave {
+  position: absolute;
+  z-index: -1;
+  /* Full-bleed past the 1160px column: the waveform is the page's texture,
+     not a component sitting inside the grid. -50vw is the same trick the
+     section bands use, and `.lp { overflow-x: clip }` contains it. */
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  /* Pinned to the TOP of the hero, not centred in it. The hero is ~1600px tall
+     — headline, lead, CTA, chips and then the dictaphone card — so `top: 50%`
+     put the waveform down beside the buttons, below the fold and clipped. The
+     band belongs behind the headline, which occupies roughly 166-580px of the
+     hero's own box; 60 + 520 lands on that. */
+  top: 60px;
+  height: 520px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 24px;
+  pointer-events: none;
+  opacity: .55;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+}
+.lp .lp-hero-wave > i {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 5px;
+  /* --h is the bar's place in the envelope (0.14-1.0), set per bar in JSX. */
+  height: calc(var(--h, .5) * 100%);
+  border-radius: 999px;
+  background: var(--line);
+  /* Scaled from the centre so the row reads as a waveform around an axis
+     rather than as an equaliser growing off a floor. */
+  transform: scaleY(.34);
+  animation: lp-hero-wave 2.6s ease-in-out infinite alternate;
+  /* NEGATIVE delay: every bar starts already part-way through the cycle, so
+     the wave is mid-motion on the first frame instead of the whole row
+     lurching upward together as the page loads. 55ms per bar walks the phase
+     along the row, which is what makes it travel. */
+  animation-delay: calc(var(--i, 0) * -55ms);
+}
+@keyframes lp-hero-wave {
+  from { transform: scaleY(.34); }
+  to   { transform: scaleY(1); }
+}
+@media (max-width: 720px) {
+  /* The headline drops to its 58px floor and sets over more lines, so the
+     band it has to cover is shorter. Quieter too — on a phone the copy is
+     closer to the bars and there is no empty margin for them to breathe in. */
+  .lp .lp-hero-wave { top: 40px; height: 330px; opacity: .38; gap: 3px; }
+  .lp .lp-hero-wave > i { max-width: 3px; }
+}
+
+/* ── The same waveform, on the closing ink band ──────────────────────
+   Same envelope, same markup (WaveBars in LandingPage.jsx), different
+   colour and a different phase so the page does not read as one clip
+   played twice.
+
+   COLOUR: the hero's bars are `--line`, which is a light grey and would
+   vanish on ink. Here they are white carrying a little of the accent, so
+   the band picks up the site's hue and follows the accent picker — at an
+   opacity low enough that the headline's contrast is untouched (white ink
+   over a band that is at worst 8% lighter than --plum).
+
+   WEIGHT: masked to fade in from the middle and sit strongest on the
+   right. The copy and the buttons are left-aligned on this band; putting
+   the signal under them would be texture behind text for no reason, and
+   the right half is the part that looks empty. */
+.lp .lp-cta-wave {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  /* space-between, not a fixed gap: 72 bars capped at 6px each cannot fill a
+     1000px band on their own, and left-aligned they stopped three quarters of
+     the way across and left a bald right edge. The gap is now a MINIMUM and
+     the leftover width is shared out, so the signal spans the band at any
+     width. */
+  justify-content: space-between;
+  gap: 5px;
+  padding: 0 40px;
+  pointer-events: none;
+  opacity: .16;
+  -webkit-mask-image: linear-gradient(90deg, transparent 6%, #000 58%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent 6%, #000 58%, #000 93%, transparent);
+}
+.lp .lp-cta-wave > i {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 6px;
+  height: calc(var(--h, .5) * 62%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 32%, #fff);
+  transform: scaleY(.34);
+  animation: lp-hero-wave 3.1s ease-in-out infinite alternate;
+  /* -72ms rather than the hero's -55ms: a longer wavelength, so the two
+     bands travel at visibly different speeds. */
+  animation-delay: calc(var(--i, 0) * -72ms);
+}
+@media (max-width: 720px) {
+  /* The band's padding halves and the copy fills it, so there is no empty
+     right side left to decorate. */
+  .lp .lp-cta-wave { opacity: .10; gap: 3px; padding: 0 20px; }
+  .lp .lp-cta-wave > i { max-width: 3px; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   4. The CTA — nothing
+   ════════════════════════════════════════════════════════════════════
+   Deliberately empty, and kept as a heading so the next person does not
+   re-add what was removed here.
+
+   This slot held a specular sweep that crossed the primary pill on hover, an
+   idle version of the same sweep firing every eight seconds, and a mint ring
+   pulsing out of the hero button. Each was defensible alone; together, on a
+   page that is otherwise black type on white paper, they turned the single
+   most important object on the site into the busiest one.
+
+   The button is now one flat fill whose only state change is the fill going
+   a step darker on hover (app-extra.css, accent block). That is the whole
+   interaction, and it is what Perplexity, Abridge and Heidi all do.
+
+   Motion on this page belongs to CONTENT arriving — the reveal, the counting
+   stats, the drifting wash behind the headline. It does not belong to the
+   button, which is already the only coloured thing on the screen and needs
+   no help being found. */
+
+/* ════════════════════════════════════════════════════════════════════
+   5. Cards — lift and pointer spotlight
+   ════════════════════════════════════════════════════════════════════
+   `--lp-mx` / `--lp-my` are written by the hook on pointermove. They default
+   to the centre so a card that has never been pointed at (touch, keyboard)
+   still lights correctly if it is ever hovered. */
+.lp .lp-feature,
+.lp .lp-pillar,
+.lp .lp-step,
+.lp .lp-stat,
+.lp .mk-price-card {
+  position: relative;
+  isolation: isolate;
+  --lp-mx: 50%;
+  --lp-my: 50%;
+  transition: transform .28s cubic-bezier(.22, .61, .36, 1),
+              border-color .28s, box-shadow .28s;
+}
+.lp .lp-feature::before,
+.lp .lp-pillar::before,
+.lp .lp-step::before,
+.lp .lp-stat::before,
+.lp .mk-price-card::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .28s;
+  background: radial-gradient(
+    260px circle at var(--lp-mx) var(--lp-my),
+    color-mix(in srgb, var(--lp-mint, #35c9a3) 13%, transparent),
+    transparent 62%
+  );
+}
+.lp .lp-feature:hover,
+.lp .lp-pillar:hover,
+.lp .lp-step:hover,
+.lp .lp-stat:hover,
+.lp .mk-price-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--lp-mint, #35c9a3) 34%, var(--line));
+  box-shadow: 0 18px 40px -30px rgba(12, 18, 16, .55);
+}
+.lp .lp-feature:hover::before,
+.lp .lp-pillar:hover::before,
+.lp .lp-step:hover::before,
+.lp .lp-stat:hover::before,
+.lp .mk-price-card:hover::before { opacity: 1; }
+
+/* The arrow on a card that links somewhere — it steps forward with the card
+   rather than staying put while the card moves out from under it. */
+.lp .mk-feature-link .mk-card-more svg,
+.lp .lp-pillar-more svg { transition: transform .28s cubic-bezier(.22, .61, .36, 1); }
+.lp .mk-feature-link:hover .mk-card-more svg,
+.lp .lp-pillar-more:hover svg { transform: translateX(4px); }
+
+/* ════════════════════════════════════════════════════════════════════
+   6. Nav links — underline grow
+   ════════════════════════════════════════════════════════════════════
+   ONE treatment, not two. The nav already had a grey pill on hover and open
+   (`background: var(--nav-hover)`, app-extra.css); adding the underline on
+   top gave the open dropdown trigger both a filled shape AND a rule under it,
+   which reads as two competing states on one item. The underline wins and the
+   pill is suppressed here.
+
+   Desktop only. Below 720px the links become a full-width accordion in the
+   burger drawer, where a row-wide tinted background is the affordance that
+   says "this row is a tappable thing" and a 1.5px rule inset 11px from each
+   edge of a full-width row says almost nothing. The mobile drawer therefore
+   keeps the pill and drops the underline — the inverse of the desktop bar.
+
+   Both overrides sit AFTER the base rule, not before it. They carry the same
+   specificity, so source order is the only thing deciding them — written
+   above, the mobile `content: none` loses to the `content: ""` it is meant to
+   cancel and the drawer ends up with both treatments again. */
+.lp .lp-navlink,
+.lp .lp-navtrigger { position: relative; }
+.lp .lp-navlink::after,
+.lp .lp-navtrigger::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: 3px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--lp-mint, currentColor);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .26s cubic-bezier(.22, .61, .36, 1);
+}
+.lp .lp-navlink:hover::after,
+.lp .lp-navtrigger:hover::after,
+.lp .lp-navtrigger[aria-expanded="true"]::after { transform: scaleX(1); }
+
+@media (min-width: 721px) {
+  .lp .lp-navgroup:hover .lp-navtrigger,
+  .lp .lp-navgroup.is-open .lp-navtrigger,
+  .lp .lp-navlink:hover { background: none; }
+}
+@media (max-width: 720px) {
+  .lp .lp-navlink::after,
+  .lp .lp-navtrigger::after { content: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   7. Read progress
+   ════════════════════════════════════════════════════════════════════
+   A hairline under the sticky nav. `--lp-progress` is 0-1, written by the
+   hook in a rAF; the paint is a scaleX so it stays on the compositor and the
+   bar costs nothing to move. */
+.lp .lp-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 60;         /* over .lp-nav (50) — it belongs to the nav's edge */
+  pointer-events: none;
+}
+.lp .lp-progress > i {
+  display: block;
+  height: 100%;
+  transform: scaleX(var(--lp-progress, 0));
+  transform-origin: left;
+  /* The accent, flat — same rule as the button. A gradient on a 2px hairline
+     is invisible anyway; it only existed to match a button that no longer has
+     one. */
+  background: var(--lp-cta, #0f766e);
+}
+/* Monochrome mode has no accent to draw with, and a grey progress hairline
+   under a grey nav is noise. Off. */
+.lp:not([data-accent="on"]) .lp-progress { display: none; }
+
+/* ════════════════════════════════════════════════════════════════════
+   8. Reduced motion
+   ════════════════════════════════════════════════════════════════════
+   Everything above, off. The reveal rule is restated rather than merely
+   un-transitioned: the hook does not mark elements under this setting, but if
+   the media query flips AFTER the marking (a user changing the OS setting
+   with the tab open) the attributes are still on the DOM, and without this
+   rule that content would stay at opacity 0 forever.
+
+   The progress bar keeps its scaleX — it is an indicator, not an animation:
+   it has no transition and moves only because the reader is scrolling. */
+@media (prefers-reduced-motion: reduce) {
+  .lp [data-reveal],
+  .lp [data-reveal].is-inview {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .lp .lp-hero-text > *,
+  .lp .lp-hero-art,
+  .lp[data-accent="on"] .lp-hero::before,
+  .lp .lp-hero-wave > i,
+  .lp .lp-cta-wave > i {
+    animation: none;
+  }
+  /* The waveform stays — it is a still image of a signal, which is the thing
+     it was drawing anyway. Frozen at scaleY(.34) it would be a flat line, so
+     the bars are released to their full envelope height instead. */
+  .lp .lp-hero-wave > i { transform: none; }
+
+  /* The evidence band: the drift loop and the rotation both already check the
+     media query in JS, so what is left here is the CSS-driven part — the
+     dictation bars, the caption's fade-in and the cluster cross-fades. The
+     caption itself stays: it is content, and it stops changing on its own
+     because the rotation timer never starts. */
+  /* Both readouts — hero and evidence band. The rotation itself is already
+     stopped in JS (useRotation checks the query), so what is left is the level
+     meter and the caption's fade. The bars are parked mid-height rather than
+     hidden: a microphone level frozen at zero would read as "not listening",
+     which is a different claim from "not animating". */
+  .lp .lp-voice-bars > i { animation: none; transform: scaleY(.62); }
+  .lp .lp-voice-line { animation: none; }
+  /* The travelling dash on the live pipeline segment. The rAF drift is already
+     off (the loop checks the query before it starts), so this is the last
+     moving thing on the band. */
+  .lp .lp-ev-edge.is-flow,
+  .lp .lp-ev-edge.is-flow.is-live,
+  .lp .lp-ev-packet-halo { animation: none; }
+  .lp .lp-ev-edge,
+  .lp .lp-ev-hub,
+  .lp .lp-ev-tile,
+  .lp .lp-ev-tile .lp-ev-tile-box { transition: none; }
+
+  .lp .lp-feature,
+  .lp .lp-pillar,
+  .lp .lp-step,
+  .lp .lp-stat,
+  .lp .mk-price-card,
+  .lp .lp-navlink::after,
+  .lp .lp-navtrigger::after,
+  .lp .mk-feature-link .mk-card-more svg,
+  .lp .lp-pillar-more svg { transition: none; }
+  .lp .lp-feature:hover,
+  .lp .lp-pillar:hover,
+  .lp .lp-step:hover,
+  .lp .lp-stat:hover,
+  .lp .mk-price-card:hover { transform: none; }
+}

@@ -13,6 +13,7 @@ import React, { useState } from "react";
 import { useEmbed } from "../../EmbedContext.jsx";
 import { useAgents, useConnectors, createAgent, deleteAgent } from "../../data/hooks.js";
 import { LoadingSkeleton, EmptyState, ErrorState } from "../../ui/States.jsx";
+import { ModalLayer } from "../../ui/ModalLayer.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { t } from "../../i18n.js";
 
@@ -75,6 +76,12 @@ function AgentCard({ agent, locale, answerLanguage, onDelete }) {
 }
 
 function CreateAgentDialog({ onClose, onCreated, locale }) {
+  // Same modal contract as every other dialog in the module: on a host that
+  // owns the content area (modalHost="page") this portals out and the scrim is
+  // fixed to the viewport. Rendered in place it was clamped to the module box
+  // — a short box on this route — so the form was squeezed under its own
+  // footer and only the module, not the page, was dimmed.
+  const { modal } = useEmbed();
   const connectors = useConnectors();
   const [name, setName] = useState("");
   const [scope, setScope] = useState("evidence");
@@ -98,8 +105,13 @@ function CreateAgentDialog({ onClose, onCreated, locale }) {
   };
 
   return (
+    <ModalLayer {...modal}>
     <div className="ec-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <form className="ec-dialog" onSubmit={submit} aria-labelledby="ec-agent-title">
+      <form
+        className="ec-dialog ec-dialog-wide"
+        onSubmit={submit}
+        role="dialog" aria-modal="true" aria-labelledby="ec-agent-title"
+      >
         <div className="ec-modal-h">
           <h2 id="ec-agent-title">{t(locale, "Новий агент", "New agent")}</h2>
           <p>{t(locale,
@@ -188,6 +200,7 @@ function CreateAgentDialog({ onClose, onCreated, locale }) {
         </div>
       </form>
     </div>
+    </ModalLayer>
   );
 }
 

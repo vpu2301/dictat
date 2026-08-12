@@ -12,9 +12,11 @@ import { Icon } from "../components/UI.jsx";
 import { MenuSelect } from "../components/MenuSelect.jsx";
 import { Row, Section, SettingsNav, Toggle, useSettingsSections } from "../components/SettingsLayout.jsx";
 import { LANGS , tr } from "../i18n.js";
+import { ACCENTS } from "../theme/accents.js";
 import { ChatSettingsSection, CHAT_SETTINGS_SECTION } from "../chat/host/ChatSettingsSection.jsx";
 import { ChatConnectorsSection, CHAT_CONNECTORS_SECTION } from "../chat/host/ChatConnectorsSection.jsx";
 import { useSettings as useChatSettings } from "../chat/settingsContract.js";
+import { AccountSecuritySection, ACCOUNT_SECURITY_SECTION } from "../components/AccountSecuritySection.jsx";
 import { useAuth } from "../auth/AuthContext.jsx";
 
 // ── Section registry (drives both the side nav and the rendered order) ────────
@@ -28,7 +30,7 @@ const SECTIONS = [
   { id: CHAT_CONNECTORS_SECTION.id, icon: CHAT_CONNECTORS_SECTION.icon, uk: CHAT_CONNECTORS_SECTION.uk, en: CHAT_CONNECTORS_SECTION.en },
   { id: "notifications", icon: "bell",     uk: "Сповіщення",      en: "Notifications" },
   { id: "privacy",       icon: "shield",   uk: "Дані та приватність", en: "Data & privacy" },
-  { id: "account",       icon: "user",     uk: "Акаунт і безпека", en: "Account & security" },
+  { id: ACCOUNT_SECURITY_SECTION.id, icon: ACCOUNT_SECURITY_SECTION.icon, uk: ACCOUNT_SECURITY_SECTION.uk, en: ACCOUNT_SECURITY_SECTION.en },
   { id: "about",         icon: "help",     uk: "Про застосунок",  en: "About" },
 ];
 
@@ -50,7 +52,7 @@ function SoonBtn({ children }) {
   );
 }
 
-export function SettingsPage({ lang = "en", tweaks, setTweak, navigate }) {
+export function SettingsPage({ lang = "en", tweaks, setTweak, navigate, onToast, section }) {
   const T = (uk, en) => tr(lang, uk, en);
   // The evidence-chat module sits behind the "Show the module" toggle. Its
   // MAIN section always renders — it holds the toggle, and a gate you cannot
@@ -61,7 +63,8 @@ export function SettingsPage({ lang = "en", tweaks, setTweak, navigate }) {
   const sections = chatEnabled
     ? SECTIONS
     : SECTIONS.filter((s) => s.id !== CHAT_CONNECTORS_SECTION.id);
-  const { active, jump } = useSettingsSections(sections);
+  // `section` comes from ?s= on the route — see ProfilePage's security rows.
+  const { active, jump } = useSettingsSections(sections, section);
 
   // Defaults applied inline so the page works before these land in TWEAK_DEFAULTS.
   const g = (key, fallback) => (tweaks[key] === undefined ? fallback : tweaks[key]);
@@ -87,19 +90,45 @@ export function SettingsPage({ lang = "en", tweaks, setTweak, navigate }) {
         {/* ── Sections ────────────────────────────────────────────────── */}
         <div className="settings-main">
           <Section id="appearance" icon="sun" title={T("Вигляд", "Appearance")}>
-            <Row label={T("Тема", "Theme")} hint={T("Світла або темна", "Light or dark")}>
+            <Row
+              label={T("Тема", "Theme")}
+              hint={tweaks.theme === "system"
+                ? T("Слідує за темою системи", "Follows your system setting")
+                : T("Світла, темна або як у системі", "Light, dark, or match your system")}
+            >
+              {/* "system" is not a third palette — it is a deferral, resolved in
+                  App.jsx against prefers-color-scheme and re-resolved when the
+                  OS flips. Last in the list because it is the answer for
+                  someone who does not want to answer. */}
               <Seg value={tweaks.theme} onChange={(v) => setTweak("theme", v)}
-                options={[{ v: "light", l: "light", icon: "sun" }, { v: "dark", l: "dark", icon: "moon" }]} />
+                options={[
+                  { v: "light", l: T("Світла", "Light") },
+                  { v: "dark", l: T("Темна", "Dark") },
+                  { v: "system", l: T("Як у системі", "System") },
+                ]} />
             </Row>
             <Row label={T("Щільність", "Density")} hint={T("Розмір елементів", "Element spacing")}>
               <Seg value={tweaks.density} onChange={(v) => setTweak("density", v)} options={["comfortable", "compact"]} />
             </Row>
             <Row label={T("Акцент", "Accent color")}>
-              <div className="seg">
-                {["#0a8a7a", "#2563eb", "#7c3aed", "#0f172a", "#dc2626"].map((v) => (
-                  <button key={v} className={"swatch " + (tweaks.accent === v ? "on" : "")} style={{ background: v }} onClick={() => setTweak("accent", v)} title={v} />
-                ))}
-              </div>
+              {/* A dropdown like every other multi-option row on this page —
+                  the swatch strip was the one control here that did not look
+                  like a setting. The colour still leads each option; the name
+                  is what makes it choosable without relying on colour alone. */}
+              <MenuSelect
+                value={tweaks.accent}
+                ariaLabel={T("Акцент", "Accent color")}
+                onChange={(v) => setTweak("accent", v)}
+                options={ACCENTS.map((a) => ({
+                  value: a.value,
+                  label: (
+                    <span className="accent-opt">
+                      <span className="accent-dot" style={{ background: a.value }} />
+                      {T(a.uk, a.en)}
+                    </span>
+                  ),
+                }))}
+              />
             </Row>
           </Section>
 
@@ -171,24 +200,14 @@ export function SettingsPage({ lang = "en", tweaks, setTweak, navigate }) {
             </Row>
           </Section>
 
-          <Section id="account" icon="user" title={T("Акаунт і безпека", "Account & security")}>
-            <Row label={T("Змінити пароль", "Change password")}>
-              <SoonBtn>{T("Незабаром", "Soon")}</SoonBtn>
-            </Row>
-            <Row label={T("Двофакторна автентифікація", "Two-factor authentication")} hint={T("Додатковий захист входу", "Extra protection at sign-in")}>
-              <SoonBtn>{T("Незабаром", "Soon")}</SoonBtn>
-            </Row>
-            <Row label={T("Активні сеанси", "Active sessions")} hint={T("Пристрої, де ви увійшли", "Devices where you're signed in")}>
-              <SoonBtn>{T("Незабаром", "Soon")}</SoonBtn>
-            </Row>
-          </Section>
+          <AccountSecuritySection lang={lang} onToast={onToast} />
 
           <Section id="about" icon="help" title={T("Про застосунок", "About")}>
             <Row label={T("Версія", "Version")}>
               <span className="settings-row-hint" style={{ margin: 0 }}>Klarnote · {__APP_VERSION__}</span>
             </Row>
             <Row label={T("Підтримка", "Support")}>
-              <a className="btn ghost sm" href="mailto:support@klarnote.health">support@klarnote.health</a>
+              <a className="btn ghost sm" href="mailto:support@klarnote.com">support@klarnote.com</a>
             </Row>
           </Section>
         </div>

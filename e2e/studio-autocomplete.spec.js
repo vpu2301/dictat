@@ -137,6 +137,8 @@ async function openStudio(page) {
   await page.locator('button[type="submit"]').click();
   await expect(page.locator(".sb-brand")).toBeVisible();
   await page.goto("/#/studio?mode=dictate");
+  // The workspace no longer opens the picker on arrival; the header asks.
+  await page.locator("[data-testid='sw-patient']").click();
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await expect(gateRow).toBeVisible({ timeout: 10000 });
   await gateRow.click();
@@ -545,10 +547,15 @@ test("step-05: master toggle — default ON, OFF kills everything mid-session, p
   // Persistence: reload (same auth session), reopen the studio — still OFF,
   // heavy typing at mount produces zero client calls.
   await page.reload();
-  const gateRow = page.locator("[data-testid='patient-gate-row']").first();
-  await expect(gateRow).toBeVisible({ timeout: 10000 });
-  await gateRow.click();
+  // The patient rides in the URL, so the reload usually lands straight back in
+  // the editor — the picker is reopened only if it did not.
   const editor2 = page.locator(".ProseMirror").first();
+  const prompt = page.getByRole("button", { name: /Обрати пацієнта|Pick a patient/ });
+  await expect(editor2.or(prompt).first()).toBeVisible({ timeout: 10000 });
+  if (!(await editor2.isVisible().catch(() => false))) {
+    await prompt.click();
+    await page.locator("[data-testid='patient-gate-row']").first().click();
+  }
   await expect(editor2).toBeVisible({ timeout: 10000 });
   await editor2.click();
   const before = calls.suggest.length;

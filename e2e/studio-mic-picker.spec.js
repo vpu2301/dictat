@@ -108,6 +108,9 @@ async function loginAndOpenStudio(page) {
   await page.locator('button[type="submit"]').click();
   await expect(page.locator(".sb-brand")).toBeVisible();
   await page.goto("/#/studio?mode=dictate");
+  // The workspace no longer opens the picker on arrival — the patient is a
+  // question it asks, not a modal it blocks on. The header button asks it.
+  await page.locator("[data-testid='sw-patient']").click();
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await expect(gateRow).toBeVisible({ timeout: 10000 });
   await gateRow.click();
@@ -137,8 +140,15 @@ test.describe("Studio microphone picker", () => {
 
     // Survives a reload — the choice is persisted, not per-session state.
     await page.reload();
-    const gateRow = page.locator("[data-testid='patient-gate-row']").first();
-    if (await gateRow.isVisible().catch(() => false)) await gateRow.click();
+    // The patient rides in the URL, so the reload lands back in the editor;
+    // the picker is only reopened if it did not.
+    const device = page.locator(".mic-device");
+    const prompt = page.getByRole("button", { name: /Обрати пацієнта|Pick a patient/ });
+    await expect(device.or(prompt).first()).toBeVisible({ timeout: 10000 });
+    if (!(await device.isVisible().catch(() => false))) {
+      await prompt.click();
+      await page.locator("[data-testid='patient-gate-row']").first().click();
+    }
     await expect(picker(page)).toContainText("iPhone Microphone", { timeout: 10000 });
   });
 

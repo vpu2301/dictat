@@ -305,47 +305,49 @@ function CreateTenantDialog({ lang, onClose, onDone }) {
             <Icon name="x" size={16} />
           </button>
         </header>
-        <p className="co-cell-sub" style={{ marginBottom: 14 }}>
-          {T("Ви станете власником нової клініки. Решту профілю можна заповнити згодом у «Керуванні» — але лише коли ваш токен указує саме на неї.",
-             "You become the new clinic's owner. The rest of the profile can be filled in later under Manage — but only while your token points at it.")}
-        </p>
+        <div className="co-modal-b">
+          <p className="co-cell-sub" style={{ marginBottom: 16 }}>
+            {T("Ви станете власником нової клініки. Решту профілю можна заповнити згодом у «Керуванні» — але лише коли ваш токен указує саме на неї.",
+               "You become the new clinic's owner. The rest of the profile can be filled in later under Manage — but only while your token points at it.")}
+          </p>
 
-        <div className="co-formgrid">
-          <label className="colog-field">
-            <span>{T("Внутрішня назва", "Internal name")}</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus
-                   disabled={busy} placeholder="kyiv-cardio" minLength={2} />
-          </label>
-          <label className="colog-field">
-            <span>{T("Відображувана назва", "Display name")}</span>
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required
-                   disabled={busy} placeholder="Kyiv Cardiology Centre" />
-          </label>
-          <label className="colog-field">
-            <span>{T("Slug (необов'язково)", "Slug (optional)")}</span>
-            <input value={slug} onChange={(e) => setSlug(e.target.value)} disabled={busy}
-                   placeholder="kyiv-cardio" aria-invalid={slugBad || undefined} />
-            {slugBad && (
-              <em className="co-field-err">
-                {T("Малі літери й цифри через дефіс", "Lowercase alphanumeric with single hyphens")}
-              </em>
-            )}
-          </label>
-          <label className="colog-field">
-            <span>{T("Контактний email", "Contact email")}</span>
-            <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} disabled={busy} />
-          </label>
-          <label className="colog-field">
-            <span>{T("Місто", "City")}</span>
-            <input value={city} onChange={(e) => setCity(e.target.value)} disabled={busy} />
-          </label>
-          <label className="colog-field">
-            <span>{T("Країна", "Country")}</span>
-            <input value={country} onChange={(e) => setCountry(e.target.value)} disabled={busy} />
-          </label>
+          <div className="co-formgrid">
+            <label className="colog-field">
+              <span>{T("Внутрішня назва", "Internal name")}</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus
+                     disabled={busy} placeholder="kyiv-cardio" minLength={2} />
+            </label>
+            <label className="colog-field">
+              <span>{T("Відображувана назва", "Display name")}</span>
+              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required
+                     disabled={busy} placeholder="Kyiv Cardiology Centre" />
+            </label>
+            <label className="colog-field">
+              <span>{T("Slug (необов'язково)", "Slug (optional)")}</span>
+              <input value={slug} onChange={(e) => setSlug(e.target.value)} disabled={busy}
+                     placeholder="kyiv-cardio" aria-invalid={slugBad || undefined} />
+              {slugBad && (
+                <em className="co-field-err">
+                  {T("Малі літери й цифри через дефіс", "Lowercase alphanumeric with single hyphens")}
+                </em>
+              )}
+            </label>
+            <label className="colog-field">
+              <span>{T("Контактний email", "Contact email")}</span>
+              <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} disabled={busy} />
+            </label>
+            <label className="colog-field">
+              <span>{T("Місто", "City")}</span>
+              <input value={city} onChange={(e) => setCity(e.target.value)} disabled={busy} />
+            </label>
+            <label className="colog-field">
+              <span>{T("Країна", "Country")}</span>
+              <input value={country} onChange={(e) => setCountry(e.target.value)} disabled={busy} />
+            </label>
+          </div>
+
+          {error && <ApiErrorView error={error} lang={lang} />}
         </div>
-
-        {error && <ApiErrorView error={error} lang={lang} />}
 
         <footer className="co-modal-f">
           <button type="button" className="colog-btn ghost" onClick={onClose} disabled={busy}>

@@ -2,10 +2,11 @@
 // Workspace / Settings / Admin / Audit / Account. Replaces the flat sidebar.
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Icon, Logo, Modal, useMenuAnchor, AnchoredMenu } from "./UI.jsx";
-import { useServiceHealth, HealthPanel, healthLabel, healthColor } from "./HealthBadge.jsx";
+import { useServiceHealth, HealthPanel, healthLabel, healthColor } from "./ServiceHealth.jsx";
 import { ClinicMenuSection, CreateClinicModal } from "./TenantSwitcher.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
 import { hasClinicalAccess, isAllowed, isAuditorOnly, canReadPatients } from "../auth/permissions.js";
+import { productRoles } from "../auth/roles.js";
 import { isPlatformOwner } from "../company/ownerAccess.js";
 import { logout as apiLogout } from "../api/endpoints.js";
 import { FEATURES } from "../api/services.js";
@@ -323,8 +324,10 @@ export function Sidebar({
         icon: "grid",
         items: [
           { icon: "grid", label: tr(lang, "Панель", "Dashboard"), path: "/dashboard", exact: true },
-          { icon: "users", label: tr(lang, "Користувачі", "Users"), path: "/admin/users", exact: true },
-          { icon: "shield", label: tr(lang, "Приватність", "Privacy"), path: "/admin/privacy", exact: true },
+          // The console (sprint 17) — users, audit, privacy and the content
+          // surfaces live behind one door now; direct links would duplicate
+          // its own left rail.
+          { icon: "settings", label: tr(lang, "Адмін-консоль", "Admin console"), path: "/admin", prefix: "/admin" },
         ],
       });
     }
@@ -539,7 +542,7 @@ export function Sidebar({
                     {dbUser?.display_name || claims?.sub?.slice(0, 12) || (tr(lang, "Гість", "Guest"))}
                   </div>
                   <div className="sb-user-role">
-                    {claims ? (claims.roles || []).join(", ") : (tr(lang, "Не авторизовано", "Not signed in"))}
+                    {claims ? productRoles(claims.roles).join(", ") : (tr(lang, "Не авторизовано", "Not signed in"))}
                   </div>
                 </div>
                 <Icon name={menuOpen ? "chevDown" : "chevRight"} size={14} />

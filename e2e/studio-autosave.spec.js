@@ -139,7 +139,9 @@ test("typing in the Studio triggers an autosave create", async ({ page }) => {
   // studio
   await page.goto("/#/studio?mode=dictate");
 
-  // patient gate → pick the seeded patient
+  // patient gate → open it from the header (the workspace no longer pops it
+  // on arrival) and pick the seeded patient
+  await page.locator("[data-testid='sw-patient']").click();
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await expect(gateRow).toBeVisible({ timeout: 10000 });
   await gateRow.click();

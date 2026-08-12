@@ -96,11 +96,11 @@ export function TranscriptView({ output, lang = "en" }) {
         </div>
         <div className="transcript-tools">
           <label className="transcript-toggle">
-            <input type="checkbox" checked={showTimes} onChange={(e) => setShowTimes(e.target.checked)} />
+            <input className="chk" type="checkbox" checked={showTimes} onChange={(e) => setShowTimes(e.target.checked)} />
             <span>{tr(lang, "Час", "Times")}</span>
           </label>
           <label className="transcript-toggle">
-            <input type="checkbox" checked={shadeConf} onChange={(e) => setShadeConf(e.target.checked)} />
+            <input className="chk" type="checkbox" checked={shadeConf} onChange={(e) => setShadeConf(e.target.checked)} />
             <span>{tr(lang, "Впевненість", "Confidence")}</span>
           </label>
           <button className="btn btn-ghost" onClick={copy} title="Copy plain text">

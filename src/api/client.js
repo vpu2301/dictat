@@ -13,6 +13,8 @@
 // FE must NOT retry refresh and must redirect to /login.
 
 import { SERVICES } from "./services.js";
+import { endSession, onSessionEnd, peekSessionEndReason, SESSION_END } from "../auth/sessionEnd.js";
+import { isMfaEnrolmentRequired, MFA_ENROLMENT_PATH, mfaEnrolmentRoute } from "../auth/mfaGrace.js";
 
 let inMemoryAccessToken = null;
 let refreshPromise = null;
@@ -44,6 +46,41 @@ export class ApiError extends Error {
 // (the backend's audit event name is auth.refresh_replay_detected).
 let replayDetected = false;
 export function wasReplayDetected() { return replayDetected; }
+
+// ── Session termination (sprint 16) ────────────────────────────────────
+//
+// Every path that discovers the session is over funnels through here, so the
+// three things that must happen — drop the token, tell the app why, get off
+// the protected route — happen together and in that order. They used to be
+// written out at each call site, and the "tell the app why" step did not exist
+// at all; see src/auth/sessionEnd.js for the bug that produced.
+//
+// The token is cleared FIRST. Any request already in flight then finds no
+// bearer to retry with, which is what stops a revoked session from generating
+// a retry loop against a backend that will refuse every one of them.
+function terminateSession(reason) {
+  setAccessToken(null);
+  endSession(reason);
+  if (typeof window !== "undefined" && !location.hash.startsWith("#/login")) {
+    location.hash = "/login";
+  }
+}
+
+// The grace flow: a 403 `mfa_enrolment_required` is a precondition, not a
+// refusal (src/auth/mfaGrace.js). Route to enrolment rather than letting the
+// caller render a forbidden state the user cannot act on. The error is still
+// thrown — the caller's request genuinely did not happen, and a screen that
+// pretends otherwise would show a stale or empty view under the redirect.
+function routeToMfaEnrolment() {
+  if (typeof window === "undefined") return;
+  // Already on the enrolment screen — a background poll that 403s must not
+  // yank the user out of the code field they are typing into.
+  if (location.hash.startsWith(`#${MFA_ENROLMENT_PATH}`)) return;
+  // Carry the interrupted route along, so the "done" screen can put the user
+  // back where the 403 found them (sprint 17 — the admin console is exactly
+  // the surface where "back to /" means losing your place).
+  location.hash = mfaEnrolmentRoute(location.hash.replace(/^#/, ""));
+}
 
 async function refreshOnce() {
   if (replayDetected) throw new Error("refresh_replay_locked");
@@ -92,11 +129,24 @@ async function request(baseUrl, path, init = {}) {
       await refreshOnce();
       r = await exec();
     } catch {
-      setAccessToken(null);
-      if (typeof window !== "undefined" && !location.hash.startsWith("#/login")) {
-        location.hash = "/login";
-      }
+      terminateSession(replayDetected ? SESSION_END.REPLAY : SESSION_END.EXPIRED);
       throw new ApiError(401, { title: "Session expired", detail: "Please log in again." });
+    }
+
+    // REVOCATION (sprint 16, ADR-0040). We refreshed successfully and retried
+    // with a brand-new access token — and were refused again. That is not an
+    // expiry: the token is signature-valid and minutes old. It is the session
+    // denylist, i.e. someone ended this session on purpose (logout in another
+    // tab, an administrator deactivating the account, an MFA reset).
+    //
+    // Before this, control fell through to the generic `!r.ok` branch below
+    // and the caller rendered a raw 401 problem body — an error dump for an
+    // event with a perfectly clear explanation, and no logout, so the next
+    // interaction did it all again. Now it ends the session once, with a
+    // reason the login screen can put into words.
+    if (r.status === 401) {
+      terminateSession(SESSION_END.REVOKED);
+      throw new ApiError(401, { title: "Session ended", detail: "This session was ended.", code: "session_revoked" });
     }
   }
 
@@ -109,7 +159,9 @@ async function request(baseUrl, path, init = {}) {
     if (wwwAuth && problem && typeof problem === "object" && problem.www_authenticate == null) {
       problem.www_authenticate = wwwAuth;
     }
-    throw new ApiError(r.status, problem);
+    const err = new ApiError(r.status, problem);
+    if (isMfaEnrolmentRequired(err)) routeToMfaEnrolment();
+    throw err;
   }
   if (r.status === 204) return undefined;
   const ct = r.headers.get("content-type") || "";
@@ -169,17 +221,23 @@ export async function streamAt(baseUrl, path, init = {}) {
       await refreshOnce();
       r = await exec();
     } catch {
-      setAccessToken(null);
-      if (typeof window !== "undefined" && !location.hash.startsWith("#/login")) {
-        location.hash = "/login";
-      }
+      terminateSession(replayDetected ? SESSION_END.REPLAY : SESSION_END.EXPIRED);
       throw new ApiError(401, { title: "Session expired", detail: "Please log in again." });
+    }
+    // Same revocation case as `request()` — a fresh token refused again. A
+    // stream is the worst place to leave this unhandled: the caller is a chat
+    // or answer surface that would otherwise sit spinning.
+    if (r.status === 401) {
+      terminateSession(SESSION_END.REVOKED);
+      throw new ApiError(401, { title: "Session ended", detail: "This session was ended.", code: "session_revoked" });
     }
   }
 
   if (!r.ok) {
     const problem = await r.json().catch(() => ({ detail: r.statusText, title: `HTTP ${r.status}` }));
-    throw new ApiError(r.status, problem);
+    const err = new ApiError(r.status, problem);
+    if (isMfaEnrolmentRequired(err)) routeToMfaEnrolment();
+    throw err;
   }
   return r;
 }
@@ -211,5 +269,21 @@ export async function tryRefresh() {
 // deterministically against route-mocked endpoints. Gated to Vite dev
 // (import.meta.env.DEV) so it is never present in a production bundle.
 if (typeof window !== "undefined" && import.meta.env && import.meta.env.DEV) {
-  window.__mdxClient = { api, apiAt, getAccessToken, setAccessToken, tryRefresh, wasReplayDetected };
+  // Sprint 16: e2e/session-revocation.spec.js needs the reason the client
+  // settled on, not just the redirect — "we landed on /login" is equally true
+  // of an expiry and a revocation, and the whole point of the work is that
+  // those two now say different things to the user.
+  //
+  // A RECORDER rather than a getter, because the login screen consumes the
+  // pending reason as it renders (so a reload cannot re-announce an ending the
+  // user already read). By the time a spec could ask, there is nothing left to
+  // ask for.
+  const sessionEndReasons = [];
+  onSessionEnd((r) => sessionEndReasons.push(r));
+
+  window.__mdxClient = {
+    api, apiAt, getAccessToken, setAccessToken, tryRefresh, wasReplayDetected,
+    peekSessionEndReason,
+    sessionEndReasons: () => [...sessionEndReasons],
+  };
 }

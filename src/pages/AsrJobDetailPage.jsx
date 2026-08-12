@@ -10,7 +10,7 @@ import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { AsrStatusPill } from "../components/AsrStatusPill.jsx";
 import { TranscriptView } from "../components/TranscriptView.jsx";
 import { JsonViewer } from "../components/JsonViewer.jsx";
-import { getJob, cancelJob, getJobResult, ASR_ACTIVE, ASR_TERMINAL } from "../api/asr.js";
+import { getJob, cancelJob, getJobResult, isCancelling, ASR_ACTIVE, ASR_TERMINAL } from "../api/asr.js";
 import { reportsBySourceJobs } from "../api/reports.js";
 import { AssignTranscriptModal } from "../components/AssignTranscriptModal.jsx";
 import { useAuth, hasAnyRole } from "../auth/AuthContext.jsx";
@@ -62,6 +62,11 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast, embedded 
   const [error, setError] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // The DELETE came back "cancel_requested" — held locally so the screen turns
+  // the moment the request is accepted, without waiting for the next 2s poll
+  // (and so it still works against a service that does not yet put
+  // `cancel_requested` on the wire).
+  const [cancelAsked, setCancelAsked] = useState(false);
 
   const [result, setResult] = useState(null);
   const [resultMissing, setResultMissing] = useState(false);
@@ -108,6 +113,7 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast, embedded 
     cancelledRef.current = false;
     setLoading(true);
     setJob(null);
+    setCancelAsked(false);
     setResult(null);
     setResultMissing(false);
     setResultError(null);
@@ -179,13 +185,30 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast, embedded 
   const doCancel = async () => {
     setCancelling(true);
     try {
-      await cancelJob(id);
-      if (onToast) onToast(tr(lang, "Скасовано", "Cancelled"));
+      const outcome = await cancelJob(id);
       setConfirmCancel(false);
+      if (outcome === "cancelled") {
+        // It never started. Nothing to stop, nothing to wait for.
+        onToast?.(tr(lang, "Завдання скасовано", "Job cancelled"));
+      } else {
+        // It is running: the worker stops it at its next checkpoint. Say that,
+        // and let the poll below report when it actually has — claiming
+        // "Скасовано" here is what made the button look like it did nothing.
+        setCancelAsked(true);
+        onToast?.(tr(lang, "Зупиняємо завдання…", "Stopping the job…"));
+      }
       refresh();
     } catch (e) {
-      setError(e);
       setConfirmCancel(false);
+      // 409 — it finished between the click and the request. That is not an
+      // error to paint over the screen; the job simply won the race, and the
+      // refresh below shows what it ended as.
+      if (e?.status === 409) {
+        onToast?.(tr(lang, "Завдання вже завершилося", "The job had already finished"));
+        refresh();
+      } else {
+        setError(e);
+      }
     } finally {
       setCancelling(false);
     }
@@ -216,6 +239,10 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast, embedded 
   const active = job && ASR_ACTIVE.has(job.status);
   const failed = job && job.status === "failed";
   const done = job && job.status === "complete";
+  // Asked to stop and still going. Either the service told us so on the DELETE,
+  // or the job itself carries the flag — the second is what survives a reload
+  // and what a second tab watching this job sees.
+  const stopping = !!active && (cancelAsked || isCancelling(job));
 
   return (
     <div className="page asr-job">
@@ -250,10 +277,18 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast, embedded 
               <span>{tr(lang, "Призначити пацієнту", "Assign to patient")}</span>
             </button>
           )}
+          {/* Once the stop is asked for there is nothing left to press: the
+              worker owns the outcome from here, and a second DELETE would 409.
+              The button stays on screen, saying what it is waiting for, rather
+              than vanishing and leaving the clinician wondering whether the
+              click registered at all. */}
           {active && (
-            <button className="btn btn-danger" onClick={() => setConfirmCancel(true)} disabled={cancelling}>
-              <Icon name="x" size={13} />
-              <span>{tr(lang, "Скасувати", "Cancel")}</span>
+            <button className="btn btn-danger" data-testid="asr-cancel"
+              onClick={() => setConfirmCancel(true)} disabled={cancelling || stopping}>
+              <Icon name={stopping ? "refresh" : "x"} size={13} className={stopping ? "spin" : undefined} />
+              <span>{stopping
+                ? tr(lang, "Зупиняємо…", "Stopping…")
+                : tr(lang, "Скасувати", "Cancel")}</span>
             </button>
           )}
         </div>
@@ -280,23 +315,31 @@ export function AsrJobDetailPage({ id, lang = "en", navigate, onToast, embedded 
           know it is alive, roughly how long it has been going, and that they
           are free to walk away. */}
       {active && (
-        <section className="asr-progress" data-state={job.status} role="status" aria-live="polite"
-          data-testid="asr-progress">
+        <section className="asr-progress" data-state={stopping ? "stopping" : job.status}
+          role="status" aria-live="polite" data-testid="asr-progress">
           <div className="asr-progress-wave" aria-hidden="true">
             {Array.from({ length: 9 }, (_, i) => <i key={i} style={{ animationDelay: `${i * 0.09}s` }} />)}
           </div>
           <div className="asr-progress-b">
             <h2>
-              {job.status === "queued"
-                ? tr(lang, "У черзі на розпізнавання", "Queued for transcription")
-                : tr(lang, "Розпізнаємо аудіо…", "Transcribing the audio…")}
+              {stopping
+                ? tr(lang, "Зупиняємо розпізнавання…", "Stopping the transcription…")
+                : job.status === "queued"
+                  ? tr(lang, "У черзі на розпізнавання", "Queued for transcription")
+                  : tr(lang, "Розпізнаємо аудіо…", "Transcribing the audio…")}
             </h2>
             <p>
-              {job.status === "queued"
-                ? tr(lang, "Файл прийнято. Обробка почнеться, щойно звільниться робітник.",
-                           "The file is accepted. Processing starts as soon as a worker frees up.")
-                : tr(lang, "Готовий транскрипт з'явиться просто тут. Можна закрити вкладку або зайнятися іншим документом — обробка триває на сервері.",
-                           "The finished transcript appears right here. You can close the tab or work on another document — processing continues on the server.")}
+              {stopping
+                // Honest about the delay AND about what it costs: the worker
+                // checks between chunks, so "immediately" would be a promise
+                // this screen cannot keep.
+                ? tr(lang, "Скасування прийнято. Робітник зупиниться на найближчій контрольній точці — це може зайняти кілька секунд. Транскрипт створено не буде.",
+                           "The cancellation is accepted. The worker stops at its next checkpoint, which can take a few seconds. No transcript will be produced.")
+                : job.status === "queued"
+                  ? tr(lang, "Файл прийнято. Обробка почнеться, щойно звільниться робітник.",
+                             "The file is accepted. Processing starts as soon as a worker frees up.")
+                  : tr(lang, "Готовий транскрипт з'явиться просто тут. Можна закрити вкладку або зайнятися іншим документом — обробка триває на сервері.",
+                             "The finished transcript appears right here. You can close the tab or work on another document — processing continues on the server.")}
             </p>
             <div className="asr-progress-meta">
               <span><Icon name="clock" size={12} /> {elapsedLabel(job, lang)}</span>

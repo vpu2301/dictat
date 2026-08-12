@@ -121,8 +121,18 @@
 .btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
 .btn-ghost { background: transparent; border-color: transparent; }
 .btn-ghost:hover { background: var(--surface-2); }
-.btn-danger { background: #dc2626; color: #fff; border-color: #dc2626; }
-.btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }
+/* The sign-out confirmation's commit button. Was two literal #dc2626s; now
+   the same tinted treatment as .btn.danger (styles.css) — one destructive
+   look, not two. */
+.btn-danger {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border-color: color-mix(in srgb, var(--danger) 26%, transparent);
+}
+.btn-danger:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--danger) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
 .icon-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 24px; height: 24px;
@@ -197,13 +207,11 @@
   display: flex; gap: 6px; justify-content: center;
   font-size: 12.5px; color: var(--text-2);
 }
-.login-toast {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px;
-  background: rgba(180,83,9,.10); color: #b45309;
-  border: 1px solid rgba(180,83,9,.25);
-  border-radius: 8px; font-size: 12.5px;
-}
+/* Retired in sprint 16. This styled the login screen's one-line "MFA required
+   — contact admin" toast, which was a dead end: the platform now has an
+   enrolment flow, so the login form grows a code field (`.mk-auth-otp`) and an
+   ending is explained by `.login-ended`. Kept as a note rather than silently
+   deleted, because the class name still appears in old screenshots. */
 .login-link {
   color: var(--accent); font-weight: 500; cursor: pointer; text-decoration: none;
 }
@@ -407,12 +415,6 @@
   font-size: 12.5px; color: var(--muted);
 }
 .seg-btn.on { background: var(--surface); color: var(--text-1); box-shadow: var(--shadow-1); }
-.swatch {
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid var(--surface-2);
-  cursor: pointer;
-}
-.swatch.on { border-color: var(--text-1); }
 .toggle {
   width: 34px; height: 20px;
   border-radius: 999px; background: var(--line);
@@ -671,8 +673,14 @@
 }
 .transcript-meta { display: flex; align-items: center; gap: 8px; }
 .transcript-tools { display: flex; align-items: center; gap: 10px; }
-.transcript-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.transcript-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted);
+  cursor: pointer; user-select: none;
+}
+.transcript-toggle:hover { color: var(--text-2); }
 .transcript-toggle input { margin: 0; }
+.transcript-toggle:has(input:checked) { color: var(--text-2); }
 .transcript-body {
   padding: 12px 14px;
   max-height: 600px;
@@ -818,8 +826,6 @@
 .lp-lang-opt.is-active .lp-lang-opt-short { color: color-mix(in srgb, var(--accent) 70%, var(--muted)); }
 .lp-lang-opt.is-active > svg { opacity: 1; }
 /* Leading glyph (country flag) in switcher options and triggers. */
-.lp-lang-opt-lead { flex-shrink: 0; font-size: 15px; line-height: 1; }
-.lp-lang-flag { font-size: 15px; line-height: 1; }
 
 /* ── Footer pickers (language + country live in the footer bar) ───── */
 .lp-footer-pickers { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -847,7 +853,7 @@
 .lp-section-alt > * { max-width: 1160px; margin-left: auto; margin-right: auto; }
 .lp-head { max-width: 620px; margin: 0 auto 44px; text-align: center; }
 .lp-h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 650; letter-spacing: -.025em; margin: 0 0 12px; }
-.lp-sub { font-size: 16px; color: var(--muted); line-height: 1.55; margin: 0; }
+.lp-nl { font-size: 16px; color: var(--muted); line-height: 1.55; margin: 0; }
 
 /* ── Hero ──────────────────────────────────────────────────── */
 .lp-hero {
@@ -876,7 +882,7 @@
   width: 100%; max-width: 480px;
   background: var(--surface); border: 1px solid var(--line);
   border-radius: 20px; overflow: hidden;
-  box-shadow: 0 40px 90px -44px rgba(40,3,15,.42), 0 12px 30px -18px rgba(40,3,15,.20);
+  box-shadow: 0 40px 90px -44px rgba(12,18,16,.42), 0 12px 30px -18px rgba(12,18,16,.20);
 }
 
 /* Title bar */
@@ -997,18 +1003,6 @@
 .lp-stat-v { font-size: 30px; font-weight: 700; letter-spacing: -.02em; color: var(--accent-text); }
 .lp-stat-l { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
 
-/* ── Products ──────────────────────────────────────────────── */
-.lp-products { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-.lp-product { padding: 30px; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); transition: box-shadow .16s, transform .16s, border-color .16s; }
-.lp-product:hover { box-shadow: var(--shadow-2); transform: translateY(-3px); border-color: var(--line-2); }
-.lp-product-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; margin-bottom: 16px; }
-.lp-product-tag { display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-text); }
-.lp-product-title { font-size: 21px; font-weight: 650; letter-spacing: -.02em; margin: 6px 0 10px; }
-.lp-product-body { font-size: 14.5px; color: var(--text-2); line-height: 1.55; margin: 0 0 18px; }
-.lp-product-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-.lp-product-points li { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--text-2); }
-.lp-product-points svg { color: var(--accent); flex: none; }
-
 /* ── Feature grid ──────────────────────────────────────────── */
 .lp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .lp-grid-3 { grid-template-columns: repeat(3, 1fr); }
@@ -1024,6 +1018,10 @@
 
 /* ── Workflow steps ────────────────────────────────────────── */
 .lp-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+/* A four-step block (the /rcm "how a claim gets built" sequence) would leave
+   one card orphaned on a second row at three columns. Steps are a sequence,
+   so they read as one row or not at all. */
+.mk-steps:has(> :nth-child(4)) { grid-template-columns: repeat(4, 1fr); }
 .lp-step { text-align: center; padding: 8px; position: relative; }
 .lp-step-n { font-size: 40px; font-weight: 800; letter-spacing: -.03em; color: var(--accent); opacity: .25; line-height: 1; margin-bottom: 12px; }
 .lp-step-t { font-size: 19px; font-weight: 650; letter-spacing: -.02em; margin: 0 0 8px; }
@@ -1130,6 +1128,9 @@
 
 .mk-blocks { padding-bottom: 40px; }
 .mk-section { padding: 48px 0; }
+/* A page whose only block is the form: pull the form up toward the hero it
+   answers, instead of leaving a section gap where two blocks used to be. */
+.mk-section:only-child { padding: 8px 0 72px; }
 .mk-page { padding: 80px 0; }
 
 /* ── Prose (legal + narrative) ─────────────────────────────── */
@@ -1156,6 +1157,37 @@
 .mk-faq-item summary svg { color: var(--muted); transition: transform .18s; flex: none; }
 .mk-faq-item[open] summary svg { transform: rotate(180deg); }
 .mk-faq-item p { margin: 0; padding: 0 20px 18px; font-size: 15px; color: var(--text-2); line-height: 1.6; }
+
+/* ── Spec table (RCM country pages) ────────────────────────────
+   A label/value stack that becomes two columns once there is room for the
+   label to sit beside its value. Read down the left column to find
+   "Procedure coding", read across for the answer — which is the whole
+   reason this is a table and not a bullet list. */
+.mk-spec-wrap { max-width: 880px; margin: 0 auto; }
+.mk-spec {
+  margin: 0; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); overflow: hidden;
+}
+.mk-spec-row { padding: 16px 20px; }
+.mk-spec-row + .mk-spec-row { border-top: 1px solid var(--line); }
+.mk-spec-row dt {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+}
+.mk-spec-row dd { margin: 0; font-size: 15.5px; color: var(--text-1); line-height: 1.55; }
+@media (min-width: 720px) {
+  .mk-spec-row { display: grid; grid-template-columns: 210px 1fr; gap: 20px; align-items: baseline; }
+  .mk-spec-row dt { margin-bottom: 0; padding-top: 2px; }
+}
+/* The sources line. These claims expire — a national tariff changes and the
+   page is wrong — so the citation sits with the table, not in a footer. */
+.mk-spec-src {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  margin: 12px 2px 0; font-size: 13px; color: var(--muted);
+}
+.mk-spec-src svg { flex: none; }
+.mk-spec-src a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
+.mk-spec-src a:hover { color: var(--text-1); }
 
 /* ── Roles (careers) ───────────────────────────────────────── */
 .mk-roles { display: flex; flex-direction: column; gap: 12px; max-width: 820px; margin: 0 auto; }
@@ -1221,12 +1253,58 @@
 .mk-contact p { font-size: 13.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.5; }
 
 /* ── Contact form ──────────────────────────────────────────── */
-.mk-form { max-width: 640px; margin: 0 auto; padding: 30px; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); }
-.mk-form-title { font-size: 20px; font-weight: 650; letter-spacing: -.02em; margin: 0 0 20px; }
-.mk-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.mk-form .login-field { margin-bottom: 14px; }
-.mk-form textarea { font: inherit; resize: vertical; }
-.mk-form .lp-cta-lg { width: 100%; margin-top: 6px; }
+/* The form IS the contact page. The mailbox grid and the office list that used
+   to sit around it were removed, so it stops being one card among three and
+   becomes the thing the page is for — wider, roomier, and set at a size that
+   does not read as a footer widget under a big hero. */
+.mk-form {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 44px 48px 40px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  /* The site's cards are flat; this one lifts, because it is the only thing
+     on the page and a flat 780px box on a white page has no edge at all. */
+  box-shadow: 0 24px 60px -40px rgba(12, 18, 16, .28);
+}
+.mk-form-title {
+  font-size: clamp(22px, 2.6vw, 27px);
+  font-weight: 650;
+  letter-spacing: -.022em;
+  margin: 0 0 6px;
+}
+/* One line of orientation under the title: what this form does, so the page
+   does not need the paragraph the mailbox grid used to provide. */
+.mk-form-sub {
+  margin: 0 0 26px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+.mk-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.mk-form .login-field { margin-bottom: 18px; }
+.mk-form .login-field > span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+/* Inputs sized for a page-sized form rather than a modal's. */
+.mk-form input,
+.mk-form textarea,
+.mk-form .mk-auth-select-btn {
+  font-size: 15px;
+  min-height: 48px;
+  border-radius: 12px;
+}
+.mk-form textarea { font: inherit; font-size: 15px; resize: vertical; min-height: 150px; padding-top: 13px; }
+.mk-form .lp-cta-lg {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 52px;
+  font-size: 15.5px;
+  border-radius: 999px;
+}
 .mk-form-done { text-align: center; }
 .mk-form-mark { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; background: var(--ok-soft, var(--accent-soft)); color: var(--ok); }
 .mk-form-done h3 { font-size: 20px; font-weight: 650; margin: 0 0 8px; }
@@ -1442,84 +1520,226 @@
 .tm-remove:hover:not(:disabled) { color: var(--rec, #dc2626); background: rgba(220,38,38,.08); }
 
 /* ════════════════════════════════════════════════════════════════════════
-   MARKETING — Heidi Health-style redesign (July 2026)
+   MARKETING — Swiss-grotesk redesign (August 2026)
    Everything below is scoped to `.lp` (the public marketing wrapper) so the
    logged-in platform is untouched. The palette + type re-define the design
-   tokens ONLY within `.lp`, modelled on heidihealth.com: warm sand/cream
-   canvas, dark wine-plum ink, forest-green primary actions, a chartreuse
-   highlight accent, and an editorial serif (Source Serif 4 — full Cyrillic)
-   for headings over Geist body text. Rules here are appended last so they
-   win by source order.
+   tokens ONLY within `.lp`. Rules here are appended last so they win by
+   source order.
+
+   The look is the deck: white paper, one very large left-aligned grotesk
+   headline set tight, a grey lead paragraph under it, and neutral pill chips
+   for the claims. There is no brand colour — the ink IS the accent, a
+   near-black with a green cast (#1b2422). Anything that used to carry hue
+   (the chartreuse eyebrow, the teal buttons, the wine CTA band, the hero
+   glow) is now ink, grey or nothing at all, so the only thing left with any
+   visual weight on the page is the sentence being read.
+
+   Type is Geist — already self-hosted with the Cyrillic subsets the eleven
+   languages need (see fonts.css), and a neo-grotesk in the Helvetica line,
+   which is what the deck is set in. It replaces Manrope for BOTH display and
+   body: two families were doing one family's job.
    ════════════════════════════════════════════════════════════════════════ */
 
 .lp {
-  --lp-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
-  font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;  /* website body */
+  --lp-display: "Geist", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--lp-display);   /* website body — same family as display */
 
-  --accent: #0a8a7a;          /* brand teal — matches the login/platform */
-  --accent-2: #086e62;        /* darker teal — hover */
-  --accent-soft: #e6f4f1;     /* pale teal wash */
-  --accent-text: #0a5e54;
-  --chart: #fbf582;           /* chartreuse — the Heidi highlight */
-  --chart-ink: #28030f;
-  --plum: #28030f;            /* dark wine — CTA band base */
-  --plum-2: #43141f;
+  --accent: #1b2422;          /* ink — primary actions, marks, waveform */
+  --accent-2: #0c1210;        /* deeper ink — hover */
+  --accent-soft: #f1f3f2;     /* the chip grey; icon tiles and washes */
+  --accent-text: #2c3b36;     /* link ink — a shade off the body so a link
+                                 still reads as one without introducing hue */
+  --chart: #eef0ef;           /* neutral highlight (was the chartreuse) */
+  --chart-ink: #1b2422;
+  --plum: #141b19;            /* ink band base (CTA) */
+  --plum-2: #1f2a27;
 
-  --bg: #f9f4f1;              /* sand-50 canvas */
+  --bg: #ffffff;              /* paper */
   --surface: #ffffff;
-  --surface-2: #f6ece4;       /* warm sand card / band */
-  --line: #ead9cd;            /* bark-tinted hairline */
-  --line-2: #f3e7dd;
-  --text-1: #28030f;          /* wine ink */
-  --text-2: #5b3e47;          /* bark */
-  --text-3: #755760;
-  --muted: #9a8088;
-  --nav-hover: #f2f3f5;       /* neutral grey — navbar hover, deliberately
-                                 off-palette so it reads as a plain highlight */
+  --surface-2: #f5f6f5;       /* the one grey: chips, bands, card fills */
+  --line: #e3e6e4;            /* hairline */
+  --line-2: #eef0ef;
+  --text-1: #1b2422;          /* headline ink */
+  --text-2: #4a5450;          /* lead paragraph grey */
+  --text-3: #5e6864;
+  --muted: #808a86;
+  --nav-hover: #f2f3f2;
 
   position: relative;
-  overflow-x: clip;   /* contain the -50vw full-bleed bands + hero glow to the viewport */
+  overflow-x: clip;   /* contain the -50vw full-bleed bands to the viewport */
 }
 [data-theme="dark"] .lp {
-  --accent: #2dd4bf;          /* brand teal (dark) — matches the login/platform */
-  --accent-2: #14b8a6;
-  --accent-soft: #103029;
-  --accent-text: #5eead4;
-  --chart: #fbf582;
-  --chart-ink: #28030f;
-  --plum: #1b0c14;
-  --plum-2: #28030f;
+  --accent: #eef1ef;          /* the inversion: paper becomes the accent */
+  --accent-2: #ffffff;
+  --accent-soft: #1e2523;
+  --accent-text: #cfd6d3;
+  --chart: #232b28;
+  --chart-ink: #eef1ef;
+  --plum: #0a0d0c;
+  --plum-2: #161b19;
 
-  --bg: #1b0c14;             /* dark wine canvas */
-  --surface: #241019;
-  --surface-2: #2f1621;
-  --line: #3f2531;
-  --line-2: #492c39;
-  --text-1: #f6ece4;
-  --nav-hover: rgba(255,255,255,.07);
-  --text-2: #e4cfc8;
-  --text-3: #cbafb1;
-  --muted: #ab8b95;
+  --bg: #0c100e;
+  --surface: #121615;
+  --surface-2: #171c1a;
+  --line: #262c2a;
+  --line-2: #1e2422;
+  --text-1: #f1f4f2;
+  --nav-hover: rgba(255,255,255,.06);
+  --text-2: #c2ccc8;
+  --text-3: #a6b0ac;
+  --muted: #828c88;
 }
+/* The primary button's label. `.lp a { color: inherit }` (0,1,1) outranks
+   `.btn-primary`'s own `color: #fff` (0,1,0), so every primary button that is
+   an anchor — the nav CTA, the hero CTA, the closing CTA — has always been
+   inheriting body ink instead. Teal-on-ink survived it; ink-on-ink does not,
+   so the label has to be re-stated at a specificity that wins. It tracks
+   `--surface`, which inverts with the theme the way the accent does. */
+.lp a.btn-primary, .lp .btn-primary { color: var(--surface); }
+.lp a.btn-primary:hover, .lp .btn-primary:hover { color: var(--surface); }
 
-/* ── Editorial serif headings (the core of the Heidi look) ──── */
+/* ── Headings: one grotesk, set large and tight ─────────────── */
 .lp .lp-h1, .lp .lp-h2, .lp .lp-cta-title, .lp .lp-product-title,
 .lp .mk-hero-title, .lp .mk-section-title, .lp .mk-prose-h, .lp .mk-auth-title {
   font-family: var(--lp-display);
   font-weight: 700;
-  letter-spacing: -.025em;
+  letter-spacing: -.028em;
 }
-.lp .lp-h1, .lp .mk-hero-title, .lp .lp-cta-title { font-weight: 800; letter-spacing: -.035em; }
+/* The display sizes go one step past "big heading" into deck territory, and
+   the tracking tightens as they grow — at 92px the default spacing reads as
+   gaps between the letters rather than as a word. */
+.lp .lp-h1, .lp .mk-hero-title, .lp .lp-cta-title { letter-spacing: -.038em; }
 
 /* ── Nav shell ──────────────────────────────────────────────── */
 .lp-nav-inner { padding: 14px 24px; gap: 6px; }
 .lp-nav.is-scrolled {
   background: color-mix(in srgb, var(--surface) 82%, transparent);
   backdrop-filter: saturate(180%) blur(14px);
-  box-shadow: 0 1px 0 var(--line), 0 8px 24px -18px rgba(23,19,52,.4);
+  box-shadow: 0 1px 0 var(--line), 0 8px 24px -18px rgba(12,18,16,.3);
 }
-.lp-brand-name { font-size: 19px; font-weight: 700; }
+/* ── Wordmark ───────────────────────────────────────────────
+   The public site's mark is the NAME, set in the display face — no tile.
+   The "D" tile was a leftover from the product's old name and had stopped
+   meaning anything next to the word "Klarnote"; two marks for one brand is
+   one too many, and the letter was the one that agreed with neither.
+
+   The face is Galgo — `--lp-cond`, the licensed condensed the hero headline
+   is set in — so the mark and the sentence under it are the same voice rather
+   than two fonts sharing a corner.
+
+   Galgo was tried FIRST in lowercase and abandoned: "Klarnote" set 59px wide
+   at the size where its capitals matched Geist's, a mark with no presence at
+   all, and widening it to a normal wordmark would have needed ~68px type,
+   taller than the whole bar. Caps changed that arithmetic completely. A
+   condensed face is drawn for capitals. What reads as too narrow in lowercase
+   reads as a poster wordmark in caps.
+
+   SIZE. 50px, which sets 114×50px. That is bigger than the 40px CTA pill
+   opposite it, so the bar grows from 68px to 78px — the mark now sets the
+   header's height rather than fitting inside it, which is the point of a
+   wordmark this size. The width lands back where the Geist lowercase version
+   was (114px vs 118px); condensed caps buy the presence in height instead.
+
+   Degradation: `--lp-cond` falls back to Geist, where 50px caps would set
+   ~280px wide — oversized, but the nav has the room, and if that woff2 has
+   failed then every headline on the site has already fallen back with it.
+
+   The tile rule is gone, not overridden — nothing in `.lp` renders
+   `.sb-brand-mark` any more. The platform sidebar still does, and keeps the
+   shared definition in styles.css untouched.
+
+   COLOUR. The wordmark is the one place on this site that carries a gradient,
+   and that is deliberate rather than inconsistent: the CTA was stripped flat
+   because a gradient on an interactive surface competes with the label sitting
+   on top of it, and a wordmark has nothing on top of it. It is a picture of
+   the name, not a control.
+
+   The ramp travels emerald → teal → cyan → blue. Four stops, not two, and
+   ~38° of hue rather than ~17°: the wordmark is only 93px wide, and a two-stop
+   teal→mint ramp across eight letters reads as one flat colour that someone
+   mixed badly. The hue has to move far enough to be seen moving.
+
+   Every stop is measured against the paper behind it:
+
+     #047857  5.48:1    #0d9488  3.74:1
+     #0891b2  3.68:1    #0369a1  5.93:1
+
+   At 24px/700 this is WCAG "large text", where the AA bar is 3:1, so the
+   weakest point clears it with room to spare — and the mark stays legible at
+   the smaller sizes further down the page. Dark theme runs the same arc one
+   octave up (mint → sky, 9-13:1 on the near-black page).
+
+   `background-clip: text` needs the fill to be transparent, which means the
+   text has NO colour if the clip is not honoured. Hence the @supports gate and
+   the `color: var(--text-1)` above it: unsupported browsers keep solid ink
+   rather than rendering an invisible logo. Same reason for the forced-colors
+   block — Windows high-contrast mode drops backgrounds, and a transparent fill
+   over a dropped gradient is a blank corner.
+
+   CAPS. Set with `text-transform`, not by typing "KLARNOTE" into the markup:
+   the DOM keeps "Klarnote", so the accessible name stays a word. Several
+   screen readers spell literal all-caps out letter by letter — "K, L, A, R…"
+   — and the brand should not be an initialism to anyone.
+
+   Tracking is POSITIVE (.06em), which is the opposite of what the Galgo block
+   further down does to the headlines. That block pulls tracking to ~0 because
+   at 92px the default spacing opens gaps between letters. Here the problem
+   inverts twice over: capitals have flat vertical sides, and this face already
+   sets its stems 0.198em apart, so "KLARNOTE" without added space welds into
+   one dark bar. Condensed caps want air between them. */
+.lp .lp-brand { gap: 0; }
+.lp .lp-brand-name,
+.verify-header .lp-brand-name {
+  font-family: var(--lp-cond, var(--lp-display));
+  font-size: 50px;
+  font-weight: 700;              /* the Galgo axis maxes at 700 */
+  font-synthesis-weight: none;   /* never let the browser fake 800+ */
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  line-height: 1;
+  color: var(--text-1);
+  --lp-wordmark: linear-gradient(100deg,
+    #047857 0%, #0d9488 38%, #0891b2 70%, #0369a1 100%);
+}
+[data-theme="dark"] .lp .lp-brand-name,
+[data-theme="dark"] .verify-header .lp-brand-name {
+  --lp-wordmark: linear-gradient(100deg,
+    #34d399 0%, #4ee0b6 34%, #22d3ee 68%, #38bdf8 100%);
+}
+/* Monochrome mode (`?accent=off`) turns the site's one hue off; the wordmark
+   is part of that switch. The auth pages carry `.lp` with no data-accent at
+   all, which is why this is written as :not(off) rather than [accent="on"]. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .lp:not([data-accent="off"]) .lp-brand-name,
+  .verify-header .lp-brand-name {
+    background-image: var(--lp-wordmark);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
+@media (forced-colors: active) {
+  .lp .lp-brand-name,
+  .verify-header .lp-brand-name {
+    background-image: none;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
+}
 .lp-links { gap: 2px; margin-left: 16px; }
+/* The links sit dead-centre in the bar. Absolute, so the centre is the bar's
+   centre rather than the middle of whatever space the brand and the actions
+   leave over — those two are nowhere near the same width. Under 900px the
+   flow layout takes back over so the links can't slide under the CTA. */
+@media (min-width: 900px) {
+  .lp-nav-inner { position: relative; }
+  .lp-links {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    margin-left: 0;
+  }
+}
 .lp-nav-actions { gap: 10px; }
 .lp-lang {
   width: 36px; height: 36px; border-radius: 999px;
@@ -1527,8 +1747,8 @@
 }
 .lp-signin { font-size: 13.5px; color: var(--text-2); padding: 8px 12px; }
 .lp-nav-cta {
-  border-radius: 999px; padding: 9px 18px; font-size: 13.5px; font-weight: 600;
-  box-shadow: 0 2px 10px -3px color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: 999px; padding: 9px 18px; font-size: 13.5px; font-weight: 500;
+  box-shadow: none;   /* a black pill does not need a black glow under it */
 }
 
 /* ── Dropdown mega-menu (Product / Company) ─────────────────── */
@@ -1552,16 +1772,27 @@
 
 .lp-megamenu {
   --mega-cols: 1;
+  --mega-colw: 340px;
   position: absolute; top: calc(100% + 12px); left: -8px;
-  width: calc(var(--mega-cols) * 340px + 36px); padding: 18px 18px 14px;
+  width: calc(var(--mega-cols) * var(--mega-colw) + 36px); padding: 18px 18px 14px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
-  box-shadow: 0 28px 64px -18px rgba(40,3,15,.26), 0 8px 20px -10px rgba(40,3,15,.12);
+  box-shadow: 0 28px 64px -18px rgba(12,18,16,.26), 0 8px 20px -10px rgba(12,18,16,.12);
   opacity: 0; visibility: hidden; transform: translateY(-6px) scale(.98);
   transform-origin: top left; z-index: 60;
   transition: opacity .16s ease, transform .16s ease, visibility .16s;
 }
 /* Never let a panel run past the viewport on narrow desktops / tablets. */
 .lp-megamenu { max-width: calc(100vw - 32px); }
+/* A four-column panel is wider than the distance from its trigger to the right
+   edge of a 1360px screen, so anchoring it to the trigger clips it. Wide panels
+   centre on the viewport instead — the standard mega-menu behaviour once a
+   panel stops being a dropdown and becomes a sheet. */
+.lp-megamenu.is-wide {
+  position: fixed; top: 76px; left: 50%; right: auto;
+  transform: translateX(-50%) translateY(-6px) scale(.98); transform-origin: top center;
+}
+.lp-navgroup:hover .lp-megamenu.is-wide,
+.lp-navgroup.is-open .lp-megamenu.is-wide { transform: translateX(-50%); }
 /* The last group sits at the right edge of the bar — flip its anchor so the
    panel can't run off-screen. */
 .lp-navgroup:last-child .lp-megamenu { left: auto; right: -8px; transform-origin: top right; }
@@ -1603,7 +1834,19 @@
   transform: translateY(-1px);
 }
 .lp-megaitem-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
-.lp-megaitem-label { font-size: 14.5px; font-weight: 650; color: var(--text-1); letter-spacing: -.01em; }
+.lp-megaitem-label {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  font-size: 14.5px; font-weight: 650; color: var(--text-1); letter-spacing: -.01em;
+}
+/* "Soon" — a menu item whose page describes work in integration. Muted rather
+   than accented: it is a caveat on the link, not a promotion of it. */
+.lp-megaitem-soon {
+  font-size: 10.5px; font-weight: 700; line-height: 1;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: 3px 6px; border-radius: 999px;
+  color: var(--muted); background: var(--nav-hover);
+  border: 1px solid var(--line);
+}
 .lp-megaitem-desc { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 .lp-megaitem-arrow {
   align-self: center; flex: none; color: var(--accent-text);
@@ -1619,15 +1862,15 @@
   margin: 14px -18px -14px; padding: 14px 24px;
   border-top: 1px solid var(--line);
   border-radius: 0 0 20px 20px;
-  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  background: var(--surface-2);
 }
 .lp-megacta-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .lp-megacta-title { font-size: 13.5px; font-weight: 650; color: var(--text-1); letter-spacing: -.01em; }
 .lp-megacta-sub { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
 .lp-megacta-actions { display: flex; align-items: center; gap: 14px; flex: none; }
 .lp-megacta-primary {
-  border-radius: 999px; padding: 8px 17px; font-size: 13px; font-weight: 600;
-  box-shadow: 0 2px 10px -3px color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: 999px; padding: 8px 17px; font-size: 13px; font-weight: 500;
+  box-shadow: none;
 }
 .lp-megacta-secondary {
   display: inline-flex; align-items: center; gap: 3px;
@@ -1636,71 +1879,629 @@
 }
 .lp-megacta-secondary:hover { gap: 7px; }
 
-/* ── Hero ───────────────────────────────────────────────────── */
-.lp-hero { padding: 90px 0 76px; gap: 56px; }
-.lp-hero::before {
-  content: ""; position: absolute; top: -40px; left: -50vw; right: -50vw; height: 640px;
-  z-index: -1; pointer-events: none;
-  background:
-    radial-gradient(720px 380px at 22% 24%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
-    radial-gradient(560px 340px at 82% 12%, color-mix(in srgb, var(--chart) 40%, transparent), transparent 72%);
+/* ── Hero ─────────────────────────────────────────────────────
+   Single column, not the old 1.05fr/.95fr split. The headline is the whole
+   design, and it cannot be the whole design while a product card shares its
+   row — the split capped it at ~62px. The demo card moves below the fold
+   line and runs the full width instead. */
+.lp-hero {
+  display: block;
+  padding: 104px 0 84px;
 }
-/* Chartreuse pill — Heidi's signature yellow highlight, on wine ink */
+.lp-hero::before { content: none; }   /* the teal/chartreuse glow is gone */
+
+/* ── Hero layout ─────────────────────────────────────────────
+   The block was a single 1000px column inside a 1112px one: headline, lead,
+   buttons and chips all stacked hard left, with ~350px of empty paper down
+   the right-hand side of the first screen and the page's tallest element —
+   the headline — artificially narrowed to make room for nothing.
+
+   It is now an editorial split. The eyebrow and the headline span the FULL
+   measure, which is what a display face this size is for; underneath, the
+   supporting matter divides into two columns — the actions on the left where
+   the eye lands after the last line of the headline, the lead paragraph on
+   the right, filling the void rather than hanging under the headline's first
+   third.
+
+   Grid AREAS rather than reordering the markup: the DOM keeps its reading
+   order (eyebrow → headline → lead → buttons → chips), so the tab order and
+   the screen-reader narrative are unchanged and only the paint moves. */
+.lp-hero-text {
+  max-width: none;
+  display: grid;
+  /* 1.55 : 1, not 1 : 1. The left column carries the button row AND the three
+     claim chips, whose combined run is ~630px; an even split leaves them
+     wrapping onto a second line while the lead opposite sits on a needlessly
+     wide measure. This ratio gives the chips their single row and still
+     leaves the lead ~45 characters, which is a proper reading measure. */
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  column-gap: 72px;
+  grid-template-areas:
+    "eyebrow eyebrow"
+    "title   title"
+    "cta     lead"
+    "chips   lead"
+    "voice   voice";
+  align-items: start;
+}
+.lp-hero-text > .lp-eyebrow   { grid-area: eyebrow; justify-self: start; }
+.lp-hero-text > .lp-h1        { grid-area: title; }
+.lp-hero-text > .lp-lead      { grid-area: lead; }
+.lp-hero-text > .lp-hero-cta  { grid-area: cta; }
+.lp-hero-text > .lp-hero-note { grid-area: chips; }
+/* Full measure, under both columns. It is the widest thing in the hero after
+   the headline and it closes the block — the claim chips assert what the
+   product does, this shows it doing it. */
+.lp-hero-text > .lp-voice { grid-area: voice; margin-top: 34px; max-width: 780px; }
+/* Grey chip, not a coloured badge. Same object as the claim chips below the
+   lead — this is the page's one repeating shape. */
 .lp-eyebrow {
   border: 0;
-  padding: 7px 15px;
-  background: var(--chart);
-  color: var(--chart-ink);
-  font-weight: 600;
+  padding: 8px 16px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px; font-weight: 500;
+  margin-bottom: 26px;
 }
-.lp-eyebrow svg { color: var(--chart-ink); }
-.lp-h1 { font-size: clamp(38px, 5.4vw, 62px); letter-spacing: -.03em; line-height: 1.04; }
-.lp-lead { font-size: clamp(17px, 1.7vw, 20px); max-width: 560px; }
-.lp-cta-lg { border-radius: 999px; padding: 13px 26px; font-weight: 600; }
+.lp-eyebrow svg { color: var(--text-3); }
+.lp-h1 {
+  font-size: clamp(42px, 7.2vw, 92px);
+  line-height: 1.02;
+  margin-bottom: 30px;
+}
+.lp-lead {
+  font-size: clamp(17px, 1.9vw, 23px);
+  line-height: 1.45;
+  color: var(--text-2);
+  /* The 640px cap was holding a measure inside a 1000px column. In the right
+     column the column IS the measure, and the type steps down a little
+     because it no longer has the full width to be read across. */
+  max-width: none;
+  font-size: clamp(16px, 1.35vw, 19px);
+  margin-bottom: 0;
+  /* Optically level with the buttons opposite. The button row is 51px tall
+     and the lead's first line box is ~28px, so matching the two boxes' tops
+     leaves the text sitting high; 8px drops the first baseline onto the
+     buttons' centre line. */
+  padding-top: 8px;
+}
+.lp-cta-lg { border-radius: 999px; padding: 14px 28px; font-weight: 500; font-size: 15.5px; }
 
-/* ── Section heads + bands ──────────────────────────────────── */
-.lp-h2 { font-size: clamp(28px, 3.6vw, 40px); letter-spacing: -.02em; }
-.lp-sub { font-size: 17px; }
+/* Claim chips — the row under the lead. `.lp-hero-note` used to be one line
+   of bullet-separated grey text; the same three claims read as objects when
+   each gets its own pill, which is how the deck sets them. */
+.lp-hero-note {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  margin-top: 38px; font-size: 14px;
+}
+.lp-note-chip {
+  padding: 10px 20px; border-radius: 999px;
+  background: var(--surface-2); color: var(--text-1);
+  font-size: 14.5px; font-weight: 450; white-space: nowrap;
+}
+
+/* ── Evidence constellation ──────────────────────────────────
+   The dark band under the hero. See marketing/EvidenceGraph.jsx.
+
+   It is the page's one inverted surface besides the closing CTA, and that is
+   the job: everything above it is black type on white paper, so a full-bleed
+   near-black band is a hard stop that says a different kind of thing is being
+   shown. The graph is the argument — a real network of guidelines, trials and
+   scores — and the copy in the middle is the caption for it.
+
+   Fixed dark, NOT theme-following. `--plum` inverts with the theme, which
+   would make this band white in dark mode: a white section between two black
+   ones, i.e. the inversion pointing the wrong way. The colours below are
+   literal so the band is the same object in both themes. */
+.lp-ev {
+  position: relative;
+  /* Full-bleed out of the 1160px column. `.lp { overflow-x: clip }` contains
+     it, the same as the section bands and the hero waveform. */
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  /* The band needs air under it as well as over it — the trust strip that
+     follows opens with a 13px all-caps label and was sitting 16px off the
+     bottom edge of a full-bleed black section. */
+  margin: 96px 0 80px;
+  background: #0a0f0d;
+  color: #f1f4f2;
+  overflow: hidden;
+  isolation: isolate;
+}
+.lp-ev-stage {
+  position: relative;
+  max-width: 1440px;
+  margin: 0 auto;
+  /* The stage tracks the graph's own proportions so the SVG can be fitted with
+     `meet` and never cropped. `slice` was tried first and is what the reference
+     composition does — but the reference crops photographs, and cropping a
+     tile here truncates a guideline name mid-word. `meet` scales instead of
+     cutting, and the aspect-ratio is what stops it letterboxing while it does. */
+  aspect-ratio: 1440 / 900;
+  min-height: 720px;
+  display: grid;
+  place-items: center;
+  padding: 72px 24px;
+}
+.lp-ev-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* None on the surface, auto on the nodes: the graph covers the whole band
+     including the copy sitting on top of it, and a transparent SVG swallowing
+     clicks meant for the CTA is the classic way this breaks. */
+  pointer-events: none;
+}
+.lp-ev-hub, .lp-ev-tile { pointer-events: auto; cursor: default; }
+.lp-ev-hub:focus-visible .lp-ev-q { outline: 2px solid var(--lp-mint, #35c9a3); outline-offset: 6px; }
+/* The copy sits in a clearing at the centre of the ring. The radial fade is
+   what keeps it readable: the tiles nearest the middle would otherwise run
+   under the sub-paragraph, and dimming them there costs nothing because they
+   are illustrative, not content to be read. */
+.lp-ev-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+  text-align: center;
+  padding: 40px 8px;
+  background: radial-gradient(
+    74% 68% at 50% 50%,
+    #0a0f0d 0%,
+    #0a0f0d 52%,
+    color-mix(in srgb, #0a0f0d 88%, transparent) 72%,
+    transparent 100%
+  );
+}
+.lp-ev-eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 999px;
+  background: rgba(255, 255, 255, .07);
+  color: #c2ccc8;
+  font-size: 12.5px; font-weight: 500;
+  letter-spacing: .04em; text-transform: uppercase;
+  margin-bottom: 22px;
+}
+.lp-ev-eyebrow svg { color: var(--lp-mint, #35c9a3); }
+.lp .lp-ev-title {
+  font-family: var(--lp-cond, var(--lp-display));
+  font-weight: 700;
+  font-synthesis-weight: none;
+  font-size: clamp(38px, 5.4vw, 76px);
+  line-height: .96;
+  letter-spacing: 0;
+  color: #ffffff;
+  margin: 0 0 18px;
+}
+.lp-ev-sub {
+  font-size: clamp(15px, 1.25vw, 17.5px);
+  line-height: 1.55;
+  color: #a6b0ac;
+  margin: 0 auto 28px;
+  max-width: 480px;
+}
+/* White pill on ink — the same inversion the closing CTA band uses, so the
+   page has one "button on a dark surface" and not two. */
+.lp .lp-ev-cta {
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-size: 14.5px; font-weight: 500;
+  background: #ffffff; color: #0a0f0d; border-color: #ffffff;
+  transition: background .14s, border-color .14s;
+}
+.lp .lp-ev-cta:hover {
+  background: #d8ded9; border-color: #d8ded9; color: #0a0f0d;
+}
+.lp .lp-ev-cta:focus-visible { outline: 2px solid var(--lp-mint, #35c9a3); outline-offset: 3px; }
+
+/* ── The dictated line ───────────────────────────────────────
+   `.lp-voice` — the "what it is hearing" readout. One object, two tones: on
+   paper under the hero's claim chips, and on ink inside the evidence band.
+   Markup is marketing/VoiceReadout.jsx.
+
+   Set as SPEECH: italic, and the numbers inside it are spelled out as words
+   (see dictations.js). Monospaced numerals were considered and rejected —
+   they would make it look like a readout of a form, and the point is that
+   this is the sentence before the form exists.
+
+   `min-height` on both tones is not padding: the caption cycles through six
+   sentences of different lengths in eleven languages, and without a floor the
+   hero's button row and the evidence band's copy jump every five seconds. */
+.lp-voice {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 15px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  text-align: left;
+  min-height: 58px;
+}
+.lp-voice-tag {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.lp-voice-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.4;
+  font-style: italic;
+  animation: lp-voice-said .5s ease both;
+}
+@keyframes lp-voice-said {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+/* Five bars, the same object as the hero's background waveform and the
+   recorder in the product. The only thing here that never stops moving. */
+.lp-voice-bars { flex: none; display: inline-flex; align-items: center; gap: 2px; height: 15px; }
+.lp-voice-bars > i {
+  width: 2px; height: 100%;
+  border-radius: 2px;
+  background: currentColor;
+  transform: scaleY(.3);
+  animation: lp-voice-bar 1.05s ease-in-out infinite alternate;
+}
+.lp-voice-bars > i:nth-child(2) { animation-delay: -.18s; }
+.lp-voice-bars > i:nth-child(3) { animation-delay: -.42s; }
+.lp-voice-bars > i:nth-child(4) { animation-delay: -.26s; }
+.lp-voice-bars > i:nth-child(5) { animation-delay: -.62s; }
+@keyframes lp-voice-bar { from { transform: scaleY(.28); } to { transform: scaleY(1); } }
+
+/* Paper. The one grey the site uses for chips and bands, so the readout reads
+   as a sibling of the claim chips above it rather than as a new component. */
+.lp-voice.is-light {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--text-2);
+}
+.lp-voice.is-light .lp-voice-tag { color: var(--muted); }
+.lp-voice.is-light .lp-voice-line { color: var(--text-1); }
+.lp-voice.is-light .lp-voice-bars { color: var(--lp-cta, #0f766e); }
+
+/* Ink. Opaque, not translucent: it sits over a drifting graph, and a blurred
+   panel put moving citations behind a sentence meant to be read word for word. */
+.lp-voice.is-dark {
+  margin-top: 26px;
+  background: #151d1a;
+  border-color: rgba(255, 255, 255, .12);
+  box-shadow: 0 18px 40px -28px rgba(0, 0, 0, .9);
+  color: #b6c0bb;
+  min-height: 62px;
+}
+.lp-voice.is-dark .lp-voice-tag { color: #6f7a76; }
+.lp-voice.is-dark .lp-voice-line { color: #dbe3df; }
+.lp-voice.is-dark .lp-voice-bars { color: var(--lp-mint, #35c9a3); }
+
+/* ── Graph parts ─────────────────────────────────────────────
+   All hairlines and low-alpha whites: the network has to be legible as a
+   structure while never competing with the sentence sitting inside it. */
+/* ── The live step ───────────────────────────────────────────
+   One stage runs at a time: its artefacts come up out of the dark, and the
+   pipeline segment FEEDING it lights and flows. Hovering any node pins that
+   stage instead.
+
+   This is the section's argument in motion. A diagram of the pipeline is a
+   claim; a pipeline you can watch a record travel is the demonstration — and
+   the loop closing back to step 01 is the part competitors cannot draw. */
+.lp-ev-edge {
+  stroke: rgba(255, 255, 255, .13);
+  stroke-width: 1;
+  transition: stroke .5s ease, stroke-width .5s ease;
+}
+/* The pipeline reads as structure even when idle — it is the shape of the
+   product — while a spur is just an attachment and stays faint. */
+.lp-ev-edge.is-flow { stroke: rgba(255, 255, 255, .2); }
+.lp-ev-edge.is-live {
+  stroke: color-mix(in srgb, var(--lp-mint, #35c9a3) 62%, transparent);
+  stroke-width: 1.4;
+}
+/* The whole pipeline drifts a faint dash at all times: the loop is continuous
+   and never actually stops, and a ring that only moves in one place reads as
+   six separate hops. The leg the record is crossing right now goes bright and
+   runs three times faster. The dash animates while the endpoints are rewritten
+   every frame by the rAF loop; the two do not fight, because one owns the
+   geometry and the other owns the stroke. */
+.lp-ev-edge.is-flow {
+  stroke-dasharray: 3 9;
+  animation: lp-ev-flow 3s linear infinite;
+}
+.lp-ev-edge.is-flow.is-live {
+  stroke: var(--lp-mint, #35c9a3);
+  stroke-width: 1.8;
+  stroke-dasharray: 6 12;
+  animation: lp-ev-flow 1s linear infinite;
+}
+@keyframes lp-ev-flow { to { stroke-dashoffset: -36; } }
+
+/* ── The record ──────────────────────────────────────────────
+   The one object that is always somewhere. It sits at a step while its
+   artefacts are read, then eases along the pipeline into the next — which is
+   the whole argument the band exists to make, since a record that TELEPORTS
+   between steps is exactly what an export-and-re-key workflow looks like.
+
+   The halo breathes on its own so the packet is alive even while it is
+   parked, and it is not a hit target: `pointer-events: none` keeps it from
+   stealing the hover from the tiles it passes over. */
+.lp-ev-packet { pointer-events: none; }
+.lp-ev-packet-core {
+  fill: var(--lp-mint, #35c9a3);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--lp-mint, #35c9a3) 80%, transparent));
+}
+.lp-ev-packet-halo {
+  fill: color-mix(in srgb, var(--lp-mint, #35c9a3) 16%, transparent);
+  animation: lp-ev-packet 2.2s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes lp-ev-packet {
+  0%, 100% { transform: scale(.72); opacity: .85; }
+  50%      { transform: scale(1.12); opacity: .45; }
+}
+.lp-ev-edge.is-ring {
+  /* The ring closing the six clusters is the weakest line on the surface —
+     it exists to say "one network", not to be followed. */
+  stroke: rgba(255, 255, 255, .08);
+  stroke-dasharray: 3 7;
+}
+/* ── Resting weight: the six steps are structure, the tiles are not ──────
+   Both used to rest at .62, which put nineteen artefact tiles — two lines of
+   text each — on the surface at once, every one of them legible enough to
+   invite reading and none of them the one the record is at. The eye had no
+   entry point and the middle column had to compete with its own diagram.
+
+   So the two are separated. The hubs keep their weight: six numbered verbs
+   ARE the picture, and dimming them would leave the ring shapeless. The tiles
+   drop to a fifth — present as a constellation, past the threshold where text
+   asks to be read — and come up to full only for the stage the record is
+   sitting at, which is the one moment they are the point. Nothing is removed;
+   what changes is how many things are shouting at once. */
+.lp-ev-hub { transition: opacity .5s ease; opacity: .62; }
+.lp-ev-tile { transition: opacity .55s ease; opacity: .2; }
+.lp-ev-hub.is-live, .lp-ev-tile.is-live { opacity: 1; }
+/* The meta line is the smallest type on the surface and the least readable at
+   a fifth opacity, so a resting tile carries its label alone. Restoring it
+   with the stage is what makes a step arriving read as the tile filling in. */
+.lp-ev-tile .lp-ev-meta { transition: opacity .55s ease; opacity: 0; }
+.lp-ev-tile.is-live .lp-ev-meta { opacity: 1; }
+/* A spur tethering a tile nobody is reading is a line to nowhere. Faint at
+   rest, and the live rule above still lights the ones that matter. */
+.lp-ev-edge.is-spur { stroke: rgba(255, 255, 255, .06); }
+.lp-ev-tile.is-live .lp-ev-tile-box {
+  fill: rgba(255, 255, 255, .09);
+  stroke: color-mix(in srgb, var(--lp-mint, #35c9a3) 45%, transparent);
+}
+.lp-ev-tile .lp-ev-tile-box { transition: fill .5s ease, stroke .5s ease; }
+.lp-ev-tile.is-live .lp-ev-dot { filter: drop-shadow(0 0 5px currentColor); }
+/* The step: number above, verb, owning product below. Three sizes so the ring
+   reads as a numbered sequence at a glance rather than as six labels. */
+.lp-ev-n {
+  fill: var(--lp-mint, #35c9a3);
+  font-family: var(--lp-display);
+  font-size: 12px; font-weight: 600;
+  letter-spacing: .12em;
+  opacity: .75;
+}
+.lp-ev-q {
+  fill: #edf1ef;
+  font-family: var(--lp-cond, var(--lp-display));
+  font-size: 30px;
+  font-weight: 700;
+  font-synthesis-weight: none;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.lp-ev-brand {
+  fill: #7f8a86;
+  font-family: var(--lp-display);
+  font-size: 10.5px; font-weight: 500;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.lp-ev-hub.is-live .lp-ev-brand { fill: #a6b0ac; }
+/* No box at rest. Nineteen outlined rectangles read as a grid laid over the
+   headline however faint each one is — an outline is a shape the eye finds
+   before it finds the word inside it. A resting tile is therefore just its dot
+   and its label; the container appears with the stage, which is also what
+   makes an arriving step look like something being picked up rather than
+   merely brightened. */
+.lp-ev-tile-box {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 1;
+}
+.lp-ev-label {
+  fill: #e8edea;
+  font-family: var(--lp-display);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .01em;
+}
+.lp-ev-meta {
+  fill: #8f9a95;
+  font-family: var(--lp-display);
+  font-size: 9.5px; font-weight: 400;
+}
+/* The dot is the only colour on a tile, and it carries what KIND of artefact
+   the step produced: a signal, something computed, a named external source,
+   signature material, a classification, a transport. Six steps share six
+   kinds, but they are not the same axis — Verify emits evidence, Sign emits
+   crypto, and Listen emits both a signal and a model output. */
+.lp-ev-tile.is-signal    .lp-ev-dot { fill: #4ee0b6; }
+.lp-ev-tile.is-model     .lp-ev-dot { fill: #22d3ee; }
+.lp-ev-tile.is-evidence  .lp-ev-dot { fill: #7dd3fc; }
+.lp-ev-tile.is-crypto    .lp-ev-dot { fill: #a7f3d0; }
+.lp-ev-tile.is-transport .lp-ev-dot { fill: #93a3ae; }
+.lp-ev-tile.is-code      .lp-ev-dot { fill: #6b7671; }
+
+/* Below ~1250 the SVG is fitted with `meet`, so the GRAPH shrinks with the
+   viewport — but the copy block is sized in CSS pixels and does not, so it
+   grows relative to the clearing the ring leaves and eventually pushes its
+   readout onto the two lower clusters. The copy therefore steps down with it.
+   Measured, not guessed: at 1050px the block has to lose ~110px of height for
+   its bottom edge to clear the scaled ring. */
+@media (max-width: 1250px) {
+  .lp-ev-stage { min-height: 640px; padding: 56px 24px; }
+  .lp-ev-copy { max-width: 470px; padding: 24px 8px; }
+  .lp-ev-eyebrow { margin-bottom: 14px; padding: 6px 12px; font-size: 11.5px; }
+  .lp .lp-ev-title { font-size: clamp(32px, 4.3vw, 52px); margin-bottom: 12px; }
+  .lp-ev-sub { font-size: 14.5px; line-height: 1.5; margin-bottom: 20px; max-width: 420px; }
+  .lp .lp-ev-cta { padding: 10px 18px; font-size: 13.5px; }
+  .lp-voice.is-dark { margin-top: 18px; padding: 9px 13px; min-height: 52px; font-size: 12.5px; }
+}
+@media (max-width: 1000px) {
+  /* The graph goes. At this width the ring's own diameter is wider than the
+     screen, so `slice` crops it to two or three tiles and a stray line — which
+     reads as a rendering failure rather than as a network. The statement and
+     its CTA are the section; the constellation was always the illustration. */
+  .lp-ev-svg { display: none; }
+  .lp-ev-stage { min-height: 0; aspect-ratio: auto; padding: 64px 24px; }
+  .lp-ev-copy { background: none; padding: 0; }
+  .lp-ev { margin: 64px 0 56px; }
+}
+
+/* The demo card follows the headline instead of sitting beside it: full
+   measure, aligned to the same left margin as everything above it. */
+.lp-hero-art { justify-content: flex-start; margin-top: 72px; }
+.lp-demo {
+  max-width: 700px; border-radius: 16px;
+  box-shadow: 0 30px 70px -46px rgba(12,18,16,.42), 0 6px 18px -14px rgba(12,18,16,.14);
+}
+/* Low-confidence words: an underline carries the "check this" meaning that
+   the chartreuse highlight used to, without putting a second colour on the
+   page. The wash stays, one step off the card. */
+.lp-demo-word.lc {
+  background: var(--chart);
+  text-decoration: underline dotted var(--text-3) 1.5px;
+  text-underline-offset: 3px;
+}
+
+/* ── Section heads + bands ────────────────────────────────────
+   Left-aligned, matching the hero. Centred heads pull the eye back to the
+   middle of every band and undo the single strong left margin the page is
+   built on. */
+/* The head keeps the auto side margins — inside a full-bleed `.lp-section-alt`
+   they are what holds it in the 1160px column, and dropping them threw the
+   heading out past the left edge of the viewport. The measure moves to the
+   children instead, which is what wanted constraining anyway. */
+.lp-head { max-width: 1160px; width: 100%; margin-inline: auto; text-align: left; }
+.lp-head > * { max-width: 780px; }
+
+/* The rest of the strips join that margin. Note the ones that are direct
+   children of a full-bleed `.lp-section-alt` (`.lp-loop-foot`, `.lp-usp`)
+   keep their auto side margins — those are load-bearing inside the band, and
+   only the text alignment changes. */
+.lp-trust { text-align: left; padding-bottom: 76px; }
+.lp-trust-label { font-size: 12.5px; letter-spacing: .08em; }
+.lp-loop-foot { align-items: flex-start; text-align: left; }
+.lp-section-cta { text-align: left; }
+.lp-usp { max-width: 1160px; border-inline-start-width: 2px; font-weight: 400; }
+.lp-cta { text-align: left; }
+.lp-cta-actions { justify-content: flex-start; }
+
+/* The deck's air is a desktop luxury — the earlier `max-width: 900px` rules
+   set the hero's padding before this block raised it, so the phone gets its
+   own numbers here rather than inheriting 104px of blank screen. */
+@media (max-width: 900px) {
+  .lp-hero { padding: 52px 0 56px; }
+  .lp-hero-art { margin-top: 44px; }
+  .lp-section { padding: 64px 0; }
+  .lp-hero-note { margin-top: 30px; gap: 8px; }
+  .lp-note-chip { padding: 9px 16px; font-size: 13.5px; white-space: normal; }
+  .lp-cta { padding: 52px 26px; }
+
+  /* The editorial split collapses. Two columns under ~900px would leave the
+     lead at a 200px measure — four or five words a line — and the buttons
+     squeezed beside it. Back to one column, in DOM order, which is why the
+     areas were used instead of `order`: the source sequence is already the
+     correct single-column sequence and there is nothing to undo. */
+  .lp-hero-text {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "eyebrow" "title" "lead" "cta" "chips" "voice";
+    column-gap: 0;
+  }
+  .lp-hero-text > .lp-voice { margin-top: 26px; }
+  .lp-lead { padding-top: 0; margin-bottom: 30px; max-width: 640px; }
+}
+.lp-h2 { font-size: clamp(30px, 4.2vw, 50px); line-height: 1.06; margin-bottom: 16px; }
+.lp-nl { font-size: clamp(16px, 1.5vw, 19px); color: var(--text-2); line-height: 1.5; }
+.lp-section { padding: 96px 0; }
 .lp-section-alt {
-  background: var(--surface-2);   /* warm sand band */
+  background: var(--surface-2);   /* the one grey band */
   border-color: var(--line);
 }
 
-/* ── Stats + steps: forest-green figures ────────────────────── */
-.lp-stat { border-radius: 16px; }
-.lp-stat-v { color: var(--accent); }
-.lp-step-n { color: var(--accent); opacity: .34; font-size: 46px; }
+/* ── Stats + steps: figures set as type, not as colour ──────── */
+.lp-stat { border-radius: 14px; }
+.lp-stat-v { color: var(--text-1); letter-spacing: -.03em; }
+.lp-step-n { color: var(--text-1); opacity: .14; font-size: 46px; }
 
-/* ── Cards ──────────────────────────────────────────────────── */
-.lp-feature { border-radius: 16px; }
-.lp-product { border-radius: 22px; }
+/* ── Cards ────────────────────────────────────────────────────
+   Flat. A hairline that darkens on hover is the whole interaction — the
+   coloured lift the cards used to do was the loudest thing on a page whose
+   point is that nothing is louder than the headline. */
+.lp-feature { border-radius: 14px; }
+.lp-product { border-radius: 18px; }
 .lp-feature:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-  box-shadow: 0 14px 34px -16px color-mix(in srgb, var(--accent) 55%, transparent);
+  border-color: var(--text-3);
+  box-shadow: none;
 }
-.lp-product:hover { box-shadow: 0 20px 46px -20px color-mix(in srgb, var(--accent) 50%, transparent); }
-.lp-feature-icon { border-radius: 12px; }
-.lp-product-icon { border-radius: 14px; }
+.lp-product:hover { box-shadow: 0 14px 34px -22px rgba(12,18,16,.28); }
+.lp-feature-icon { border-radius: 10px; }
+.lp-product-icon { border-radius: 12px; }
 
-/* ── CTA — dark plum band ───────────────────────────────────── */
+/* ── CTA — ink band ─────────────────────────────────────────── */
 .lp-cta {
-  border: 0; border-radius: 30px; padding: 76px 40px; color: #fff;
-  background:
-    radial-gradient(720px 320px at 50% -30%, color-mix(in srgb, var(--accent) 55%, var(--plum)), transparent 68%),
-    linear-gradient(158deg, var(--plum-2), var(--plum));
-  box-shadow: 0 40px 80px -40px rgba(40,3,15,.7);
+  border: 0; border-radius: 24px; padding: 84px 48px; color: #fff;
+  background: var(--plum);
+  box-shadow: none;
+  /* The waveform inside is absolutely positioned and full-bleed within the
+     band; `overflow: hidden` is what keeps it inside the 24px corners, and
+     `isolation` gives it a stacking context of its own so z-index: 0 there
+     cannot slip behind the band's own background. */
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
 }
-.lp-cta-title { color: #fff; }
-.lp-cta-sub { color: rgba(255,255,255,.74); }
-/* Chartreuse CTA button — the Heidi highlight against the dark wine band */
-.lp-cta .btn-primary { background: var(--chart); color: var(--chart-ink); border-color: var(--chart); }
-.lp-cta .btn-primary:hover { background: color-mix(in srgb, var(--chart) 88%, #fff); border-color: color-mix(in srgb, var(--chart) 88%, #fff); }
-.lp-cta .btn:not(.btn-primary) { background: rgba(255,255,255,.10); color: #fff; border-color: rgba(255,255,255,.30); }
-.lp-cta .btn:not(.btn-primary):hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.4); }
+/* The copy rides above the bars. */
+.lp-cta-title, .lp-cta-sub, .lp-cta-actions { position: relative; z-index: 1; }
+.lp-cta-title { color: #fff; font-size: clamp(30px, 4.2vw, 52px); line-height: 1.06; }
+.lp-cta-sub { color: rgba(255,255,255,.68); }
+/* Paper button on the ink band — the inversion of the primary button on the
+   rest of the page, and the same in both themes since the band is ink in both. */
+/* Written at `.lp a.btn-primary` specificity or higher — the page-wide label
+   rule above is itself an anchor selector and would otherwise paint this
+   white-on-white. */
+.lp .lp-cta a.btn-primary, .lp .lp-cta .btn-primary { background: #fff; color: var(--plum); border-color: #fff; }
+.lp .lp-cta a.btn-primary:hover, .lp .lp-cta .btn-primary:hover { background: rgba(255,255,255,.88); border-color: rgba(255,255,255,.88); color: var(--plum); }
+.lp-cta .btn:not(.btn-primary) { background: transparent; color: #fff; border-color: rgba(255,255,255,.34); }
+.lp-cta .btn:not(.btn-primary):hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.5); }
 
-/* ── Marketing sub-page hero + feature-detail band ──────────── */
-.mk-hero-title { letter-spacing: -.035em; }
-.mk-hero-icon { border-radius: 18px; }
+/* ── Marketing sub-page hero + feature-detail band ────────────
+   Sub-pages get the landing hero's treatment: left-aligned, large, the lead
+   grey underneath. Same page, later chapter. */
+.mk-hero { max-width: 1000px; margin: 0; padding: 88px 0 8px; text-align: left; }
+.mk-hero .lp-eyebrow { margin-inline: 0; }
+.mk-hero-title { font-size: clamp(36px, 5.6vw, 68px); line-height: 1.04; margin: 18px 0 20px; }
+.mk-hero-sub { font-size: clamp(17px, 1.7vw, 21px); color: var(--text-2); max-width: 660px; margin: 0; }
+.mk-hero-points { margin-inline: 0; }
+.mk-hero-points svg { color: var(--text-3); }
+/* Flat ink tile, and left of the headline rather than centred over it — the
+   `margin: 0 auto` was the last thing on a sub-page hero still centring. */
+.mk-hero-icon {
+  border-radius: 14px; margin: 0 0 22px;
+  background: var(--accent); color: var(--surface);
+  box-shadow: none;
+}
+.mk-section-title { font-size: clamp(26px, 3.4vw, 40px); line-height: 1.08; }
+/* The pricing hero stays centred — a price grid is symmetrical, so a
+   left-aligned head over it would hang off the side of its own table. */
+.lp .mk-price-hero { text-align: center; }
+.lp .mk-price-hero .mk-hero-title { margin-inline: auto; font-size: clamp(32px, 4.4vw, 52px); }
+.lp .mk-price-hero .lp-eyebrow { margin-inline: auto; }
 
 /* ════════════════════════════════════════════════════════════
    Sign-up flow — Heidi-style entry (chooser · create account · demo)
@@ -1708,12 +2509,16 @@
    ════════════════════════════════════════════════════════════ */
 .mk-auth-shell {
   min-height: 100vh; display: grid; place-items: center; padding: 40px 20px;
-  background:
-    radial-gradient(1100px 560px at 50% -12%, color-mix(in srgb, var(--chart) 22%, transparent), transparent 62%),
-    var(--bg);
+  background: var(--bg);   /* paper, no wash */
 }
 .mk-auth { width: 100%; max-width: 460px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .mk-auth-logo { display: inline-grid; place-items: center; margin-bottom: 8px; color: var(--text-1); }
+/* Same wordmark as the nav, one step up: here it is the page's only mark
+   rather than one item in a bar, and it sits above a 26-34px title that would
+   otherwise out-shout it. Rescaled each time the nav mark moved — 28 → 24px
+   at the case change, then up again for the condensed face — so the two stay
+   the same step apart. */
+.lp .mk-auth-logo .lp-brand-name { font-size: 56px; }
 .mk-auth-title { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.1; color: var(--text-1); margin: 0; }
 .mk-auth-sub { font-size: 15px; color: var(--text-3); margin: 2px 0 22px; }
 
@@ -1725,7 +2530,7 @@
   background: var(--surface); border: 1px solid var(--line);
   transition: border-color .14s, box-shadow .14s, transform .1s;
 }
-.mk-auth-opt:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); box-shadow: 0 14px 30px -18px rgba(40,3,15,.3); }
+.mk-auth-opt:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); box-shadow: 0 14px 30px -18px rgba(12,18,16,.3); }
 .mk-auth-opt:active { transform: translateY(1px); }
 .mk-auth-opt-ic { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--accent-soft); color: var(--accent-text); }
 .mk-auth-opt-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
@@ -1738,7 +2543,7 @@
   width: 100%; text-align: left; display: flex; flex-direction: column; gap: 15px;
   padding: 26px; border-radius: 18px;
   background: var(--surface); border: 1px solid var(--line);
-  box-shadow: 0 30px 70px -44px rgba(40,3,15,.4);
+  box-shadow: 0 30px 70px -44px rgba(12,18,16,.4);
 }
 .mk-auth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .mk-auth-field { display: flex; flex-direction: column; gap: 7px; font-size: 13.5px; }
@@ -1788,7 +2593,7 @@
   position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40;
   max-height: 244px; overflow-y: auto; padding: 6px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 13px;
-  box-shadow: 0 22px 54px -22px rgba(40,3,15,.4), 0 6px 16px -10px rgba(40,3,15,.16);
+  box-shadow: 0 22px 54px -22px rgba(12,18,16,.4), 0 6px 16px -10px rgba(12,18,16,.16);
 }
 .mk-auth-select-opt {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -1798,6 +2603,19 @@
 .mk-auth-select-opt:hover { background: var(--surface-2); }
 .mk-auth-select-opt.is-sel { color: var(--accent-text); font-weight: 650; }
 .mk-auth-select-opt.is-sel svg { color: var(--accent); }
+/* Nothing chosen yet. The trigger reads as a prompt, not as an answer — the
+   whole reason these selects no longer pre-select their first option. */
+.mk-auth-select-btn .is-ph { color: var(--muted); }
+
+/* Failed validation. Same treatment for a select and an input, since to the
+   visitor they are the same row of the same form. */
+.mk-auth-select.is-bad .mk-auth-select-btn,
+.mk-auth-field input[aria-invalid="true"] { border-color: #d9534f; }
+.mk-auth-select.is-bad .mk-auth-select-btn:focus-visible,
+.mk-auth-field input[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px rgba(217,83,79,.16); }
+/* The message. `em` because the required-marker asterisk already is one, so
+   the colour is shared and cannot drift apart from it. */
+.mk-auth-err { font-size: 12px; font-style: normal; font-weight: 500; color: #d9534f; }
 
 /* "or" divider */
 .mk-auth-or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
@@ -1872,7 +2690,7 @@
   padding: 9px 18px; border-radius: 999px; border: 0; background: none;
   font: inherit; font-size: 14px; font-weight: 600; color: var(--text-2); transition: all .14s;
 }
-.mk-price-toggle button.is-on { background: var(--surface); color: var(--text-1); box-shadow: 0 2px 8px -3px rgba(40,3,15,.25); }
+.mk-price-toggle button.is-on { background: var(--surface); color: var(--text-1); box-shadow: 0 2px 8px -3px rgba(12,18,16,.25); }
 .mk-price-save { font-size: 11.5px; font-weight: 700; color: var(--accent-text); background: var(--accent-soft); padding: 2px 7px; border-radius: 999px; }
 
 /* Plan cards */
@@ -1886,12 +2704,14 @@
   background: var(--surface); border: 1px solid var(--line);
 }
 .mk-price-card.is-popular {
-  border-color: var(--accent); box-shadow: 0 26px 60px -30px color-mix(in srgb, var(--accent) 55%, transparent);
+  border-color: var(--text-1); box-shadow: none;
 }
 .mk-price-badge {
   position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
   padding: 5px 13px; border-radius: 999px; white-space: nowrap;
-  background: var(--accent); color: #fff; font-size: 11.5px; font-weight: 700;
+  /* `--surface` rather than #fff: in dark the accent IS near-white and a
+     white label on it disappears. */
+  background: var(--accent); color: var(--surface); font-size: 11.5px; font-weight: 600;
 }
 .mk-price-name { font-size: 18px; font-weight: 700; color: var(--text-1); }
 .mk-price-tag { font-size: 13px; color: var(--muted); margin: 6px 0 18px; line-height: 1.4; min-height: 36px; }
@@ -1961,35 +2781,64 @@
 }
 
 /* ── API docs browser (/developers/api) ────────────────────── */
-.apidocs { max-width: 1160px; margin: 0 auto; padding: 36px 24px 72px; }
-.apidocs-tabs {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
-  margin-bottom: 22px;
+/* ── API docs ──────────────────────────────────────────────────
+   The page is one panel and one choice. It used to be a 4x2 grid of
+   bordered service cards above a framed pane with two links — nine
+   controls for a page whose whole content is the pane. What is left
+   reads like the rest of the site: a labelled dropdown, one link out,
+   and the documentation given the room. */
+.apidocs { max-width: 1160px; margin: 0 auto; padding: 28px 24px 72px; }
+
+.apidocs-pick {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
 }
-.apidocs-tab {
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
-  background: var(--surface); transition: border-color .12s, background .12s;
+.apidocs-pick-l {
+  flex: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
 }
-.apidocs-tab:hover { border-color: var(--accent); }
-.apidocs-tab.is-active { border-color: var(--accent); background: var(--accent-soft, rgba(79,70,229,.06)); }
-.apidocs-tab-label { font-size: 14px; font-weight: 700; color: var(--text-1); }
-.apidocs-tab-desc { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
-.apidocs-bar {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 10px 14px; border: 1px solid var(--line); border-bottom: none;
-  border-radius: 12px 12px 0 0; background: var(--surface);
+/* The dropdown is the site's own (AuthSelect); it only needs a width here so
+   the longest service line does not stretch the row to the full page. */
+.apidocs-pick .mk-auth-select { width: min(420px, 100%); }
+.apidocs-pick .mk-auth-select-btn { min-height: 44px; border-radius: 12px; font-size: 14.5px; }
+.apidocs-open {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13.5px; font-weight: 500;
+  color: var(--text-3, var(--muted));
+  border-bottom: 1px solid transparent;
 }
-.apidocs-bar-title { font-size: 14px; font-weight: 700; color: var(--text-1); }
-.apidocs-bar-links { display: flex; gap: 18px; font-size: 13.5px; }
-.apidocs-bar-links a { color: var(--accent-text); display: inline-flex; align-items: center; gap: 4px; }
-.apidocs-bar-links a:hover { text-decoration: underline; }
+.apidocs-open:hover { color: var(--text-1); border-bottom-color: var(--line); }
+
+/* The panel, framed the way every other card on the site is framed: the
+   hairline, the 24px radius, no shadow. Swagger brings its own typography and
+   its own colours — that is its job — so the frame's only work is to stop it
+   bleeding into the page. */
 .apidocs-frame {
-  border: 1px solid var(--line); border-radius: 0 0 12px 12px; overflow: hidden;
-  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  overflow: hidden;
 }
-.apidocs-frame iframe { display: block; width: 100%; height: min(72vh, 820px); border: 0; }
-.apidocs-note { font-size: 13px; color: var(--muted); margin: 14px 2px 0; }
+.apidocs-frame iframe {
+  display: block;
+  width: 100%;
+  /* Taller than before: the documentation IS the page now, so it gets the
+     screen rather than a 72vh window inside it. */
+  height: min(82vh, 1000px);
+  border: 0;
+}
+.apidocs-note { font-size: 12.5px; color: var(--muted); margin: 12px 2px 0; }
+
+@media (max-width: 720px) {
+  .apidocs-pick { flex-wrap: wrap; gap: 10px; }
+  .apidocs-pick .mk-auth-select { width: 100%; order: 2; }
+  .apidocs-open { margin-left: 0; order: 3; }
+}
 @media (max-width: 900px) {
   .apidocs-tabs { grid-template-columns: repeat(2, 1fr); }
 }
@@ -2215,15 +3064,1111 @@
 
 /* ══════════════════════════════════════════════════════════════════
    Service status, after it moved out of the sidebar footer
-   Two homes now: a row in the account drop-up (clinician) and the pill
-   in the public site's footer (visitor). The panel is shared.
+   Two homes now: a row in the account drop-up (clinician), and the
+   public #/status page the site footer links to (visitor). The rows
+   and their states are shared; only the frame differs.
    ══════════════════════════════════════════════════════════════════ */
 .sb-user-menu-item .health-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .sb-user-menu-hint {
   margin-left: auto; font-size: 11px; color: var(--muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 96px;
 }
-/* In the footer bar the pill sits between the copyright and the pickers, so it
-   must not stretch the row. */
-.lp-footer-bar .health-wrap { display: inline-flex; }
-.lp-footer-bar .health-pill { font-size: 11.5px; padding: 3px 9px; }
+/* The footer link sits between the copyright and the pickers, so it must not
+   stretch the row. */
+.lp-footer-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; white-space: nowrap;
+}
+.lp-footer-status svg { opacity: .7; }
+
+/* ── #/status ─────────────────────────────────────────────────────── */
+.st-hero { padding-bottom: 0; }
+.st-overall {
+  display: inline-flex; align-items: center; gap: 9px;
+  margin-top: 26px; padding: 9px 16px; border-radius: 999px;
+  font-size: 14px;
+}
+.st-overall .health-dot { width: 9px; height: 9px; }
+.st-overall-count { opacity: .8; font-size: 13px; }
+.st-page { max-width: 760px; margin: 0 auto; padding: 34px 0 72px; }
+.st-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 12px; border-bottom: 1px solid var(--line);
+}
+.st-bar-meta { margin-right: auto; font-size: 12.5px; color: var(--muted); }
+.st-bar .btn { font-size: 12.5px; gap: 6px; }
+.st-summary { margin: 16px 0 0; }
+/* Roomier than the drop-up: this page has the width the popover never did. */
+.st-list { margin-top: 8px; }
+.st-list .health-row { padding: 13px 0; font-size: 13.5px; }
+.st-list .health-role { font-size: 12.5px; }
+.st-note {
+  margin: 22px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--text-2);
+}
+.st-note code {
+  font-family: var(--mono); font-size: 11.5px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 5px; padding: 1px 6px;
+}
+.st-actions { margin-top: 22px; }
+
+/* ── Break-glass standing banner (2026-08-09 hotfix) ──────────────────────
+   Deliberately NOT dismissable and deliberately loud. A viewer inside a
+   record they hold no standing relationship with must never be able to
+   forget it, and a banner that can be closed is a banner that is closed. */
+.bg-banner {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 14px; padding: 10px 14px;
+  border: 1px solid rgba(180, 83, 9, .35);
+  border-radius: var(--radius-md, 10px);
+  background: var(--warn-soft, rgba(245, 158, 11, .10));
+  color: var(--text-1);
+  font-size: 13px; line-height: 1.45;
+}
+.bg-banner > svg { flex: none; color: #b45309; }
+.bg-banner-b { min-width: 0; }
+.bg-banner-reason { color: var(--text-2); }
+.bg-banner-ttl {
+  margin-left: auto; flex: none;
+  font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+
+/* ── Read-only signature status (2026-08-09 hotfix) ───────────────────────
+   What a non-clinician sees in place of the sign action. Removing the ACT
+   must not remove the FACT, so this has to read as a status a nurse can
+   trust at a glance — and it needs its own gap, or the label and the date
+   render as "Підписано24 липня". */
+.sign-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--ok-soft, rgba(4, 120, 87, .10));
+  color: var(--text-1); font-size: 12px; font-weight: 500; line-height: 1.5;
+  white-space: nowrap;
+}
+.sign-badge > svg { flex: none; color: #047857; }
+.sign-badge-who { color: var(--text-2); }
+.sign-badge-when { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ── The closed loop (LandingPage: Listen → Verify → Authorize) ─────────
+   Three pillars have to read as ONE sequence, which puts three constraints on
+   the card that a plain feature grid does not have:
+
+     · the row must never break alignment — so there is no hover lift here.
+       A card that rises 3px takes its step number and its connector out of
+       line with its neighbours, and the sequence stops looking like one.
+     · the sequence is carried INSIDE the cards, by the numbered badge on
+       each header rule. Arrows drawn in the gutter between cards were tried
+       and removed: at any card height they land at an arbitrary point on a
+       tall edge, and they read as stray glyphs rather than as a join.
+     · the cards are equal height by grid and unequal by content. The footer
+       rule is what makes that read as deliberate: the "learn more" link is
+       anchored to a line instead of drifting alone under a void.
+   ─────────────────────────────────────────────────────────────────────── */
+.lp-loop {
+  display: grid;
+  /* The loop is a sequence, so the cards want one row: four pillars on a wide
+     screen, two-by-two once four would be too narrow to read. Three across
+     was right when there were three pillars and orphans the fourth now. */
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  align-items: stretch;
+}
+@media (max-width: 1279px) {
+  .lp-loop { grid-template-columns: repeat(2, 1fr); }
+}
+.lp-pillar {
+  position: relative;
+  display: flex; flex-direction: column;
+  padding: 26px 24px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  transition: border-color .16s, box-shadow .16s;
+}
+.lp-pillar:hover { border-color: var(--accent); box-shadow: var(--shadow-2); }
+
+.lp-pillar-h { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.lp-pillar-icon {
+  display: grid; place-items: center;
+  flex: none;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+}
+.lp-pillar-rule { flex: 1; height: 1px; background: var(--line); }
+.lp-pillar-n {
+  display: grid; place-items: center;
+  flex: none;
+  width: 28px; height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-pillar-t {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  font-size: 20px; font-weight: 650; letter-spacing: -.02em;
+  margin: 0 0 9px;
+}
+/* The product name rides with the verb — "Перевіряє · EVIDENTIA" — so the
+   pillar and the thing you can buy are never two ideas to reconcile. */
+.lp-pillar-brand {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--accent-text);
+  padding: 3px 8px; border-radius: 999px; background: var(--accent-soft);
+  position: relative; top: -1px;
+}
+.lp-pillar-d { font-size: 14px; color: var(--text-2); line-height: 1.55; margin: 0 0 16px; }
+
+.lp-pillar-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 11px; }
+.lp-pillar-points li { display: flex; align-items: flex-start; gap: 9px; font-size: 13.5px; color: var(--text-2); line-height: 1.5; }
+.lp-pillar-points svg { color: var(--accent); flex: none; margin-top: 3px; }
+
+/* Roadmap, as its own strip. It used to be a fourth bullet with a clock
+   instead of a tick, which reads as a shipped point until you look twice —
+   and put its label on a line of its own. */
+.lp-pillar-soon {
+  margin-top: 16px;
+  padding: 12px 13px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.lp-pillar-soon ul { list-style: none; padding: 0; margin: 7px 0 0; display: grid; gap: 6px; }
+.lp-pillar-soon li { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.lp-soon {
+  display: inline-block;
+  font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text-2);
+  padding: 3px 8px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+
+/* Anchors the link to a line rather than leaving it adrift below whatever
+   whitespace the shortest card happens to have. */
+.lp-pillar-more {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-top: auto; padding-top: 16px;
+  border-top: 1px solid var(--line-2);
+  font-size: 13.5px; font-weight: 500; color: var(--accent-text);
+}
+.lp-pillar-more svg { transition: transform .16s; }
+.lp-pillar:hover .lp-pillar-more svg { transform: translateX(3px); }
+
+.lp-loop-foot {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  margin-top: 34px; text-align: center;
+}
+.lp-loop-goal, .lp-loop-safety {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0; font-size: 13.5px; color: var(--text-2);
+}
+.lp-loop-goal svg, .lp-loop-safety svg { color: var(--accent); flex: none; }
+.lp-loop-foot .btn { margin-top: 10px; }
+
+@media (max-width: 1080px) {
+  .lp-loop { grid-template-columns: 1fr; gap: 20px; }
+}
+
+/* The USP, closing the moat section. One sentence, set as a pull quote — it is
+   the claim everything above it is evidence for. */
+.lp-usp {
+  max-width: 900px; margin: 36px auto 0; padding: 22px 26px;
+  border-inline-start: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  font-size: 16.5px; line-height: 1.6; font-weight: 500;
+  color: var(--text-1);
+}
+.lp-section-alt .lp-usp { background: var(--bg); }
+
+@media (max-width: 1080px) {
+  .lp-loop { grid-template-columns: 1fr; gap: 20px; }
+  .lp-usp { font-size: 15px; padding: 18px 20px; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Marketing accent — OPTIONAL
+   ════════════════════════════════════════════════════════════
+   The site is monochrome ink by design. This block is the one place that
+   puts a hue on it, and it is exactly two moves:
+
+     1. the primary CTA pill (nav + hero) becomes a teal→mint gradient
+     2. a soft wash of the same two colours sits behind the hero headline
+
+   Everything is scoped to `.lp[data-accent="on"]`, which MarketingShell
+   sets from `tweaks.lpAccent` / `#/welcome?accent=off` (remembered). Flip
+   the switch off — or delete this block — and the page is byte-for-byte
+   the ink version again; nothing above depends on these tokens.
+   ──────────────────────────────────────────────────────────── */
+/* The button colour is ONE flat value, not a ramp.
+
+   This started as a teal→mint gradient with a glow under it, a specular
+   sweep across it and a mint ring pulsing out of it. Four treatments on one
+   object. The gradient was also unreadable — white on the mint end measured
+   2.09:1 — but fixing the contrast by darkening the ramp only fixed the
+   contrast; the button still read as decorated rather than designed.
+
+   So it is flat. The reference points are Perplexity, Abridge and Heidi, and
+   what those three actually share is not a hue — it is restraint: one solid
+   fill, one radius, a hover that changes the fill by one step, and nothing
+   else. No gradient, no glow, no shimmer, no pulse. On a page whose entire
+   design is black type on white paper, the CTA does not need help being
+   found; it is the only coloured object on the screen.
+
+   #0f766e is 5.47:1 under white, comfortably past WCAG AA (4.5:1) with room
+   for the hover to go DARKER — hover states that reduce contrast are the
+   usual way an accessible button stops being one halfway through an
+   interaction.
+
+   Dark theme inverts rather than repeats. On a near-black page the readable
+   high-intent surface is the bright mint carrying ink (#4ee0b6 on #04211b is
+   10.2:1), which white-on-dark-teal can never be. Hence --lp-cta-fg: the
+   label colour is a token because it flips with the fill. */
+.lp[data-accent="on"] {
+  --lp-cta: #0f766e;        /* the fill — 5.47:1 under white */
+  --lp-cta-hover: #115e59;  /* one step darker, 7.58:1 */
+  --lp-cta-active: #134e4a;
+  --lp-cta-fg: #ffffff;
+  --lp-mint: #35c9a3;       /* brand mint — focus ring and card wash only */
+  /* Decorative only — no text ever sits on the hero wash, so it keeps the
+     bright teal→mint it was designed around. */
+  --lp-wash-1: #0d8f7e;
+  --lp-wash-2: #35c9a3;
+}
+[data-theme="dark"] .lp[data-accent="on"] {
+  --lp-cta: #4ee0b6;
+  --lp-cta-hover: #6ceac6;
+  --lp-cta-active: #3ddba8;
+  --lp-cta-fg: #04211b;
+  --lp-mint: #4ee0b6;
+  --lp-wash-1: #12a892;
+  --lp-wash-2: #4ee0b6;
+}
+
+/* ── 1. The CTA ───────────────────────────────────────────────
+   Only the two high-intent buttons — the nav "Start" and the hero's primary.
+   The inverted band's white button (.lp-cta) is left alone; a second
+   coloured treatment down there would undo the point of the first. */
+.lp[data-accent="on"] .lp-nav-cta,
+.lp[data-accent="on"] .lp-hero-cta .btn-primary {
+  background: var(--lp-cta);
+  /* Border matches the fill rather than being removed: `.btn` carries a 1px
+     border, and dropping it here would make the accent pill 2px shorter than
+     the ghost button beside it. */
+  border-color: var(--lp-cta);
+  color: var(--lp-cta-fg);
+  box-shadow: none;
+  transition: background .14s ease, border-color .14s ease;
+}
+/* The label and its icon, restated: `.lp a.btn-primary` (0,2,1) sets
+   `color: var(--surface)` for every primary anchor on the site, and in dark
+   theme that is a near-black on a near-black pill. */
+.lp[data-accent="on"] a.lp-nav-cta,
+.lp[data-accent="on"] .lp-hero-cta a.btn-primary,
+.lp[data-accent="on"] .lp-nav-cta svg,
+.lp[data-accent="on"] .lp-hero-cta .btn-primary svg { color: var(--lp-cta-fg); }
+
+.lp[data-accent="on"] .lp-nav-cta:hover,
+.lp[data-accent="on"] .lp-hero-cta .btn-primary:hover,
+.lp[data-accent="on"] a.lp-nav-cta:hover,
+.lp[data-accent="on"] .lp-hero-cta a.btn-primary:hover {
+  /* The base rule hovers to a flat --accent-2, which is the site's ink —
+     restate the accent one step darker. No lift, no glow: the fill changing
+     is the whole feedback. */
+  background: var(--lp-cta-hover);
+  border-color: var(--lp-cta-hover);
+  color: var(--lp-cta-fg);
+}
+.lp[data-accent="on"] .lp-nav-cta:active,
+.lp[data-accent="on"] .lp-hero-cta .btn-primary:active {
+  background: var(--lp-cta-active);
+  border-color: var(--lp-cta-active);
+}
+
+/* Keyboard focus was inheriting the platform's generic ring, which is ink on
+   ink here. Not decoration — the one thing on this button that must be loud. */
+.lp[data-accent="on"] .lp-nav-cta:focus-visible,
+.lp[data-accent="on"] .lp-hero-cta .btn-primary:focus-visible {
+  outline: 2px solid var(--lp-cta);
+  outline-offset: 3px;
+}
+
+/* ── 2. The hero wash ─────────────────────────────────────────
+   Two blurred blobs behind the headline, off to the left where the text
+   is. `isolation: isolate` keeps the z-index:-1 layer inside the section
+   so it paints over the page background but under the copy. */
+.lp[data-accent="on"] .lp-hero { position: relative; isolation: isolate; }
+.lp[data-accent="on"] .lp-hero::before {
+  content: "";
+  position: absolute; z-index: -1; pointer-events: none;
+  left: -20%; right: 18%; top: 24px; height: 600px;
+  background:
+    radial-gradient(46% 50% at 30% 46%,
+      color-mix(in srgb, var(--lp-wash-2) 26%, transparent), transparent 72%),
+    radial-gradient(40% 44% at 64% 14%,
+      color-mix(in srgb, var(--lp-wash-1) 15%, transparent), transparent 70%);
+  filter: blur(50px);   /* aurora, not two visible discs */
+}
+@media (max-width: 720px) {
+  .lp[data-accent="on"] .lp-hero::before { left: -40%; right: -10%; height: 440px; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   MARKETING — Galgo Condensed display headlines (August 2026)
+   Scoped to `.lp`, like the Swiss-grotesk block above it. The logged-in
+   platform is not touched: no rule below matches outside the marketing
+   wrapper, so a clinician's browser never even requests the file.
+
+   Galgo Condensed Variable (Giulia Boggio, SIL OFL — the licensed woff2 is
+   committed at public/fonts/galgo-condensed.woff2 and declared in the
+   generated fonts.css). It covers all eight languages in LANGS, Cyrillic
+   included, so a Ukrainian headline is set in the same face as an English
+   one rather than falling back to a second family — the thing that usually
+   rules a condensed display face out for this site.
+
+   HEADLINES ONLY. Body copy, leads, nav, buttons and prose subheads
+   (`.mk-prose-h`, 22px) stay on Geist: at text sizes a face this narrow
+   costs more legibility than it buys identity. `.mk-auth-title` stays with
+   them despite being a page title — /login and /signup are forms, and a
+   one-word title ("Вхід") set this narrow reads as an accident rather than
+   as a decision.
+
+   The sizes below all grow, and that is not taste — it is metrics:
+
+     · cap height  0.613em vs Geist's 0.710em → Galgo needs 1.16× the
+       font-size just to draw a capital of the SAME height.
+     · advance     0.198em vs Geist 700's 0.579em → at that matched cap
+       height it still sets 60% narrower per character.
+
+   A headline swapped 1:1 would therefore read both shorter and drastically
+   lighter than the one it replaced. The tiers go to ~1.5-1.65× instead,
+   which restores the optical weight and spends the width the face gives
+   back on presence — the poster-scale headline this typeface is drawn for.
+
+   Tracking resets to ~0 rather than inheriting the grotesk block's -.038em.
+   That negative tracking exists to close the gaps a WIDE face opens at 92px;
+   applied to stems already 0.198em apart it welds the letters together.
+
+   Not done here, deliberately: no `text-transform: uppercase`. The headlines
+   are authored as sentences in eight languages and several of them are long.
+
+   Known gap: Galgo has no № (U+2116), so a headline containing one falls
+   back to Geist for that single glyph. No current headline uses it.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.lp {
+  /* Geist last: if the woff2 ever fails to load, the headline degrades to the
+     body face rather than to a serif default. */
+  --lp-cond: "Galgo", "Geist", ui-sans-serif, system-ui, sans-serif;
+}
+
+.lp .lp-h1, .lp .lp-h2, .lp .lp-cta-title, .lp .lp-product-title,
+.lp .mk-hero-title, .lp .mk-section-title, .lp .mk-article-title,
+.lp .lp-stat-v, .lp .lp-step-n {
+  font-family: var(--lp-cond);
+  font-weight: 700;          /* the axis maxes at 700 — 800 requests clamp here */
+  letter-spacing: 0;
+  font-synthesis-weight: none;
+}
+
+/* Hero. line-height can close to .92 because the face carries its cap at
+   0.613em: the leading that looked tight on Geist is loose here. */
+.lp .lp-h1 {
+  font-size: clamp(58px, 11.4vw, 150px);
+  line-height: .92;
+  letter-spacing: -.005em;
+}
+.lp .mk-hero-title {
+  font-size: clamp(46px, 8.4vw, 104px);
+  line-height: .94;
+}
+/* The pricing hero is the one heading with a third-level selector of its own
+   (0,3,0) — it would win against the rule above and stay at deck size. */
+.lp .mk-price-hero .mk-hero-title { font-size: clamp(44px, 7vw, 82px); }
+
+/* Section + band heads. */
+.lp .lp-h2 {
+  font-size: clamp(40px, 6.2vw, 78px);
+  line-height: .95;
+  margin-bottom: 18px;
+}
+.lp .lp-cta-title { font-size: clamp(40px, 6.2vw, 80px); line-height: .95; }
+.lp .mk-section-title { font-size: clamp(34px, 4.9vw, 58px); line-height: .96; }
+.lp .mk-article-title { font-size: clamp(38px, 5.8vw, 68px); line-height: .96; }
+/* Figures. Condensed numerals are the reason to reach for this face on a
+   stat: they hold a column at a size a grotesk could not. Tabular so a row
+   of them lines up. */
+.lp .lp-stat-v { font-size: 44px; line-height: 1; font-variant-numeric: tabular-nums; }
+.lp .lp-step-n { font-size: 66px; line-height: .9; }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   TEMPLATE SEARCH PALETTE — /templates
+   Markup: marketing/TemplateSearchModal.jsx
+   ════════════════════════════════════════════════════════════════════════
+   Clicking the toolbar's search field opens a white card over a dimmed page
+   instead of filtering the grid underneath. The catalogue runs to ~100
+   templates across eleven specialties: an inline filter makes the reader
+   scroll and scan a grid to find out whether their term hit anything, while a
+   palette answers the question where it was asked.
+
+   Scoped under `.lp`, the marketing wrapper, so nothing here reaches the
+   logged-in platform's own search.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.lp .tpl-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;               /* over .lp-nav (50) and the progress bar (60) */
+  display: flex;
+  justify-content: center;
+  /* Not centred vertically. A palette belongs near the top, where the field
+     that opened it was — dropping it to the middle of the screen makes the
+     reader's eye travel away from what they just clicked. */
+  align-items: flex-start;
+  padding: clamp(56px, 12vh, 140px) 20px 40px;
+  background: color-mix(in srgb, #0a0f0d 58%, transparent);
+  backdrop-filter: blur(3px);
+  animation: tpl-modal-in .16s ease both;
+}
+@keyframes tpl-modal-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* The card. `--surface` rather than a literal #fff: white on the light theme,
+   which is what this is for, and a dark card on the dark theme instead of a
+   floodlight in the middle of a near-black page. */
+.lp .tpl-modal {
+  width: min(640px, 100%);
+  max-height: min(620px, 78vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 40px 80px -32px rgba(12, 18, 16, .45), 0 8px 24px -16px rgba(12, 18, 16, .25);
+  overflow: hidden;
+  animation: tpl-card-in .2s cubic-bezier(.22, .61, .36, 1) both;
+}
+@keyframes tpl-card-in {
+  from { opacity: 0; transform: translateY(-10px) scale(.99); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── The field ─────────────────────────────────────────────── */
+.lp .tpl-modal-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 16px 20px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.lp .tpl-modal-field > svg { color: var(--muted); flex: none; }
+.lp .tpl-modal-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  font: inherit;
+  font-size: 17px;
+  color: var(--text-1);
+}
+.lp .tpl-modal-field input::placeholder { color: var(--muted); }
+.lp .tpl-modal-close {
+  flex: none;
+  display: inline-grid; place-items: center;
+  width: 30px; height: 30px;
+  border: 0; border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.lp .tpl-modal-close:hover { background: var(--line); color: var(--text-1); }
+
+/* ── Results ───────────────────────────────────────────────── */
+.lp .tpl-modal-body { overflow-y: auto; padding: 10px 10px 14px; }
+.lp .tpl-modal-label {
+  margin: 6px 10px 8px;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted);
+}
+.lp .tpl-modal-list { list-style: none; margin: 0; padding: 0; }
+.lp .tpl-modal-hit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0; border-radius: 10px;
+  background: none;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  color: var(--text-1);
+}
+/* One highlight, driven by `is-on`, which the pointer and the arrow keys both
+   write. A separate :hover rule would let the mouse light one row while Enter
+   opens another. */
+.lp .tpl-modal-hit.is-on { background: var(--surface-2); }
+.lp .tpl-modal-hit-icon {
+  flex: none;
+  display: inline-grid; place-items: center;
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.lp .tpl-modal-hit.is-on .tpl-modal-hit-icon {
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.lp .tpl-modal-hit-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.lp .tpl-modal-hit-name { font-size: 14.5px; font-weight: 600; }
+.lp .tpl-modal-hit-tag {
+  font-size: 12.5px; color: var(--text-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lp .tpl-modal-hit-cat {
+  flex: none;
+  font-size: 11.5px; color: var(--muted);
+  padding: 4px 9px; border-radius: 999px;
+  background: var(--surface-2);
+}
+.lp .tpl-modal-hit.is-on .tpl-modal-hit-cat { background: var(--surface); border: 1px solid var(--line); }
+.lp .tpl-modal-empty { margin: 14px 12px 20px; font-size: 14px; color: var(--text-3); }
+
+/* ── Keyboard legend ───────────────────────────────────────── */
+.lp .tpl-modal-foot {
+  flex: none;
+  display: flex; flex-wrap: wrap; gap: 16px;
+  padding: 11px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 11.5px; color: var(--muted);
+}
+.lp .tpl-modal-foot span { display: inline-flex; align-items: center; gap: 5px; }
+.lp .tpl-modal-foot kbd {
+  min-width: 18px;
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface);
+  font: inherit; font-size: 10.5px;
+  color: var(--text-2);
+  text-align: center;
+}
+/* The legend is a keyboard hint. On a touch screen there is no keyboard to
+   hint at, and it is the first thing worth losing when the card gets short. */
+@media (max-width: 640px), (pointer: coarse) {
+  .lp .tpl-modal-foot { display: none; }
+  .lp .tpl-modal-hit-cat { display: none; }
+  .lp .tpl-modal-backdrop { padding-top: 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp .tpl-modal-backdrop, .lp .tpl-modal { animation: none; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   /platform — the orbit behind the hero
+   Markup: marketing/ContentPage.jsx (HeroOrbit)
+   ════════════════════════════════════════════════════════════════════════
+   The counterpart to the landing hero's waveform: that page is about
+   listening, this one is about the loop. Same discipline — one grey, hairline
+   weight, slow enough to read as drift rather than as movement, and behind
+   everything so it never touches the contrast of the headline in front of it.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.lp .mk-hero.has-orbit { position: relative; isolation: isolate; }
+.lp .mk-hero-orbit {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  /* Parked in the empty half of the hero and pushed past its right edge into
+     the page margin, so the outer ring runs off the measure instead of sitting
+     inside it like a diagram in a box. */
+  /* Clear of the copy. The lead paragraph and the pillar list run to ~824px
+     on a 1440 viewport; at this width and offset the orbit's left edge lands
+     just past them, so the rings sit BESIDE the text rather than across it. */
+  right: -230px;
+  top: 50%;
+  width: 560px;
+  height: 560px;
+  transform: translateY(-50%);
+  /* Fades towards the COPY only — a horizontal wipe, not a radial one.
+     `radial-gradient(closest-side, #000 58%, transparent)` was tried first and
+     was the reason this ornament was invisible: on a 620px box the fade starts
+     at 180px, and the outer ring sits at 279px — three quarters of the way
+     through it — so the ring that carries the four marks was rendering at
+     roughly a quarter of an already near-white grey. The fade now runs left to
+     right, where the text actually is, and leaves the rings at full strength. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 32%, #000 100%);
+  mask-image: linear-gradient(90deg, transparent, #000 32%, #000 100%);
+}
+.lp .mk-hero-orbit svg { width: 100%; height: 100%; overflow: visible; }
+
+.lp .mk-orbit-ring {
+  fill: none;
+  /* Not `--line`. That token is the page's hairline against WHITE, drawn as a
+     solid 1px edge; broken into a dashed circle and scaled down it disappears.
+     Mixing towards --text-3 keeps it unmistakably grey — no hue, nothing that
+     competes with the CTA — while leaving enough ink on the page to be seen. */
+  stroke: color-mix(in srgb, var(--text-3) 42%, transparent);
+  stroke-width: 1.25;
+  transform-origin: center;
+}
+/* Three different dash rhythms and three different speeds, two of them
+   counter-turning. Rings that share a period lock into one wheel; rings that
+   do not read as independent orbits, which is the point — four products on one
+   loop, not one dial. */
+.lp .mk-orbit-ring.is-inner { stroke-dasharray: 4 9;  animation: mk-orbit-cw 64s linear infinite; }
+.lp .mk-orbit-ring.is-mid   { stroke-dasharray: 3 11; animation: mk-orbit-ccw 92s linear infinite; opacity: .88; }
+.lp .mk-orbit-ring.is-outer { stroke-dasharray: 2 8;  animation: mk-orbit-cw 128s linear infinite; opacity: .76; }
+
+/* One mark per pillar — Scribe, Evidentia, Signing, Billing — riding the outer
+   ring at quarter-turn spacing. The static rotate on the parent sets the
+   spacing; this shared animation carries all four round together. */
+.lp .mk-orbit-arm { transform-origin: center; animation: mk-orbit-cw 128s linear infinite; }
+.lp .mk-orbit-mark { fill: var(--text-3); opacity: .78; }
+
+@keyframes mk-orbit-cw  { to { transform: rotate(360deg); } }
+@keyframes mk-orbit-ccw { to { transform: rotate(-360deg); } }
+
+@media (max-width: 1080px) {
+  /* Under the two-column width the copy runs the full measure and the orbit
+     would sit behind the lead paragraph rather than beside it. */
+  .lp .mk-hero-orbit { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The rings stay — they are a still ornament, and a page whose subject is a
+     cycle is not improved by removing the circle. Only the turning stops.
+
+     Written at the same specificity as the rules that start the animation
+     (`.lp .mk-orbit-ring.is-inner`, 0-3-0). `.lp .mk-orbit-ring` alone is
+     0-2-0 and loses to them, which left the rings turning for exactly the
+     people who asked them not to. */
+  .lp .mk-orbit-ring.is-inner,
+  .lp .mk-orbit-ring.is-mid,
+  .lp .mk-orbit-ring.is-outer,
+  .lp .mk-orbit-arm { animation: none; }
+}
+
+
+/* ── Federated sign-in error ─────────────────────────────────
+   Shown on /login when the browser comes back from Google or Apple having
+   failed. Warning tone, not danger: nothing broke and nothing was lost — the
+   commonest case on an invite-only platform is `no_account`, where the answer
+   is a link to request access rather than an apology. */
+.lp .mk-auth-social-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  margin: 4px 0 14px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--warn, #b45309) 34%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warn, #b45309) 7%, var(--surface));
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-1);
+  text-align: left;
+}
+.lp .mk-auth-social-error > svg { flex: none; margin-top: 1px; color: var(--warn, #b45309); }
+
+/* ══════════════════════════════════════════════════════════════════
+   Evidence chat, hosted at #/chat
+   The answer is the page here, so the wrapper contributes as little box
+   as it can: no 1280px reading column (the module holds its own measure
+   in --ec-measure) and the smallest padding the layout can stand. The
+   numbers are load-bearing — ChatHostRoute sizes the module as
+   calc(100vh - 131px), which is this padding plus the topbar plus the
+   module's own nav row. Change one and change the other, or the panel
+   overflows the pane and the whole page starts scrolling.
+   ══════════════════════════════════════════════════════════════════ */
+.chat-host-page { padding: 10px 20px 12px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   Dead-end pages (access denied, and anything else that ends a route)
+
+   Typography only. This block has twice held a component — an icon plate
+   over two chip-filled cards, then a bordered fact sheet — and both times
+   the furniture outweighed the two facts it carried. What is left is a
+   heading, two paragraphs and two links, given room. Nothing here draws a
+   box, and that is the design.
+   ══════════════════════════════════════════════════════════════════ */
+.state-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Fill the pane so "centred" means centred, not "48px of padding".
+     100vh minus the topbar and this page's own vertical padding. */
+  min-height: calc(100vh - var(--topbar-h) - 60px);
+  padding: 24px;
+}
+.state-card {
+  width: 100%;
+  /* ~46 characters at the lead's size. Wider and the eye loses the line
+     ending; narrower and a three-role sentence breaks into a column. */
+  max-width: 430px;
+  text-align: center;
+}
+.state-title {
+  margin: 0 0 14px;
+  font-size: clamp(22px, 2.6vw, 27px);
+  font-weight: 650;
+  letter-spacing: -.022em;
+  color: var(--text-1);
+}
+/* The sentence that IS the page. Set a step above body copy and looser than
+   it: this is read once, carefully, not scanned. */
+.state-lead {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+/* The role names inside the sentence. Weight and the primary ink, no pill,
+   no colour — they are the nouns of the sentence, not tags stuck onto it. */
+.state-lead b {
+  font-weight: 600;
+  color: var(--text-1);
+}
+/* The advice is true but secondary — one size down and lighter, so the eye
+   takes the verdict first and the remedy second. */
+.state-note {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-3, var(--muted));
+}
+
+.state-actions {
+  display: flex; align-items: center; justify-content: center;
+  gap: 18px;
+  margin-top: 28px;
+}
+/* The primary, and the ONLY solid thing on the page — which is the point:
+   on a screen made entirely of type, one filled pill is unmistakably the
+   way out. Rounded to a pill rather than the app's 8px radius, because it
+   is standing alone rather than in a toolbar. */
+.state-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 38px; padding: 0 22px;
+  border: 0; border-radius: 999px;
+  background: var(--accent); color: #fff;
+  font: inherit; font-size: 14px; font-weight: 550;
+  cursor: pointer;
+  transition: background-color .14s ease, transform .14s ease;
+}
+.state-btn:hover { background: var(--accent-2); }
+.state-btn:active { transform: translateY(1px); }
+.state-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* The secondary is deliberately NOT a button: no ground, no border, muted
+   ink, one size down. Two accent-coloured links side by side read as a
+   choice between equals, and these are not equals — one always works. */
+.state-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 2px;
+  border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 13.5px; font-weight: 500;
+  color: var(--text-3, var(--muted));
+  border-bottom: 1px solid transparent;
+  transition: color .14s ease;
+}
+.state-link:hover { color: var(--text-1); border-bottom-color: var(--line); }
+.state-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+/* The contact form's privacy notice. Small and quiet, but present: it is the
+   exact wording stored as the HubSpot consent artefact, so it must be on the
+   page the visitor read (ContentPage.jsx CONTACT_CONSENT). */
+.mk-form-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-3, var(--muted));
+}
+
+/* ── Contact confirmation ──────────────────────────────────────────
+   Its own template, not the generic mk-form-done: it carries a second
+   action (book a demo) and has to make room for it without the offer
+   competing with the thank-you. See ContactSent in ContentPage.jsx. */
+.mk-sent {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 34px 30px 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  text-align: center;
+}
+.mk-sent-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; margin-bottom: 16px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text, var(--accent));
+}
+.mk-sent-title {
+  margin: 0 0 10px;
+  font-size: 21px; font-weight: 650; letter-spacing: -.018em;
+  color: var(--text-1);
+}
+.mk-sent-lead {
+  margin: 0 auto;
+  max-width: 42ch;
+  font-size: 14.5px; line-height: 1.6;
+  color: var(--text-2);
+}
+/* The address read back to them: the one field they could have mistyped,
+   so it is set to be checked rather than skimmed. */
+.mk-sent-email {
+  font-weight: 600;
+  color: var(--text-1);
+  overflow-wrap: anywhere;
+}
+
+/* The offer, fenced off above the fold of the card so it reads as a second
+   path and not as a condition of the reply. */
+.mk-sent-alt {
+  margin-top: 24px; padding-top: 22px;
+  border-top: 1px solid var(--line-2);
+}
+.mk-sent-alt p {
+  margin: 0 auto 16px;
+  max-width: 38ch;
+  font-size: 13.5px; line-height: 1.55;
+  color: var(--text-3, var(--muted));
+}
+.mk-sent-alt .btn { justify-content: center; }
+
+/* The contact page is one centred form, so its hero centres with it — see
+   ContentPage.jsx. Scoped to the class rather than applied to `.mk-hero`
+   generally: every other sub-page hero is left-aligned and leads into a grid
+   or a prose column that starts at the same left edge. */
+.mk-hero.mk-hero-centred { text-align: center; }
+.mk-hero.mk-hero-centred .mk-hero-sub { margin-left: auto; margin-right: auto; }
+
+/* ══════════════════════════════════════════════════════════════════
+   Contact — one screen, two columns
+   The whole job of this page is to be filled in, and a form whose Send
+   button is below the fold is a form half the visitors never finish. The
+   stacked layout (hero, then a centred card) needed ~1090px of height;
+   side by side, the two share it and the page fits a laptop.
+   ══════════════════════════════════════════════════════════════════ */
+.lp.mk-contact .lp-main {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  /* The copy takes what it needs; the form is the fixed measure — it holds
+     controls, so it must not stretch with the window. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 560px);
+  gap: 64px;
+  /* START, not center. Centring each column independently aligned their
+     MIDDLES — and since the card is ~580px against ~230px of copy, that put
+     "Let's talk" 175px below the top of the form, reading as if it had sunk.
+     Aligned to the top, the headline starts level with the card. */
+  align-items: start;
+  /* Minus the sticky nav. The grid itself is still centred in what is left, so
+     the fold lands below the card rather than through it. */
+  min-height: calc(100vh - 78px);
+  align-content: center;
+}
+/* The hero stops being a centred banner and becomes the left column. */
+.lp.mk-contact .mk-hero {
+  max-width: none;
+  margin: 0;
+  /* Lines the eyebrow up with the card's own title rather than with its border
+     — optical alignment, which is what the eye actually reads as level. */
+  padding: 30px 0 0;
+  text-align: left;
+}
+.lp.mk-contact .mk-hero .lp-eyebrow { margin-inline: 0; }
+.lp.mk-contact .mk-hero-sub { margin: 0; max-width: 34ch; }
+.lp.mk-contact .mk-section,
+.lp.mk-contact .mk-section:only-child { padding: 0; }
+
+/* The card is the right column: no auto-centring, no page-sized measure, and
+   tightened so the whole form clears a 800px viewport. */
+.lp.mk-contact .mk-form {
+  max-width: none;
+  margin: 0;
+  padding: 32px 34px 28px;
+  box-shadow: 0 20px 50px -34px rgba(12, 18, 16, .26);
+}
+.lp.mk-contact .mk-form-title { font-size: 21px; margin-bottom: 4px; }
+.lp.mk-contact .mk-form-sub { font-size: 14px; margin-bottom: 20px; }
+.lp.mk-contact .mk-form .login-field { margin-bottom: 14px; }
+.lp.mk-contact .mk-form-row { gap: 14px; }
+.lp.mk-contact .mk-form input,
+.lp.mk-contact .mk-form .mk-auth-select-btn { min-height: 44px; }
+.lp.mk-contact .mk-form textarea { min-height: 104px; }
+.lp.mk-contact .mk-form .lp-cta-lg { min-height: 48px; margin-top: 4px; }
+.lp.mk-contact .mk-form-note { font-size: 11.5px; margin-top: 8px; }
+
+/* Below the split's comfortable width the two columns stop being two: the
+   form needs its measure more than the layout needs its shape. */
+@media (max-width: 980px) {
+  .lp.mk-contact .lp-main {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    min-height: 0;
+    padding: 40px 24px 64px;
+  }
+  .lp.mk-contact .mk-hero-sub { max-width: none; }
+}
+
+/* ── Footer newsletter ─────────────────────────────────────────────
+   Lives in the footer's first column, which held a logo, one line of
+   tagline and then 200px of nothing on every page. A newsletter belongs
+   where a reader lands when they have finished reading — not in a modal
+   or a scroll-triggered overlay, which on a clinical product would
+   interrupt a doctor at work. See FooterSubscribe in MarketingShell.jsx. */
+.lp-nl { margin: 26px 0 0; max-width: 320px; }
+.lp-nl-h { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.lp-nl-s { margin: 4px 0 12px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+/* Input and button as one control: the arrow is not a second decision. */
+.lp-nl-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.lp-nl-row input {
+  flex: 1; min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit; font-size: 13.5px;
+  color: var(--text-1);
+  transition: border-color .14s ease, box-shadow .14s ease;
+}
+.lp-nl-row input::placeholder { color: var(--muted); }
+.lp-nl-row input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.lp-nl-row input[aria-invalid="true"] { border-color: var(--rec, #c4643f); }
+.lp-nl-row button {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 14px;
+  border: 0; border-radius: 10px;
+  background: var(--accent); color: #fff;
+  font: inherit; font-size: 13.5px; font-weight: 600;
+  cursor: pointer;
+  transition: background-color .14s ease;
+}
+.lp-nl-row button:hover { background: var(--accent-2); }
+.lp-nl-note { margin: 9px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+
+/* Confirmed: the field is replaced rather than disabled, so the column does
+   not keep offering an action that is already taken. */
+.lp-nl.is-done { display: flex; align-items: flex-start; gap: 10px; }
+.lp-nl-mark {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent-text, var(--accent));
+}
+.lp-nl-doneline { margin: 3px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-2); }
+
+/* ── Topbar search trigger ─────────────────────────────────────────
+   A button that reads as a field. It replaced a disabled input with a
+   "soon" pill — see the note in UI.jsx TopBar. */
+.tb-search {
+  display: flex; align-items: center; gap: 8px;
+  width: 320px; padding: 6px 10px;
+  border: 1px solid transparent; border-radius: 8px;
+  background: var(--surface-2); color: var(--muted);
+  font: inherit; font-size: 13px; text-align: left;
+  cursor: pointer;
+  transition: background-color .14s ease, border-color .14s ease;
+}
+.tb-search:hover { background: var(--surface); border-color: var(--line); }
+.tb-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tb-search-ph { flex: 1; min-width: 0; }
+.tb-search-k {
+  flex: none;
+  font: inherit; font-size: 11px; font-family: var(--mono);
+  padding: 1px 5px; border-radius: 5px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--muted);
+}
+.tb.is-stuck .tb-search-k { background: var(--surface-2); }
+
+/* ── Search palette ───────────────────────────────────────────────
+   Top-aligned rather than centred: the list grows downward and a dialog
+   that re-centres itself on every keystroke is unusable. `:has()` is the
+   only hook — Modal owns the overlay element. */
+.modal-overlay:has(.search-modal) { align-items: flex-start; padding-top: 10vh; }
+.search-modal { max-width: 620px; overflow: visible; }
+
+.sp-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+}
+.sp-input {
+  flex: 1; min-width: 0;
+  border: 0; background: none; outline: none;
+  font: inherit; font-size: 16px; color: var(--text-1);
+}
+.sp-input::placeholder { color: var(--muted); }
+.sp-esc {
+  flex: none; font-family: var(--mono); font-size: 11px;
+  padding: 2px 6px; border-radius: 5px;
+  background: var(--surface-2); color: var(--muted);
+}
+
+/* Bounded and scrollable: results are records, and an unbounded list would
+   push the dialog past the viewport on a long roster. */
+.sp-body { max-height: min(56vh, 460px); overflow-y: auto; padding: 6px; }
+.sp-hint { margin: 0; padding: 22px 12px; text-align: center; font-size: 13px; color: var(--muted); }
+.sp-group { padding: 4px 0; }
+.sp-group-h {
+  margin: 0; padding: 6px 10px;
+  font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted);
+}
+.sp-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 10px;
+  border: 0; border-radius: 8px; background: none;
+  font: inherit; text-align: left; cursor: pointer;
+  color: var(--text-1);
+}
+/* Hover and keyboard share one state, so the two cannot disagree about which
+   row Enter would open. */
+.sp-row.on { background: var(--surface-2); }
+.sp-row > svg { flex: none; color: var(--muted); }
+.sp-row-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.sp-row-m { flex: none; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+.sp-fail { margin: 6px 10px 2px; font-size: 12px; color: var(--warn, #b45309); }
+
+.sp-foot {
+  display: flex; align-items: center; gap: 16px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px; color: var(--muted);
+}
+.sp-foot kbd {
+  font-family: var(--mono); font-size: 10.5px;
+  padding: 1px 5px; margin-right: 3px;
+  border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line);
+}
+.sp-foot-note { margin-left: auto; }

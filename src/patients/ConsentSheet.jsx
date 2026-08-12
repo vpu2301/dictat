@@ -4,12 +4,13 @@
 // Legal copy in this file is flagged for clinical/legal review — see
 // todo.md ("S11 legal copy review").
 
-import React, { useState } from "react";
+import React, { lazy, Suspense, useState } from "react";
 import { Icon, Modal } from "../components/UI.jsx";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { recordConsent, signConsent } from "../api/consents.js";
 import { APPROVED_CONSENT_VERSIONS } from "./consentTexts.js";
 import { tr } from "../i18n.js";
+import { canSign } from "../components/SignGate.jsx";
 
 // Approved consent-text versions — the registry lives in ./consentTexts.js so
 // it stays assertable under node --test; re-exported here for the S11 callers.
@@ -45,12 +46,34 @@ const METHOD_LABEL = {
 // Providers are the as-built consent-sign proxy's:
 //   file_key     — the patient's key container file + password (Дія-issued
 //                  or bank КЕП container)
-//   dev_password — DEV-ONLY scaffold (envelopes level='dev'); hidden in
-//                  production builds, used by the e2e/mock-provider VERIFY
+//   dev_password — DEV-ONLY scaffold (envelopes level='dev'), used by the
+//                  e2e/mock-provider VERIFY. Sprint 16: the field and the
+//                  provider id live in components/DevPasswordSign.jsx and are
+//                  reached only through a DEV-guarded dynamic import, so a
+//                  production build contains neither. The local token for the
+//                  choice is "dev", never the wire value — a string in a live
+//                  ternary survives minification, and `npm run verify:bundle`
+//                  looks for exactly that.
 // Signing abandoned → the consent stays granted-but-unsigned (attestation
 // happened); the list shows "не підписано" with re-initiate.
+const DEV_SIGNING = !!(import.meta.env && import.meta.env.DEV);
+
+const ConsentDevPasswordField = DEV_SIGNING
+  ? lazy(() => import("../components/DevPasswordSign.jsx").then((m) => ({ default: m.ConsentDevPasswordField })))
+  : null;
+
+// `import.meta.env.DEV` is the constant `false` in a build, so this collapses
+// to `return null` and the module it would have loaded is never emitted.
+async function devConsentBody(password) {
+  if (import.meta.env.DEV) {
+    const m = await import("../components/DevPasswordSign.jsx");
+    return m.devConsentBody(password);
+  }
+  return null;
+}
+
 export function ConsentSignDialog({ lang, patientId, consent, onClose, onSigned }) {
-  const devProvider = !!(import.meta.env && import.meta.env.DEV);
+  const devProvider = DEV_SIGNING;
   const [provider, setProvider] = useState("file_key");
   const [keyB64, setKeyB64] = useState(null);
   const [keyName, setKeyName] = useState("");
@@ -79,7 +102,8 @@ export function ConsentSignDialog({ lang, patientId, consent, onClose, onSigned 
     try {
       const body = provider === "file_key"
         ? { provider, key_container_b64: keyB64, key_password: keyPassword }
-        : { provider: "dev_password", password: devPassword };
+        : await devConsentBody(devPassword);
+      if (!body) throw new Error("dev signing is not available in this build");
       const res = await signConsent(patientId, consent.id, body);
       setSigned(res);
       onSigned?.(res);
@@ -124,7 +148,7 @@ export function ConsentSignDialog({ lang, patientId, consent, onClose, onSigned 
                 <button type="button" className={provider === "file_key" ? "on" : ""} onClick={() => setProvider("file_key")}>
                   {tr(lang, "Файловий ключ", "Key file")}
                 </button>
-                <button type="button" className={provider === "dev_password" ? "on" : ""} onClick={() => setProvider("dev_password")}>
+                <button type="button" className={provider === "dev" ? "on" : ""} onClick={() => setProvider("dev")}>
                   {tr(lang, "Тест-підпис (dev)", "Dev signature")}
                 </button>
               </div>
@@ -141,12 +165,11 @@ export function ConsentSignDialog({ lang, patientId, consent, onClose, onSigned 
                   <input className="ti" type="password" value={keyPassword} onChange={(e) => setKeyPassword(e.target.value)} />
                 </label>
               </>
-            ) : (
-              <label>
-                <span>{tr(lang, "Пароль користувача (dev-скаффолд)", "Your password (dev scaffold)")}</span>
-                <input className="ti" type="password" value={devPassword} onChange={(e) => setDevPassword(e.target.value)} />
-              </label>
-            )}
+            ) : ConsentDevPasswordField ? (
+              <Suspense fallback={null}>
+                <ConsentDevPasswordField lang={lang} value={devPassword} onChange={setDevPassword} />
+              </Suspense>
+            ) : null}
             {error && <div className="consent-sign-error" role="alert">{problemCopy(error)}</div>}
           </>
         )}
@@ -186,6 +209,13 @@ export function ConsentSheet({ lang, patient, encounterId, onClose, onGranted, t
   const type = APPROVED_CONSENT_VERSIONS[consentType] ? consentType : "ai_scribe";
   const versions = APPROVED_CONSENT_VERSIONS[type];
   const copy = CONSENT_COPY[type] || CONSENT_COPY.ai_scribe;
+  // A nurse may RECORD that a consent exists — verbal or written, which is
+  // the bulk of consent-taking — but «digital» means the patient signs with a
+  // КЕП inside a dialog the clinician conducts, and that is a physician's act
+  // (2026-08-09 hotfix). Absent from the radio group, not disabled: a greyed
+  // option invites a support ticket about a permission that is working.
+  const maySign = canSign(auth?.claims);
+  const METHODS = maySign ? ["verbal", "written", "digital"] : ["verbal", "written"];
   const [method, setMethod] = useState("verbal");
   const [version, setVersion] = useState(versions[versions.length - 1]);
   const [busy, setBusy] = useState(false);
@@ -242,7 +272,7 @@ export function ConsentSheet({ lang, patient, encounterId, onClose, onGranted, t
         </div>
 
         <div className="consent-methods" role="radiogroup" aria-label={tr(lang, "Спосіб надання згоди", "Consent method")}>
-          {["verbal", "written", "digital"].map((m) => (
+          {METHODS.map((m) => (
             <label key={m} className={"consent-method" + (method === m ? " on" : "")}>
               <input type="radio" name="consent-method" value={m}
                 checked={method === m} onChange={() => setMethod(m)} />

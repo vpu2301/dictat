@@ -1,0 +1,353 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Sprint 16 — MFA enrolment, the session-ended banner, dictation recovery.
+
+   Nothing here is decorative. Each block styles a surface that only appears
+   at a bad or a security-critical moment, and the visual job is the same in
+   all of them: make it obvious what happened and what to do next, without
+   looking like the app crashed.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── The six-digit code field (components/OtpInput.jsx) ───────────────── */
+
+.otp-row { display: flex; gap: 8px; }
+
+.otp-box {
+  width: 44px; height: 52px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 20px; font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  transition: border-color .12s, box-shadow .12s;
+}
+.otp-box:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.otp-box:disabled { background: var(--surface-2); color: var(--muted); }
+
+.otp-invalid .otp-box { border-color: var(--warn); }
+.otp-invalid .otp-box:focus { box-shadow: 0 0 0 3px var(--warn-soft); }
+
+@media (max-width: 420px) {
+  .otp-row { gap: 6px; }
+  .otp-box { width: 38px; height: 46px; font-size: 18px; }
+}
+
+/* ── Login: the session-ended banner + the second step ────────────────── */
+
+/* Deliberately calmer than an error box. The session ending is usually
+   routine (an expiry) and occasionally serious (a replay); in neither case is
+   it the user's mistake, so it does not get the red treatment an invalid
+   password gets. */
+.login-ended {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin: 0 0 16px;
+  padding: 11px 13px;
+  background: var(--info-soft);
+  border: 1px solid color-mix(in srgb, var(--info) 25%, transparent);
+  border-radius: 10px;
+  text-align: left;
+}
+.login-ended > svg { flex: none; margin-top: 2px; color: var(--info); }
+.login-ended strong { display: block; font-size: 13px; color: var(--text-1); }
+.login-ended p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-2); }
+
+.mk-auth-otp { display: flex; flex-direction: column; gap: 8px; }
+.mk-auth-otp > span { font-size: 12.5px; font-weight: 500; color: var(--text-2); }
+.mk-auth-hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.otp-invalid + .mk-auth-hint,
+.mk-auth-otp .otp-invalid ~ .mk-auth-hint { color: var(--warn); }
+
+/* ── MFA enrolment (pages/MfaPage.jsx) ────────────────────────────────── */
+
+.mfa-page .mfa-card { padding: 20px; max-width: 640px; }
+.mfa-card h2 { margin: 0 0 6px; font-size: 16px; }
+.mfa-card > .muted { font-size: 13px; line-height: 1.55; }
+
+/* One shape for every "here is the situation" strip on this page — the grace
+   interruption, the deployment-not-enabled explanation, the wrong-code
+   warning. Same layout, different tone token. */
+.mfa-note {
+  display: flex; gap: 10px; align-items: flex-start;
+  max-width: 640px;
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.mfa-note > svg { flex: none; margin-top: 2px; color: var(--muted); }
+.mfa-note strong { display: block; font-size: 13px; color: var(--text-1); }
+.mfa-note p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--text-2); }
+
+.mfa-note-req,
+.mfa-note-info { background: var(--info-soft); border-color: color-mix(in srgb, var(--info) 25%, transparent); }
+.mfa-note-req > svg,
+.mfa-note-info > svg { color: var(--info); }
+
+.mfa-note-warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+.mfa-note-warn > svg { color: var(--warn); }
+
+.mfa-steps {
+  list-style: none; counter-reset: mfa; margin: 4px 0 0; padding: 0;
+  display: grid; gap: 22px;
+}
+.mfa-steps > li { counter-increment: mfa; position: relative; padding-left: 34px; }
+.mfa-steps > li::before {
+  content: counter(mfa);
+  position: absolute; left: 0; top: 0;
+  width: 24px; height: 24px;
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border-radius: 50%;
+}
+.mfa-steps > li > strong { display: block; font-size: 13.5px; color: var(--text-1); }
+.mfa-steps > li > .muted { margin: 3px 0 10px; font-size: 12.5px; line-height: 1.55; }
+
+.mfa-qr-wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.mfa-qr {
+  /* A QR needs a white quiet zone to scan reliably — it does NOT follow the
+     dark theme. `qrcode` paints white behind the modules; the border keeps
+     that square from disappearing into a dark page. */
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+.mfa-qr-fallback {
+  width: 200px; min-height: 200px;
+  display: grid; place-items: center;
+  padding: 16px; text-align: center;
+  font-size: 12.5px; line-height: 1.5; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: 8px;
+}
+.mfa-qr-side { display: grid; gap: 12px; }
+.mfa-kv span { display: block; font-size: 11.5px; color: var(--muted); }
+.mfa-kv b { font-size: 13px; color: var(--text-1); word-break: break-all; }
+
+.mfa-secret { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mfa-secret code {
+  flex: 1 1 260px;
+  padding: 9px 11px;
+  font-family: var(--mono); font-size: 13px; letter-spacing: .04em;
+  color: var(--text-1);
+  background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 8px;
+  word-break: break-all;
+}
+.mfa-secret-warn {
+  display: flex; gap: 7px; align-items: flex-start;
+  margin: 9px 0 0;
+  font-size: 12px; line-height: 1.5; color: var(--warn);
+}
+.mfa-secret-warn > svg { flex: none; margin-top: 2px; }
+
+.mfa-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+
+.mfa-done-h { display: flex; gap: 9px; align-items: center; margin-bottom: 6px; }
+.mfa-done-h > svg { color: var(--ok); }
+.mfa-done-h h2 { margin: 0; }
+
+/* The lost-phone answer. Shown in every state, because it is the question
+   enrolment always raises and the one a support desk always gets. */
+.mfa-recovery {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin-top: 22px; padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.mfa-recovery > svg { flex: none; margin-top: 2px; color: var(--muted); }
+.mfa-recovery strong { display: block; font-size: 12.5px; color: var(--text-1); }
+.mfa-recovery p { margin: 3px 0 0; font-size: 12px; line-height: 1.55; color: var(--muted); }
+
+/* ── Preserved-dictation recovery (dictation/RecoveryBanner.jsx) ──────── */
+
+/* This one DOES get colour. It appears when a clinician's session ended
+   mid-consultation and their audio survived locally; the single most
+   important thing is that they see it before they start over from memory. */
+.dict-recovery {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin: 0 0 16px;
+  padding: 13px 15px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 10px;
+}
+.dict-recovery > svg { flex: none; margin-top: 2px; color: var(--accent-text); }
+.dict-recovery-body { flex: 1; min-width: 0; }
+.dict-recovery strong { display: block; font-size: 13px; color: var(--text-1); }
+.dict-recovery p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--text-2); }
+.dict-recovery-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.dict-recovery-item {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 9px 11px;
+  background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.dict-recovery-meta { flex: 1; min-width: 160px; font-size: 12.5px; color: var(--text-2); }
+.dict-recovery-meta b { display: block; font-size: 13px; color: var(--text-1); }
+.dict-recovery-actions { display: flex; gap: 6px; }
+
+/* ── Break-glass: the gate and its dialog ─────────────────────────────────
+
+   Both surfaces used to be generic: the gate was the app's empty-state
+   placeholder (a faint icon over a line of prose stretched across a 1700px
+   viewport) and the dialog's reason/password fields were unstyled native
+   controls. The screen where an administrator decides to open someone else's
+   medical record is the last one that should look unfinished — the visual
+   weight has to match the weight of the decision.
+   ─────────────────────────────────────────────────────────────────────── */
+
+.bg-gate { display: flex; justify-content: center; }
+
+.bg-gate-card {
+  width: 100%;
+  max-width: 480px;
+  margin-top: clamp(24px, 9vh, 96px);
+  padding: 28px 28px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-2);
+}
+
+/* The shield is the subject of the screen, so it gets a real presence —
+   not the 36px watermark in --line the empty state renders. */
+.bg-gate-badge {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+/* The refusal has no next step to offer, so it does not get accent colour —
+   nothing here is an invitation. */
+.bg-gate-badge.quiet { background: var(--surface-2); color: var(--muted); }
+
+.bg-gate-title {
+  margin: 16px 0 0;
+  font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text-1);
+}
+/* Measure, not full bleed: this paragraph is the whole warning and it has to
+   be read, not skimmed across the width of a monitor. */
+.bg-gate-body {
+  margin: 8px 0 0;
+  max-width: 46ch;
+  font-size: 13.5px; line-height: 1.6;
+  color: var(--text-2);
+}
+
+.bg-gate-facts {
+  list-style: none;
+  margin: 18px 0 0; padding: 14px 15px;
+  display: grid; gap: 9px;
+  background: var(--surface-2);
+  border-radius: 10px;
+}
+.bg-gate-facts li {
+  display: flex; gap: 9px; align-items: flex-start;
+  font-size: 12.5px; line-height: 1.5;
+  color: var(--text-2);
+}
+.bg-gate-facts svg { flex: none; margin-top: 1px; color: var(--muted); }
+
+.bg-gate-actions { display: flex; gap: 8px; margin-top: 20px; }
+
+@media (max-width: 560px) {
+  .bg-gate-card { padding: 22px 18px 20px; margin-top: 16px; }
+  .bg-gate-actions { flex-wrap: wrap; }
+}
+
+/* ── The dialog ──────────────────────────────────────────────────────── */
+
+.bg-modal { max-width: 540px; }
+
+.bg-modal-h { display: flex; align-items: flex-start; gap: 12px; padding-top: 20px; }
+.bg-modal-h > div { flex: 1; min-width: 0; }
+.bg-modal-badge {
+  display: flex; align-items: center; justify-content: center;
+  flex: none;
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.bg-modal-badge.quiet { background: var(--surface-2); color: var(--muted); }
+
+/* A record with no name to show falls back to its uuid. Set in mono at chip
+   size it reads as the reference it is, instead of impersonating a subtitle. */
+.bg-modal .modal-h p.bg-modal-id,
+.bg-modal .modal-h .bg-modal-id {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: -0.01em;
+  word-break: break-all;
+}
+
+/* The fields the DSAR body never had: it styled its textarea and left every
+   other control to the browser. Same tokens as .input/.select, applied where
+   these dialogs actually live. */
+.dsar-modal-body select,
+.dsar-modal-body input[type="text"],
+.dsar-modal-body input[type="password"] {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 13px; font-family: var(--sans);
+  color: var(--text-1);
+  transition: border-color .12s, box-shadow .12s;
+}
+.dsar-modal-body select:focus,
+.dsar-modal-body input[type="text"]:focus,
+.dsar-modal-body input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.dsar-modal-body select:disabled,
+.dsar-modal-body textarea:disabled,
+.dsar-modal-body input:disabled {
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.dsar-modal-body input::placeholder,
+.dsar-modal-body textarea::placeholder { color: var(--muted); }
+
+/* A field whose control is not labelable (MenuSelect's trigger is a button),
+   so it cannot be a <label>. Same column layout as the ones that can. */
+.dsar-modal-body .dsar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* The reason menu opens INSIDE the dialog, and .modal clips its children to
+   keep its rounded corners. Unclipped here so the list is not cut off at the
+   dialog's edge; nothing in this dialog paints to the border, so the corners
+   survive. The menu is capped and scrolls rather than growing past the
+   viewport on a short window. */
+.modal.bg-modal { overflow: visible; }
+.bg-modal .dsar-field .spec-menu { max-height: 260px; }
+
+.bg-hint { font-size: 12px; color: var(--muted); margin-top: -6px; }
+
+.bg-error {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 10px 12px;
+  font-size: 12.5px; line-height: 1.5;
+  color: var(--text-1);
+  background: color-mix(in srgb, var(--rec) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rec) 28%, transparent);
+  border-radius: 10px;
+}
+.bg-error > svg { flex: none; margin-top: 1px; color: var(--rec); }

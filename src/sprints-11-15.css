@@ -1235,7 +1235,6 @@
   padding: 12px 14px;
   background: var(--surface-2);
   border-radius: var(--radius);
-  border-left: 3px solid var(--accent);
 }
 
 .dsar-modal-body label {
@@ -1961,6 +1960,44 @@ a.ph-contact-item:hover > svg { color: var(--accent); }
   padding: 10px 12px; text-align: center;
   font-size: 12px; color: var(--text-3, #9ca3af);
 }
+
+/* Footer door out of the popover, to the full history at /notifications.
+   Full width so it reads as the end of the list rather than one more
+   action competing with the header's. */
+.nb-panel-foot { border-top: 1px solid var(--border, #e5e7eb); }
+.nb-all {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 10px 12px;
+  background: none; border: none; cursor: pointer;
+  color: var(--accent, #0a8a7a); font-size: 12.5px; font-weight: 500;
+}
+.nb-all:hover { background: var(--surface-2, #f9fafb); }
+.nb-all:focus-visible { outline: 2px solid var(--accent, #0a8a7a); outline-offset: -2px; }
+/* The arrow leads in RTL too, so it must point the other way. */
+[dir="rtl"] .nb-all svg { transform: scaleX(-1); }
+
+/* ── /notifications — the full history ──────────────────────────── */
+.nh-filters { margin-bottom: 14px; align-items: center; }
+.nh-filters-right {
+  display: flex; align-items: center; gap: 8px;
+  margin-inline-start: auto;
+}
+.nh-count {
+  margin-inline-start: 6px; padding: 0 5px;
+  border-radius: 8px; font-size: 11px; font-weight: 600;
+  background: var(--accent, #0a8a7a); color: #fff;
+}
+.nh-card { padding: 0; overflow: hidden; }
+/* Unlike the dropdown this scrolls with the page — an archive that traps
+   the wheel inside a 60vh box is worse than a long page. */
+.nh-list { outline: none; }
+.nh-list .nb-row { padding: 12px 16px; }
+.nh-list .nb-day { padding: 8px 16px; }
+.nh-foot {
+  display: flex; justify-content: center; align-items: center;
+  padding: 12px; border-top: 1px solid var(--border-subtle, #f3f4f6);
+}
+.nh-error { padding: 12px 14px; margin-bottom: 12px; color: var(--danger, #dc2626); }
 
 /* ── toasts ─────────────────────────────────────────────────────── */
 /* Stacked above the singleton .toast (bottom: 22px) so a notification
@@ -2942,6 +2979,7 @@ a.ph-contact-item:hover > svg { color: var(--accent); }
   background: linear-gradient(90deg, var(--info-soft), var(--surface) 70%);
 }
 .asr-progress[data-state="queued"] { background: linear-gradient(90deg, var(--warn-soft), var(--surface) 70%); }
+.asr-progress[data-state="stopping"] { background: linear-gradient(90deg, var(--warn-soft), var(--surface) 70%); }
 .asr-progress-b { min-width: 0; }
 .asr-progress-b h2 { margin: 0 0 4px; font-size: 15px; font-weight: 650; color: var(--text-1); }
 .asr-progress-b p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-3); max-width: 62ch; }
@@ -2965,6 +3003,13 @@ a.ph-contact-item:hover > svg { color: var(--accent); }
   animation: asr-wave 1.1s ease-in-out infinite;
 }
 .asr-progress[data-state="queued"] .asr-progress-wave i { background: var(--warn); animation-duration: 2.2s; opacity: .65; }
+/* Stopping: the panel is still live — the worker has not stopped yet — but it
+   is winding down, so the wave slows and dims rather than freezing. A frozen
+   wave would read as "already stopped", which is the very thing this state
+   exists to NOT claim. */
+.asr-progress[data-state="stopping"] .asr-progress-wave i {
+  background: var(--muted); animation-duration: 2.6s; opacity: .5;
+}
 @keyframes asr-wave {
   0%, 100% { height: 22%; opacity: .55; }
   50%      { height: 100%; opacity: 1; }

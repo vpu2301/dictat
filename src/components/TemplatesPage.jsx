@@ -22,7 +22,8 @@ import { usePermission } from "../auth/permissions.js";
 import { getStarredIds, toggleStar } from "../api/templatePrefs.js";
 import {
   listTemplates, getTemplate, cloneTemplate, createTemplate, updateTemplate, deleteTemplate,
-  getSectionPrompt, validateDefinition, classifyEdit, isSlug, FIELD_TYPES, CHOICE_FIELD_TYPES,
+  getSectionPrompt, validateDefinition, classifyEditDetailed, formatEditReason, isSlug,
+  FIELD_TYPES, CHOICE_FIELD_TYPES,
   ASR_PROMPT_MAX, SYNTHESIS_PROMPT_MAX, MAX_SECTIONS, MIN_OPTIONS, MAX_OPTIONS, specialtyIcon,
 } from "../api/templates.js";
 import { tr } from "../i18n.js";
@@ -51,7 +52,33 @@ export const SPECIALTIES = [
   ["endocrinology",       "Ендокринологія",   "Endocrinology"],
   ["radiology",           "Радіологія",       "Radiology"],
 ];
-const FIELD_TYPE_LABELS = {
+// ── Categories ───────────────────────────────────────────────────────────────
+// The backend has no `category` column on templates (the list endpoint returns
+// code/name/specialty/language/status and nothing else), so the split is
+// derived here from the code. "Forms" are the standalone documents a visit
+// produces — discharge summary, referral, operative note, intake sheet — as
+// opposed to the per-specialty visit notes. Tenant clones keep the seed code as
+// a stem (`referral_letter_uk_custom`), so we match the stem, not the full code.
+export const FORM_CODE_STEMS = [
+  "discharge_summary",
+  "referral_letter",
+  "operative_note",
+  "anamnesis_intake",
+];
+export function isFormTemplate(tpl) {
+  const code = String(tpl?.code || "").toLowerCase();
+  if (FORM_CODE_STEMS.some((stem) => code.includes(stem))) return true;
+  // Hand-authored tenant templates that call themselves a form.
+  return /(^|_)forms?(_|$)/.test(code) || /(^|\s)форм[аи](\s|$)/i.test(tpl?.name || "");
+}
+
+// Forms sit next to report templates and note structures as a tab of the
+// library page, so the split is a partition rather than a filter: the reports
+// tab is every template that is NOT a form.
+const inCategory = (tpl, category) =>
+  category === "forms" ? isFormTemplate(tpl) : !isFormTemplate(tpl);
+
+export const FIELD_TYPE_LABELS = {
   free_text:            ["Вільний текст",       "Free text"],
   structured_diagnosis: ["Структ. діагноз",     "Structured diagnosis"],
   date:                 ["Дата",                "Date"],
@@ -75,17 +102,19 @@ function templateErrorMessage(error, lang, context) {
   return error?.message || T(lang, "Помилка", "Error");
 }
 
-// Pull field-level messages out of a FastAPI/Pydantic 422 body.
+// Pull field-level messages out of a 422 body. Two wire shapes exist: the
+// FastAPI default puts the array in `detail`; the platform's RFC-9457 handler
+// keeps `detail` a sentence and carries the array as an `errors` member.
 function pydanticErrors(error) {
-  const d = error?.problem?.detail;
-  if (!Array.isArray(d)) return [];
+  const p = error?.problem || {};
+  const d = Array.isArray(p.detail) ? p.detail : Array.isArray(p.errors) ? p.errors : [];
   return d.map((e) => ({
     loc: Array.isArray(e.loc) ? e.loc.filter((x) => x !== "body").join(".") : "",
     msg: e.msg || String(e),
   }));
 }
 
-function ErrorBanner({ error, lang, context }) {
+export function ErrorBanner({ error, lang, context }) {
   if (!error) return null;
   const fields = error.status === 422 ? pydanticErrors(error) : [];
   return (
@@ -106,7 +135,10 @@ function ErrorBanner({ error, lang, context }) {
 }
 
 // ── Origin / status badges ───────────────────────────────────────────────────
-function OriginBadge({ tpl, lang }) {
+// Exported (with StatusBadge, ErrorBanner, SectionRow, TemplateFormModal,
+// CloneModal, FIELD_TYPE_LABELS) for the sprint-17 admin surface, which reuses
+// this machinery at /admin/templates rather than forking a second editor.
+export function OriginBadge({ tpl, lang }) {
   const system = tpl.is_system || tpl.tenant_id == null;
   return (
     <span className={`tpl-badge ${system ? "system" : "custom"}`}>
@@ -115,7 +147,7 @@ function OriginBadge({ tpl, lang }) {
     </span>
   );
 }
-function StatusBadge({ status, lang }) {
+export function StatusBadge({ status, lang }) {
   if (status === "active") return null;
   const map = {
     draft:      [T(lang, "Чернетка", "Draft"), "draft"],
@@ -128,7 +160,10 @@ function StatusBadge({ status, lang }) {
 
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-export function TemplatesPage({ lang, navigate, embedded = false }) {
+// `category` is the library tab this list belongs to — "reports" (visit note
+// templates) or "forms" (the standalone documents). It is a prop, not state:
+// the tab strip that switches it lives on TemplateLibraryPage.
+export function TemplatesPage({ lang, navigate, embedded = false, category = "reports" }) {
   const canWrite = usePermission("templates.write", "template");
 
   const [specialty, setSpecialty]   = useState("");
@@ -164,7 +199,12 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
     [specialty, language, customOnly, showDeprecated],
   );
 
-  const all = asList(req.data);
+  // Scoped to the tab up front, so every count below it — the header, the
+  // chips, the pager — describes this tab and not the whole library.
+  const all = useMemo(
+    () => asList(req.data).filter((t) => inCategory(t, category)),
+    [req.data, category],
+  );
   const list = useMemo(() => {
     let out = all;
     if (search.trim()) {
@@ -191,7 +231,7 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
   // Reset to page 1 whenever the filtered result set changes.
   useEffect(() => {
     setPage(1);
-  }, [search, specialty, language, customOnly, showDeprecated, starredOnly]);
+  }, [search, category, specialty, language, customOnly, showDeprecated, starredOnly]);
 
   const fireToast = useCallback((msg) => {
     setToast(msg);
@@ -240,7 +280,9 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
       {!embedded && (
       <div className="page-h">
         <div>
-          <h1>{T(lang, "Шаблони звітів", "Report templates")}</h1>
+          <h1>{category === "forms"
+            ? T(lang, "Форми", "Forms")
+            : T(lang, "Шаблони звітів", "Report templates")}</h1>
           <p className="sub">
             {all.length} {T(lang, "шаблонів", "templates")}
             {customCount > 0 && ` · ${customCount} ${T(lang, "власних", "custom")}`}
@@ -329,7 +371,10 @@ export function TemplatesPage({ lang, navigate, embedded = false }) {
         <Empty
           icon="layers"
           title={T(lang, "Шаблонів не знайдено", "No templates found")}
-          body={T(lang, "Спробуйте змінити фільтри.", "Try adjusting the filters.")}
+          body={category === "forms" && all.length === 0
+            ? T(lang, "У цій категорії ще немає шаблонів — форми це виписки, скерування, протоколи та анкети.",
+                      "Nothing in this tab yet — forms are discharge summaries, referrals, operative notes and intake sheets.")
+            : T(lang, "Спробуйте змінити фільтри.", "Try adjusting the filters.")}
           action={canWrite ? (
             <button type="button" className="btn accent" onClick={() => setCreating(true)}>
               <Icon name="plus" size={13} /> {T(lang, "Новий шаблон", "New template")}
@@ -573,7 +618,7 @@ function TemplateDetailModal({ id, lang, canWrite, onClose, onClone, onEdited, o
 }
 
 // One section row in the preview, with an on-demand "ASR prompt" peek (§2.6).
-function SectionRow({ s, idx, lang, templateId }) {
+export function SectionRow({ s, idx, lang, templateId }) {
   const [showPrompt, setShowPrompt] = useState(false);
   const promptReq = useAsync(
     () => getSectionPrompt(templateId, s.id),
@@ -633,7 +678,7 @@ function SectionRow({ s, idx, lang, templateId }) {
 }
 
 // ── Clone modal (§2.3) ────────────────────────────────────────────────────────
-function CloneModal({ source, lang, onClose, onCloned }) {
+export function CloneModal({ source, lang, onClose, onCloned }) {
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -783,7 +828,7 @@ const buildOptions = (s, baseOptions = []) => {
 // `detail` present → edit that tenant template (PUT). Absent → create a blank
 // one (POST). The two differ only in the seed state, the save call and the
 // structural-change gate (a brand-new template has no old version to warn about).
-function TemplateFormModal({ detail = null, lang, onClose, onSaved }) {
+export function TemplateFormModal({ detail = null, lang, onClose, onSaved }) {
   const creating = !detail;
   const originalDef = detail?.schema_jsonb || {};
   const [code, setCode]           = useState(originalDef.code || detail?.code || "");
@@ -804,6 +849,25 @@ function TemplateFormModal({ detail = null, lang, onClose, onSaved }) {
   const [confirmStructural, setConfirmStructural] = useState(null); // built def awaiting confirm
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  // Sprint 17 — the LIVE cosmetic/structural banner. The FE mirror of the
+  // backend classifier runs as the admin types (debounced a keystroke's
+  // breath), so whether this edit will version the template is visible BEFORE
+  // save, not in a surprise confirm. Creating has no old version to compare.
+  const [liveEdit, setLiveEdit] = useState(null); // {kind, reasons} | null
+  useEffect(() => {
+    if (creating) return undefined;
+    const t = setTimeout(() => {
+      try {
+        setLiveEdit(classifyEditDetailed(originalDef, buildDefinition()));
+      } catch {
+        setLiveEdit(null); // half-typed drafts may not build; stay quiet
+      }
+    }, 250);
+    return () => clearTimeout(t);
+    // buildDefinition is re-created each render; the deps below are its inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creating, code, name, language, specialty, sections, meta]);
 
   // Switching a section to/from choice/multi_choice moves the options with it:
   // the choice types need 2..50, every other type must carry none (§3).
@@ -921,7 +985,7 @@ function TemplateFormModal({ detail = null, lang, onClose, onSaved }) {
       doSave(def);
       return;
     }
-    const kind = classifyEdit(originalDef, def);
+    const { kind } = classifyEditDetailed(originalDef, def);
     if (kind === "structural") {
       setConfirmStructural(def);   // gate behind the new-version warning
     } else {
@@ -947,6 +1011,38 @@ function TemplateFormModal({ detail = null, lang, onClose, onSaved }) {
         </div>
 
         <div className="tpl-modal-body">
+          {!creating && liveEdit && liveEdit.kind !== "no_change" && (
+            <div
+              className={"tpl-live-banner " + liveEdit.kind}
+              role="status"
+              data-testid="edit-kind-banner"
+              data-kind={liveEdit.kind}
+            >
+              <Icon name={liveEdit.kind === "structural" ? "alert" : "check"} size={14} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>
+                  {liveEdit.kind === "structural"
+                    ? T(lang, "СТРУКТУРНА зміна — буде створено нову версію шаблону",
+                              "STRUCTURAL change — a new template version will be created")
+                    : T(lang, "Косметична зміна — версія не зміниться",
+                              "Cosmetic change — the version stays")}
+                </div>
+                {liveEdit.kind === "structural" && (
+                  <>
+                    <ul className="tpl-live-reasons">
+                      {liveEdit.reasons.map((r, i) => (
+                        <li key={i}>{formatEditReason(r, lang)}</li>
+                      ))}
+                    </ul>
+                    <div className="psub" style={{ fontSize: 11 }}>
+                      {T(lang, "Наявні звіти продовжать використовувати стару версію.",
+                                "Existing reports keep using the old version.")}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           <div className="tpl-build-row two">
             <label className="tpl-field">
               <span>{T(lang, "Назва", "Name")}</span>

@@ -19,6 +19,8 @@ import { createReport } from '../api/reports.js';
 import { mapNoteToTemplate } from '../notes/promoteMapping.js';
 import { DICTATION_LANGS, asDictationLang, speechLocale } from '../dictation/languages.js';
 import { tr } from "../i18n.js";
+import { canSign, SignedBadge } from "./SignGate.jsx";
+import { useClaims } from "../auth/AuthContext.jsx";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -315,6 +317,7 @@ export function QuickNoteModal({ lang, navigate, onClose }) {
 // context bar drops both; everything else (structure rail, microphone, promote
 // and sign) is the same editor it has always been.
 export function NoteEditorPage({ noteId, patientId, lang, navigate, embedded = false, onNoteCreated }) {
+  const claims = useClaims();
   // Through a ref: the autosave callback is memoised, and a prop captured in
   // its closure would go stale the first time the workspace re-renders.
   const onNoteCreatedRef = useRef(onNoteCreated);
@@ -727,10 +730,17 @@ export function NoteEditorPage({ noteId, patientId, lang, navigate, embedded = f
             <Icon name="arrowRight" size={13} />
             {tr(lang, "Просунути до звіту", "Promote to report")}
           </button>
-          <button className="btn accent" onClick={handleSign} disabled={signed}>
-            <Icon name="sign" size={13} />
-            {signed ? tr(lang, "Підписано", "Signed") : tr(lang, "Підписати", "Sign & finish")}
-          </button>
+          {/* Signing is a physician's act (2026-08-09 hotfix). A nurse
+              authors and promotes notes; the signature is not hers to give,
+              and an already-signed note still shows that it is. */}
+          {canSign(claims)
+            ? (
+              <button className="btn accent" onClick={handleSign} disabled={signed}>
+                <Icon name="sign" size={13} />
+                {signed ? tr(lang, "Підписано", "Signed") : tr(lang, "Підписати", "Sign & finish")}
+              </button>
+            )
+            : signed && <SignedBadge lang={lang} />}
         </div>
       </section>
 

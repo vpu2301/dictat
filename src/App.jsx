@@ -1,6 +1,7 @@
 // App.jsx — App shell, hash router, Tweaks
 import React, { useState, useEffect, useMemo } from 'react';
 import { I18nProvider, LANGS , tr, isRtl } from "./i18n.js";
+import { ACCENT_VALUES } from "./theme/accents.js";
 import {
   useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor, TweakSelect, TweakToggle,
 } from './components/TweaksPanel.jsx';
@@ -10,29 +11,33 @@ import { NotificationsProvider } from './notifications/store.jsx';
 import { NotificationBell } from './components/NotificationBell.jsx';
 import { NotificationToasts } from './components/NotificationToasts.jsx';
 import NotificationPreferencesPage from './pages/NotificationPreferencesPage.jsx';
+import NotificationsPage from './pages/NotificationsPage.jsx';
 import { StudioWorkspace } from './studio/StudioWorkspace.jsx';
 import { StudioHistoryPage } from './studio/StudioHistoryPage.jsx';
 import { ReportsList, ReportView } from './components/Reports.jsx';
 import { ScribeToday, ScribeConsult, ScribeNotes } from './components/Scribe.jsx';
 import { PatientDirectory } from './patients/PatientDirectory.jsx';
-import { PrivacyAdminPage } from './pages/PrivacyAdminPage.jsx';
 import { ErasureRequestPage } from './pages/ErasureRequestPage.jsx';
 import { EnhancedScribePatient } from './components/PatientProfile.jsx';
 import { NoteEditorPage, QuickNoteModal, useQuickNoteHotkey } from './components/NoteEditor.jsx';
 import { NoteReviewPage } from './components/NoteReview.jsx';
 import { ConsentScreen, RecordingIndicator } from './components/ConsentFlow.jsx';
 import { TemplatesPage } from './components/TemplatesPage.jsx';
-import { ScribeNoteStructures } from './components/Scribe.jsx';
 import { useAsync } from './api/useAsync.js';
 import { listTemplates, createTemplate, toStudioTemplate } from './api/templates.js';
 
 import { LandingPage } from './pages/LandingPage.jsx';
 import { ContentPage } from './pages/marketing/ContentPage.jsx';
 import { ApiDocsPage } from './pages/marketing/ApiDocsPage.jsx';
+import { StatusPage } from './pages/marketing/StatusPage.jsx';
 import { DevelopersPage } from './pages/marketing/DevelopersPage.jsx';
 import { DocsPage } from './pages/marketing/DocsPage.jsx';
 import { TemplatesMarketPage } from './pages/marketing/TemplatesMarketPage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
+import { SocialCallbackPage } from './pages/SocialCallbackPage.jsx';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage.jsx';
+import { ResetPasswordPage } from './pages/ResetPasswordPage.jsx';
+import { AccountRecoveryPage } from './pages/AccountRecoveryPage.jsx';
 import { SignupFlow } from './pages/SignupFlow.jsx';
 import { PricingPage } from './pages/PricingPage.jsx';
 import { BlogPage } from './pages/BlogPage.jsx';
@@ -44,7 +49,6 @@ import { ProfilePage } from './pages/ProfilePage.jsx';
 import { DashboardPage } from './pages/DashboardPage.jsx';
 import { CompanyPage } from './company/CompanyPage.jsx';
 import { CompanyLoginPage } from './company/CompanyLoginPage.jsx';
-import { AdminUsersPage } from './pages/AdminUsersPage.jsx';
 import { TenantSettingsPage } from './pages/TenantSettingsPage.jsx';
 import { TenantMembersPage } from './pages/TenantMembersPage.jsx';
 import { AuditEventsPage } from './pages/AuditEventsPage.jsx';
@@ -59,6 +63,7 @@ import { AsrJobDetailPage } from './pages/AsrJobDetailPage.jsx';
 import { DocumentsPage, docPath, docTabFromRoute } from './pages/DocumentsPage.jsx';
 import { TemplateLibraryPage, libPath, libTabFromRoute } from './pages/TemplateLibraryPage.jsx';
 import { EvidenceRoutes, evidenceCrumbs, isEvidenceRoute } from './components/evidence/EvidenceRoutes.jsx';
+import { AdminRoutes, adminCrumbs, isAdminRoute } from './admin/AdminRoutes.jsx';
 import { ChatHostRoute, CHAT_BASE_PATH } from './chat/host/ChatHostRoute.jsx';
 import { EmbedHarness as ChatEmbedHarness } from './chat/EmbedHarness.jsx';
 import { useSettings as useChatSettings } from './chat/settingsContract.js';
@@ -158,14 +163,37 @@ function App() {
   // ── Auth gate ───────────────────────────────────────────────
   // Routes reachable without a session: the auth screens and the
   // public signature-verification deep link. Everything else needs login.
-  const isAuthRoute   = route === "/login" || route === "/signup";
+  // Path/query split for routes that deep-link with a hash query string, e.g.
+  // "/audit/events?from_seq=42" or "/reset-password?token=…". Declared here
+  // rather than beside the view switch below because the auth gate needs it:
+  // the password-recovery routes carry a query and must be matched on the
+  // path alone. NOTE: `r` further down deliberately keeps the query — the
+  // studio route regex-matches patient/template/report/encounter out of it.
+  const [routePath, routeSearch] = route.split("?");
+  const routeQuery = new URLSearchParams(routeSearch || "");
+
+  // routePath, not `route`: /signup?intent=demo is the same public screen, and
+  // matching the full hash meant the query string made it look like a protected
+  // route — the gate below then bounced it to /login before SignupFlow ever
+  // rendered.
+  const isAuthRoute   = routePath === "/login" || routePath === "/signup";
+  // Password recovery. Public, but deliberately NOT part of isAuthRoute:
+  // `gateToHome` bounces signed-in users off the auth screens, and these
+  // three arrive from an email that may well be open in a tab where the
+  // user still has a session — /account-recovery in particular exists for
+  // the case where somebody ELSE is signed in. Bouncing it to the
+  // workspace would put the one page that ends a takeover out of reach.
+  const isPasswordRoute = routePath === "/forgot-password"
+    || routePath === "/reset-password"
+    || routePath === "/account-recovery";
   // Landing is public: /welcome always, and the bare root only when signed out
   // (authenticated users at "/" land on their workspace instead).
   const isLanding     = route === "/welcome" || ((route === "/" || route === "") && !auth);
   // Public marketing sub-pages (footer + feature/product/security content).
-  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing", "/templates"];
+  const MARKETING_EXACT = ["/about", "/contact", "/careers", "/blog", "/features", "/security", "/pricing", "/templates", "/status", "/platform", "/validation"];
   const isMarketing = MARKETING_EXACT.includes(route)
     || route.startsWith("/legal/") || route.startsWith("/features/") || route.startsWith("/product/")
+    || route === "/rcm" || route.startsWith("/rcm/")
     || route.startsWith("/templates/")
     || route.startsWith("/blog/") || route === "/developers" || route === "/developers/api"
     || route.startsWith("/developers/api/") || route === "/docs" || route.startsWith("/docs/");
@@ -181,7 +209,7 @@ function App() {
   // to /login would defeat the one thing it exists for: reviewing the module in
   // isolation from this app.
   const isEmbedHarness = !!import.meta.env?.DEV && route === "/chat/harness";
-  const isPublicRoute = isAuthRoute || isLanding || isMarketing || isCompanyRoute
+  const isPublicRoute = isAuthRoute || isPasswordRoute || isLanding || isMarketing || isCompanyRoute
     || isEmbedHarness || route.startsWith("/verify/");
   const gateToLogin   = !auth && !isPublicRoute;   // protected route, no session → login
   const gateToHome    = !!auth && isAuthRoute;      // already signed in → leave the auth screens
@@ -206,15 +234,39 @@ function App() {
     if (auth && auditorOnly && (route === "/" || route === "")) navigate("/audit/events");
   }, [auth, auditorOnly, route]);
 
+  // "system" follows the OS, and keeps following it: the resolved value is
+  // recomputed when the OS flips, so a laptop that goes dark at sunset takes
+  // the app with it without a reload. `data-theme` still carries a CONCRETE
+  // light/dark — every dark rule in the stylesheets is `[data-theme="dark"]`,
+  // so resolving here is what lets the whole cascade stay as it is.
+  const [systemDark, setSystemDark] = useState(
+    () => typeof window !== "undefined"
+      && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!mq) return undefined;
+    const onChange = (e) => setSystemDark(e.matches);
+    // addEventListener on a MediaQueryList is the modern API; Safari < 14 only
+    // has addListener, and this is a clinic's browser fleet.
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
+  const resolvedTheme = tweaks.theme === "system" ? (systemDark ? "dark" : "light") : tweaks.theme;
+
   // Theme + density + accent + document language
   useEffect(() => {
-    document.documentElement.dataset.theme = tweaks.theme;
+    document.documentElement.dataset.theme = resolvedTheme;
     document.documentElement.dataset.density = tweaks.density;
     document.documentElement.style.setProperty("--accent", tweaks.accent);
     document.documentElement.lang = tweaks.lang;
     // Arabic (and any future RTL language) flips the whole document.
     document.documentElement.dir = isRtl(tweaks.lang) ? "rtl" : "ltr";
-  }, [tweaks.theme, tweaks.density, tweaks.accent, tweaks.lang]);
+  }, [resolvedTheme, tweaks.density, tweaks.accent, tweaks.lang]);
 
   // Keyboard: N → new consultation in scribe; D → studio
   useEffect(() => {
@@ -236,11 +288,6 @@ function App() {
   let fullBleed = false; // /login uses no sidebar
 
   const r = route;
-  // Path/query split for routes that deep-link with a hash query string, e.g.
-  // "/audit/events?from_seq=42". NOTE: `r` deliberately keeps the query — the
-  // studio route regex-matches patient/template/report/encounter out of it.
-  const [routePath, routeSearch] = route.split("?");
-  const routeQuery = new URLSearchParams(routeSearch || "");
 
   // ── auth gate (render the right view synchronously to avoid a flash) ─
   if (gateToLogin) {
@@ -255,9 +302,36 @@ function App() {
     view = <LoginPage navigate={navigate} lang={lang} />;
     fullBleed = true;
   }
+  // Federated sign-in comes back here. auth-service has already set the
+  // refresh cookie; this screen turns it into a session in this tab. Failures
+  // are routed to /login instead, which owns the explanation and the
+  // "request access" link — see auth/socialLogin.js.
+  else if (routePath === "/auth/callback") {
+    view = <SocialCallbackPage navigate={navigate} lang={lang} />;
+    fullBleed = true;
+  }
+  // ── password recovery ──────────────────────────────────────
+  // Matched on routePath: /reset-password and /account-recovery carry
+  // the token as a hash-query, so `r` (which keeps the query) never
+  // equals the bare path.
+  else if (routePath === "/forgot-password") {
+    view = <ForgotPasswordPage navigate={navigate} lang={lang} />;
+    fullBleed = true;
+  }
+  else if (routePath === "/reset-password") {
+    view = <ResetPasswordPage navigate={navigate} lang={lang} query={routeQuery} />;
+    fullBleed = true;
+  }
+  else if (routePath === "/account-recovery") {
+    view = <AccountRecoveryPage navigate={navigate} lang={lang} query={routeQuery} />;
+    fullBleed = true;
+  }
   // ── signup (Heidi-style entry: create account or book a demo) ──
-  else if (r === "/signup") {
-    view = <SignupFlow navigate={navigate} lang={lang} />;
+  // routePath, not `r`: /signup?intent=demo deep-links the demo step, which
+  // the contact form's confirmation uses. An exact match on `r` sent anything
+  // carrying a query string to the 404.
+  else if (routePath === "/signup") {
+    view = <SignupFlow navigate={navigate} lang={lang} intent={routeQuery.get("intent")} />;
     fullBleed = true;
   }
   // ── public landing (marketing) ─────────────────────────────
@@ -268,6 +342,13 @@ function App() {
   // ── public marketing sub-pages (footer + features/products/security) ─
   else if (r === "/pricing") {
     view = <PricingPage navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
+    fullBleed = true;
+  }
+  // Backend readiness, as a page the footer links to (it used to be a drop-up
+  // panel anchored to a pill in that footer). Public: a visitor who cannot
+  // sign in is exactly who needs to read it.
+  else if (r === "/status") {
+    view = <StatusPage navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     fullBleed = true;
   }
   else if (r === "/blog") {
@@ -295,15 +376,27 @@ function App() {
     fullBleed = true;
   }
   else if (
-    ["/about", "/contact", "/careers", "/features", "/security"].includes(r)
+    ["/about", "/contact", "/careers", "/features", "/security", "/platform", "/rcm", "/validation"].includes(r)
     || r.startsWith("/legal/") || r.startsWith("/features/") || r.startsWith("/product/")
+    || r.startsWith("/rcm/")
   ) {
     view = <ContentPage slug={r.replace(/^\//, "")} navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak} />;
     fullBleed = true;
   }
-  // ── mfa scaffold (sprint 16; flag-off path today) ───────────
-  else if (r === "/mfa") {
-    view = <MfaPage lang={lang} />;
+  // ── TOTP enrolment (sprint 16) ──────────────────────────────
+  // Matched on routePath, not `r`: the fetch client sends users here as
+  // "/mfa?required=1" when the backend answers 403 `mfa_enrolment_required`,
+  // and the query is what lets the screen explain why it interrupted them —
+  // reload-safe, unlike a module flag.
+  else if (routePath === "/mfa") {
+    view = (
+      <MfaPage
+        lang={lang}
+        navigate={navigate}
+        required={routeQuery.get("required") === "1"}
+        returnTo={routeQuery.get("return") || ""}
+      />
+    );
     crumbs = [{ label: tr(lang, "Безпека", "Security") }, { label: "MFA" }];
   }
   // ── scribe ─────────────────────────────────────────────────
@@ -344,7 +437,10 @@ function App() {
     crumbs = [
       { label: "Scribe", path: "/scribe", onClick: () => navigate("/scribe") },
       { label: tr(lang, "Пацієнти", "Patients"), path: "/scribe/patients", onClick: () => navigate("/scribe/patients") },
-      { label: id },
+      // The name is not knowable here — and on a gated record it must not be.
+      // A raw uuid in the crumb trail told the reader nothing and looked like
+      // debug output; the page itself carries the identity.
+      { label: tr(lang, "Картка пацієнта", "Patient record") },
     ];
   } else if (r.startsWith("/scribe/notes/new") || r === "/scribe/notes/new") {
     // The note/consult/consent surfaces write clinical records — same gate as
@@ -441,6 +537,9 @@ function App() {
           jobId={routeQuery.get("job") || undefined}
           noteId={routeQuery.get("note") || undefined}
           tabId={routeQuery.get("t") || undefined}
+          // Sprint 16 — the interrupted session whose audio survived in the
+          // local ring; set by the Studio's recovery banner.
+          recoverSessionId={routeQuery.get("recover") || undefined}
           templatesMap={templatesMap}
           onAddTemplate={handleAddTemplate}
           templatesLoading={templatesReq.loading}
@@ -476,7 +575,7 @@ function App() {
   else if (chatModuleEnabled && (routePath === CHAT_BASE_PATH || routePath.startsWith(`${CHAT_BASE_PATH}/`))) {
     view = (
       <RequireClinical navigate={navigate}>
-        <ChatHostRoute route={r} navigate={navigate} lang={lang} theme={tweaks.theme} onToast={fireToast} />
+        <ChatHostRoute route={r} navigate={navigate} lang={lang} theme={resolvedTheme} onToast={fireToast} />
       </RequireClinical>
     );
     crumbs = [{ label: tr(lang, "Доказовий чат", "Evidence chat") }];
@@ -526,12 +625,26 @@ function App() {
     ];
   }
   // ── settings ───────────────────────────────────────────────
-  else if (r === "/settings") {
-    view = <SettingsPage lang={lang} tweaks={tweaks} setTweak={setTweak} navigate={navigate} />;
+  else if (routePath === "/settings") {
+    // ?s=<section id> deep-links a card (e.g. /settings?s=account from the
+    // profile's password row).
+    view = <SettingsPage lang={lang} tweaks={tweaks} setTweak={setTweak} navigate={navigate} onToast={fireToast} section={routeQuery.get("s") || undefined} />;
     crumbs = [{ label: tr(lang, "Налаштування", "Settings") }];
   }
   // ── notifications (sprint 12) ──────────────────────────────
-  else if (r === "/settings/notifications" || r === "/notifications") {
+  // Two screens, deliberately split: /notifications is the history (what
+  // happened), /settings/notifications is the preferences matrix (what
+  // should happen next). deepLink.js sends system.digest rows to the
+  // former, which is the archive they summarise.
+  else if (r === "/notifications") {
+    view = (
+      <RequireAuth navigate={navigate}>
+        <NotificationsPage lang={lang} navigate={navigate} />
+      </RequireAuth>
+    );
+    crumbs = [{ label: tr(lang, "Сповіщення", "Notifications") }];
+  }
+  else if (r === "/settings/notifications") {
     view = <NotificationPreferencesPage lang={lang} navigate={navigate} />;
     crumbs = [
       { label: tr(lang, "Налаштування", "Settings"), path: "/settings", onClick: () => navigate("/settings") },
@@ -577,22 +690,13 @@ function App() {
     view = <RequireAuth navigate={navigate}><MePage lang={lang} /></RequireAuth>;
     crumbs = [{ label: tr(lang, "Ідентичність", "Identity") }];
   }
-  // ── admin ──────────────────────────────────────────────────
-  else if (r === "/admin/privacy") {
-    view = (
-      <RequireRole any={["tenant_admin", "super_admin"]} navigate={navigate}>
-        <PrivacyAdminPage lang={lang} navigate={navigate} />
-      </RequireRole>
-    );
-    crumbs = [{ label: tr(lang, "Адмін", "Admin") }, { label: tr(lang, "Приватність", "Privacy") }];
-  }
-  else if (r === "/admin/users") {
-    view = (
-      <RequireRole any={["tenant_admin"]} navigate={navigate}>
-        <AdminUsersPage lang={lang} onToast={fireToast} />
-      </RequireRole>
-    );
-    crumbs = [{ label: tr(lang, "Адмін", "Admin") }, { label: tr(lang, "Користувачі", "Users") }];
+  // ── admin console (sprint 17) ──────────────────────────────
+  // ONE branch, the EvidenceRoutes pattern: the route table, the role gates
+  // and the console chrome all live in src/admin/AdminRoutes.jsx. /admin/users
+  // and /admin/privacy moved in there; their paths are unchanged.
+  else if (isAdminRoute(r)) {
+    view = <AdminRoutes route={r} navigate={navigate} lang={lang} onToast={fireToast} />;
+    crumbs = adminCrumbs(r, lang) || [];
   }
   // ── clinic / tenant ────────────────────────────────────────
   else if (r === "/tenant" || r === "/tenant/settings") {
@@ -666,7 +770,10 @@ function App() {
     <TweaksPanel title="Tweaks">
       <TweakSection label="Display" />
       <TweakRadio label="Theme" value={tweaks.theme}
-        options={["light", "dark"]}
+        /* `system` is resolved in the shell, so this radio stays a plain
+           three-way choice and the panel shows what was CHOSEN, not what it
+           resolved to. */
+        options={["light", "dark", "system"]}
         onChange={(v) => setTweak("theme", v)} />
       <TweakRadio label="Density" value={tweaks.density}
         options={["comfortable", "compact"]}
@@ -675,7 +782,7 @@ function App() {
         options={LANGS.map((l) => ({ value: l.code, label: l.label }))}
         onChange={(v) => setTweak("lang", v)} />
       <TweakColor label="Accent" value={tweaks.accent}
-        options={["#0a8a7a", "#2563eb", "#7c3aed", "#0f172a", "#dc2626"]}
+        options={ACCENT_VALUES}
         onChange={(v) => setTweak("accent", v)} />
     </TweaksPanel>
   );
@@ -725,6 +832,8 @@ function App() {
               crumbs={crumbs}
               title={title}
               lang={lang}
+              /* The search palette navigates, so the bar needs the router. */
+              navigate={navigate}
               right={<NotificationBell lang={lang} navigate={navigate} />}
             />
           )}

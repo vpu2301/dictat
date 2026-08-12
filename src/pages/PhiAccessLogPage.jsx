@@ -9,10 +9,13 @@
 // /audit/events) and never see the grant itself: its reason, its expiry, or
 // whether it was used once or forty times.
 //
-// Everything here is LIVE. The one thing the backend cannot answer is a
-// server-side export of the full history — the endpoint caps at limit=200 and
-// takes no cursor — so the CSV button is scoped to "what is on screen" and
-// says so, rather than pretending to be a complete extract.
+// Everything here is LIVE, and READ-ONLY — there is no export (2026-08-09
+// hotfix). This is the break-glass compliance view, and the same stance the
+// sprint-17 audit viewer takes applies with more force here: the rows name a
+// patient, a reason and a person, and a one-click file drop of that from an
+// oversight screen is a data-leak surface that the DSAR and legal paths
+// already own properly. `src/admin/noAuditExport.test.js` pins the absence for
+// the audit viewer; `breakGlassReview.test.js` pins it for this page.
 import React, { useCallback, useMemo, useState } from "react";
 import { Icon } from "../components/UI.jsx";
 import { MenuSelect } from "../components/MenuSelect.jsx";
@@ -45,11 +48,6 @@ const STATE_LABEL = {
   expired: { uk: "Завершено", en: "Expired" },
   revoked: { uk: "Відкликано", en: "Revoked" },
 };
-
-function csvEscape(v) {
-  const s = v == null ? "" : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 export function PhiAccessLogPage({ lang = "en" }) {
   const T = (uk, en) => tr(lang, uk, en);
@@ -92,26 +90,6 @@ export function PhiAccessLogPage({ lang = "en" }) {
     }
   }, [req, lang]);
 
-  const exportCsv = () => {
-    const head = [
-      "granted_at", "expires_at", "revoked_at", "state", "requested_by",
-      "reason_code", "reason_note", "resource_kind", "resource_id",
-      "patient_id", "use_count", "last_used_at",
-    ];
-    const lines = [head.join(",")].concat(items.map((g) => [
-      g.granted_at, g.expires_at, g.revoked_at || "", grantState(g, now),
-      `${nameFor(g.requested_by)} <${g.requested_by}>`,
-      g.reason_code, g.reason_note || "", g.resource_kind, g.resource_id,
-      g.patient_id || "", g.use_count, g.last_used_at || "",
-    ].map(csvEscape).join(",")));
-    const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `phi-access-log-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  };
-
   return (
     <div className="page">
       <div className="page-h">
@@ -122,9 +100,6 @@ export function PhiAccessLogPage({ lang = "en" }) {
                "Who opened patient records without a standing right of access — the grounds, the window, and how many times the record was read.")}
           </p>
         </div>
-        <button className="btn" onClick={exportCsv} disabled={items.length === 0}>
-          <Icon name="download" size={13} /> {T("Експорт CSV", "Export CSV")}
-        </button>
       </div>
 
       <div className="ptable-toolbar">

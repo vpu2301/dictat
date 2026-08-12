@@ -290,7 +290,7 @@ export const CAPABILITIES = [
 ];
 
 // Health dot for a capability — readiness probe of its backing service.
-// Returns "ready" | "starting" | "down". Mirrors HealthBadge semantics.
+// Returns "ready" | "starting" | "down". Mirrors ServiceHealth semantics.
 export async function probeService(serviceKey) {
   const base = SERVICES[serviceKey];
   if (!base) return "down";

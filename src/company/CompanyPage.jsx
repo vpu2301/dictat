@@ -21,7 +21,10 @@ import { APP_VERSION } from "../api/services.js";
 import { OverviewTab } from "./panels/OverviewTab.jsx";
 import { BusinessTab } from "./panels/BusinessTab.jsx";
 import { TenantsTab } from "./panels/TenantsTab.jsx";
+import { PeopleTab } from "./panels/PeopleTab.jsx";
 import { TemplatesTab } from "./panels/TemplatesTab.jsx";
+import { ContentTab } from "./panels/ContentTab.jsx";
+import { GovernanceTab } from "./panels/GovernanceTab.jsx";
 import { UsageTab } from "./panels/UsageTab.jsx";
 import { SubscriptionsTab } from "./panels/SubscriptionsTab.jsx";
 import { TechnicalTab } from "./panels/TechnicalTab.jsx";
@@ -43,12 +46,15 @@ export const COMPANY_TABS = [
   { id: "subscriptions", group: "company",   icon: "tag",      uk: "Підписки",      en: "Subscriptions" },
   { id: "support",       group: "company",   icon: "inbox",    uk: "Підтримка",     en: "Support" },
   { id: "tenants",       group: "customers", icon: "building", uk: "Тенанти",       en: "Tenants" },
+  { id: "people",        group: "customers", icon: "users",    uk: "Люди",          en: "People" },
   { id: "templates",     group: "customers", icon: "layers",   uk: "Шаблони",       en: "Templates" },
+  { id: "content",       group: "customers", icon: "book",     uk: "Контент",       en: "Content" },
   { id: "usage",         group: "customers", icon: "activity", uk: "Використання",  en: "Usage" },
   { id: "technical",     group: "platform",  icon: "layers",   uk: "Технічно",      en: "Technical" },
   { id: "telemetry",     group: "platform",  icon: "pulse",    uk: "Телеметрія",    en: "Telemetry" },
   { id: "errors",        group: "platform",  icon: "alert",    uk: "Помилки",       en: "Errors" },
   { id: "security",      group: "platform",  icon: "shield",   uk: "Безпека",       en: "Security" },
+  { id: "governance",    group: "platform",  icon: "eye",      uk: "Нагляд",        en: "Governance" },
   { id: "operations",    group: "platform",  icon: "sliders",  uk: "Операції",      en: "Operations" },
   { id: "infrastructure", group: "platform", icon: "globe",    uk: "Інфраструктура", en: "Infrastructure" },
   { id: "roadmap",       group: "platform",  icon: "sparkle",  uk: "Дорожня карта", en: "Roadmap" },
@@ -178,12 +184,15 @@ export function CompanyPage({ lang = "en", navigate, tab = "overview" }) {
           {activeTab === "subscriptions" && <SubscriptionsTab lang={lang} />}
           {activeTab === "support"       && <SupportTab lang={lang} rangeDays={rangeDays} />}
           {activeTab === "tenants"       && <TenantsTab lang={lang} activeTid={activeTid} />}
+          {activeTab === "people"        && <PeopleTab lang={lang} />}
           {activeTab === "templates"     && <TemplatesTab lang={lang} />}
+          {activeTab === "content"       && <ContentTab lang={lang} navigate={navigate} />}
           {activeTab === "usage"         && <UsageTab lang={lang} rangeDays={rangeDays} navigate={navigate} />}
           {activeTab === "technical"     && <TechnicalTab lang={lang} />}
           {activeTab === "telemetry"     && <TelemetryTab lang={lang} rangeDays={rangeDays} navigate={navigate} />}
           {activeTab === "errors"        && <ErrorsTab lang={lang} rangeDays={rangeDays} />}
           {activeTab === "security"      && <SecurityTab lang={lang} rangeDays={rangeDays} navigate={navigate} />}
+          {activeTab === "governance"    && <GovernanceTab lang={lang} navigate={navigate} />}
           {activeTab === "operations"    && <OperationsTab lang={lang} rangeDays={rangeDays} navigate={navigate} />}
           {activeTab === "infrastructure" && <InfrastructureTab lang={lang} />}
           {activeTab === "roadmap"       && <RoadmapTab lang={lang} />}
