@@ -1,54 +1,42 @@
 // LandingPage.jsx — Public marketing landing for Klarnote.
-// Sticky menu, hero, products, features, workflow, security, CTA, footer.
-// Bilingual (uk/en) via the shared `lang` tweak; no auth required.
+//
+// Hero, trust, THE CLOSED LOOP, where-it-works, features, the moat, security,
+// CTA. Localised into eleven languages via the shared `lang` tweak; no auth.
+//
+// The loop and moat sections do NOT keep their copy here. They read from
+// marketing/positioning.js, which is the single source for the category story
+// (Sovereign Ambient Trust Platform: Listen → Verify → Authorize) shared with
+// /platform and the three pillar pages under /product. The sections this page
+// used to carry — "two products" and a 01/02/03 workflow — were folded into
+// that loop: they told the same sequence twice and neither named the category.
 import React from "react";
 import { Icon } from "../components/UI.jsx";
 import { MarketingShell } from "./marketing/MarketingShell.jsx";
+import { positioning, pillars, moatItems } from "./marketing/positioning.js";
+import { WorkflowGraph } from "./marketing/WorkflowGraph.jsx";
+import { VoiceReadout } from "./marketing/VoiceReadout.jsx";
+import { DICTATIONS, HERO_SEQUENCE } from "./marketing/dictations.js";
 import { tr } from "../i18n.js";
 
 /* ── Copy ─────────────────────────────────────────────────────
-   One bilingual dictionary keeps the marketing surface readable
-   and easy to keep in sync between Ukrainian and English. */
+   One dictionary per language keeps the marketing surface readable
+   and easy to keep in sync across the eleven we ship. */
 const COPY = {
   uk: {
     nav: { product: "Продукт", features: "Можливості", workflow: "Як це працює", security: "Безпека", signin: "Увійти", start: "Запросити доступ" },
     hero: {
-      eyebrow: "Медичне диктування нового покоління",
-      title: "Клінічна документація голосом — швидко, точно, безпечно",
-      sub: "Klarnote перетворює мову лікаря на структуровані медичні нотатки в реальному часі. Менше друку, більше часу для пацієнта.",
+      title: "Розмова з пацієнтом стає перевіреним і підписаним медичним записом",
+      sub: "Klarnote слухає прийом, звіряє нотатку з локалізованою клінічною доказовою базою та доводить її до кваліфікованого електронного підпису — в одному безперервному процесі, на вашій інфраструктурі.",
       ctaPrimary: "Почати безкоштовно",
       ctaSecondary: "Подивитися можливості",
-      note: "Self-hosted моделі • Дані не залишають вашого розгортання",
+      note: "Self-hosted моделі • Дані не залишають вашого розгортання • Підпис КЕП",
     },
     trust: "Створено для клінік, лікарень і приватної практики",
     stats: [
       { v: "98%", l: "точність розпізнавання медичної мови" },
       { v: "3×", l: "швидше за ручне введення" },
-      { v: "2 мови", l: "українська та англійська" },
+      { v: "12 мов", l: "інтерфейс; диктування — укр., англ., нім." },
       { v: "24/7", l: "доступ із будь-якого пристрою" },
-    ],
-    principlesTitle: "Збудовано на трьох непорушних принципах",
-    principlesSub: "Це не маркетинг, а архітектурні обмеження — закладені в систему, а не дописані згори.",
-    principles: [
-      { icon: "home", t: "Суверенітет даних", d: "Усе ASR і генерація працюють на self-hosted відкритих моделях. Жодне аудіо, транскрипт чи нотатка не йдуть до сторонніх API." },
-      { icon: "user", t: "Лікар у контурі", d: "Система готує чернетку, але не діагностує. Жоден документ не фіналізується автоматично — останнє слово за лікарем." },
-      { icon: "layers", t: "Ізоляція тенантів", d: "Код ніколи не фільтрує за тенантом — це робить база даних через row-level security. Відсутній фільтр не може призвести до витоку." },
-    ],
-    productsTitle: "Два продукти — один робочий процес",
-    productsSub: "Оберіть режим під свій сценарій: амбулаторний прийом або класичне диктування звітів.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Амбулаторний скрайб",
-        body: "Веде прийом разом з вами: фіксує розмову з пацієнтом, формує структуровану нотатку та підказує наступні кроки.",
-        points: ["Згода пацієнта та індикатор запису", "Профілі пацієнтів і таймлайн візитів", "Автоматична структура нотатки"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Диктування звітів",
-        body: "Класичне диктування для радіології, патології та виписок із шаблонами, голосовими командами та порівнянням версій.",
-        points: ["Шаблони звітів і голосові команди", "Порівняння змін та амендменти", "Експорт, друк і підписання"],
-      },
     ],
     settingsTitle: "Один скрайб — будь-яка ситуація",
     settingsSub: "Очний прийом, відеоконсультація, обхід чи операційна — Klarnote слухає й документує всюди.",
@@ -67,12 +55,6 @@ const COPY = {
       { icon: "history", t: "Версії та амендменти", d: "Повна історія змін, порівняння діфів і коректне внесення правок.", path: "/features/versions" },
       { icon: "sign", t: "Електронний підпис Дія", d: "Підписання документів через Дія з публічною перевіркою за посиланням.", path: "/features/signature" },
       { icon: "shield", t: "Аудит і відповідність", d: "Журнал подій, перевірка цілісності та рольовий доступ.", path: "/features/audit" },
-    ],
-    workflowTitle: "Від голосу до підписаного документа",
-    workflow: [
-      { n: "01", t: "Говоріть", d: "Почніть прийом або диктування — Klarnote розпізнає мову в реальному часі." },
-      { n: "02", t: "Перевірте", d: "Структурована нотатка з підсвіченими сумнівними місцями для швидкої правки." },
-      { n: "03", t: "Підпишіть", d: "Підпишіть через Дія та поділіться посиланням для перевірки." },
     ],
     securityTitle: "Безпека та приватність за замовчуванням",
     securitySub: "Дані пацієнтів захищені на кожному етапі — від запису до архіву.",
@@ -98,42 +80,18 @@ const COPY = {
   en: {
     nav: { product: "Product", features: "Features", workflow: "How it works", security: "Security", signin: "Sign in", start: "Request access" },
     hero: {
-      eyebrow: "Next-generation medical dictation",
-      title: "Clinical documentation by voice — fast, accurate, secure",
-      sub: "Klarnote turns a clinician's speech into structured medical notes in real time. Less typing, more time for the patient.",
+      title: "The consultation becomes an evidence-checked, legally signed medical record",
+      sub: "Klarnote listens to the visit, verifies the note against localized clinical evidence, and carries it through a qualified electronic signature — one continuous workflow, on infrastructure you control.",
       ctaPrimary: "Get started free",
       ctaSecondary: "See features",
-      note: "Self-hosted models • Data never leaves your deployment",
+      note: "Self-hosted models • Data never leaves your deployment • QES/КЕП signing",
     },
     trust: "Built for clinics, hospitals and private practice",
     stats: [
       { v: "98%", l: "medical speech recognition accuracy" },
       { v: "3×", l: "faster than manual entry" },
-      { v: "2 languages", l: "Ukrainian and English" },
+      { v: "12 languages", l: "interface; dictation in UK, EN, DE" },
       { v: "24/7", l: "access from any device" },
-    ],
-    principlesTitle: "Built on three non-negotiable principles",
-    principlesSub: "Not marketing but architectural constraints — built into the system, not bolted on afterwards.",
-    principles: [
-      { icon: "home", t: "Data sovereignty", d: "All ASR and generation run on self-hosted, open-licensed models. No audio, transcript or note ever goes to a third-party API." },
-      { icon: "user", t: "Clinician in the loop", d: "The system drafts, it does not diagnose. Nothing is finalized automatically — the clinician always has the last word." },
-      { icon: "layers", t: "Tenant isolation", d: "Application code never filters by tenant — the database does, via row-level security. A missing filter can't leak data." },
-    ],
-    productsTitle: "Two products — one workflow",
-    productsSub: "Pick the mode for your scenario: ambient encounters or classic report dictation.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Ambient scribe",
-        body: "Runs the visit with you: captures the patient conversation, builds a structured note and suggests next steps.",
-        points: ["Patient consent & recording indicator", "Patient profiles and visit timeline", "Automatic note structure"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Report dictation",
-        body: "Classic dictation for radiology, pathology and discharge summaries with templates, voice commands and version diffs.",
-        points: ["Report templates and voice commands", "Change diffs and amendments", "Export, print and sign"],
-      },
     ],
     settingsTitle: "One scribe, every setting",
     settingsSub: "In the room, on a video call, on the ward round or in theatre — Klarnote listens and documents everywhere.",
@@ -152,12 +110,6 @@ const COPY = {
       { icon: "history", t: "Versions & amendments", d: "Full change history, diff comparison and correct amendment flow.", path: "/features/versions" },
       { icon: "sign", t: "Дія e-signature", d: "Sign documents via Дія with public link verification.", path: "/features/signature" },
       { icon: "shield", t: "Audit & compliance", d: "Event log, integrity verification and role-based access.", path: "/features/audit" },
-    ],
-    workflowTitle: "From voice to a signed document",
-    workflow: [
-      { n: "01", t: "Speak", d: "Start an encounter or dictation — Klarnote recognizes speech in real time." },
-      { n: "02", t: "Review", d: "A structured note with uncertain spots highlighted for fast edits." },
-      { n: "03", t: "Sign", d: "Sign via Дія and share a verification link." },
     ],
     securityTitle: "Security and privacy by default",
     securitySub: "Patient data is protected at every step — from recording to archive.",
@@ -183,42 +135,18 @@ const COPY = {
   pl: {
     nav: { product: "Produkt", features: "Funkcje", workflow: "Jak to działa", security: "Bezpieczeństwo", signin: "Zaloguj się", start: "Poproś o dostęp" },
     hero: {
-      eyebrow: "Dyktowanie medyczne nowej generacji",
-      title: "Dokumentacja kliniczna głosem — szybko, dokładnie, bezpiecznie",
-      sub: "Klarnote zamienia mowę lekarza w ustrukturyzowane notatki medyczne w czasie rzeczywistym. Mniej pisania, więcej czasu dla pacjenta.",
+      title: "Rozmowa z pacjentem staje się zweryfikowaną i prawnie podpisaną dokumentacją",
+      sub: "Klarnote słucha wizyty, weryfikuje notatkę wobec zlokalizowanych dowodów klinicznych i doprowadza ją do kwalifikowanego podpisu elektronicznego — w jednym ciągłym przepływie, na Twojej infrastrukturze.",
       ctaPrimary: "Zacznij za darmo",
       ctaSecondary: "Zobacz funkcje",
-      note: "Modele self-hosted • Dane nigdy nie opuszczają Twojego wdrożenia",
+      note: "Modele we własnej infrastrukturze • Dane nie opuszczają Twojego wdrożenia • Podpis QES/КЕП",
     },
     trust: "Stworzone dla klinik, szpitali i prywatnej praktyki",
     stats: [
       { v: "98%", l: "dokładności rozpoznawania mowy medycznej" },
       { v: "3×", l: "szybciej niż wprowadzanie ręczne" },
-      { v: "2 języki", l: "ukraiński i angielski" },
+      { v: "12 języków", l: "interfejs; dyktowanie: UK, EN, DE" },
       { v: "24/7", l: "dostęp z dowolnego urządzenia" },
-    ],
-    principlesTitle: "Zbudowane na trzech niepodważalnych zasadach",
-    principlesSub: "To nie marketing, lecz ograniczenia architektoniczne — wbudowane w system, a nie dodane później.",
-    principles: [
-      { icon: "home", t: "Suwerenność danych", d: "Całe ASR i generowanie działają na self-hosted modelach o otwartych licencjach. Żadne nagranie, transkrypcja ani notatka nigdy nie trafiają do zewnętrznego API." },
-      { icon: "user", t: "Lekarz w pętli decyzyjnej", d: "System tworzy szkic, ale nie diagnozuje. Nic nie jest finalizowane automatycznie — ostatnie słowo zawsze należy do lekarza." },
-      { icon: "layers", t: "Izolacja tenantów", d: "Kod aplikacji nigdy nie filtruje według tenanta — robi to baza danych poprzez row-level security. Brakujący filtr nie może spowodować wycieku danych." },
-    ],
-    productsTitle: "Dwa produkty — jeden przepływ pracy",
-    productsSub: "Wybierz tryb dla swojego scenariusza: wizyty z asystą głosową lub klasyczne dyktowanie raportów.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Asystent wizyty",
-        body: "Prowadzi wizytę razem z Tobą: rejestruje rozmowę z pacjentem, tworzy ustrukturyzowaną notatkę i podpowiada kolejne kroki.",
-        points: ["Zgoda pacjenta i wskaźnik nagrywania", "Profile pacjentów i oś czasu wizyt", "Automatyczna struktura notatki"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Dyktowanie raportów",
-        body: "Klasyczne dyktowanie dla radiologii, patologii i wypisów — z szablonami, poleceniami głosowymi i porównywaniem wersji.",
-        points: ["Szablony raportów i polecenia głosowe", "Porównywanie zmian i korekty", "Eksport, druk i podpis"],
-      },
     ],
     settingsTitle: "Jeden skryba, każda sytuacja",
     settingsSub: "W gabinecie, na wideorozmowie, na obchodzie czy na bloku — Klarnote słucha i dokumentuje wszędzie.",
@@ -237,12 +165,6 @@ const COPY = {
       { icon: "history", t: "Wersje i korekty", d: "Pełna historia zmian, porównywanie różnic i poprawny proces wprowadzania korekt.", path: "/features/versions" },
       { icon: "sign", t: "Podpis elektroniczny Дія", d: "Podpisywanie dokumentów przez Дія z publiczną weryfikacją przez link.", path: "/features/signature" },
       { icon: "shield", t: "Audyt i zgodność", d: "Dziennik zdarzeń, weryfikacja integralności i dostęp oparty na rolach.", path: "/features/audit" },
-    ],
-    workflowTitle: "Od głosu do podpisanego dokumentu",
-    workflow: [
-      { n: "01", t: "Mów", d: "Rozpocznij wizytę lub dyktowanie — Klarnote rozpoznaje mowę w czasie rzeczywistym." },
-      { n: "02", t: "Sprawdź", d: "Ustrukturyzowana notatka z podświetlonymi niepewnymi miejscami do szybkiej edycji." },
-      { n: "03", t: "Podpisz", d: "Podpisz przez Дія i udostępnij link weryfikacyjny." },
     ],
     securityTitle: "Bezpieczeństwo i prywatność w standardzie",
     securitySub: "Dane pacjentów są chronione na każdym etapie — od nagrania po archiwum.",
@@ -268,42 +190,18 @@ const COPY = {
   de: {
     nav: { product: "Produkt", features: "Funktionen", workflow: "So funktioniert es", security: "Sicherheit", signin: "Anmelden", start: "Zugang anfragen" },
     hero: {
-      eyebrow: "Medizinisches Diktieren der nächsten Generation",
-      title: "Klinische Dokumentation per Stimme — schnell, präzise, sicher",
-      sub: "Klarnote wandelt ärztliche Sprache in Echtzeit in strukturierte medizinische Notizen um. Weniger Tippen, mehr Zeit für den Patienten.",
+      title: "Aus dem Gespräch wird eine evidenzgeprüfte, rechtsverbindlich signierte Akte",
+      sub: "Klarnote hört der Sprechstunde zu, prüft die Notiz gegen lokalisierte klinische Evidenz und führt sie bis zur qualifizierten elektronischen Signatur — ein durchgehender Ablauf, auf Ihrer eigenen Infrastruktur.",
       ctaPrimary: "Kostenlos starten",
       ctaSecondary: "Funktionen ansehen",
-      note: "Self-hosted Modelle • Daten verlassen niemals Ihr Deployment",
+      note: "Selbst gehostete Modelle • Daten verlassen Ihre Installation nicht • QES/КЕП-Signatur",
     },
     trust: "Entwickelt für Kliniken, Krankenhäuser und Privatpraxen",
     stats: [
       { v: "98%", l: "Erkennungsgenauigkeit bei medizinischer Sprache" },
       { v: "3×", l: "schneller als manuelle Eingabe" },
-      { v: "2 Sprachen", l: "Ukrainisch und Englisch" },
+      { v: "12 Sprachen", l: "Oberfläche; Diktat: UK, EN, DE" },
       { v: "24/7", l: "Zugriff von jedem Gerät" },
-    ],
-    principlesTitle: "Auf drei unverhandelbaren Prinzipien aufgebaut",
-    principlesSub: "Kein Marketing, sondern architektonische Vorgaben — fest im System verankert, nicht nachträglich ergänzt.",
-    principles: [
-      { icon: "home", t: "Datensouveränität", d: "ASR und Generierung laufen vollständig auf self-hosted Modellen mit offener Lizenz. Weder Audio noch Transkripte oder Notizen gehen jemals an eine Drittanbieter-API." },
-      { icon: "user", t: "Arzt in der Schleife", d: "Das System erstellt Entwürfe, es diagnostiziert nicht. Nichts wird automatisch finalisiert — das letzte Wort hat immer der Arzt." },
-      { icon: "layers", t: "Mandantentrennung", d: "Der Anwendungscode filtert niemals nach Mandanten — das übernimmt die Datenbank per Row-Level Security. Ein fehlender Filter kann keine Daten preisgeben." },
-    ],
-    productsTitle: "Zwei Produkte — ein Workflow",
-    productsSub: "Wählen Sie den Modus für Ihr Szenario: begleitete Sprechstunden oder klassisches Befunddiktat.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Ambient-Scribe",
-        body: "Begleitet die Sprechstunde mit Ihnen: erfasst das Patientengespräch, erstellt eine strukturierte Notiz und schlägt nächste Schritte vor.",
-        points: ["Patienteneinwilligung & Aufnahmeindikator", "Patientenprofile und Besuchsverlauf", "Automatische Notizstruktur"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Befunddiktat",
-        body: "Klassisches Diktieren für Radiologie, Pathologie und Entlassbriefe mit Vorlagen, Sprachbefehlen und Versionsvergleich.",
-        points: ["Befundvorlagen und Sprachbefehle", "Änderungsvergleich und Nachträge", "Exportieren, Drucken und Signieren"],
-      },
     ],
     settingsTitle: "Ein Scribe, jede Situation",
     settingsSub: "Im Sprechzimmer, im Videogespräch, bei der Visite oder im OP — Klarnote hört zu und dokumentiert überall.",
@@ -322,12 +220,6 @@ const COPY = {
       { icon: "history", t: "Versionen & Nachträge", d: "Vollständige Änderungshistorie, Diff-Vergleich und korrekter Nachtragsprozess.", path: "/features/versions" },
       { icon: "sign", t: "Дія-E-Signatur", d: "Dokumente über Дія signieren, mit öffentlicher Verifizierung per Link.", path: "/features/signature" },
       { icon: "shield", t: "Audit & Compliance", d: "Ereignisprotokoll, Integritätsprüfung und rollenbasierter Zugriff.", path: "/features/audit" },
-    ],
-    workflowTitle: "Von der Stimme zum signierten Dokument",
-    workflow: [
-      { n: "01", t: "Sprechen", d: "Starten Sie eine Konsultation oder ein Diktat — Klarnote erkennt Sprache in Echtzeit." },
-      { n: "02", t: "Prüfen", d: "Eine strukturierte Notiz mit hervorgehobenen unsicheren Stellen für schnelle Korrekturen." },
-      { n: "03", t: "Signieren", d: "Signieren Sie über Дія und teilen Sie einen Verifizierungslink." },
     ],
     securityTitle: "Sicherheit und Datenschutz als Standard",
     securitySub: "Patientendaten sind bei jedem Schritt geschützt — von der Aufnahme bis zum Archiv.",
@@ -353,42 +245,18 @@ const COPY = {
   ro: {
     nav: { product: "Produs", features: "Funcționalități", workflow: "Cum funcționează", security: "Securitate", signin: "Autentificare", start: "Solicită acces" },
     hero: {
-      eyebrow: "Dictare medicală de nouă generație",
-      title: "Documentație clinică prin voce — rapid, precis, sigur",
-      sub: "Klarnote transformă vorbirea medicului în notițe medicale structurate, în timp real. Mai puțin tastat, mai mult timp pentru pacient.",
+      title: "Consultația devine un document medical verificat și semnat legal",
+      sub: "Klarnote ascultă consultația, verifică nota față de dovezi clinice localizate și o duce până la semnătura electronică calificată — un singur flux continuu, pe infrastructura dumneavoastră.",
       ctaPrimary: "Începe gratuit",
       ctaSecondary: "Vezi funcționalitățile",
-      note: "Modele self-hosted • Datele nu părăsesc niciodată infrastructura dumneavoastră",
+      note: "Modele găzduite local • Datele nu părăsesc instalarea dumneavoastră • Semnătură QES/КЕП",
     },
     trust: "Creat pentru clinici, spitale și cabinete private",
     stats: [
       { v: "98%", l: "acuratețe în recunoașterea limbajului medical" },
       { v: "3×", l: "mai rapid decât introducerea manuală" },
-      { v: "2 limbi", l: "ucraineană și engleză" },
+      { v: "12 limbi", l: "interfață; dictare: UK, EN, DE" },
       { v: "24/7", l: "acces de pe orice dispozitiv" },
-    ],
-    principlesTitle: "Construit pe trei principii nenegociabile",
-    principlesSub: "Nu este marketing, ci constrângeri arhitecturale — integrate în sistem, nu adăugate ulterior.",
-    principles: [
-      { icon: "home", t: "Suveranitatea datelor", d: "Întregul ASR și generarea rulează pe modele self-hosted, cu licență deschisă. Niciun fișier audio, transcript sau notiță nu ajunge vreodată la un API terț." },
-      { icon: "user", t: "Medicul deține controlul", d: "Sistemul redactează, nu diagnostichează. Nimic nu este finalizat automat — medicul are întotdeauna ultimul cuvânt." },
-      { icon: "layers", t: "Izolarea tenanților", d: "Codul aplicației nu filtrează niciodată după tenant — o face baza de date, prin row-level security. Un filtru lipsă nu poate provoca scurgeri de date." },
-    ],
-    productsTitle: "Două produse — un singur flux de lucru",
-    productsSub: "Alegeți modul potrivit scenariului dumneavoastră: consultații asistate sau dictare clasică de rapoarte.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Scrib de consultație",
-        body: "Conduce consultația împreună cu dumneavoastră: înregistrează conversația cu pacientul, construiește o notiță structurată și sugerează pașii următori.",
-        points: ["Consimțământul pacientului și indicator de înregistrare", "Profiluri de pacienți și cronologia vizitelor", "Structură automată a notiței"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Dictare de rapoarte",
-        body: "Dictare clasică pentru radiologie, patologie și scrisori de externare, cu șabloane, comenzi vocale și comparare de versiuni.",
-        points: ["Șabloane de rapoarte și comenzi vocale", "Compararea modificărilor și amendamente", "Export, tipărire și semnare"],
-      },
     ],
     settingsTitle: "Un singur scrib, orice context",
     settingsSub: "În cabinet, în apel video, la vizită sau în sala de operație — Klarnote ascultă și documentează peste tot.",
@@ -407,12 +275,6 @@ const COPY = {
       { icon: "history", t: "Versiuni și amendamente", d: "Istoric complet al modificărilor, comparare a diferențelor și flux corect de amendare.", path: "/features/versions" },
       { icon: "sign", t: "Semnătură electronică Дія", d: "Semnați documente prin Дія, cu verificare publică prin link.", path: "/features/signature" },
       { icon: "shield", t: "Audit și conformitate", d: "Jurnal de evenimente, verificarea integrității și acces bazat pe roluri.", path: "/features/audit" },
-    ],
-    workflowTitle: "De la voce la un document semnat",
-    workflow: [
-      { n: "01", t: "Vorbiți", d: "Începeți o consultație sau o dictare — Klarnote recunoaște vorbirea în timp real." },
-      { n: "02", t: "Verificați", d: "O notiță structurată, cu pasajele incerte evidențiate pentru corecturi rapide." },
-      { n: "03", t: "Semnați", d: "Semnați prin Дія și distribuiți un link de verificare." },
     ],
     securityTitle: "Securitate și confidențialitate în mod implicit",
     securitySub: "Datele pacienților sunt protejate la fiecare pas — de la înregistrare până la arhivare.",
@@ -438,42 +300,18 @@ const COPY = {
   cs: {
     nav: { product: "Produkt", features: "Funkce", workflow: "Jak to funguje", security: "Zabezpečení", signin: "Přihlásit se", start: "Požádat o přístup" },
     hero: {
-      eyebrow: "Lékařské diktování nové generace",
-      title: "Klinická dokumentace hlasem — rychle, přesně, bezpečně",
-      sub: "Klarnote převádí řeč lékaře na strukturované lékařské záznamy v reálném čase. Méně psaní, více času pro pacienta.",
+      title: "Z rozhovoru s pacientem se stává ověřený a právně podepsaný záznam",
+      sub: "Klarnote naslouchá návštěvě, ověřuje poznámku vůči lokalizovaným klinickým důkazům a dovede ji ke kvalifikovanému elektronickému podpisu — jeden souvislý postup, na vaší infrastruktuře.",
       ctaPrimary: "Začněte zdarma",
       ctaSecondary: "Prohlédnout funkce",
-      note: "Self-hosted modely • Data nikdy neopustí vaše nasazení",
+      note: "Vlastní modely • Data neopouštějí vaše nasazení • Podpis QES/КЕП",
     },
     trust: "Vytvořeno pro kliniky, nemocnice i soukromé praxe",
     stats: [
       { v: "98%", l: "přesnost rozpoznávání lékařské řeči" },
       { v: "3×", l: "rychlejší než ruční zápis" },
-      { v: "2 jazyky", l: "ukrajinština a angličtina" },
+      { v: "12 jazyků", l: "rozhraní; diktování: UK, EN, DE" },
       { v: "24/7", l: "přístup z jakéhokoli zařízení" },
-    ],
-    principlesTitle: "Postaveno na třech nekompromisních principech",
-    principlesSub: "Ne marketing, ale architektonická omezení — zabudovaná do systému, nikoli doplněná dodatečně.",
-    principles: [
-      { icon: "home", t: "Suverenita dat", d: "Veškeré rozpoznávání řeči i generování běží na self-hosted modelech s otevřenou licencí. Žádný zvukový záznam, přepis ani poznámka nikdy neputují do API třetí strany." },
-      { icon: "user", t: "Lékař má rozhodující slovo", d: "Systém navrhuje, nediagnostikuje. Nic se nedokončuje automaticky — poslední slovo má vždy lékař." },
-      { icon: "layers", t: "Izolace tenantů", d: "Aplikační kód nikdy nefiltruje podle tenanta — dělá to databáze pomocí row-level security. Chybějící filtr nemůže způsobit únik dat." },
-    ],
-    productsTitle: "Dva produkty — jeden pracovní postup",
-    productsSub: "Zvolte režim pro váš scénář: ambientní vyšetření, nebo klasické diktování zpráv.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Ambientní zapisovatel",
-        body: "Vede návštěvu s vámi: zaznamenává rozhovor s pacientem, vytváří strukturovaný záznam a navrhuje další kroky.",
-        points: ["Souhlas pacienta a indikátor nahrávání", "Profily pacientů a časová osa návštěv", "Automatická struktura záznamu"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Diktování zpráv",
-        body: "Klasické diktování pro radiologii, patologii a propouštěcí zprávy se šablonami, hlasovými příkazy a porovnáváním verzí.",
-        points: ["Šablony zpráv a hlasové příkazy", "Porovnání změn a dodatky", "Export, tisk a podpis"],
-      },
     ],
     settingsTitle: "Jeden zapisovatel, každá situace",
     settingsSub: "V ordinaci, na videohovoru, na vizitě i na sále — Klarnote naslouchá a dokumentuje všude.",
@@ -492,12 +330,6 @@ const COPY = {
       { icon: "history", t: "Verze a dodatky", d: "Kompletní historie změn, porovnání rozdílů a správný postup pro dodatky.", path: "/features/versions" },
       { icon: "sign", t: "Elektronický podpis Дія", d: "Podepisujte dokumenty přes Дія s veřejným ověřením pomocí odkazu.", path: "/features/signature" },
       { icon: "shield", t: "Audit a compliance", d: "Protokol událostí, ověřování integrity a přístup podle rolí.", path: "/features/audit" },
-    ],
-    workflowTitle: "Od hlasu k podepsanému dokumentu",
-    workflow: [
-      { n: "01", t: "Mluvte", d: "Zahajte vyšetření nebo diktování — Klarnote rozpoznává řeč v reálném čase." },
-      { n: "02", t: "Zkontrolujte", d: "Strukturovaný záznam se zvýrazněnými nejistými místy pro rychlé úpravy." },
-      { n: "03", t: "Podepište", d: "Podepište přes Дія a sdílejte ověřovací odkaz." },
     ],
     securityTitle: "Zabezpečení a soukromí ve výchozím nastavení",
     securitySub: "Data pacientů jsou chráněna v každém kroku — od nahrávání po archivaci.",
@@ -523,42 +355,18 @@ const COPY = {
   sr: {
     nav: { product: "Proizvod", features: "Funkcije", workflow: "Kako funkcioniše", security: "Bezbednost", signin: "Prijava", start: "Zatražite pristup" },
     hero: {
-      eyebrow: "Medicinsko diktiranje nove generacije",
-      title: "Klinička dokumentacija glasom — brzo, precizno, bezbedno",
-      sub: "Klarnote pretvara govor lekara u strukturirane medicinske beleške u realnom vremenu. Manje kucanja, više vremena za pacijenta.",
+      title: "Razgovor sa pacijentom postaje proveren i pravno potpisan medicinski zapis",
+      sub: "Klarnote sluša pregled, proverava belešku uz lokalizovane kliničke dokaze i vodi je do kvalifikovanog elektronskog potpisa — jedan neprekidan tok, na vašoj infrastrukturi.",
       ctaPrimary: "Počnite besplatno",
       ctaSecondary: "Pogledajte funkcije",
-      note: "Self-hosted modeli • Podaci nikada ne napuštaju vašu infrastrukturu",
+      note: "Sopstveno hostovani modeli • Podaci ne napuštaju vašu instalaciju • Potpis QES/КЕП",
     },
     trust: "Napravljeno za klinike, bolnice i privatne prakse",
     stats: [
       { v: "98%", l: "tačnost prepoznavanja medicinskog govora" },
       { v: "3×", l: "brže od ručnog unosa" },
-      { v: "2 jezika", l: "ukrajinski i engleski" },
+      { v: "12 jezika", l: "interfejs; diktiranje: UK, EN, DE" },
       { v: "24/7", l: "pristup sa bilo kog uređaja" },
-    ],
-    principlesTitle: "Izgrađeno na tri principa o kojima se ne pregovara",
-    principlesSub: "Ne marketing, već arhitektonska ograničenja — ugrađena u sistem, a ne naknadno dodata.",
-    principles: [
-      { icon: "home", t: "Suverenitet podataka", d: "Celokupno prepoznavanje govora i generisanje rade na self-hosted modelima sa otvorenom licencom. Nijedan audio-zapis, transkript ni beleška nikada ne odlaze ka API-ju treće strane." },
-      { icon: "user", t: "Lekar ima poslednju reč", d: "Sistem sastavlja nacrt, ne postavlja dijagnozu. Ništa se ne finalizuje automatski — poslednju reč uvek ima lekar." },
-      { icon: "layers", t: "Izolacija tenanata", d: "Kod aplikacije nikada ne filtrira po tenantu — to radi baza podataka putem row-level security mehanizma. Filter koji nedostaje ne može da izazove curenje podataka." },
-    ],
-    productsTitle: "Dva proizvoda — jedan radni tok",
-    productsSub: "Izaberite režim za svoj scenario: ambijentalne preglede ili klasično diktiranje izveštaja.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Ambijentalni zapisničar",
-        body: "Vodi pregled zajedno sa vama: beleži razgovor sa pacijentom, gradi strukturiranu belešku i predlaže sledeće korake.",
-        points: ["Saglasnost pacijenta i indikator snimanja", "Profili pacijenata i vremenska linija poseta", "Automatska struktura beleške"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Diktiranje izveštaja",
-        body: "Klasično diktiranje za radiologiju, patologiju i otpusne liste, sa šablonima, glasovnim komandama i poređenjem verzija.",
-        points: ["Šabloni izveštaja i glasovne komande", "Poređenje izmena i amandmani", "Izvoz, štampanje i potpisivanje"],
-      },
     ],
     settingsTitle: "Jedan skrajb, svaka situacija",
     settingsSub: "U ordinaciji, na video pozivu, u viziti ili u operacionoj sali — Klarnote sluša i dokumentuje svuda.",
@@ -577,12 +385,6 @@ const COPY = {
       { icon: "history", t: "Verzije i amandmani", d: "Potpuna istorija izmena, poređenje razlika i ispravan tok amandmana.", path: "/features/versions" },
       { icon: "sign", t: "Elektronski potpis Дія", d: "Potpisujte dokumente preko sistema Дія, uz javnu verifikaciju putem linka.", path: "/features/signature" },
       { icon: "shield", t: "Revizija i usklađenost", d: "Dnevnik događaja, provera integriteta i pristup zasnovan na ulogama.", path: "/features/audit" },
-    ],
-    workflowTitle: "Od glasa do potpisanog dokumenta",
-    workflow: [
-      { n: "01", t: "Govorite", d: "Započnite pregled ili diktiranje — Klarnote prepoznaje govor u realnom vremenu." },
-      { n: "02", t: "Proverite", d: "Strukturirana beleška sa istaknutim nesigurnim mestima za brze ispravke." },
-      { n: "03", t: "Potpišite", d: "Potpišite preko sistema Дія i podelite link za verifikaciju." },
     ],
     securityTitle: "Bezbednost i privatnost podrazumevano",
     securitySub: "Podaci pacijenata zaštićeni su u svakom koraku — od snimanja do arhive.",
@@ -608,42 +410,18 @@ const COPY = {
   hu: {
     nav: { product: "Termék", features: "Funkciók", workflow: "Hogyan működik", security: "Biztonság", signin: "Bejelentkezés", start: "Hozzáférés igénylése" },
     hero: {
-      eyebrow: "Új generációs orvosi diktálás",
-      title: "Klinikai dokumentáció hanggal — gyorsan, pontosan, biztonságosan",
-      sub: "A Klarnote valós időben alakítja az orvos beszédét strukturált orvosi feljegyzésekké. Kevesebb gépelés, több idő a betegre.",
+      title: "A beteggel folytatott beszélgetésből ellenőrzött, jogilag aláírt dokumentum lesz",
+      sub: "A Klarnote végighallgatja a vizitet, lokalizált klinikai bizonyítékokkal veti össze a jegyzetet, és elviszi a minősített elektronikus aláírásig — egyetlen folyamatos munkamenetben, az Ön infrastruktúráján.",
       ctaPrimary: "Kezdje ingyen",
       ctaSecondary: "Funkciók megtekintése",
-      note: "Self-hosted modellek • Az adatok soha nem hagyják el az Ön rendszerét",
+      note: "Saját üzemeltetésű modellek • Az adat nem hagyja el a telepítését • QES/КЕП aláírás",
     },
     trust: "Klinikák, kórházak és magánpraxisok számára készült",
     stats: [
       { v: "98%", l: "pontosság az orvosi beszéd felismerésében" },
       { v: "3×", l: "gyorsabb, mint a kézi bevitel" },
-      { v: "2 nyelv", l: "ukrán és angol" },
+      { v: "12 nyelv", l: "felület; diktálás: UK, EN, DE" },
       { v: "24/7", l: "hozzáférés bármilyen eszközről" },
-    ],
-    principlesTitle: "Három megkérdőjelezhetetlen alapelvre épül",
-    principlesSub: "Nem marketing, hanem architekturális korlátok — a rendszerbe építve, nem utólag hozzáadva.",
-    principles: [
-      { icon: "home", t: "Adatszuverenitás", d: "A teljes beszédfelismerés és generálás self-hosted, nyílt licencű modelleken fut. Hangfelvétel, átirat vagy feljegyzés soha nem kerül harmadik fél API-jához." },
-      { icon: "user", t: "Az orvosé a végső szó", d: "A rendszer vázlatot készít, nem diagnosztizál. Semmi sem véglegesül automatikusan — a végső szó mindig az orvosé." },
-      { icon: "layers", t: "Tenant-izoláció", d: "Az alkalmazáskód soha nem szűr tenant szerint — ezt az adatbázis végzi row-level security révén. Egy hiányzó szűrő nem okozhat adatszivárgást." },
-    ],
-    productsTitle: "Két termék — egyetlen munkafolyamat",
-    productsSub: "Válassza ki a helyzetéhez illő módot: ambient vizitek vagy klasszikus leletdiktálás.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Ambient jegyzetelő",
-        body: "Önnel együtt vezeti a vizitet: rögzíti a beteggel folytatott beszélgetést, strukturált feljegyzést készít, és javaslatot tesz a következő lépésekre.",
-        points: ["Betegbeleegyezés és felvételjelző", "Betegprofilok és vizit-idővonal", "Automatikus feljegyzésstruktúra"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Leletdiktálás",
-        body: "Klasszikus diktálás radiológiához, patológiához és zárójelentésekhez, sablonokkal, hangparancsokkal és verzió-összehasonlítással.",
-        points: ["Leletsablonok és hangparancsok", "Változások összehasonlítása és módosítások", "Exportálás, nyomtatás és aláírás"],
-      },
     ],
     settingsTitle: "Egy írnok, minden helyzet",
     settingsSub: "A rendelőben, videohíváson, viziten vagy a műtőben — a Klarnote mindenhol figyel és dokumentál.",
@@ -662,12 +440,6 @@ const COPY = {
       { icon: "history", t: "Verziók és módosítások", d: "Teljes változástörténet, különbségek összehasonlítása és szabályos módosítási folyamat.", path: "/features/versions" },
       { icon: "sign", t: "Дія e-aláírás", d: "Írjon alá dokumentumokat a Дія rendszeren keresztül, nyilvános linkes ellenőrzéssel.", path: "/features/signature" },
       { icon: "shield", t: "Audit és megfelelőség", d: "Eseménynapló, integritás-ellenőrzés és szerepkör-alapú hozzáférés.", path: "/features/audit" },
-    ],
-    workflowTitle: "A hangtól az aláírt dokumentumig",
-    workflow: [
-      { n: "01", t: "Beszéljen", d: "Indítson vizitet vagy diktálást — a Klarnote valós időben ismeri fel a beszédet." },
-      { n: "02", t: "Ellenőrizze", d: "Strukturált feljegyzés a bizonytalan részek kiemelésével a gyors javításhoz." },
-      { n: "03", t: "Írja alá", d: "Írja alá a Дія rendszeren keresztül, és ossza meg az ellenőrző linket." },
     ],
     securityTitle: "Biztonság és adatvédelem alapértelmezésben",
     securitySub: "A betegadatok minden lépésben védettek — a felvételtől az archiválásig.",
@@ -693,42 +465,18 @@ const COPY = {
   ar: {
     nav: { product: "المنتج", features: "الميزات", workflow: "كيف يعمل", security: "الأمان", signin: "تسجيل الدخول", start: "طلب وصول" },
     hero: {
-      eyebrow: "إملاء طبي من الجيل الجديد",
-      title: "التوثيق السريري بالصوت — سريع ودقيق وآمن",
-      sub: "يحوّل Klarnote كلام الطبيب إلى ملاحظات طبية منظمة في الوقت الفعلي. كتابة أقل، ووقت أكثر للمريض.",
+      title: "تتحوّل استشارة المريض إلى سجل طبي مُتحقَّق منه ومُوقَّع قانونيًا",
+      sub: "يستمع Klarnote إلى الزيارة، ويطابق الملاحظة مع أدلة سريرية محلية، ويصل بها إلى توقيع إلكتروني مؤهل — في سير عمل واحد متصل، وعلى بنيتك التحتية.",
       ctaPrimary: "ابدأ مجانًا",
       ctaSecondary: "استعرض الميزات",
-      note: "نماذج مستضافة ذاتيًا • بياناتك لا تغادر بيئتك أبدًا",
+      note: "نماذج مستضافة ذاتيًا • البيانات لا تغادر تثبيتك • توقيع QES/КЕП",
     },
     trust: "مصمّم للعيادات والمستشفيات والممارسة الخاصة",
     stats: [
       { v: "98%", l: "دقة التعرف على الكلام الطبي" },
       { v: "3×", l: "أسرع من الإدخال اليدوي" },
-      { v: "لغتان", l: "الأوكرانية والإنجليزية" },
+      { v: "12 لغة", l: "الواجهة؛ الإملاء بالأوكرانية والإنجليزية والألمانية" },
       { v: "24/7", l: "الوصول من أي جهاز" },
-    ],
-    principlesTitle: "مبني على ثلاثة مبادئ غير قابلة للتفاوض",
-    principlesSub: "ليست شعارات تسويقية بل قيود معمارية — مدمجة في النظام، وليست مضافة لاحقًا.",
-    principles: [
-      { icon: "home", t: "سيادة البيانات", d: "يعمل التعرف على الكلام والتوليد بالكامل على نماذج مستضافة ذاتيًا ومفتوحة الترخيص. لا يُرسَل أي صوت أو نص أو ملاحظة إلى واجهة برمجية خارجية أبدًا." },
-      { icon: "user", t: "الطبيب في صميم العملية", d: "النظام يصوغ المسودات ولا يشخّص. لا شيء يُعتمد تلقائيًا — فالكلمة الأخيرة دائمًا للطبيب." },
-      { icon: "layers", t: "عزل المستأجرين", d: "لا يقوم كود التطبيق مطلقًا بالتصفية حسب المستأجر — بل تقوم قاعدة البيانات بذلك عبر أمان مستوى الصف. مرشّح مفقود لا يمكنه تسريب البيانات." },
-    ],
-    productsTitle: "منتجان — سير عمل واحد",
-    productsSub: "اختر النمط المناسب لسيناريوهك: زيارات محيطية أو إملاء تقارير كلاسيكي.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "المدوّن المحيطي",
-        body: "يدير الزيارة معك: يلتقط محادثة المريض، ويبني ملاحظة منظمة، ويقترح الخطوات التالية.",
-        points: ["موافقة المريض ومؤشر التسجيل", "ملفات المرضى والخط الزمني للزيارة", "بنية ملاحظات تلقائية"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "إملاء التقارير",
-        body: "إملاء كلاسيكي للأشعة وعلم الأمراض وملخصات الخروج مع القوالب والأوامر الصوتية ومقارنات الإصدارات.",
-        points: ["قوالب التقارير والأوامر الصوتية", "مقارنات التغييرات والتعديلات", "التصدير والطباعة والتوقيع"],
-      },
     ],
     settingsTitle: "مدوّن واحد، لكل الأماكن",
     settingsSub: "في الغرفة، أو في مكالمة فيديو، أو أثناء جولة العنبر، أو في غرفة العمليات — يستمع Klarnote ويوثّق في كل مكان.",
@@ -747,12 +495,6 @@ const COPY = {
       { icon: "history", t: "الإصدارات والتعديلات", d: "سجل تغييرات كامل ومقارنة الفروق ومسار تعديل صحيح.", path: "/features/versions" },
       { icon: "sign", t: "التوقيع الإلكتروني عبر Дія", d: "وقّع المستندات عبر Дія مع التحقق برابط عام.", path: "/features/signature" },
       { icon: "shield", t: "التدقيق والامتثال", d: "سجل الأحداث والتحقق من السلامة والوصول المستند إلى الأدوار.", path: "/features/audit" },
-    ],
-    workflowTitle: "من الصوت إلى مستند موقّع",
-    workflow: [
-      { n: "01", t: "تكلّم", d: "ابدأ زيارة أو إملاءً — يتعرّف Klarnote على الكلام في الوقت الفعلي." },
-      { n: "02", t: "راجِع", d: "ملاحظة منظمة مع إبراز المواضع غير المؤكدة لتعديلات سريعة." },
-      { n: "03", t: "وقّع", d: "وقّع عبر Дія وشارك رابط تحقق." },
     ],
     securityTitle: "الأمان والخصوصية افتراضيًا",
     securitySub: "بيانات المريض محمية في كل خطوة — من التسجيل إلى الأرشيف.",
@@ -778,42 +520,18 @@ const COPY = {
   es: {
     nav: { product: "Producto", features: "Funciones", workflow: "Cómo funciona", security: "Seguridad", signin: "Iniciar sesión", start: "Solicitar acceso" },
     hero: {
-      eyebrow: "Dictado médico de nueva generación",
-      title: "Documentación clínica por voz: rápida, precisa y segura",
-      sub: "Klarnote convierte la voz del médico en notas clínicas estructuradas en tiempo real. Menos teclado, más tiempo para el paciente.",
+      title: "La consulta se convierte en un registro médico verificado y firmado legalmente",
+      sub: "Klarnote escucha la visita, contrasta la nota con evidencia clínica localizada y la lleva hasta una firma electrónica cualificada — un flujo continuo, sobre su propia infraestructura.",
       ctaPrimary: "Empezar gratis",
       ctaSecondary: "Ver las funciones",
-      note: "Modelos autoalojados • Sus datos nunca salen de su entorno",
+      note: "Modelos autoalojados • Los datos no salen de su despliegue • Firma QES/КЕП",
     },
     trust: "Creado para clínicas, hospitales y consultas privadas",
     stats: [
       { v: "98%", l: "de precisión en el reconocimiento del habla clínica" },
       { v: "3×", l: "más rápido que escribir a mano" },
-      { v: "2 idiomas", l: "ucraniano e inglés" },
+      { v: "12 idiomas", l: "interfaz; dictado en UK, EN y DE" },
       { v: "24/7", l: "acceso desde cualquier dispositivo" },
-    ],
-    principlesTitle: "Construido sobre tres principios innegociables",
-    principlesSub: "No son eslóganes de marketing, sino límites arquitectónicos: integrados en el sistema, no añadidos después.",
-    principles: [
-      { icon: "home", t: "Soberanía de los datos", d: "Todo el reconocimiento de voz y la generación se ejecutan en modelos autoalojados con licencia abierta. Ni el audio, ni la transcripción, ni la nota llegan nunca a una API de terceros." },
-      { icon: "user", t: "El médico tiene la última palabra", d: "El sistema redacta borradores, no diagnostica. Nada se cierra automáticamente: la última palabra siempre es del médico." },
-      { icon: "layers", t: "Aislamiento entre organizaciones", d: "El código de la aplicación nunca filtra por organización: lo hace la base de datos mediante seguridad a nivel de fila. Un filtro olvidado no puede filtrar datos." },
-    ],
-    productsTitle: "Dos productos, un único flujo de trabajo",
-    productsSub: "Elija el modo que encaja con su situación: consultas ambientales o dictado clásico de informes.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Escriba ambiental",
-        body: "Lleva la consulta con usted: capta la conversación con el paciente, construye una nota estructurada y sugiere los siguientes pasos.",
-        points: ["Consentimiento del paciente e indicador de grabación", "Fichas de paciente y cronología de la consulta", "Estructura automática de la nota"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Dictado de informes",
-        body: "Dictado clásico para radiología, anatomía patológica e informes de alta, con plantillas, comandos de voz y comparación de versiones.",
-        points: ["Plantillas de informe y comandos de voz", "Comparación de cambios y enmiendas", "Exportar, imprimir y firmar"],
-      },
     ],
     settingsTitle: "Un escriba para cada situación",
     settingsSub: "En la consulta, en videollamada, en el pase de visita o en el quirófano: Klarnote escucha y documenta en todas partes.",
@@ -832,12 +550,6 @@ const COPY = {
       { icon: "history", t: "Versiones y enmiendas", d: "Historial completo de cambios, comparación de diferencias y un flujo de enmienda correcto.", path: "/features/versions" },
       { icon: "sign", t: "Firma electrónica con Дія", d: "Firme documentos a través de Дія con verificación mediante enlace público.", path: "/features/signature" },
       { icon: "shield", t: "Auditoría y cumplimiento", d: "Registro de eventos, verificación de integridad y acceso basado en roles.", path: "/features/audit" },
-    ],
-    workflowTitle: "De la voz al documento firmado",
-    workflow: [
-      { n: "01", t: "Hable", d: "Inicie una consulta o un dictado: Klarnote reconoce la voz en tiempo real." },
-      { n: "02", t: "Revise", d: "Una nota estructurada que resalta los pasajes dudosos para corregirlos rápido." },
-      { n: "03", t: "Firme", d: "Firme a través de Дія y comparta un enlace de verificación." },
     ],
     securityTitle: "Seguridad y privacidad por defecto",
     securitySub: "Los datos del paciente están protegidos en cada paso, desde la grabación hasta el archivo.",
@@ -863,42 +575,18 @@ const COPY = {
   pt: {
     nav: { product: "Produto", features: "Funcionalidades", workflow: "Como funciona", security: "Segurança", signin: "Iniciar sessão", start: "Pedir acesso" },
     hero: {
-      eyebrow: "Ditado médico de nova geração",
-      title: "Documentação clínica por voz — rápida, precisa e segura",
-      sub: "O Klarnote transforma a voz do médico em notas clínicas estruturadas em tempo real. Menos teclado, mais tempo para o doente.",
+      title: "A consulta torna-se um registo médico verificado e assinado legalmente",
+      sub: "O Klarnote ouve a consulta, confronta a nota com evidência clínica localizada e leva-a até uma assinatura eletrónica qualificada — um fluxo contínuo, na sua própria infraestrutura.",
       ctaPrimary: "Começar gratuitamente",
       ctaSecondary: "Ver as funcionalidades",
-      note: "Modelos auto-alojados • Os seus dados nunca saem do seu ambiente",
+      note: "Modelos auto-alojados • Os dados não saem da sua instalação • Assinatura QES/КЕП",
     },
     trust: "Feito para clínicas, hospitais e consultórios privados",
     stats: [
       { v: "98%", l: "de precisão no reconhecimento da fala clínica" },
       { v: "3×", l: "mais rápido do que escrever à mão" },
-      { v: "2 idiomas", l: "ucraniano e inglês" },
+      { v: "12 idiomas", l: "interface; ditado em UK, EN e DE" },
       { v: "24/7", l: "acesso a partir de qualquer dispositivo" },
-    ],
-    principlesTitle: "Construído sobre três princípios inegociáveis",
-    principlesSub: "Não são slogans de marketing, mas limites arquiteturais — integrados no sistema, não acrescentados depois.",
-    principles: [
-      { icon: "home", t: "Soberania dos dados", d: "Todo o reconhecimento de voz e a geração correm em modelos auto-alojados de licença aberta. Nem o áudio, nem a transcrição, nem a nota chegam alguma vez a uma API de terceiros." },
-      { icon: "user", t: "O médico tem a última palavra", d: "O sistema redige rascunhos, não diagnostica. Nada é fechado automaticamente — a última palavra é sempre do médico." },
-      { icon: "layers", t: "Isolamento entre organizações", d: "O código da aplicação nunca filtra por organização — é a base de dados que o faz, através de segurança ao nível da linha. Um filtro esquecido não pode expor dados." },
-    ],
-    productsTitle: "Dois produtos — um único fluxo de trabalho",
-    productsSub: "Escolha o modo que se adequa à sua situação: consultas ambientais ou ditado clássico de relatórios.",
-    products: [
-      {
-        icon: "waveform", tag: "Scribe",
-        title: "Escriba ambiental",
-        body: "Conduz a consulta consigo: capta a conversa com o doente, constrói uma nota estruturada e sugere os passos seguintes.",
-        points: ["Consentimento do doente e indicador de gravação", "Fichas de doente e cronologia da consulta", "Estrutura automática da nota"],
-      },
-      {
-        icon: "fileText", tag: "Dictate",
-        title: "Ditado de relatórios",
-        body: "Ditado clássico para radiologia, anatomia patológica e notas de alta, com modelos, comandos de voz e comparação de versões.",
-        points: ["Modelos de relatório e comandos de voz", "Comparação de alterações e retificações", "Exportar, imprimir e assinar"],
-      },
     ],
     settingsTitle: "Um escriba para cada situação",
     settingsSub: "No consultório, em videochamada, na visita ou no bloco operatório — o Klarnote ouve e documenta em todo o lado.",
@@ -917,12 +605,6 @@ const COPY = {
       { icon: "history", t: "Versões e retificações", d: "Histórico completo de alterações, comparação de diferenças e um fluxo de retificação correto.", path: "/features/versions" },
       { icon: "sign", t: "Assinatura eletrónica Дія", d: "Assine documentos através da Дія, com verificação por ligação pública.", path: "/features/signature" },
       { icon: "shield", t: "Auditoria e conformidade", d: "Registo de eventos, verificação de integridade e acesso baseado em funções.", path: "/features/audit" },
-    ],
-    workflowTitle: "Da voz ao documento assinado",
-    workflow: [
-      { n: "01", t: "Fale", d: "Inicie uma consulta ou um ditado — o Klarnote reconhece a fala em tempo real." },
-      { n: "02", t: "Reveja", d: "Uma nota estruturada que destaca as passagens duvidosas para correções rápidas." },
-      { n: "03", t: "Assine", d: "Assine através da Дія e partilhe uma ligação de verificação." },
     ],
     securityTitle: "Segurança e privacidade por predefinição",
     securitySub: "Os dados do doente estão protegidos em cada passo — da gravação ao arquivo.",
@@ -943,6 +625,61 @@ const COPY = {
         { h: "Legal", links: ["Privacidade", "Termos", "Tratamento de dados", "Consentimento"] },
       ],
       rights: "Todos os direitos reservados.",
+    },
+  },
+  lt: {
+    nav: { product: "Produktas", features: "Galimybės", workflow: "Kaip tai veikia", security: "Sauga", signin: "Prisijungti", start: "Prašyti prieigos" },
+    hero: {
+      title: "Konsultacija tampa įrodymais patikrintu, teisiškai pasirašytu medicininiu įrašu",
+      sub: "Klarnote klausosi vizito, patikrina įrašą pagal lokalizuotus klinikinius įrodymus ir palydi jį iki kvalifikuoto elektroninio parašo — vientisas darbo srautas jūsų pačių valdomoje infrastruktūroje.",
+      ctaPrimary: "Pradėkite nemokamai",
+      ctaSecondary: "Žiūrėti galimybes",
+      note: "Savarankiškai talpinami modeliai • Duomenys nepalieka jūsų aplinkos • KEP / QES pasirašymas",
+    },
+    trust: "Sukurta klinikoms, ligoninėms ir privačiai praktikai",
+    stats: [
+      { v: "98 %", l: "medicininės kalbos atpažinimo tikslumas" },
+      { v: "3×", l: "greičiau nei rašant ranka" },
+      { v: "12 kalbų", l: "sąsaja; diktavimas UK, EN, DE" },
+      { v: "24/7", l: "prieiga iš bet kurio įrenginio" },
+    ],
+    settingsTitle: "Vienas asistentas — visoms situacijoms",
+    settingsSub: "Kabinete, vaizdo skambutyje, per vizitaciją ar operacinėje — Klarnote klausosi ir dokumentuoja visur.",
+    settings: [
+      { icon: "users", t: "Vizitai kabinete", d: "Pokalbis su pacientu kabinete, asistentui dirbant fone.", path: "/templates/consultation-note" },
+      { icon: "video", t: "Nuotolinės konsultacijos", d: "Nuotoliniai vizitai: būdas, sutikimas ir apžiūros ribos užfiksuojami automatiškai.", path: "/templates/telehealth-visit" },
+      { icon: "heart", t: "Vizitacija prie lovos", d: "Kasdieniai stacionaro eigos įrašai einant nuo lovos prie lovos.", path: "/templates/progress-note" },
+      { icon: "scalpel", t: "Procedūros ir operacinė", d: "Procedūrų ir operacijų protokolai nenutraukiant darbo rašymui.", path: "/templates/procedure-note" },
+    ],
+    featuresTitle: "Viskas užtikrintam dokumentavimui",
+    featuresSub: "Nuo kalbos atpažinimo iki parašo — visas ciklas vienoje programoje.",
+    features: [
+      { icon: "mic", t: "Atpažinimas realiuoju laiku", d: "Srautinis ASR su pažymėtais mažo patikimumo žodžiais greitai peržiūrai.", path: "/features/recognition" },
+      { icon: "sparkle", t: "Išmanusis automatinis užbaigimas", d: "Kontekstą suprantantys terminų, diagnozių ir frazių pasiūlymai diktuojant.", path: "/features/autocomplete" },
+      { icon: "layers", t: "Šablonai ir struktūros", d: "Paruoštos įrašų struktūros ir savi šablonai kiekvienai specialybei.", path: "/features/templates" },
+      { icon: "history", t: "Versijos ir pataisos", d: "Visa pakeitimų istorija, versijų palyginimas ir taisyklinga pataisų eiga.", path: "/features/versions" },
+      { icon: "sign", t: "Elektroninis parašas", d: "Dokumentų pasirašymas su viešai patikrinama nuoroda.", path: "/features/signature" },
+      { icon: "shield", t: "Auditas ir atitiktis", d: "Įvykių žurnalas, vientisumo patikra ir prieiga pagal vaidmenis.", path: "/features/audit" },
+    ],
+    securityTitle: "Sauga ir privatumas pagal nutylėjimą",
+    securitySub: "Paciento duomenys saugomi kiekviename žingsnyje — nuo įrašymo iki archyvo.",
+    security: [
+      { icon: "shield", t: "Prieiga pagal vaidmenis", d: "Prieiga pagal vaidmenį: gydytojas, administratorius, auditorius." },
+      { icon: "history", t: "Nekeičiamas auditas", d: "Kiekvienas veiksmas registruojamas su vientisumo patikra." },
+      { icon: "check", t: "Paciento sutikimas", d: "Aiškus sutikimas prieš įrašymą su matoma būsena." },
+    ],
+    ctaTitle: "Pasiruošę grąžinti gydytojams laiką?",
+    ctaSub: "Išbandykite Klarnote savo klinikoje jau šiandien.",
+    ctaPrimary: "Registruotis",
+    ctaSecondary: "Prisijungti",
+    footer: {
+      tag: "Medicininis diktavimas balsu.",
+      cols: [
+        { h: "Produktas", links: ["Scribe", "Diktavimas", "Galimybės", "Sauga"] },
+        { h: "Įmonė", links: ["Apie mus", "Kontaktai", "Karjera", "Tinklaraštis"] },
+        { h: "Teisinė informacija", links: ["Privatumas", "Sąlygos", "Duomenų tvarkymas", "Sutikimas"] },
+      ],
+      rights: "Visos teisės saugomos.",
     },
   },
 };
@@ -1298,8 +1035,55 @@ function HeroDemo({ lang, navigate }) {
   );
 }
 
+/* ── Hero background waveform ──────────────────────────────────────────────
+ * A bar waveform lying across the back of the first screen — the product's own
+ * subject matter used as the page's texture, since what Klarnote does all day
+ * is listen to one.
+ *
+ * The heights are computed ONCE at module load from two sine waves of
+ * unrelated frequency beating against each other. Not Math.random(): a real
+ * random envelope re-rolls on every render and, more to the point, looks
+ * random — evenly noisy — whereas speech clusters into loud runs and quiet
+ * runs, which is what two out-of-phase sines produce. The ^1.5 pushes the
+ * quiet bars further down so the loud ones read as peaks rather than as a hedge
+ * trimmed flat.
+ *
+ * Purely decorative: `aria-hidden`, and no meaning is carried by it. The
+ * animation lives in marketing-motion.css and stops dead under
+ * prefers-reduced-motion, where the bars simply stand still.
+ */
+const HERO_WAVE_BARS = 72;
+const HERO_WAVE = Array.from({ length: HERO_WAVE_BARS }, (_, i) => {
+  const fast = Math.sin(i * 0.42) * 0.5 + 0.5;
+  const slow = Math.sin(i * 0.11 + 1.7) * 0.5 + 0.5;
+  const mixed = fast * 0.55 + slow * 0.45;
+  return +(0.14 + 0.86 * Math.pow(mixed, 1.5)).toFixed(3);
+});
+
+/**
+ * The bars themselves, so the hero and the closing CTA band draw the SAME
+ * signal rather than two waveforms that nearly match. Only the class differs
+ * — each caller owns its own colour, size and phase in CSS.
+ */
+function WaveBars({ className }) {
+  return (
+    <div className={className} aria-hidden="true">
+      {HERO_WAVE.map((h, i) => (
+        <i key={i} style={{ "--h": h, "--i": i }} />
+      ))}
+    </div>
+  );
+}
+
+function HeroWave() {
+  return <WaveBars className="lp-hero-wave" />;
+}
+
 export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
   const c = COPY[lang] || COPY.en;
+  const pos = positioning(lang);
+  const loop = pillars(lang);
+  const moat = moatItems(lang);
 
   const go = (path) => (e) => { e.preventDefault(); navigate(path); };
   const jump = (id) => (e) => {
@@ -1311,22 +1095,52 @@ export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
     <MarketingShell navigate={navigate} lang={lang} tweaks={tweaks} setTweak={setTweak}>
       {/* ── Hero ─────────────────────────────────────────── */}
         <section className="lp-hero">
+          <HeroWave />
           <div className="lp-hero-text">
-            <span className="lp-eyebrow"><Icon name="sparkle" size={13} /> {c.hero.eyebrow}</span>
+            {/* The category, not a tagline. It is the first thing said on the
+                page and it comes from the same file the rest of the story does. */}
+            <span className="lp-eyebrow"><Icon name="shield" size={13} /> {pos.category}</span>
             <h1 className="lp-h1">{c.hero.title}</h1>
             <p className="lp-lead">{c.hero.sub}</p>
             <div className="lp-hero-cta">
               <a className="btn btn-primary lp-cta-lg" href="#/signup" onClick={go("/signup")}>{c.hero.ctaPrimary}</a>
               <a className="btn lp-cta-lg" href="#features" onClick={jump("features")}>{c.hero.ctaSecondary}</a>
             </div>
-            <p className="lp-hero-note"><Icon name="check" size={13} /> {c.hero.note}</p>
+            {/* The three claims, one chip each. They arrive from COPY as a
+                single bullet-separated line — the split keeps eleven
+                translations writing one string instead of an array. */}
+            <div className="lp-hero-note">
+              {c.hero.note.split("•").map((claim, i) => (
+                <span className="lp-note-chip" key={i}>{claim.trim()}</span>
+              ))}
+            </div>
+
+            {/* What it is hearing. The same readout the evidence band carries,
+                on paper instead of ink — the hero says Klarnote listens to the
+                consultation, and this is the only thing on the first screen
+                that shows it rather than asserting it. Cycles on its own; the
+                band further down drives its copy from whichever cluster is
+                lit. See marketing/VoiceReadout.jsx. */}
+            <VoiceReadout
+              lines={HERO_SEQUENCE.map((k) => DICTATIONS[k])}
+              tone="light"
+              lang={lang}
+              label={tr(lang, "Чує", "Hears")}
+            />
           </div>
 
-          {/* Interactive dictaphone demo — see HeroDemo above. */}
-          <div className="lp-hero-art">
-            <HeroDemo lang={lang} navigate={navigate} />
-          </div>
         </section>
+
+        {/* ── The loop, running ────────────────────────────────
+            Replaces the dictaphone demo that used to close the hero. That card
+            showed the INPUT — a waveform turning into text — at the point where
+            the reader is still deciding whether any of this matters, and
+            dictation is the one part of the category a reader already assumes
+            works. This shows the whole pipeline instead: spoken → structured →
+            checked → coded → signed → delivered, one step at a time. See
+            marketing/WorkflowGraph.jsx; the citations and codes in it are
+            real, and the unbuilt stage is badged. */}
+        <WorkflowGraph lang={lang} navigate={navigate} />
 
         {/* ── Trust + stats ────────────────────────────────── */}
         <section className="lp-trust">
@@ -1341,43 +1155,60 @@ export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
           </div>
         </section>
 
-        {/* ── Principles (non-negotiables) ─────────────────── */}
-        <section className="lp-section lp-section-alt" id="principles">
+        {/* ── The closed loop ──────────────────────────────────
+            The centre of the positioning, and the reason the old
+            "two products" and "01/02/03 workflow" sections are gone: they
+            told the same story twice and neither said what the platform IS.
+            Copy comes from positioning.js so the landing page, /platform and
+            the three pillar pages cannot drift apart. */}
+        <section className="lp-section lp-section-alt" id="product">
           <div className="lp-head">
-            <h2 className="lp-h2">{c.principlesTitle}</h2>
-            <p className="lp-sub">{c.principlesSub}</p>
+            <span className="lp-eyebrow"><Icon name="sparkle" size={13} /> {pos.loop.eyebrow}</span>
+            <h2 className="lp-h2">{pos.loop.title}</h2>
+            <p className="lp-sub">{pos.loop.sub}</p>
           </div>
-          <div className="lp-grid lp-grid-3">
-            {c.principles.map((f, i) => (
-              <div className="lp-feature" key={i}>
-                <div className="lp-feature-icon"><Icon name={f.icon} size={18} /></div>
-                <h3 className="lp-feature-t">{f.t}</h3>
-                <p className="lp-feature-d">{f.d}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Products ─────────────────────────────────────── */}
-        <section className="lp-section" id="product">
-          <div className="lp-head">
-            <h2 className="lp-h2">{c.productsTitle}</h2>
-            <p className="lp-sub">{c.productsSub}</p>
-          </div>
-          <div className="lp-products">
-            {c.products.map((p, i) => (
-              <article className="lp-product" key={i}>
-                <div className="lp-product-icon"><Icon name={p.icon} size={22} /></div>
-                <span className="lp-product-tag">{p.tag}</span>
-                <h3 className="lp-product-title">{p.title}</h3>
-                <p className="lp-product-body">{p.body}</p>
-                <ul className="lp-product-points">
+          <div className="lp-loop">
+            {loop.map((p) => (
+              <article className="lp-pillar" key={p.key}>
+                {/* icon —————— 01. The rule ties the two ends of the row
+                    together; without it the step number floated in the corner
+                    with nothing to belong to. */}
+                <div className="lp-pillar-h">
+                  <span className="lp-pillar-icon"><Icon name={p.icon} size={20} /></span>
+                  <span className="lp-pillar-rule" aria-hidden="true" />
+                  <span className="lp-pillar-n">{p.n}</span>
+                </div>
+                <h3 className="lp-pillar-t">
+                  {p.verb}
+                  <span className="lp-pillar-brand">{p.brand}</span>
+                </h3>
+                <p className="lp-pillar-d">{p.tagline}</p>
+                <ul className="lp-pillar-points">
                   {p.points.map((pt, j) => (
-                    <li key={j}><Icon name="check" size={14} /> {pt}</li>
+                    <li key={j}><Icon name="check" size={14} /> <span>{pt}</span></li>
                   ))}
                 </ul>
+                {/* Not built yet, and said so on the card rather than in a
+                    footnote nobody reads — but as its own strip, not as a
+                    fourth bullet wearing a different icon. See positioning.js. */}
+                {p.soon?.length > 0 && (
+                  <div className="lp-pillar-soon">
+                    <span className="lp-soon">{pos.soonLabel}</span>
+                    <ul>
+                      {p.soon.map((pt, j) => <li key={j}>{pt}</li>)}
+                    </ul>
+                  </div>
+                )}
+                <a className="lp-pillar-more" href={`#${p.path}`} onClick={go(p.path)}>
+                  {tr(lang, "Докладніше", "Learn more")} <Icon name="arrowRight" size={14} />
+                </a>
               </article>
             ))}
+          </div>
+          <div className="lp-loop-foot">
+            <p className="lp-loop-goal"><Icon name="clock" size={14} /> {pos.loop.foot}</p>
+            <p className="lp-loop-safety"><Icon name="user" size={14} /> {pos.loop.safety}</p>
+            <a className="btn lp-cta-lg" href="#/platform" onClick={go("/platform")}>{pos.loop.more}</a>
           </div>
         </section>
 
@@ -1420,20 +1251,26 @@ export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
           </div>
         </section>
 
-        {/* ── Workflow ─────────────────────────────────────── */}
-        <section className="lp-section lp-section-alt" id="workflow">
+        {/* ── The moat ─────────────────────────────────────────
+            Why the loop is not reproducible by wiring three vendors
+            together. This is the section a competitor's prospect reads. */}
+        <section className="lp-section lp-section-alt" id="why">
           <div className="lp-head">
-            <h2 className="lp-h2">{c.workflowTitle}</h2>
+            <h2 className="lp-h2">{pos.moat.title}</h2>
+            <p className="lp-sub">{pos.moat.sub}</p>
           </div>
-          <div className="lp-steps">
-            {c.workflow.map((s, i) => (
-              <div className="lp-step" key={i}>
-                <div className="lp-step-n">{s.n}</div>
-                <h3 className="lp-step-t">{s.t}</h3>
-                <p className="lp-step-d">{s.d}</p>
+          <div className="lp-grid lp-grid-3">
+            {moat.map((m, i) => (
+              <div className="lp-feature" key={i}>
+                <div className="lp-feature-icon"><Icon name={m.icon} size={18} /></div>
+                <h3 className="lp-feature-t">{m.t}</h3>
+                <p className="lp-feature-d">{m.d}</p>
               </div>
             ))}
           </div>
+          {/* The USP, stated once, in the one place a reader has just been
+              given the evidence for it. */}
+          <blockquote className="lp-usp">{pos.usp}</blockquote>
         </section>
 
         {/* ── Security ─────────────────────────────────────── */}
@@ -1455,6 +1292,10 @@ export function LandingPage({ navigate, lang = "en", tweaks, setTweak }) {
 
         {/* ── CTA ──────────────────────────────────────────── */}
         <section className="lp-cta">
+          {/* The same waveform that opens the page closes it. Weighted to the
+              right, where the band is empty — the copy sits left, so the
+              signal fills the space instead of running under the headline. */}
+          <WaveBars className="lp-cta-wave" />
           <h2 className="lp-cta-title">{c.ctaTitle}</h2>
           <p className="lp-cta-sub">{c.ctaSub}</p>
           <div className="lp-cta-actions">

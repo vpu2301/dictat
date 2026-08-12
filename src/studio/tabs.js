@@ -17,8 +17,15 @@
 
 import { tr } from "../i18n.js";
 
-export const TABS_KEY = "mdx.studio.tabs.v1";
+export const TABS_KEY = "mdx.studio.tabs.v2";
 export const MAX_TABS = 8;
+
+// How long a restored strip stays valid. Restoring is for the machine that went
+// down mid-consultation — come back, pick the tab up, finish it. It is NOT for
+// carrying a strip across days: a browser tab left open (or reopened by Chrome's
+// "continue where you left off") kept sessionStorage alive, so yesterday's
+// patients were still in the strip this morning.
+export const TABS_TTL_MS = 6 * 60 * 60 * 1000; // 6h
 
 // URL params a tab remembers. `mode` and `t` always; the rest only when set.
 const PARAM_KEYS = ["mode", "patient", "encounter", "template", "report", "session", "job", "note"];
@@ -84,6 +91,31 @@ export function syncTabs(tabs, params, { seq = 0 } = {}) {
   return { tabs: [...trimmed, { ...wanted, id }], activeId: id, seq: nextSeq };
 }
 
+// Which source may name the patient of the document currently open.
+//
+// The dictation editor stays MOUNTED behind the other modes — it holds an
+// unsaved draft — so its snapshot describes whatever document it last held,
+// not the upload or the recording on screen. Reading it unconditionally is how
+// an uploaded audio job, which had no patient at all, ended up named after the
+// draft in the tab beside it: close that tab and the editor's patient was the
+// only source left, so the job inherited the name and the header claimed the
+// file was about them.
+//
+// So the snapshot counts only when it is ABOUT this document: the patient the
+// URL names (the editor resolves them a moment before we do — that head start
+// is worth keeping), or the report the URL names (a reopened draft carries its
+// patient id in the envelope, which only the editor fetches). Anything else
+// and the tab has no patient, and must say so.
+export function patientSource({
+  patientId, reportId, fetchedId, pickedId, snapPatientId, snapReportId,
+} = {}) {
+  if (patientId && fetchedId && fetchedId === patientId) return "fetched";
+  if (patientId && pickedId && pickedId === patientId) return "picked";
+  if (patientId && snapPatientId && snapPatientId === patientId) return "snapshot";
+  if (reportId && snapReportId && snapReportId === reportId) return "snapshot";
+  return null;
+}
+
 // What document a tab is showing, if any. Two tabs on the same report are the
 // same tab; two empty dictations are not.
 export function documentKey(tab = {}) {
@@ -111,6 +143,36 @@ export function renameTab(tabs, id, title) {
   return list.map((t) => (t.id === id && t.title !== title ? { ...t, title } : t));
 }
 
+/**
+ * Rename the tab a PATIENT belongs to — the only safe way to name a tab after
+ * a patient, and the fix for a real mislabelling.
+ *
+ * THE BUG. The workspace used to rename `activeTab` (React state, set in an
+ * effect) with a title derived from `patientId` (URL, available a render
+ * earlier). Switching to a tab whose patient was already resolvable — you had
+ * picked it before, so `pickedPatient` still held it — produced one render with
+ * the NEW patient and the OLD `activeTab`, and the tab you had just left was
+ * renamed to the patient of the tab you had just opened. In a medical record
+ * that is not a cosmetic defect: the strip is how a clinician tells two open
+ * consultations apart.
+ *
+ * THE RULE. A title may only be written onto a tab that is still asking for
+ * that patient. `id` comes from the URL (so it is the tab the params describe,
+ * not whatever state has caught up), and a tab carrying its own `patient`
+ * param must match it. A tab with no patient of its own can still be named
+ * from its document — that is how an audio job or a note gets a title — but it
+ * can never inherit a patient another tab chose.
+ */
+export function renameTabForPatient(tabs, id, title, patientId) {
+  const list = Array.isArray(tabs) ? tabs : [];
+  if (!id || !title) return list;
+  const target = list.find((t) => t.id === id);
+  if (!target) return list;
+  // The tab named a patient: only that patient may name it back.
+  if (target.patient && patientId && target.patient !== patientId) return list;
+  return renameTab(list, id, title);
+}
+
 // What the strip says when the document has not named itself yet.
 export function fallbackTitle(tab = {}, lang = "uk") {
   if (tab.job) return tr(lang, "Аудіо", "Audio");
@@ -124,16 +186,37 @@ export function fallbackTitle(tab = {}, lang = "uk") {
   }
 }
 
-export function loadTabs(storage) {
+const dayKey = (ms) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
+
+// A strip is still ours to restore if it was written today, or recently enough
+// that "today" only just changed (a reboot at 23:55 comes back at 00:05 with the
+// work intact). Anything older is yesterday's clinic and starts empty.
+export function isFresh(stamp, now) {
+  if (!stamp || !Number.isFinite(stamp.savedAt)) return false;
+  if (stamp.savedAt > now + TABS_TTL_MS) return false; // clock moved backwards
+  return stamp.day === dayKey(now) || now - stamp.savedAt < TABS_TTL_MS;
+}
+
+export function loadTabs(storage, now = Date.now()) {
   try {
     const raw = storage.getItem(TABS_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed) ? parsed.filter((t) => t && t.id) : [];
+    if (!parsed || !Array.isArray(parsed.tabs)) return [];
+    if (!isFresh(parsed, now)) {
+      try { storage.removeItem(TABS_KEY); } catch {}
+      return [];
+    }
+    return parsed.tabs.filter((t) => t && t.id);
   } catch {
     return [];
   }
 }
 
-export function saveTabs(storage, tabs) {
-  try { storage.setItem(TABS_KEY, JSON.stringify(tabs || [])); } catch {}
+export function saveTabs(storage, tabs, now = Date.now()) {
+  try {
+    storage.setItem(TABS_KEY, JSON.stringify({ savedAt: now, day: dayKey(now), tabs: tabs || [] }));
+  } catch {}
 }

@@ -5,8 +5,12 @@
 // dictation: callers catch failures and fall back to an empty list.
 //
 //   POST   /autocomplete/suggest                  ranked suggestions
+//   GET    /autocomplete/phrases                  list library (sprint 17)
 //   POST   /autocomplete/phrases                  create phrase (201; 409 dup)
 //   DELETE /autocomplete/phrases/{phrase_id}      remove phrase (204)
+//   GET    /autocomplete/snippets                 list snippets (sprint 17)
+//   POST   /autocomplete/snippets                 create snippet (201; 409 dup)
+//   DELETE /autocomplete/snippets/{snippet_id}    remove snippet (204)
 //   POST   /autocomplete/telemetry                usage events (204, PII-scrubbed)
 
 import { apiAt } from "./client.js";
@@ -42,6 +46,47 @@ export async function createPhrase(body) {
 // Remove (soft-delete) a personal phrase (204).
 export async function deletePhrase(phraseId) {
   return a(`/autocomplete/phrases/${encodeURIComponent(phraseId)}`, { method: "DELETE" });
+}
+
+// GET /autocomplete/phrases → bare array of PhraseListItemDTO:
+//   { id, phrase, language, specialty, section_hint, source,
+//     impression_count, acceptance_count, last_accepted_at, created_at }
+// The counters are the nightly roll-up's real values (unlike the POST echo,
+// which is always 0/0). Visibility is RLS-scoped: system + tenant + own-user.
+export async function listPhrases({ language, specialty, source, limit = 50 } = {}) {
+  const qs = new URLSearchParams();
+  if (language)  qs.set("language", language);
+  if (specialty) qs.set("specialty", specialty);
+  if (source)    qs.set("source", source);
+  if (limit)     qs.set("limit", String(limit));
+  const tail = qs.toString() ? `?${qs}` : "";
+  return a(`/autocomplete/phrases${tail}`, { method: "GET" });
+}
+
+// GET /autocomplete/snippets → bare array of SnippetListItemDTO:
+//   { id, trigger, expansion, cursor_position, language, source, created_at }
+// `trigger` is stored WITHOUT the leading "/" — the slash is typed at request
+// time to route the suggest call to the snippet dispatcher.
+export async function listSnippets({ language, source, limit = 50 } = {}) {
+  const qs = new URLSearchParams();
+  if (language) qs.set("language", language);
+  if (source)   qs.set("source", source);
+  if (limit)    qs.set("limit", String(limit));
+  const tail = qs.toString() ? `?${qs}` : "";
+  return a(`/autocomplete/snippets${tail}`, { method: "GET" });
+}
+
+// Create a snippet (201).
+// body: { trigger (2..32, ^[a-z][a-z0-9_-]{0,30}$, no leading '/'),
+//         expansion (1..4000), cursor_position (0..len), language, source? }
+// 409 → trigger already exists for this scope; 422 → PII in trigger/expansion.
+export async function createSnippet(body) {
+  return a("/autocomplete/snippets", { method: "POST", body: JSON.stringify(body) });
+}
+
+// Remove (soft-delete) a snippet (204).
+export async function deleteSnippet(snippetId) {
+  return a(`/autocomplete/snippets/${encodeURIComponent(snippetId)}`, { method: "DELETE" });
 }
 
 // Fire-and-forget usage telemetry (204). Server-side PII scrubbing.

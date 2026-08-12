@@ -1,0 +1,211 @@
+/* sprints-18.css — password recovery.
+ *
+ * Everything here rides on the existing .mk-auth-* auth-form system
+ * (app-extra.css:1701+) rather than introducing a second card style:
+ * /forgot-password and /reset-password sit next to /login in one flow
+ * and must not look like a different product.
+ *
+ * All colour comes from the theme tokens (--surface, --line, --text-*,
+ * --accent, --warn, --rec), so the pages follow light/dark and the
+ * accent picker like the rest of the app.
+ */
+
+/* ── Confirmation / status mark ───────────────────────────────────── */
+.pw-sent-mark {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 4px 0 14px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--accent);
+}
+.pw-sent-mark.warn { background: var(--warn, #b5820f); }
+.pw-sent-mark.alert { background: var(--rec, #c4643f); }
+
+/* ── Notes: a line of explanation with a leading icon ─────────────── */
+.pw-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 21px;
+  color: var(--text-3);
+}
+.pw-note svg { flex: none; margin-top: 3px; }
+.pw-note.ok { color: var(--text-2); }
+
+.pw-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.pw-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--text-2);
+}
+.pw-steps svg { flex: none; margin-top: 3px; color: var(--accent); }
+
+/* ── Strength meter ───────────────────────────────────────────────── */
+.pw-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+.pw-meter-track {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.pw-meter-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background-color .18s ease;
+}
+/* One colour per score band. Deliberately not a red→green gradient per
+ * segment: the bar answers "how strong", and four different colours in
+ * one bar reads as four separate verdicts. */
+.pw-meter-seg.on.s1 { background: var(--rec, #c4643f); }
+.pw-meter-seg.on.s2 { background: var(--warn, #b5820f); }
+.pw-meter-seg.on.s3 { background: var(--accent); }
+.pw-meter-seg.on.s4 { background: var(--accent); }
+
+.pw-meter-label {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  min-width: 78px;
+  text-align: right;
+}
+.pw-meter-label.s1 { color: var(--rec, #c4643f); }
+.pw-meter-label.s2 { color: var(--warn, #b5820f); }
+.pw-meter-label.s3, .pw-meter-label.s4 { color: var(--accent); }
+
+/* ── Reason list ──────────────────────────────────────────────────── */
+.pw-reasons {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.pw-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+.pw-reason svg { flex: none; margin-top: 2px; }
+.pw-reason.bad { color: var(--rec, #c4643f); }
+.pw-reason.ok  { color: var(--accent); }
+
+/* ── Banner (partial-revocation warning above the reset form) ─────── */
+.pw-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  font-size: 13.5px;
+  line-height: 20px;
+  color: #fff;
+  background: var(--rec, #c4643f);
+}
+.pw-banner svg { flex: none; }
+
+/* ── Settings: inline change-password form ────────────────────────── */
+.pw-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 0 6px;
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+}
+.pw-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.pw-forgot-inline {
+  align-self: flex-start;
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+/* ── Settings: active sessions ────────────────────────────────────── */
+.pw-sessions {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pw-session {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.pw-session + .pw-session { margin-top: 4px; }
+.pw-session svg { flex: none; margin-top: 2px; color: var(--muted); }
+.pw-session.current svg { color: var(--accent); }
+.pw-session-ip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.pw-session-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text, var(--accent));
+}
+.pw-session-when {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* The destructive actions on these screens. `.danger` is defined for
+ * `.btn` in styles.css but not for the auth-shell button, which is its
+ * own system. */
+.mk-auth-btn.primary.danger { background: var(--danger, #b4443e); border-color: var(--danger, #b4443e); }
+/* `ghost` + `danger` was setting red text (this rule, 0,4,0) over the solid
+   red ground `.btn.danger` paints (styles.css, 0,2,0) — `.btn.ghost` loses
+   that cascade because it is declared FIRST. The result was a red rectangle
+   with an invisible label, on "Sign out everywhere" of all things. A ghost
+   button has no ground, so this has to say so itself. */
+.btn.ghost.danger {
+  background: transparent;
+  border-color: transparent;
+  color: var(--danger-text, #96332e);
+}
+.btn.ghost.danger:hover:not(:disabled) {
+  background: var(--danger-soft, rgba(180, 68, 62, .10));
+  border-color: transparent;
+  color: var(--danger-text, #96332e);
+}

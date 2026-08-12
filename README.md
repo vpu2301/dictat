@@ -20,7 +20,8 @@ npm install
 cp .env.example .env      # point the VITE_*_SERVICE_URL vars at your backends
 npm run dev               # Vite dev server
 npm run build             # production build
-npm run preview           # preview the production build
+npm run preview           # preview the production build (with the production security headers)
+npm run verify:bundle     # sprint 16 — assert dist/ ships no dev seam and an enforcing CSP
 ```
 
 The app boots from `index.html → src/main.jsx → src/App.jsx`.

@@ -6,67 +6,86 @@
 
 const env = (typeof import.meta !== "undefined" && import.meta.env) || {};
 
-export const SERVICES = {
-  auth:      env.VITE_AUTH_SERVICE_URL      || "http://localhost:8000",
-  asr:       env.VITE_ASR_SERVICE_URL       || "http://localhost:8001",
-  dictation: env.VITE_DICTATION_SERVICE_URL || "http://localhost:8002",
-  nlp:       env.VITE_NLP_SERVICE_URL       || "http://localhost:8005",
-  // The platform is split per the backend integration guide (2026-06-20):
-  // reports + templates, autocomplete, and signing are distinct services on
-  // their own ports — NOT one monolithic "core" service. In production all of
-  // these point at the same same-origin gateway (guide §7).
-  report:       env.VITE_REPORT_SERVICE_URL       || env.VITE_REPORT_URL       || "http://localhost:8006",
-  autocomplete: env.VITE_AUTOCOMPLETE_SERVICE_URL || env.VITE_AUTOCOMPLETE_URL || "http://localhost:8007",
-  signing:      env.VITE_SIGNING_SERVICE_URL      || env.VITE_SIGNING_URL      || "http://localhost:8008",
-  // Clinical / EHR endpoints not yet covered by the integration guide
-  // (patients, encounters, consents, anamnesis, clinical notes, scribe).
-  core:      env.VITE_CORE_SERVICE_URL      || env.VITE_CORE_URL || "http://localhost:8003",
-  // Sprint 12 — notification feed, WebSocket push, preferences.
-  notification: env.VITE_NOTIFICATION_SERVICE_URL || env.VITE_NOTIFICATION_URL || "http://localhost:8004",
-  // Sprint 15 — Layer C inline generative completion (ADR-0036). Its own
-  // service because it owns a model process, a slot pool and a latency budget
-  // that must never share a queue with the corpus autocomplete on :8007.
-  generation:   env.VITE_GENERATION_SERVICE_URL   || env.VITE_GENERATION_URL   || "http://localhost:8009",
+// The map is built by a FUNCTION rather than written as a literal because two
+// callers need it from two different places (sprint 16). The app resolves it
+// from `import.meta.env`, which only exists inside a Vite-transformed module;
+// vite.config.js has to resolve the same map in plain Node, from `loadEnv`,
+// to compute the Content-Security-Policy `connect-src` for the dev server, the
+// preview server and the emitted deployment headers. A policy derived from a
+// second, hand-kept list of ports is a policy that silently stops matching the
+// app the first time a service moves — so there is one list, here, and both
+// callers pass their own env into it.
+export function resolveServices(e = {}) {
+  return {
+    auth:      e.VITE_AUTH_SERVICE_URL      || "http://localhost:8000",
+    asr:       e.VITE_ASR_SERVICE_URL       || "http://localhost:8001",
+    dictation: e.VITE_DICTATION_SERVICE_URL || "http://localhost:8002",
+    nlp:       e.VITE_NLP_SERVICE_URL       || "http://localhost:8005",
+    // The platform is split per the backend integration guide (2026-06-20):
+    // reports + templates, autocomplete, and signing are distinct services on
+    // their own ports — NOT one monolithic "core" service. In production all of
+    // these point at the same same-origin gateway (guide §7).
+    report:       e.VITE_REPORT_SERVICE_URL       || e.VITE_REPORT_URL       || "http://localhost:8006",
+    autocomplete: e.VITE_AUTOCOMPLETE_SERVICE_URL || e.VITE_AUTOCOMPLETE_URL || "http://localhost:8007",
+    signing:      e.VITE_SIGNING_SERVICE_URL      || e.VITE_SIGNING_URL      || "http://localhost:8008",
+    // Clinical / EHR endpoints not yet covered by the integration guide
+    // (patients, encounters, consents, anamnesis, clinical notes, scribe).
+    core:      e.VITE_CORE_SERVICE_URL      || e.VITE_CORE_URL || "http://localhost:8003",
+    // Sprint 12 — notification feed, WebSocket push, preferences.
+    notification: e.VITE_NOTIFICATION_SERVICE_URL || e.VITE_NOTIFICATION_URL || "http://localhost:8004",
+    // Sprint 15 — Layer C inline generative completion (ADR-0036). Its own
+    // service because it owns a model process, a slot pool and a latency budget
+    // that must never share a queue with the corpus autocomplete on :8007.
+    generation:   e.VITE_GENERATION_SERVICE_URL   || e.VITE_GENERATION_URL   || "http://localhost:8009",
+    // The demo-booking funnel behind #/signup → "Book a demo". The only
+    // service in this map the browser calls with NO credentials and no
+    // account: it exists to send a stranger two emails. On :8012 rather
+    // than the next free-looking port because 8010/8011 and 8013–8015 are
+    // the evidence backend's (see the note further down).
+    marketing:    e.VITE_MARKETING_SERVICE_URL    || e.VITE_MARKETING_URL    || "http://localhost:8012",
 
-  // ── evidence (EVA-S03) ─────────────────────────────────────────────
-  // The browser-facing evidence services. In production all three resolve to
-  // the same same-origin gateway as every other service above; the ports are
-  // the dev-compose split.
-  evidenceRetrieval: env.VITE_EVIDENCE_RETRIEVAL_URL || "http://localhost:8011",
-  evidenceAnswer:    env.VITE_EVIDENCE_ANSWER_URL    || "http://localhost:8013",
-  evidenceWebsearch: env.VITE_EVIDENCE_WEBSEARCH_URL || "http://localhost:8014",
-  //
-  // NOT LISTED, DELIBERATELY: evidence-ingest (:8010).
-  //
-  // It is an INTERNAL-ONLY service. Corpus ingestion, snapshots, retractions
-  // and quarantine decisions are operator work: the CLI and a service-token
-  // ops API, bound to 127.0.0.1 in the compose file, with no browser-facing
-  // auth path at all. The SPA must never call it — an `ingest:` entry here
-  // would be the first step towards a client that cannot work, wired to a
-  // port a clinic's browser cannot reach.
-  //
-  // The knowledge-admin portal that finally fronts those operations arrives in
-  // S12 and will talk to whatever browser-facing API that sprint specifies;
-  // until then `evidence.corpus.manage` has no UI (see handoff.md § Evidence).
-  //
-  // The services the SPA WILL call are evidence-retrieval and the answer API,
-  // and they land in S03 — this comment is the reminder that :8010 is not one
-  // of them.
+    // ── evidence (EVA-S03) ─────────────────────────────────────────────
+    // The browser-facing evidence services. In production all three resolve to
+    // the same same-origin gateway as every other service above; the ports are
+    // the dev-compose split.
+    evidenceRetrieval: e.VITE_EVIDENCE_RETRIEVAL_URL || "http://localhost:8011",
+    evidenceAnswer:    e.VITE_EVIDENCE_ANSWER_URL    || "http://localhost:8013",
+    evidenceWebsearch: e.VITE_EVIDENCE_WEBSEARCH_URL || "http://localhost:8014",
+    //
+    // NOT LISTED, DELIBERATELY: evidence-ingest (:8010).
+    //
+    // It is an INTERNAL-ONLY service. Corpus ingestion, snapshots, retractions
+    // and quarantine decisions are operator work: the CLI and a service-token
+    // ops API, bound to 127.0.0.1 in the compose file, with no browser-facing
+    // auth path at all. The SPA must never call it — an `ingest:` entry here
+    // would be the first step towards a client that cannot work, wired to a
+    // port a clinic's browser cannot reach.
+    //
+    // The knowledge-admin portal that finally fronts those operations arrives in
+    // S12 and will talk to whatever browser-facing API that sprint specifies;
+    // until then `evidence.corpus.manage` has no UI (see handoff.md § Evidence).
+    //
+    // The services the SPA WILL call are evidence-retrieval and the answer API,
+    // and they land in S03 — this comment is the reminder that :8010 is not one
+    // of them.
 
-  // ── evidence chat (EvidenzAI) ──────────────────────────────────────
-  // NOT one of this platform's microservices. It is the separate EvidenzAI
-  // product's API (its own repo, its own datastores, its own accounts), and it
-  // is what answers the questions asked in #/chat — `POST {base}/api/v1/query`,
-  // streamed as SSE. Blank by default: with no URL the chat module answers
-  // from its fixtures, which is the correct behaviour for every environment
-  // where that backend is not deployed and reachable.
-  //
-  // Distinct from `evidenceAnswer` (:8013) above, which is THIS platform's own
-  // answer service, specified in EVA-S04 and not yet built. When it exists,
-  // the chat module points at it by swapping this base URL and the small
-  // response mapping in src/chat/data/ — the module itself does not change.
-  evidenceChat: env.VITE_EVIDENCE_CHAT_URL || "",
-};
+    // ── evidence chat (EvidenzAI) ──────────────────────────────────────
+    // NOT one of this platform's microservices. It is the separate EvidenzAI
+    // product's API (its own repo, its own datastores, its own accounts), and it
+    // is what answers the questions asked in #/chat — `POST {base}/api/v1/query`,
+    // streamed as SSE. Blank by default: with no URL the chat module answers
+    // from its fixtures, which is the correct behaviour for every environment
+    // where that backend is not deployed and reachable.
+    //
+    // Distinct from `evidenceAnswer` (:8013) above, which is THIS platform's own
+    // answer service, specified in EVA-S04 and not yet built. When it exists,
+    // the chat module points at it by swapping this base URL and the small
+    // response mapping in src/chat/data/ — the module itself does not change.
+    evidenceChat: e.VITE_EVIDENCE_CHAT_URL || "",
+  };
+}
+
+export const SERVICES = resolveServices(env);
 
 // ── readiness paths ──────────────────────────────────────────────────
 // Every service THIS platform builds answers /readyz (spec §A sprint 01), so
@@ -75,7 +94,7 @@ export const SERVICES = {
 // our convention, and probing it at /readyz gets a 404 that the health panel
 // reads as "answering but not ready" — a service reported broken while it is
 // serving fine. Lives here because this is the file that knows what each entry
-// in SERVICES actually is; both health surfaces (components/HealthBadge.jsx
+// in SERVICES actually is; both health surfaces (components/ServiceHealth.jsx
 // and the owner console's fetchPlatformHealth) read it rather than each
 // hardcoding a path.
 export const DEFAULT_READY_PATH = "/readyz";
@@ -142,7 +161,11 @@ export const FEATURES = {
   patients:      flag("VITE_FEAT_PATIENTS"),       // core-service patients/encounters (doc 01 M2)
   notes:         flag("VITE_FEAT_NOTES"),          // core-service notes + scribe (doc 01 M4/M5)
   anamnesis:     flag("VITE_FEAT_ANAMNESIS"),      // core-service anamnesis + privacy (doc 01 M3/M6)
-  mfaEnrolment:  flag("VITE_FEAT_MFA_ENROLMENT"),  // backend /auth/mfa/* (future sprint)
+  // Sprint 16: this ADVERTISES enrolment (the Profile → Security action). It
+  // deliberately does NOT gate the #/mfa screen itself — a user sent there by
+  // the backend's 403 `mfa_enrolment_required` cannot do their job until they
+  // enrol, and a flagged-off page would strand them with no way forward.
+  mfaEnrolment:  flag("VITE_FEAT_MFA_ENROLMENT"),  // backend MDX_MFA_ENROLMENT_ENABLED
   notifications: flag("VITE_FEAT_NOTIFICATIONS"),  // notification-service :8004 (sprint 12)
   // EVA-S03 — the evidence devtools (#/evidence/dev/*). Not a clinician
   // feature and never will be: these screens talk to the retrieval service in
@@ -173,9 +196,12 @@ export const FEATURES = {
 // Blank → the form shows its success state without composing a mail draft.
 export const ACCESS_REQUEST_EMAIL = env.VITE_ACCESS_REQUEST_EMAIL || "";
 
-// Deep-link to Keycloak's "Forgot password" form. The realm handles the rest;
-// backend has no FE-facing reset-password endpoint.
-export function passwordResetUrl() {
-  const params = new URLSearchParams({ client_id: KEYCLOAK.clientId });
-  return `${KEYCLOAK.base}/realms/medical-dictation/login-actions/reset-credentials?${params}`;
-}
+// REMOVED: passwordResetUrl() deep-linked to Keycloak's own
+// reset-credentials form, because the backend had no reset endpoint. It
+// does now — POST /auth/password/forgot — and the whole flow lives in
+// this app at #/forgot-password → #/reset-password (src/api/password.js).
+//
+// Keeping the Keycloak link alongside it would be worse than removing
+// it: the realm has no SMTP server configured, so that form silently
+// sends nothing, and it is a second front door with different branding
+// for the one flow users reach when they are already locked out.

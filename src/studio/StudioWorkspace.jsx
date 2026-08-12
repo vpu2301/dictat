@@ -32,6 +32,7 @@ import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { asList, Loading } from "../components/DataStates.jsx";
 import { DictationStudio, LevelMeter } from "../components/Studio.jsx";
 import { ConversationRoom } from "../conversation/ConversationRoom.jsx";
+import { RecoveryBanner } from "../dictation/RecoveryBanner.jsx";
 import { ScribeConsult } from "../components/Scribe.jsx";
 import { AsrSubmitPage } from "../pages/AsrSubmitPage.jsx";
 import { AsrJobDetailPage } from "../pages/AsrJobDetailPage.jsx";
@@ -46,7 +47,7 @@ import { tr } from "../i18n.js";
 
 import { notifySessionsChanged } from "./SidebarSessions.jsx";
 import { studioHref } from "./sessions.js";
-import { syncTabs, closeTab, renameTab, paramsOfTab, fallbackTitle, loadTabs, saveTabs } from "./tabs.js";
+import { syncTabs, closeTab, renameTabForPatient, paramsOfTab, fallbackTitle, loadTabs, saveTabs, patientSource } from "./tabs.js";
 
 // ── modes ──────────────────────────────────────────────────────────────
 
@@ -113,6 +114,45 @@ function fmtDocDate(value, lang) {
   return d.toLocaleDateString(locale, {
     day: "numeric", month: "long", ...(thisYear ? {} : { year: "numeric" }),
   });
+}
+
+// What the workspace shows when nothing is open: the question the clinician
+// actually arrives with — what KIND of note is this? — instead of a dictation
+// tab they never asked for. Opening /studio used to mint a "Диктант" tab and
+// pop the patient dialog on top of it, deciding twice on their behalf before
+// they had decided once.
+function StartSurface({ lang, patient, onPick }) {
+  return (
+    <div className="sw-start">
+      <div className="sw-start-b">
+        <h2 className="sw-start-t">{tr(lang, "З чого почнемо?", "What are we starting?")}</h2>
+        <p className="sw-start-s">
+          {patient?.label
+            ? tr(lang, `Пацієнт: ${patient.label}. Оберіть тип запису.`,
+                       `Patient: ${patient.label}. Choose how to capture it.`)
+            : tr(lang, "Оберіть тип запису — пацієнта можна обрати будь-коли.",
+                       "Choose how to capture the note — the patient can be picked at any point.")}
+        </p>
+        <div className="sw-start-grid">
+          {MODES.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              className="sw-start-card"
+              data-testid={`sw-start-${m.key}`}
+              onClick={() => onPick(m.key)}
+            >
+              <Icon name={m.icon} size={13} />
+              <span className="sw-menu-b">
+                <span className="sw-menu-t">{m.label(lang)}</span>
+                <span className="sw-menu-h2">{m.hint(lang)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // The `+` at the end of the tab strip: what KIND of document to start.
@@ -297,10 +337,17 @@ function PatientPicker({ lang, onPick, onClose }) {
 export function StudioWorkspace({
   lang = "uk", navigate,
   mode: modeProp, patientId, encounterId, templateId, reportId, sessionId, jobId, noteId, tabId,
+  recoverSessionId,
   templatesMap = {}, onAddTemplate, templatesLoading = false, templatesError = null, onRetryTemplates,
   onToast,
 }) {
-  const mode = isStudioMode(modeProp) ? modeProp : "dictate";
+  // No `mode` in the URL means no document open — the workspace shows the
+  // chooser rather than assuming a dictation. An old link that names a document
+  // but no mode still resolves, because the document itself says which surface
+  // it belongs to.
+  const inferredMode = reportId ? "dictate" : jobId ? "audio" : sessionId ? "scribe" : noteId ? "note" : null;
+  const mode = isStudioMode(modeProp) ? modeProp : inferredMode;
+  const starting = !mode;
   // The assist rail (microphone device, suggestions, voice-command reference,
   // autocomplete settings) is open by default — everything the old Studio put
   // there is still one glance away — and collapsible for a document-only view.
@@ -312,10 +359,14 @@ export function StudioWorkspace({
     try { localStorage.setItem(ASSIST_KEY, assistOpen ? "1" : "0"); } catch {}
   }, [assistOpen]);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [composer, setComposer] = useState("");
   // Set by the picker, so the header can name the patient before the editor's
   // own fetch resolves; the URL stays the source of truth for the id.
-  const [pickedPatient, setPickedPatient] = useState(null);
+  // The patient chosen in the picker, WITH the tab it was chosen for. It used
+  // to be a bare patient: it then survived a tab switch, and a tab that asked
+  // for the same id resolved it instantly — which is what gave the rename race
+  // below something to write. Scoped, a pick can only ever name its own tab.
+  const [picked, setPicked] = useState(null);   // { tabId, patient }
+  const pickedPatient = picked && picked.tabId === tabId ? picked.patient : null;
 
   // What the editor is doing right now (see DictationStudio's `onSnapshot`).
   const [snap, setSnap] = useState(null);
@@ -340,8 +391,12 @@ export function StudioWorkspace({
 
   // ── open documents ───────────────────────────────────────────────────
   // Tabs live in sessionStorage: working state, not a record. What was open is
-  // worth surviving a reload; it is not worth outliving the browser tab, and
-  // every document in the strip is one click away in the sidebar anyway.
+  // worth surviving a reload — and a reboot, since Chrome hands sessionStorage
+  // back when it restores the window, which is exactly the "the PC went down,
+  // let me carry on" case. It is not worth surviving the NIGHT: that same
+  // restore was putting yesterday's patients in this morning's strip, so
+  // `loadTabs` drops anything older than today (see TABS_TTL_MS). Every document
+  // in the strip is one click away in the sidebar anyway.
   const [tabState, setTabState] = useState(() => {
     const stored = typeof sessionStorage !== "undefined" ? loadTabs(sessionStorage) : [];
     // Continue the id sequence past whatever was restored, so a new tab can
@@ -366,6 +421,10 @@ export function StudioWorkspace({
     const signature = JSON.stringify({ ...params, t: tabId });
     if (lastSyncRef.current === signature) return;
     lastSyncRef.current = signature;
+    // The chooser is not a document, so it does not get a tab. Landing on
+    // /studio with nothing open leaves the strip exactly as it was — including
+    // empty — and picking a kind of note is what opens the first one.
+    if (starting) { setActiveTab(null); return; }
     const cur = tabStateRef.current;
     const next = syncTabs(cur.tabs, { ...params, t: tabId }, { seq: cur.seq });
     setActiveTab(next.activeId);
@@ -379,7 +438,15 @@ export function StudioWorkspace({
   // A navigation that arrived without `t` (or with an unknown one) has just
   // been given a tab — put it in the URL so the next navigation stays inside it.
   useEffect(() => {
-    if (activeTab && activeTab !== tabId) navigate(studioHref({ ...params, t: activeTab }));
+    // `recover` rides along explicitly (sprint 16). It is deliberately NOT in
+    // `params`: a tab is identified by the document it holds, and "restore this
+    // interrupted recording" is an instruction, not a document — putting it in
+    // the tab signature would re-open a tab per recovery. But it must survive
+    // THIS rewrite, or the one navigation that carries it is the one that drops
+    // it, and Restore silently starts a brand-new session instead of resuming.
+    if (activeTab && activeTab !== tabId) {
+      navigate(studioHref({ ...params, t: activeTab, recover: recoverSessionId }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -422,41 +489,45 @@ export function StudioWorkspace({
     [patientId],
     { enabled: !!patientId },
   );
+  // `useAsync` keeps its last data when disabled, and the hidden editor keeps
+  // the document it holds — so every source here must be checked against the
+  // document THIS tab has open before it is allowed to name a patient (see
+  // `patientSource`). A tab with no patient says so; it does not borrow one.
   const patient = useMemo(() => {
-    // `useAsync` keeps its last data when disabled, so a tab with no patient
-    // would inherit the previous tab's — and name itself after them. Only a
-    // record that IS this tab's patient counts.
-    const p = patientReq.data && patientReq.data.id === patientId ? patientReq.data : null;
-    if (p) {
+    const src = patientSource({
+      patientId,
+      reportId,
+      fetchedId: patientReq.data?.id,
+      pickedId: pickedPatient?.id,
+      snapPatientId: snap?.patient?.id,
+      snapReportId: snap?.reportId,
+    });
+    if (src === "fetched") {
+      const p = patientReq.data;
       return {
         id: p.id,
         label: p.name?.[lang] || p.name?.uk || p.name?.en || p.display_name || p.id,
         dob: p.dob,
       };
     }
-    if (pickedPatient && pickedPatient.id === patientId) {
+    if (src === "picked") {
       return {
         id: pickedPatient.id,
         label: pickedPatient.name?.[lang] || pickedPatient.name?.uk || pickedPatient.name?.en || pickedPatient.id,
         dob: pickedPatient.dob,
       };
     }
-    return snap?.patient || null;
-  }, [patientReq.data, pickedPatient, patientId, snap?.patient, lang]);
+    if (src === "snapshot") return snap?.patient || null;
+    return null;
+  }, [patientReq.data, pickedPatient, patientId, reportId, snap?.patient, snap?.reportId, lang]);
   const yob = yearOfBirth(patient);
 
-  // Nothing to open and nobody to open it for: the picker IS the old patient
-  // gate, moved from a screen into a dialog. Asked once PER TAB — every new
-  // document needs its own answer (that is the point of a second tab), and a
-  // clinician who dismissed it is not asked the same question twice.
-  const askedTabsRef = useRef(new Set());
-  useEffect(() => {
-    if (!activeTab || askedTabsRef.current.has(activeTab)) return;
-    if (mode === "audio") return;            // an upload has no patient yet
-    if (patientId || reportId || jobId || sessionId || noteId) return;
-    askedTabsRef.current.add(activeTab);
-    setPickerOpen(true);
-  }, [activeTab, mode, patientId, reportId, jobId, sessionId, noteId]);
+  // The picker IS the old patient gate, moved from a screen into a dialog —
+  // and it is never opened on arrival. Which patient this is about is a
+  // question the workspace ASKS (the header button, the dictation surface's own
+  // prompt) rather than one it blocks on: a clinician who came to look at the
+  // room, or to start an upload that has no patient yet, was being handed a
+  // modal to dismiss before they had done anything.
 
   const templateOptions = useMemo(
     () => Object.values(templatesMap).map((t) => ({
@@ -482,29 +553,85 @@ export function StudioWorkspace({
     navigate(studioHref({ mode: nextMode }));
   }, [navigate]);
 
+  // …whereas the chooser is not a new tab, it is THIS one before it had a kind.
+  // Whatever context is already in the URL (a patient picked from the header
+  // while deciding) carries into the document that is about to open.
+  const startAs = useCallback((nextMode) => { go({ mode: nextMode }); }, [go]);
+
   const onCloseTab = useCallback((id) => {
     setTabState((cur) => {
       const { tabs, next } = closeTab(cur.tabs, id);
       // Closing the tab you are in moves you to its neighbour; closing the last
-      // one leaves an empty strip and a blank dictation, not a blank screen.
+      // one goes back to the chooser, which is where you came in.
       if (id === activeTab) {
-        navigate(next ? studioHref(paramsOfTab(next)) : studioHref({ mode: dictationMode }));
+        navigate(next ? studioHref(paramsOfTab(next)) : studioHref({}));
       }
       return { ...cur, tabs };
     });
-  }, [activeTab, navigate, dictationMode]);
+  }, [activeTab, navigate]);
 
   // What the strip calls this tab: the patient, else the document's own title,
   // else what kind of document it is. Named from the editor's snapshot, so a
   // tab renames itself the moment the patient is chosen.
+  //
+  // Keyed to `tabId` — the `t` in the URL — and NOT to `activeTab`. They are
+  // the same tab one render apart: `tabId` arrives with the params that
+  // produced `patient`, while `activeTab` is state an effect sets afterwards.
+  // Renaming by `activeTab` meant that switching to a tab whose patient was
+  // already resolvable wrote the NEW patient's name onto the tab you had just
+  // LEFT. renameTabForPatient refuses the write unless the tab is still asking
+  // for that patient (tabs.js).
   const activeTabTitle = editorContextTitle(patient);
   useEffect(() => {
-    if (!activeTab || !activeTabTitle) return;
+    if (!tabId || !activeTabTitle) return;
     setTabState((cur) => {
-      const tabs = renameTab(cur.tabs, activeTab, activeTabTitle);
+      const tabs = renameTabForPatient(cur.tabs, tabId, activeTabTitle, patient?.id);
       return tabs === cur.tabs ? cur : { ...cur, tabs };
     });
-  }, [activeTab, activeTabTitle]);
+  }, [tabId, activeTabTitle, patient?.id]);
+
+  // The first autosave mints the report. Until its id is in the URL the tab
+  // holds nothing the workspace can name — `documentKey` is null, the strip
+  // cannot restore it, and the editor cannot tell this draft from the one the
+  // next tab opens. So the tab adopts the document the moment it exists.
+  // Which tab the mounted editor belongs to. The editor stays MOUNTED behind
+  // the other tabs (it holds an unsaved draft — see the file header), so its
+  // callbacks arrive while a completely different tab is on screen. Recorded
+  // whenever the editor is the visible surface, which is the only time the tab
+  // and the editor are the same thing.
+  const editorTabRef = useRef(null);
+  useEffect(() => {
+    if (isEditorMode(mode) && tabId) editorTabRef.current = tabId;
+  }, [mode, tabId]);
+
+  // The first autosave mints the report id.
+  //
+  // THE BUG THIS GUARDS. `go()` merges into the CURRENT url — so when the
+  // hidden editor announced its new report while the user was on another tab,
+  // that tab's URL gained a `report=` belonging to someone else's draft. From
+  // there `patientSource`'s report rule resolved the editor snapshot's patient
+  // and the tab renamed itself after a patient it has nothing to do with:
+  // "open a new tab and it inherits the name". A freshly opened audio tab
+  // showing another patient's name is a misattribution, not a cosmetic slip.
+  //
+  // So the id is written to the OWNING tab. If that tab is on screen it goes
+  // through the URL as before; if it is not, only the strip's record of that
+  // tab is updated — silently, without touching the address bar or any other
+  // tab's params.
+  const onReportCreated = useCallback((id) => {
+    notifySessionsChanged();
+    if (!id) return;
+    const owner = editorTabRef.current;
+    if (owner && owner === tabId) {
+      if (id !== reportId) go({ report: id });
+      return;
+    }
+    if (!owner) return;
+    setTabState((cur) => {
+      const tabs = cur.tabs.map((t) => (t.id === owner && t.report !== id ? { ...t, report: id } : t));
+      return tabs === cur.tabs ? cur : { ...cur, tabs };
+    });
+  }, [reportId, go, tabId]);
 
   // ── actions ──────────────────────────────────────────────────────────
   const toggleMic = useCallback(() => {
@@ -530,12 +657,6 @@ export function StudioWorkspace({
     }
   }, [patientId, startingVisit, go]);
 
-  const sendComposer = useCallback(() => {
-    const text = composer.trim();
-    if (!text) return;
-    if (apiRef.current?.insertText(text)) setComposer("");
-  }, [composer]);
-
   const dictateItems = MODES.map((m) => ({
     key: m.key,
     label: m.label(lang),
@@ -556,8 +677,12 @@ export function StudioWorkspace({
         apiRef={apiRef}
         onSnapshot={onSnapshot}
         onRequestPatient={() => setPickerOpen(true)}
-        onReportCreated={notifySessionsChanged}
-        onEncounterChanged={(id) => go({ encounter: id })}
+        onReportCreated={onReportCreated}
+        onEncounterChanged={(id) => {
+          // Same ownership rule as onReportCreated: an encounter minted by the
+          // hidden editor must not be written into whatever tab is on screen.
+          if (editorTabRef.current && editorTabRef.current === tabId) go({ encounter: id });
+        }}
         lang={lang}
         patientId={patientId}
         encounterId={encounterId}
@@ -603,6 +728,7 @@ export function StudioWorkspace({
           lang={lang}
           patientId={patientId}
           encounterId={encounterId}
+          recoverSessionId={recoverSessionId}
           navigate={navigate}
           onDraft={(report) => {
             notifySessionsChanged();
@@ -671,14 +797,12 @@ export function StudioWorkspace({
   // past upload or a finished recording, the workspace has no date of its own —
   // the surface below carries the real timestamps, so the chip stays away
   // rather than stamping today's date on July's work.
-  const showDate = editorContext || (!jobId && !sessionId);
+  const showDate = !starting && (editorContext || (!jobId && !sessionId));
 
   const sections = snap?.sections || [];
-  const composerDisabled = !isEditorMode(mode) || !snap?.activeId;
-  const activeSectionName = sections.find((s) => s.id === snap?.activeId)?.name || "";
 
   return (
-    <div className="sw" data-testid="studio-workspace" data-mode={mode}>
+    <div className="sw" data-testid="studio-workspace" data-mode={mode || "start"}>
       {/* No session rail here: the work list lives in the app sidebar
           (studio/SidebarSessions.jsx), so it is reachable from every screen and
           this one is nothing but the document. */}
@@ -770,13 +894,18 @@ export function StudioWorkspace({
               icon={listening ? "pause" : "mic"}
               label={listening
                 ? tr(lang, "Пауза", "Pause")
-                : isEditorMode(mode) ? tr(lang, "Диктувати", "Dictate") : tr(lang, "До диктанту", "To dictation")}
+                : (isEditorMode(mode) || starting)
+                  ? tr(lang, "Диктувати", "Dictate")
+                  : tr(lang, "До диктанту", "To dictation")}
               onClick={toggleMic}
               menuLabel={tr(lang, "Режим запису", "Capture mode")}
               items={dictateItems}
             />
           </div>
 
+          {/* The document's own line. There is no document on the chooser, so
+              the row that describes one does not stand there empty. */}
+          {!starting && (
           <div className="sw-head-2">
             {/* The DOCUMENT's date, not the clock's: a draft reopened three
                 weeks later still belongs to the day of the visit. Falls back to
@@ -788,7 +917,10 @@ export function StudioWorkspace({
               </span>
             )}
 
-            {snap?.encounter && (
+            {/* The visit, from the same snapshot as the date above — and behind
+                the same guard, for the same reason: the editor stays mounted
+                behind an upload, and its encounter is not the upload's. */}
+            {editorContext && snap?.encounter && (
               <>
                 <span className="sw-meta-sep" />
                 <span className="sw-meta" data-testid="sw-encounter">
@@ -836,12 +968,14 @@ export function StudioWorkspace({
             {isEditorMode(mode) && <Elapsed since={recSince} lang={lang} />}
             {isEditorMode(mode) && <LiveLevel apiRef={apiRef} listening={listening} />}
           </div>
+          )}
           </div>
 
           {/* Open documents. Each tab is one thing being worked on; `+` starts
               another and asks what kind. The capture mode of the ACTIVE tab is
               switched from the record button's menu, so the strip stays a list
               of documents rather than a list of settings. */}
+          {tabState.tabs.length > 0 && (
           <div className="sw-tabsrow">
           <div className="sw-tabs" role="tablist" aria-label={tr(lang, "Відкриті документи", "Open documents")}>
             {tabState.tabs.map((t) => {
@@ -882,50 +1016,58 @@ export function StudioWorkspace({
                 vertically too, which ate the menu this button opens. */}
             <NewTabButton lang={lang} onPick={openNewTab} />
             <div className="sw-head-sp" />
-            <span className="sw-tabs-hint">{modeOf(mode).hint(lang)}</span>
+            {!starting && <span className="sw-tabs-hint">{modeOf(mode).hint(lang)}</span>}
           </div>
+          )}
 
           {/* No section strip. The document itself is the list of sections —
               clicking into one selects it — and a second copy of that list
               above the page was chrome competing with the record. Which
-              section dictation lands in is said where it matters: in the
-              composer's placeholder, and by the caret. */}
+              section dictation lands in is shown by the caret. (It used to be
+              named in the composer's placeholder too; that bar is gone — see
+              the note where it used to render.) */}
         </header>
 
         <div className="sw-surface">
+          {/* Sprint 16. A consultation whose session died mid-recording left
+              its audio in the local ring; this is where the clinician is told
+              so. Above the surface rather than inside a mode, because the
+              recording it belongs to is not the document currently open — and
+              it renders nothing at all when there is nothing to recover, which
+              is almost every visit to this screen. Hidden while a microphone
+              is hot, and while a restore is already in progress — offering to
+              restore a take over a running one is a question with a dangerous
+              answer. (A conversation that is live is excluded at the source:
+              its manifest is still ACTIVE, and only INTERRUPTED ones are
+              offered.) */}
+          {!listening && !recoverSessionId && (
+            <RecoveryBanner
+              lang={lang}
+              onRestore={(item) => navigate(studioHref({
+                mode: "scribe",
+                patient: item.patientId || patientId,
+                encounter: item.encounterId || encounterId,
+                recover: item.sessionId,
+              }))}
+            />
+          )}
           {editorSurface}
-          {!isEditorMode(mode) && <div className="sw-pane" key={mode}>{modeSurface}</div>}
+          {starting && (
+            <div className="sw-pane" key="start">
+              <StartSurface lang={lang} patient={patient} onPick={startAs} />
+            </div>
+          )}
+          {!starting && !isEditorMode(mode) && <div className="sw-pane" key={mode}>{modeSurface}</div>}
         </div>
 
-        <div className="sw-composer">
-          <Icon name="edit" size={14} className="muted" />
-          <input
-            value={composer}
-            onChange={(e) => setComposer(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); sendComposer(); } }}
-            disabled={composerDisabled}
-            data-testid="sw-composer"
-            aria-label={tr(lang, "Додати текст у розділ", "Add text to the section")}
-            placeholder={composerDisabled
-              ? (mode === "scribe"
-                  ? tr(lang, "Під час розмови текст пишуть голоси — не клавіатура", "During a conversation the voices write the text, not the keyboard")
-                  : mode === "audio"
-                    ? tr(lang, "Завантажте аудіо — транскрипт з'явиться у документі", "Upload audio — the transcript lands in the document")
-                    : tr(lang, "Оберіть розділ, щоб писати", "Pick a section to write into"))
-              : tr(lang, `Написати в «${activeSectionName}» — або натисніть мікрофон`,
-                         `Write into "${activeSectionName}" — or press the microphone`)}
-          />
-          <button type="button" className="sw-iconbtn"
-            aria-label={tr(lang, "Мікрофон", "Microphone")}
-            data-testid="sw-composer-mic"
-            onClick={toggleMic}>
-            <Icon name={listening ? "pause" : "mic"} size={14} />
-          </button>
-          <button type="button" className="sw-send" disabled={composerDisabled || !composer.trim()}
-            aria-label={tr(lang, "Додати", "Add")} onClick={sendComposer}>
-            <Icon name="arrowRight" size={14} />
-          </button>
-        </div>
+        {/* No bottom bar. There used to be a composer docked here — a text
+            field, a mic button and a send arrow — and across every state it
+            read as a chat box bolted to the document. Typing goes into the
+            document itself, which is a real editor; dictation starts from
+            "Диктувати" in the header. Removed 2026-08-11 at the product
+            owner's call. NOTE what went with it: its placeholder was the only
+            place that NAMED the section dictation would land in; the caret is
+            now the only indication. */}
       </main>
 
       {pickerOpen && (
@@ -933,7 +1075,7 @@ export function StudioWorkspace({
           lang={lang}
           onClose={() => setPickerOpen(false)}
           onPick={(p) => {
-            setPickedPatient(p);
+            setPicked({ tabId, patient: p });
             // A new patient means a new document — the report/job/session in
             // the URL belonged to the previous one. It stays in THIS tab
             // though: `t` is who is asking, not what they are holding.

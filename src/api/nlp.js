@@ -14,18 +14,36 @@ import { SERVICES } from "./services.js";
 
 const a = (p, init) => apiAt(SERVICES.nlp, p, init);
 
-export async function processText({ text, words = [], language = "uk", target_kind = "generic", encounter_id, template_id }) {
-  const body = { text, words, language, target_kind };
-  if (encounter_id) body.encounter_id = encounter_id;
-  if (template_id)  body.template_id  = template_id;
-  return a("/nlp/process", { method: "POST", body: JSON.stringify(body) });
+// ProcessRequest is extra="forbid" server-side: {text, words, language} plus
+// the documented optional knobs ONLY. (This used to send target_kind /
+// encounter_id / template_id — fields the strict model never had; every real
+// call would have 422'd. No caller existed, which is how it went unnoticed.)
+export async function processText({ text, words = [], language = "uk" }) {
+  return a("/nlp/process", {
+    method: "POST",
+    body: JSON.stringify({ text, words, language }),
+  });
 }
 
-export async function processBatch({ segments, language = "uk", target_kind = "generic" }) {
+export async function processBatch({ segments, language = "uk" }) {
   return a("/nlp/process/batch", {
     method: "POST",
-    body: JSON.stringify({ segments, language, target_kind }),
+    body: JSON.stringify({ segments, language }),
   });
+}
+
+// Admin sandbox (sprint 17): run admin-TYPED text through the pipeline to see
+// what the tenant's dictionary does to it. Sends only fields every deployment
+// of the strict ProcessRequest model accepts ({ text, language,
+// stages_disabled }) — the wire model is extra="forbid", so nothing else rides
+// along. `stages_disabled` values: "voice_commands" | "punctuation" |
+// "number_norm" | "date_norm" | "abbreviation" | "field_extraction" |
+// "confidence". Response: { text, words, pipeline_version, metadata,
+// confidence_spans[], voice_commands[], operations[], warnings[] }.
+export async function processSandbox({ text, language = "uk", stages_disabled = [] }) {
+  const body = { text, language };
+  if (stages_disabled.length) body.stages_disabled = stages_disabled;
+  return a("/nlp/process", { method: "POST", body: JSON.stringify(body) });
 }
 
 export async function listAbbreviations({ language, limit = 100, cursor } = {}) {

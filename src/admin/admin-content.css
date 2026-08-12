@@ -1,0 +1,135 @@
+/* admin-content.css — sprint-17 content surfaces (dictionary, autocomplete,
+   synonyms). Rides on sprints-17.css's adm-* shell/table kit; everything
+   specific to the three content pages carries the admc- prefix. Design tokens
+   only — destructive affordances use --rec (there is no --danger). */
+
+/* ── shared: toolbar, badges, chips, notes ─────────────────────────────── */
+.admc-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.admc-toolbar > .btn { margin-left: auto; }
+.admc-toolbar select,
+.admc-filter-input {
+  padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--radius-s, 6px);
+  background: var(--surface); color: var(--text-1); font-size: 13px;
+}
+.admc-toolbar select:focus, .admc-filter-input:focus {
+  outline: none; border-color: var(--accent);
+}
+
+.admc-segmented {
+  display: inline-flex; border: 1px solid var(--line);
+  border-radius: var(--radius-s, 6px); overflow: hidden;
+}
+.admc-segmented button {
+  padding: 6px 12px; border: 0; background: var(--surface);
+  color: var(--text-2); font-size: 12.5px; cursor: pointer;
+}
+.admc-segmented button + button { border-left: 1px solid var(--line); }
+.admc-segmented button.on {
+  background: var(--accent-soft); color: var(--accent-text, var(--accent));
+  font-weight: 600;
+}
+
+.admc-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11.5px; white-space: nowrap;
+}
+.admc-badge-tenant, .admc-badge-user { background: var(--accent-soft); color: var(--accent-text, var(--accent)); }
+.admc-badge-system { background: var(--surface-2); color: var(--text-3); }
+
+.admc-chip {
+  display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface-2); font-size: 12.5px;
+}
+.admc-chip-warn { background: var(--warn-soft); border-color: var(--warn); color: var(--text-1); }
+
+.admc-note {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: var(--radius-s, 6px); background: var(--surface-2);
+  font-size: 12.5px; line-height: 1.5; color: var(--text-2);
+}
+.admc-note .btn { vertical-align: baseline; }
+
+.admc-empty-cell { text-align: center; color: var(--text-3); padding: 22px 10px !important; }
+.admc-num { text-align: right; font-variant-numeric: tabular-nums; }
+.admc-dir { text-align: center; color: var(--text-3); }
+.admc-expansion {
+  max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.admc-subhead { margin: 2px 0 0; font-size: 13.5px; }
+.admc-subnote { margin: 2px 0 8px; font-size: 12px; }
+
+/* ── forms in modals ───────────────────────────────────────────────────── */
+.admc-form { display: flex; flex-direction: column; gap: 12px; }
+.admc-form label { display: flex; flex-direction: column; gap: 4px; }
+.admc-form label > span {
+  font-size: 11px; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.admc-form input, .admc-form select, .admc-form textarea {
+  padding: 7px 10px; border: 1px solid var(--line);
+  border-radius: var(--radius-s, 6px); background: var(--surface);
+  color: var(--text-1); font-size: 13.5px; font-family: inherit;
+}
+.admc-form input:focus, .admc-form select:focus, .admc-form textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.admc-check { flex-direction: row !important; align-items: center; gap: 8px !important; }
+.admc-check > span { text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; color: var(--text-2) !important; }
+.admc-form .modal-foot { padding: 0; margin-top: 4px; }
+
+/* ── PII rejection alert ───────────────────────────────────────────────── */
+.admc-pii-alert {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px; border: 1px solid var(--warn);
+  border-radius: var(--radius-s, 6px); background: var(--warn-soft);
+  font-size: 13px; line-height: 1.5;
+}
+.admc-pii-alert svg { flex: none; margin-top: 2px; color: var(--warn); }
+.admc-pii-patterns { margin: 6px 0; }
+
+/* ── sandbox + probe panels ────────────────────────────────────────────── */
+.admc-sandbox, .admc-probe { display: flex; flex-direction: column; gap: 10px; }
+.admc-sandbox-h { display: flex; align-items: baseline; gap: 8px; }
+.admc-sandbox-h h2 { margin: 0; font-size: 14px; }
+.admc-sandbox-h svg { align-self: center; color: var(--text-3); }
+.admc-sandbox-form { display: flex; flex-direction: column; gap: 8px; }
+.admc-sandbox-form textarea {
+  width: 100%; resize: vertical; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: var(--radius-s, 6px);
+  background: var(--surface); color: var(--text-1); font-size: 13.5px; font-family: inherit;
+}
+.admc-sandbox-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.admc-sandbox-controls > .btn { margin-left: auto; }
+.admc-stage-toggles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; }
+.admc-stage-toggles .admc-check { display: flex; }
+.admc-sandbox-out { display: flex; flex-direction: column; gap: 6px; }
+.admc-sandbox-result {
+  padding: 10px 12px; border: 1px dashed var(--line);
+  border-radius: var(--radius-s, 6px); background: var(--surface-2);
+  font-size: 14px; white-space: pre-wrap;
+}
+.admc-sandbox-warnings { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--text-2); }
+
+.admc-probe-form { display: flex; gap: 8px; }
+.admc-probe-form input {
+  flex: 1; padding: 7px 10px; border: 1px solid var(--line);
+  border-radius: var(--radius-s, 6px); background: var(--surface);
+  color: var(--text-1); font-size: 13.5px;
+}
+.admc-probe-out { font-size: 13px; }
+
+/* ── the pinned clinical-safety note ───────────────────────────────────── */
+.admc-safety {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 14px; border: 1px solid var(--warn);
+  border-left-width: 4px; border-radius: var(--radius-s, 6px);
+  background: var(--warn-soft); font-size: 13px; line-height: 1.55;
+}
+.admc-safety svg { flex: none; margin-top: 2px; color: var(--warn); }
+
+/* ── terms cell ────────────────────────────────────────────────────────── */
+.admc-terms { line-height: 1.9; }

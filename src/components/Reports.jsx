@@ -18,11 +18,16 @@ import { versionBody, diffSectionList } from '../reports/versionDiff.js';
 import { useMemberNames } from '../api/memberNames.js';
 import { VersionInfoModal } from './VersionInfoModal.jsx';
 import { AmendmentModal, ReportDiffView } from './ReportDiff.jsx';
-import { RequestAccessModal } from './RequestAccessModal.jsx';
 import { isPhiAccessRequired } from '../api/phiAccess.js';
 import { SigningFlow } from './SigningFlow.jsx';
+import { SignedBadge, canSign, signingErrorMessage } from './SignGate.jsx';
+import { hasClinicalAccess } from '../auth/permissions.js';
+import { useClaims } from '../auth/AuthContext.jsx';
 import { useSpeechRecognition, LevelMeter } from './Studio.jsx';
 import { segmentUtterance, appendUtterance } from '../dictation/voiceCommands.js';
+import { BreakGlassBanner } from '../patients/BreakGlassBanner.jsx';
+import { BreakGlassGate } from '../patients/BreakGlassGate.jsx';
+import { activeBreakGlass } from '../patients/breakGlass.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -973,6 +978,22 @@ function ReportDictatePanel({ contentSections, sectionLabel, lang, onAmend, disa
 
 export function ReportView({ id, navigate, lang }) {
   const { t } = useI18n();
+  // Who is looking. Signing and amending are physician acts; everyone else
+  // gets the signature's status and none of the actions (2026-08-09 hotfix).
+  const claims = useClaims();
+  // Same standing reminder as the patient record: a report opened on an
+  // exception must keep saying so — and, since sessionStorage outlives a
+  // sign-out, only for the account that opened it (see patients/breakGlass.js).
+  const subject = claims?.sub;
+  const [breakGlass, setBreakGlass] = useState(() =>
+    typeof sessionStorage !== "undefined"
+      ? activeBreakGlass(sessionStorage, "report", id, { subject })
+      : null);
+  useEffect(() => {
+    if (typeof sessionStorage !== "undefined") {
+      setBreakGlass(activeBreakGlass(sessionStorage, "report", id, { subject }));
+    }
+  }, [id, subject]);
   const reportReq = useAsync(() => getReport(id), [id]);
   const templatesReq = useAsync(() => listTemplates(), []);
   const versionsReq = useAsync(() => listReportVersions(id), [id]);
@@ -986,7 +1007,6 @@ export function ReportView({ id, navigate, lang }) {
   const [showAmend, setShowAmend] = useState(false);
   const [amendSeed, setAmendSeed] = useState(null); // dictated body → AmendmentModal.initialBody
   const [signOpen, setSignOpen] = useState(false);
-  const [accessOpen, setAccessOpen] = useState(false); // S14 break-glass modal
   const [editing, setEditing] = useState(false);
   const [toasts, setToasts] = useState([]);
   // Sprint 15 — which sentence's replay strip is open ("<section>:<index>").
@@ -1022,44 +1042,34 @@ export function ReportView({ id, navigate, lang }) {
 
   if (reportReq.loading || isDraft) return <div className="page"><Loading lang={lang} /></div>;
   // S14 break-glass. A 403 carrying `phi_access_required` is not a dead
-  // end — it is the backend saying "you may ask for this one report".
-  // Turning it into the request flow, rather than a generic error page,
-  // is the whole point of the code being machine-readable.
+  // end for an administrator — it is the backend saying "you may ask for this
+  // one report". Turning it into the request flow, rather than a generic
+  // error page, is the whole point of the code being machine-readable.
+  //
+  // The screen itself is BreakGlassGate, not a second copy of it (2026-08-09):
+  // it is the component that decides who is even offered the door, and the
+  // copy that told a clinician "administrators hold no standing access" was
+  // addressed to someone who was not reading it.
   if (reportReq.error && isPhiAccessRequired(reportReq.error)) {
     return (
-      <div className="page">
-        <Empty
-          icon="shield"
-          title={tr(lang, "Потрібен дозвіл на доступ", "Access request required")}
-          hint={tr(lang,
-            "Адміністратори не мають постійного доступу до медичних записів. Ви можете запитати тимчасовий доступ саме до цього звіту — авторів буде повідомлено, а подію записано в журнал аудиту.",
-            "Administrators hold no standing access to clinical records. You can request temporary access to this one report — its authors are notified and the event is recorded in the audit trail.")}
-          action={
-            <>
-              <button className="btn accent" onClick={() => setAccessOpen(true)}>
-                <Icon name="shield" size={13} />
-                {tr(lang, "Запитати доступ", "Request access")}
-              </button>
-              <button className="btn" onClick={() => navigate("/patients")}>
-                {tr(lang, "До списку пацієнтів", "Back to patients")}
-              </button>
-            </>
-          }
-        />
-        {accessOpen && (
-          <RequestAccessModal
-            lang={lang}
-            reportId={id}
-            onClose={() => setAccessOpen(false)}
-            onGranted={() => {
-              setAccessOpen(false);
-              // The grant exists now; the same GET succeeds on retry.
-              reportReq.reload();
-              versionsReq.reload?.();
-            }}
-          />
-        )}
-      </div>
+      <BreakGlassGate
+        error={reportReq.error}
+        lang={lang}
+        resourceKind="report"
+        resourceId={id}
+        reportCode={reportReq.data?.code}
+        title={tr(lang, "Потрібен дозвіл на доступ", "Access request required")}
+        body={tr(lang,
+          "Адміністратори не мають постійного доступу до медичних записів. Ви можете запитати тимчасовий доступ саме до цього звіту — авторів буде повідомлено, а подію записано в журнал аудиту.",
+          "Administrators hold no standing access to clinical records. You can request temporary access to this one report — its authors are notified and the event is recorded in the audit trail.")}
+        onLeave={() => navigate("/patients")}
+        onGranted={(_grant, entry) => {
+          setBreakGlass(entry);
+          // The grant exists now; the same GET succeeds on retry.
+          reportReq.reload();
+          versionsReq.reload?.();
+        }}
+      />
     );
   }
   if (reportReq.error) return <div className="page"><ApiErrorView error={reportReq.error} lang={lang} /></div>;
@@ -1088,6 +1098,17 @@ export function ReportView({ id, navigate, lang }) {
   );
   const sectionLabel = (key) => loc(labelMap[key], lang) || key;
   const isSigned = r.status === "signed" || r.status === "amended";
+  const maySign = canSign(claims);
+  // Who may put words into a clinical record at all. An administrator, an
+  // owner or an auditor reads reports; they do not author them, and the rail
+  // was offering them a microphone and a "Save as amendment" button anyway —
+  // most visibly to an admin who had just come through break-glass, where
+  // read-only is the whole point of the grant. Clinician and nurse only.
+  //
+  // Not the same test as `maySign`: signing is clinician-only (2026-08-09
+  // hotfix), so a nurse can draft a correction and cannot sign it. That is
+  // the intended division of labour, and the signing gate below still holds.
+  const mayAuthor = hasClinicalAccess(claims);
   const versions = asList(versionsReq.data);
   const signature = r.signature || {};
   const envelopeId = signature.envelope_id || r.envelope_id;
@@ -1137,6 +1158,9 @@ export function ReportView({ id, navigate, lang }) {
         {toasts.map(t2 => <div key={t2.id} className="toast">{t2.msg}</div>)}
       </div>
 
+      {/* Opened on an exception? Then it says so for as long as it is open. */}
+      <BreakGlassBanner entry={breakGlass} lang={lang} />
+
       <div className="report-main">
         <div className="editor-toolbar">
           <button className="btn ghost sm" onClick={() => navigate("/documents/reports")}>
@@ -1147,11 +1171,18 @@ export function ReportView({ id, navigate, lang }) {
           <div className="spacer" />
           <SaveStatus state={isSigned ? "saved" : "unsaved"} lastSavedAt={r.updated_at ? new Date(r.updated_at).getTime() : null} />
           <div className="vdiv" />
+          {/* Signing and amending are a physician's acts (2026-08-09 hotfix).
+              For everyone else the FACT of the signature stays — a nurse must
+              still see that this report is signed — but the acts that create
+              or alter one are not rendered at all. */}
           {isSigned ? (
             <>
-              <button className="btn sm" onClick={() => { setAmendSeed(null); setShowAmend(true); }}>
-                <Icon name="edit" size={12} /> {tr(lang, "Правки", "Amend")}
-              </button>
+              {maySign && (
+                <button className="btn sm" onClick={() => { setAmendSeed(null); setShowAmend(true); }}>
+                  <Icon name="edit" size={12} /> {tr(lang, "Правки", "Amend")}
+                </button>
+              )}
+              {!maySign && <SignedBadge signedAt={r.signed_at} lang={lang} />}
               <button className="btn sm" onClick={() => window.print()}>
                 <Icon name="print" size={12} /> {tr(lang, "Друк", "Print")}
               </button>
@@ -1162,9 +1193,11 @@ export function ReportView({ id, navigate, lang }) {
               <button className="btn sm" onClick={handleEditFinalized} disabled={editing}>
                 <Icon name="edit" size={12} /> {editing ? tr(lang, "Відкриття…", "Opening…") : tr(lang, "Редагувати", "Edit")}
               </button>
-              <button className="btn accent sm" onClick={() => setSignOpen(true)}>
-                <Icon name="sign" size={12} /> {tr(lang, "Підписати", "Sign")}
-              </button>
+              {maySign && (
+                <button className="btn accent sm" onClick={() => setSignOpen(true)}>
+                  <Icon name="sign" size={12} /> {tr(lang, "Підписати", "Sign")}
+                </button>
+              )}
             </>
           )}
 
@@ -1334,7 +1367,21 @@ export function ReportView({ id, navigate, lang }) {
           </div>
         )}
 
-        {isSigned ? (
+        {!mayAuthor ? (
+          // Read-only roles get the reason, not an authoring surface. Saying it
+          // is better than an empty rail: a blank space reads as something that
+          // failed to load.
+          <div className="edit-hint">
+            <div className="rail-h" style={{ padding: 0, marginBottom: 8 }}>
+              {tr(lang, "Лише для читання", "Read-only")}
+            </div>
+            <p className="psub" style={{ margin: 0, lineHeight: 1.5 }}>
+              {tr(lang,
+                "Виправляти звіт можуть лікар або медсестра. Ваша роль має доступ для читання.",
+                "Correcting a report is a clinician's or a nurse's act. Your role has read access.")}
+            </p>
+          </div>
+        ) : isSigned ? (
           // Amendments (dictate or write a correction → new version) are only
           // valid on a SIGNED report; the panel's chips + textarea live here.
           <ReportDictatePanel
@@ -1382,7 +1429,8 @@ export function ReportView({ id, navigate, lang }) {
           sectionLabels={r.section_labels} onClose={() => setInfoVer(null)} />
       )}
 
-      {signOpen && (
+      {/* Gated at the mount too — see Studio.jsx. */}
+      {signOpen && maySign && (
         <SigningFlow lang={lang} reportId={id}
           onClose={() => setSignOpen(false)}
           onSigned={() => {

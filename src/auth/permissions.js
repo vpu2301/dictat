@@ -20,6 +20,7 @@ export {
   MATRIX,
   PATIENT_ROLES,
   canReadPatients,
+  canRequestPhiAccess,
   hasAnyRole,
   hasClinicalAccess,
   isAdminOnly,

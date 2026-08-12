@@ -21,7 +21,7 @@ import { StatusBreakdown } from "../../components/dashboard/StatusBreakdown.jsx"
 import { Icon } from "../../components/UI.jsx";
 import { tr } from "../../i18n.js";
 import { Provenance, ProvenanceLegend } from "../provenance.jsx";
-import { fetchJobUsage } from "../../api/company.js";
+import { fetchJobUsage, fetchClinicalLoad } from "../../api/company.js";
 import { listJobs } from "../../api/asr.js";
 import { listPrivacyRequests } from "../../api/privacy.js";
 import { FEATURES, SERVICES, APP_VERSION } from "../../api/services.js";
@@ -47,6 +47,11 @@ export function OperationsTab({ lang, rangeDays, navigate }) {
     () => listPrivacyRequests({}).catch((e) => ({ __unavailable: e })),
     [],
   );
+  // The only PRESENT-TENSE read this console can make. Everything else on the
+  // page is a window over the past; open encounters and today's schedule say
+  // what the platform is carrying right now, which is the difference between
+  // "it was up last week" and "eleven consultations are in flight".
+  const loadReq = useAsync(() => fetchClinicalLoad(), []);
 
   const inFlight = (jobsReq.data?.byStatus?.queued || 0) + (jobsReq.data?.byStatus?.running || 0);
   const privacyRows = useMemo(() => {
@@ -132,6 +137,72 @@ export function OperationsTab({ lang, rangeDays, navigate }) {
                       <td className="co-cell-sub"><code>{String(j.id).slice(0, 8)}</code></td>
                       <td><StatusBadge status={j.status} /></td>
                       <td className="co-cell-sub">{fmt(j.queued_at || j.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      {/* ── Live clinical load ───────────────────────────────────────── */}
+      <h3 className="co-sectionhead">{T("Поточне навантаження", "Live clinical load")}</h3>
+      <div className="co-2col">
+        <Panel title={T("Відкриті прийоми", "Open encounters")} icon="pulse"
+               sub={loadReq.data?.open.length != null ? String(loadReq.data.open.length) : undefined}
+               gapNote={T("Адміністратор бачить знеособлений реєстр пацієнтів, тому тут — стан і час, а не клінічний зміст.",
+                          "An administrator holds the redacted patient roster, so this shows state and timing, never clinical content.")}>
+          {(loadReq.loading || loadReq.error || !loadReq.data) ? (
+            <PanelState loading={loadReq.loading} error={loadReq.error} onRetry={loadReq.reload} lang={lang} />
+          ) : loadReq.data.openError ? (
+            <div className="co-empty">
+              {T("GET /encounters/open не відповів — core-service недоступний або бракує scope patient.read.",
+                 "GET /encounters/open did not answer — core-service is unreachable or patient.read is missing.")}
+            </div>
+          ) : !loadReq.data.open.length ? (
+            <div className="co-empty">{T("Жодного відкритого прийому просто зараз.", "No encounter is open right now.")}</div>
+          ) : (
+            <>
+              <StatusBreakdown
+                total={loadReq.data.open.length}
+                segments={Object.entries(loadReq.data.byStatus).map(([k, v]) => ({
+                  key: k, label: k, count: v,
+                }))} />
+              {loadReq.data.stale.length > 0 && (
+                <p className="co-cell-sub">
+                  <strong>{loadReq.data.stale.length}</strong>{" "}
+                  {T("відкриті понад 8 годин — майже завжди забутий прийом, який блокує наступний для того ж пацієнта.",
+                     "have been open over 8 hours — nearly always a forgotten encounter, and it blocks that patient's next one.")}
+                </p>
+              )}
+              <Provenance source="live" lang={lang} note="GET /encounters/open?mine=false" />
+            </>
+          )}
+        </Panel>
+
+        <Panel title={T("Розклад на сьогодні", "Today's schedule")} icon="calendar"
+               sub={loadReq.data?.scheduled.length != null ? String(loadReq.data.scheduled.length) : undefined}>
+          {(loadReq.loading || loadReq.error || !loadReq.data) ? (
+            <PanelState loading={loadReq.loading} error={loadReq.error} onRetry={loadReq.reload} lang={lang} />
+          ) : loadReq.data.scheduleError ? (
+            <div className="co-empty">
+              {T("GET /schedule не відповів.", "GET /schedule did not answer.")}
+            </div>
+          ) : !loadReq.data.scheduled.length ? (
+            <div className="co-empty">{T("На сьогодні нічого не заплановано.", "Nothing is booked for today.")}</div>
+          ) : (
+            <div className="co-tablewrap">
+              <table className="co-table co-table-dense">
+                <thead>
+                  <tr><th>{T("Час", "Time")}</th><th>{T("Тип", "Kind")}</th><th>{T("Статус", "Status")}</th></tr>
+                </thead>
+                <tbody>
+                  {loadReq.data.scheduled.slice(0, 12).map((e) => (
+                    <tr key={e.id}>
+                      <td className="co-cell-sub">{fmt(e.occurred_at || e.started_at)}</td>
+                      <td className="co-cell-sub"><code>{e.kind || "—"}</code></td>
+                      <td><StatusBadge status={e.status} /></td>
                     </tr>
                   ))}
                 </tbody>

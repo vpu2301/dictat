@@ -37,9 +37,12 @@ function isEmpty(data) {
 
 // Render-prop gate: handles loading + error + (optional) empty, then calls
 // children(data) for the happy path.
+// `req.reload` is wired to the error card automatically, so every screen behind
+// this gate recovers from a service that was down (or still booting) without a
+// full page reload.
 export function LoadGate({ req, lang = "en", empty, children }) {
   if (req.loading) return <Loading lang={lang} />;
-  if (req.error)   return <ApiErrorView error={req.error} lang={lang} />;
+  if (req.error)   return <ApiErrorView error={req.error} lang={lang} onRetry={req.reload} />;
   if (empty && isEmpty(req.data)) {
     return typeof empty === "function" ? empty() : empty;
   }

@@ -8,5 +8,6 @@ import hu from "./platform.hu.js";
 import ar from "./platform.ar.js";
 import es from "./platform.es.js";
 import pt from "./platform.pt.js";
+import lt from "./platform.lt.js";
 
-export const PLATFORM_TR = { pl, de, ro, cs, sr, hu, ar, es, pt };
+export const PLATFORM_TR = { pl, de, ro, cs, sr, hu, ar, es, pt, lt };

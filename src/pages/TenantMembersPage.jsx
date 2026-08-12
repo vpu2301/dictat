@@ -26,6 +26,7 @@ import {
   canManageTenant, MANAGEMENT_ROLES,
 } from "../api/tenants.js";
 import { deactivateUser, reactivateUser } from "../api/endpoints.js";
+import { resetMfa } from "../api/mfa.js";
 import { fetchAllUsers } from "../api/dashboard.js";
 import { tr } from "../i18n.js";
 
@@ -169,6 +170,13 @@ function MembersTable({ tenant, canManage, mySub, lang, onToast }) {
         await reactivateUser(m.user_sub);
         if (onToast) onToast(tr(lang, "Обліковий запис відновлено", "Account reactivated"));
         await reloadAccounts();
+      } else if (kind === "resetMfa") {
+        // Sprint 16 / ADR-0039. The lost-phone path, and the reason this
+        // platform ships no recovery codes. A 404 here means the target is not
+        // a user of this tenant — translated below rather than shown raw.
+        await resetMfa(m.user_sub);
+        if (onToast) onToast(tr(lang, "MFA скинуто — сесії завершено", "MFA reset — sessions ended"));
+        await reloadAccounts();
       }
       setAction(null);
     } catch (err) {
@@ -176,6 +184,7 @@ function MembersTable({ tenant, canManage, mySub, lang, onToast }) {
         remove:     tr(lang, "Не вдалося вилучити", "Could not remove member"),
         suspend:    tr(lang, "Не вдалося призупинити обліковий запис", "Could not suspend the account"),
         reactivate: tr(lang, "Не вдалося відновити обліковий запис", "Could not reactivate the account"),
+        resetMfa:   tr(lang, "Не вдалося скинути MFA", "Could not reset MFA"),
       }[kind];
       const msg = err.status === 409
         ? tr(lang, "Клініка має мати щонайменше одного власника", "A clinic must keep at least one owner")
@@ -485,6 +494,17 @@ function RowActions({ member, lang, isSelf, accountStatus, knowsAccount, busy, o
           )}
 
           <div className="row-action-sep" />
+          <div className="row-action-h">{tr(lang, "Двофакторна автентифікація", "Two-factor authentication")}</div>
+          {/* The whole recovery story for a lost or replaced phone (sprint 16
+              / ADR-0039). It is deliberately here and not on the member's own
+              profile: someone locked out of their second factor cannot log in
+              to click it themselves. */}
+          <button type="button" role="menuitem" className="row-action" onClick={() => pick("resetMfa")}>
+            <Icon name="refresh" size={14} />
+            <span>{tr(lang, "Скинути MFA", "Reset MFA")}</span>
+          </button>
+
+          <div className="row-action-sep" />
           <div className="row-action-h">{tr(lang, "Членство в клініці", "Clinic membership")}</div>
           <button type="button" role="menuitem" className="row-action danger" onClick={() => pick("remove")}>
             <Icon name="x" size={14} />
@@ -524,6 +544,14 @@ function ActionModal({ action, lang, busy, onClose, onConfirm }) {
         "Sign-in is enabled again. The user has to log in themselves; old sessions are not restored."),
       cta: tr(lang, "Відновити", "Reactivate"),
       danger: false,
+    },
+    resetMfa: {
+      title: tr(lang, "Скинути двофакторну автентифікацію?", "Reset two-factor authentication?"),
+      body: tr(lang,
+        "Зареєстрований застосунок буде відв'язано, а всі активні сесії цього користувача — завершено (інакше скидання залишило б чинну сесію тому, хто тримає старий пристрій). Далі користувач має увійти й зареєструвати новий застосунок. Робіть це лише тоді, коли ви впевнені, з ким розмовляєте.",
+        "Their enrolled authenticator is unlinked and every active session they hold ends immediately (a reset that left one running would hand the account to whoever has the old device). They then sign in and enrol a new app. Only do this when you are sure who you are talking to."),
+      cta: tr(lang, "Скинути MFA", "Reset MFA"),
+      danger: true,
     },
   }[kind];
 

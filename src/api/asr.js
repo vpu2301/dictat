@@ -46,8 +46,26 @@ export async function submitJob({ file, prompt_id, language, encounter_id }) {
   return a("/asr/jobs", { method: "POST", body: fd });
 }
 
+// DELETE /asr/jobs/{id} → 202 { status: "cancelled" | "cancel_requested" },
+// or 409 when the job already reached a terminal state.
+//
+// The two outcomes are NOT the same event, and collapsing them is what made
+// Cancel look broken. A QUEUED job is cancelled outright. A RUNNING one can
+// only be ASKED to stop: the service sets `cancel_requested` and leaves the
+// status alone, and the worker acts on it at its next checkpoint. Reporting
+// "Скасовано" for both meant the clinician was told a job had stopped while it
+// went right on transcribing, with the Cancel button still sitting there.
 export async function cancelJob(id) {
-  return a(`/asr/jobs/${encodeURIComponent(id)}`, { method: "DELETE" });
+  const r = await a(`/asr/jobs/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return r?.status === "cancelled" ? "cancelled" : "cancel_requested";
+}
+
+// Asked to stop, not stopped yet. The status stays `running` until the worker
+// acts, so "stopping" is a state of its own — read off the job rather than
+// remembered in the button, so it survives a reload and shows up in any other
+// tab watching the same job.
+export function isCancelling(job) {
+  return !!job && !!job.cancel_requested && ASR_ACTIVE.has(job.status);
 }
 
 // Backend GET /asr/jobs/{id}/result returns the plaintext asr_models

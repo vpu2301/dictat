@@ -7,6 +7,8 @@ import { useAsync } from '../api/useAsync.js';
 import { getReviewSession } from '../api/scribe.js';
 import { createReport } from '../api/reports.js';
 import { tr } from "../i18n.js";
+import { canSign } from "./SignGate.jsx";
+import { useClaims } from "../auth/AuthContext.jsx";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -238,6 +240,7 @@ function AnnotatedContent({ text, spans, lang, activeSpan, onSpanHover }) {
 // ─── NoteReviewPage ───────────────────────────────────────────────────────────
 
 export function NoteReviewPage({ sessionId, lang, navigate }) {
+  const claims = useClaims();
   const req = useAsync(() => getReviewSession(sessionId), [sessionId]);
   const [splitPct, setSplitPct] = useState(45);
   const [activeSpan, setActiveSpan] = useState(null); // array of sourceIds
@@ -334,10 +337,14 @@ export function NoteReviewPage({ sessionId, lang, navigate }) {
             />
             {tr(lang, "Синхронна прокрутка", "Scroll sync")}
           </label>
-          <button className="btn accent" onClick={handleSign} disabled={signing}>
-            <Icon name="sign" size={13} />
-            {signing ? (tr(lang, "Створення…", "Creating…")) : (tr(lang, "Підписати як звіт", "Sign as report"))}
-          </button>
+          {/* "Sign as report" mints a signed report — a physician's act
+              (2026-08-09 hotfix). */}
+          {canSign(claims) && (
+            <button className="btn accent" onClick={handleSign} disabled={signing}>
+              <Icon name="sign" size={13} />
+              {signing ? (tr(lang, "Створення…", "Creating…")) : (tr(lang, "Підписати як звіт", "Sign as report"))}
+            </button>
+          )}
         </div>
       </div>
 

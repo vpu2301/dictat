@@ -9,7 +9,7 @@ import { Pagination } from './Pagination.jsx';
 import { useAsync } from '../api/useAsync.js';
 import { listSchedule, listOpenEncounters } from '../api/encounters.js';
 import { VisitControls, visitStatusLabel } from '../patients/VisitControls.jsx';
-import { listNotes, listNoteStructures } from '../api/notes.js';
+import { listNotes } from '../api/notes.js';
 import { listReports, countReports } from '../api/reports.js';
 import { listTemplates } from '../api/templates.js';
 import { openReportPath, reportPatientLabel } from './Reports.jsx';
@@ -207,23 +207,82 @@ export function ScribeToday({ navigate, lang }) {
     })),
   ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 6);
 
+  // The day in four numbers — and each one leads somewhere. A count a clinician
+  // cannot act on is decoration; "39 drafts" is only useful if it is also the
+  // way into the drafts.
   const stats = [
+    // A dead dictation-service makes this list empty, and an empty list counts
+    // as zero — which is a claim ("no consultations today"), not a gap. Print a
+    // dash when the source never answered.
     { label: tr(lang, "Консультацій сьогодні", "Consultations today"),
-      value: sessionList.filter((s) => isToday(s.finalized_at || s.last_active_at)).length },
-    { label: tr(lang, "Активних прийомів", "Open visits"), value: openList.length },
-    { label: tr(lang, "Чернеток звітів", "Draft reports"), value: draftCount ?? draftRows.length },
-    { label: tr(lang, "Підписаних", "Signed"), value: signedCount ?? 0 },
+      icon: "mic",
+      value: sessions.error
+        ? "—"
+        : sessionList.filter((s) => isToday(s.finalized_at || s.last_active_at)).length,
+      onClick: () => setActivity("consult") },
+    { label: tr(lang, "Активних прийомів", "Open visits"), icon: "users",
+      value: openList.length,
+      onClick: () => navigate("/patients") },
+    { label: tr(lang, "Чернеток звітів", "Draft reports"), icon: "fileText",
+      value: draftCount ?? draftRows.length,
+      onClick: () => navigate("/documents/reports") },
+    { label: tr(lang, "Підписаних", "Signed"), icon: "check",
+      value: signedCount ?? 0,
+      onClick: () => navigate("/documents/reports") },
   ];
+
+  // One feed for what has just happened, whichever service produced it. Two
+  // panels ("recent consultations" / "recent work") split the same question —
+  // what did I do today? — across two boxes, which is why the second row of the
+  // grid was where the page went to die. Merged and filtered instead.
+  const activityRows = [
+    ...sessionList.map((s) => ({
+      kind: "consult",
+      id: s.id,
+      date: s.finalized_at || s.last_active_at || s.started_at,
+      status: s.status,
+      tag: s.language ? String(s.language).toUpperCase() : "",
+      dur: s.total_audio_ms ? fmtDur(Math.round(s.total_audio_ms / 1000)) : "",
+      label: tr(lang, "Консультація", "Consultation"),
+      patient: null,
+    })),
+    ...recentWork,
+  ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+  const [activity, setActivity] = useState("all");
+  const ACTIVITY_TABS = [
+    { key: "all", label: tr(lang, "Усе", "All") },
+    { key: "consult", label: tr(lang, "Консультації", "Consultations") },
+    { key: "docs", label: tr(lang, "Документи", "Documents") },
+  ];
+  const shownActivity = activityRows
+    .filter((w) => activity === "all"
+      || (activity === "consult" ? w.kind === "consult" : w.kind !== "consult"))
+    .slice(0, 8);
+  const openActivity = (w) => navigate(
+    w.kind === "consult" ? `/scribe/consult/${w.id}`
+      : w.kind === "report" ? openReportPath({ id: w.id, status: w.status })
+        : `/scribe/notes/${w.id}`,
+  );
 
   const reloadOpen = () => { open.reload(); sched.reload(); };
   const openStudio = (tid) => navigate(tid ? `/studio?mode=dictate&template=${tid}` : "/studio?mode=dictate");
   const [qsOpen, setQsOpen] = useState(false);
 
+  // "Good morning" at half past four in the afternoon is the kind of small lie
+  // that makes a screen feel unattended.
+  const hour = new Date().getHours();
+  const greeting = hour < 12
+    ? tr(lang, "Доброго ранку, докторе", "Good morning, doctor")
+    : hour < 18
+      ? tr(lang, "Доброго дня, докторе", "Good afternoon, doctor")
+      : tr(lang, "Доброго вечора, докторе", "Good evening, doctor");
+
   return (
-    <div className="page">
+    <div className="page today">
       <div className="page-h">
         <div style={{ flex: 1 }}>
-          <h1>{tr(lang, "Доброго ранку, докторе", "Good morning, doctor")}</h1>
+          <h1>{greeting}</h1>
           {/* Two numbers, because the page now covers both halves of the day:
               what is booked, and what is still unfinished. */}
           <p className="sub">
@@ -262,10 +321,13 @@ export function ScribeToday({ navigate, lang }) {
 
       <div className="stats-row">
         {stats.map((s, i) => (
-          <div key={i} className="stat-card">
-            <div className="stat-v">{s.value}</div>
+          <button key={i} type="button" className="stat-card" onClick={s.onClick}>
+            <div className="stat-h">
+              <span className="stat-v">{s.value}</span>
+              <Icon name={s.icon} size={14} className="stat-i" />
+            </div>
             <div className="stat-l">{s.label}</div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -304,45 +366,101 @@ export function ScribeToday({ navigate, lang }) {
         </div>
       )}
 
-      {openList.length > 1 && (
-        <section className="panel" style={{ marginTop: 16 }}>
+      {/* Two columns, not four quadrants. The left one is what is OWED — the
+          queue a clinician came here to drain, and the feed of what it has
+          already produced; the right one is context: the day ahead and the
+          visits still open. Both start at the top, so nothing that matters is
+          parked in a second grid row below the fold, which is where "recent
+          consultations" had been disappearing. */}
+      <div className="today-grid">
+      <div className="today-col">
+
+        {/* The queue that used to be the whole point of the Dictate landing:
+            unfinished report drafts, newest first, reopening in the Studio. */}
+        <section className="panel">
           <div className="panel-h">
-            <h3>{tr(lang, "Активні прийоми", "Open visits")}</h3>
+            <h3>{tr(lang, "Чернетки до завершення", "Drafts to finish")}</h3>
+            {(draftCount ?? draftRows.length) > 0 && (
+              <span className="chip">{draftCount ?? draftRows.length}</span>
+            )}
             <div style={{ flex: 1 }} />
-            <span className="chip">{openList.length}</span>
+            <a className="btn ghost sm" onClick={() => navigate("/documents/reports")}>{tr(lang, "Усі", "All")}</a>
           </div>
-          <div className="schedule">
-            {openList.slice(1).map((item) => (
-              <div key={item.id} className="sch-row" style={{ alignItems: "center" }}>
-                <div className="sch-time">{fmtTime(item.started_at || item.occurred_at, lang)}</div>
-                <div className="sch-divider"><div className="sch-dot" /><div className="sch-line" /></div>
-                <div
-                  className="sch-body"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => item.patient?.id && navigate(`/scribe/patients/${item.patient.id}`)}
-                >
-                  <div className="sch-row-1">
-                    <PatientAvatar patient={item.patient} lang={lang} size={28} />
-                    <div className="sch-name">{patientName(item.patient, lang)}</div>
-                    <span className={`chip ${item.status === "paused" ? "draft" : "live"}`}>
-                      {visitStatusLabel(item.status, lang)}
-                    </span>
-                  </div>
-                  <div className="sch-reason">{loc(item.reason, lang)}</div>
-                </div>
-                <VisitControls encounter={item} lang={lang} compact onChanged={reloadOpen} />
+          <LoadGate req={reports} lang={lang}>
+            {() => (draftRows.length === 0 ? (
+              <Empty icon="check" title={tr(lang, "Усі звіти завершено", "All caught up")}
+                     body={tr(lang, "Немає незавершених чернеток.", "No pending drafts.")} />
+            ) : (
+              <div className="note-feed">
+                {draftRows.map((r) => (
+                  <ReportRow key={r.id} r={r} tpl={tplMap[r.template]} lang={lang}
+                             onClick={() => navigate(openReportPath(r))} />
+                ))}
               </div>
             ))}
-          </div>
+          </LoadGate>
         </section>
-      )}
 
-      {/* `start` so an empty schedule doesn't stretch to the height of a full
-          work feed beside it. */}
-      <div className="grid-2" style={{ alignItems: "start" }}>
+        {/* Everything the day produced, in one feed: finalized consultations
+            with their transcript, reports past draft, and notes. */}
+        <section className="panel">
+          <div className="panel-h">
+            <h3>{tr(lang, "Остання активність", "Recent activity")}</h3>
+            <div style={{ flex: 1 }} />
+            <div className="seg" role="tablist" aria-label={tr(lang, "Фільтр активності", "Activity filter")}>
+              {ACTIVITY_TABS.map((t) => (
+                <button key={t.key} type="button" role="tab" aria-selected={activity === t.key}
+                        className={`seg-btn${activity === t.key ? " on" : ""}`}
+                        onClick={() => setActivity(t.key)}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* The consultations half comes from a different service than the
+              documents half — when only that one is down, the feed still shows
+              the documents and says so, instead of failing whole. */}
+          {sessions.error && activity !== "docs" && (
+            <div className="today-note">
+              {tr(lang, "Консультації зараз недоступні.", "Consultations are unavailable right now.")}
+            </div>
+          )}
+          <LoadGate req={reports} lang={lang}>
+            {() => (shownActivity.length === 0 ? (
+              <Empty icon="fileText" title={tr(lang, "Ще немає роботи", "Nothing yet")}
+                     body={tr(lang, "Звіти, нотатки та транскрипти з'являться тут одразу після першої консультації.",
+                                    "Reports, notes and transcripts show up here after your first consultation.")} />
+            ) : (
+              <div className="note-feed">
+                {shownActivity.map((w) => (
+                  <div key={w.kind + w.id} className="note-row" onClick={() => openActivity(w)}>
+                    {w.kind === "consult"
+                      ? <span className="note-row-ico"><Icon name="mic" size={14} /></span>
+                      : <PatientAvatar patient={w.patient} lang={lang} size={32} />}
+                    <div className="note-row-body">
+                      <div className="note-row-1">
+                        <span className="note-row-name">{w.label}</span>
+                        {w.tag && <span className="chip scribe">{w.tag}</span>}
+                        <StatusPill status={w.status} lang={lang} />
+                      </div>
+                      <div className="note-row-2">
+                        {fmtRel(w.date, lang)}{w.dur ? ` · ${w.dur}` : ""}
+                      </div>
+                    </div>
+                    <Icon name="chevRight" size={14} />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </LoadGate>
+        </section>
+      </div>
+
+      <aside className="today-col">
         <section className="panel">
           <div className="panel-h">
             <h3>{tr(lang, "Графік на сьогодні", "Today's schedule")}</h3>
+            {schedList.length > 0 && <span className="chip">{schedList.length}</span>}
             <div style={{ flex: 1 }} />
           </div>
           <LoadGate req={sched} lang={lang}
@@ -374,110 +492,40 @@ export function ScribeToday({ navigate, lang }) {
           </LoadGate>
         </section>
 
-        {/* The queue that used to be the whole point of the Dictate landing:
-            unfinished report drafts, newest first, reopening in the Studio. */}
+        {openList.length > 1 && (
         <section className="panel">
           <div className="panel-h">
-            <h3>{tr(lang, "Чернетки до завершення", "Drafts to finish")}</h3>
+            <h3>{tr(lang, "Активні прийоми", "Open visits")}</h3>
             <div style={{ flex: 1 }} />
-            <a className="btn ghost sm" onClick={() => navigate("/documents/reports")}>{tr(lang, "Усі", "All")}</a>
+            <span className="chip">{openList.length}</span>
           </div>
-          <LoadGate req={reports} lang={lang}>
-            {() => (draftRows.length === 0 ? (
-              <Empty icon="check" title={tr(lang, "Усі звіти завершено", "All caught up")}
-                     body={tr(lang, "Немає незавершених чернеток.", "No pending drafts.")} />
-            ) : (
-              <div className="note-feed">
-                {draftRows.map((r) => (
-                  <ReportRow key={r.id} r={r} tpl={tplMap[r.template]} lang={lang}
-                             onClick={() => navigate(openReportPath(r))} />
-                ))}
-              </div>
-            ))}
-          </LoadGate>
-        </section>
-      </div>
-
-      <div className="grid-2" style={{ alignItems: "start", marginTop: 16 }}>
-        {/* Finalized consultations — the transcript a completed visit leaves
-            behind, which no list on either old landing showed. */}
-        <section className="panel">
-          <div className="panel-h">
-            <h3>{tr(lang, "Останні консультації", "Recent consultations")}</h3>
-            <div style={{ flex: 1 }} />
-            {sessionList.length > 0 && <span className="chip">{sessionList.length}</span>}
-          </div>
-          <LoadGate req={sessions} lang={lang}
-            empty={() => (
-              <Empty icon="mic" title={tr(lang, "Ще немає консультацій", "No consultations yet")}
-                     body={tr(lang, "Завершені розмови з'являться тут із транскриптом.",
-                                    "Finished conversations show up here with their transcript.")} />
-            )}>
-            {() => (
-              <div className="schedule">
-                {sessionList.map((s) => {
-                  const when = s.finalized_at || s.last_active_at || s.started_at;
-                  return (
-                    <div key={s.id} className="sch-row" style={{ alignItems: "center", cursor: "pointer" }}
-                         onClick={() => navigate(`/scribe/consult/${s.id}`)}>
-                      <div className="sch-time">{fmtTime(when, lang)}</div>
-                      <div className="sch-divider"><div className="sch-dot" /><div className="sch-line" /></div>
-                      <div className="sch-body">
-                        <div className="sch-row-1">
-                          <div className="sch-name">{tr(lang, "Консультація", "Consultation")}</div>
-                          <StatusPill status={s.status} lang={lang} />
-                          {s.language && <span className="chip">{String(s.language).toUpperCase()}</span>}
-                        </div>
-                        <div className="sch-reason">
-                          {fmtRel(when, lang)}
-                          {s.total_audio_ms ? ` · ${fmtDur(Math.round(s.total_audio_ms / 1000))}` : ""}
-                        </div>
-                      </div>
-                      <Icon name="chevRight" size={14} />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </LoadGate>
-        </section>
-
-        {/* Everything the day produced, whichever surface owns it: reports
-            past draft, and notes from the note editor. */}
-        <section className="panel">
-          <div className="panel-h">
-            <h3>{tr(lang, "Остання робота", "Recent work")}</h3>
-            <div style={{ flex: 1 }} />
-            <a className="btn ghost sm" onClick={() => navigate("/documents/reports")}>{tr(lang, "Усі", "All")}</a>
-          </div>
-          <LoadGate req={reports} lang={lang}>
-            {() => (recentWork.length === 0 ? (
-              <Empty icon="fileText" title={tr(lang, "Ще немає роботи", "Nothing yet")}
-                     body={tr(lang, "Звіти та нотатки з'являться тут одразу після першої консультації.",
-                                    "Reports and notes show up here after your first consultation.")} />
-            ) : (
-              <div className="note-feed">
-                {recentWork.map((w) => (
-                  <div key={w.kind + w.id} className="note-row"
-                       onClick={() => navigate(w.kind === "report"
-                         ? openReportPath({ id: w.id, status: w.status })
-                         : `/scribe/notes/${w.id}`)}>
-                    <PatientAvatar patient={w.patient} lang={lang} size={32} />
-                    <div className="note-row-body">
-                      <div className="note-row-1">
-                        <span className="note-row-name">{w.label}</span>
-                        {w.tag && <span className="chip scribe">{w.tag}</span>}
-                        <StatusPill status={w.status} lang={lang} />
-                      </div>
-                      <div className="note-row-2">{fmtRel(w.date, lang)}</div>
-                    </div>
-                    <Icon name="chevRight" size={14} />
+          <div className="schedule">
+            {openList.slice(1).map((item) => (
+              <div key={item.id} className="sch-row" style={{ alignItems: "center" }}>
+                <div className="sch-time">{fmtTime(item.started_at || item.occurred_at, lang)}</div>
+                <div className="sch-divider"><div className="sch-dot" /><div className="sch-line" /></div>
+                <div
+                  className="sch-body"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => item.patient?.id && navigate(`/scribe/patients/${item.patient.id}`)}
+                >
+                  <div className="sch-row-1">
+                    <PatientAvatar patient={item.patient} lang={lang} size={28} />
+                    <div className="sch-name">{patientName(item.patient, lang)}</div>
+                    <span className={`chip ${item.status === "paused" ? "draft" : "live"}`}>
+                      {visitStatusLabel(item.status, lang)}
+                    </span>
                   </div>
-                ))}
+                  <div className="sch-reason">{loc(item.reason, lang)}</div>
+                </div>
+                <VisitControls encounter={item} lang={lang} compact onChanged={reloadOpen} />
               </div>
             ))}
-          </LoadGate>
+          </div>
         </section>
+      )}
+
+      </aside>
       </div>
 
       {/* The Dictate landing's template palette, kept: it is the fastest way
@@ -810,46 +858,6 @@ function ConsultView({ session, patientId, navigate, lang }) {
           </div>
         </section>
       </div>
-    </div>
-  );
-}
-
-// ─── Note structures (Scribe → Templates) ────────────────────────────────
-export function ScribeNoteStructures({ lang, embedded = false }) {
-  const req = useAsync(() => listNoteStructures(), []);
-  return (
-    <div className={embedded ? "page-embedded" : "page"}>
-      {!embedded && <div className="page-h"><div><h1>{tr(lang, "Шаблони нотаток", "Note templates")}</h1></div></div>}
-      <LoadGate req={req} lang={lang}
-        empty={() => <Empty icon="layers" title={tr(lang, "Немає шаблонів", "No note templates")} />}>
-        {(data) => (
-          // List, not cards — the Templates page is one list surface (the
-          // report-templates tab dropped its grid view too).
-          <div className="ptable">
-            <div className="nst-thead">
-              <span>{tr(lang, "Назва", "Name")}</span>
-              <span>{tr(lang, "Код", "Code")}</span>
-              <span>{tr(lang, "Розділи", "Sections")}</span>
-            </div>
-            {/* GET /note-structures returns { code, name, sections } — there
-                is no `id` on the wire, so keying on it gave every card the
-                same undefined key. */}
-            {asList(data).map((t) => (
-              <div key={t.code || t.id} className="nst-row">
-                <div className="nst-name">
-                  <Icon name="layers" size={14} />
-                  <span>{loc(t.name, lang)}</span>
-                </div>
-                <span>{t.code ? <code>{t.code}</code> : null}</span>
-                <span className="nst-sections">
-                  {loc(t.description ?? t.desc, lang)
-                    || (Array.isArray(t.sections) ? t.sections.map((s) => loc(s.label, lang)).join(" · ") : "")}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </LoadGate>
     </div>
   );
 }

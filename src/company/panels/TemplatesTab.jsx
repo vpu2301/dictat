@@ -276,84 +276,85 @@ function TemplateDialog({ lang, mode, source, onClose, onDone }) {
             <Icon name="x" size={16} />
           </button>
         </header>
+        <div className="co-modal-b">
+          {isClone && (
+            <p className="co-cell-sub" style={{ marginBottom: 14 }}>
+              {T("Джерело:", "Source:")} <strong>{source.name}</strong> (<code>{source.code}</code>).{" "}
+              {T("Копія належатиме цьому тенанту, і її можна змінювати вільно.",
+                 "The copy belongs to this tenant and can be edited freely.")}
+            </p>
+          )}
 
-        {isClone && (
-          <p className="co-cell-sub" style={{ marginBottom: 14 }}>
-            {T("Джерело:", "Source:")} <strong>{source.name}</strong> (<code>{source.code}</code>).{" "}
-            {T("Копія належатиме цьому тенанту, і її можна змінювати вільно.",
-               "The copy belongs to this tenant and can be edited freely.")}
-          </p>
-        )}
+          <div className="co-formgrid">
+            <label className="colog-field">
+              <span>{T("Назва", "Name")}</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus disabled={busy} />
+            </label>
+            <label className="colog-field">
+              <span>{T("Код (slug, незмінний)", "Code (slug, immutable)")}</span>
+              <input value={code} onChange={(e) => setCode(e.target.value)} required disabled={busy}
+                     aria-invalid={code ? !isSlug(code) : undefined} />
+              {code && !isSlug(code) && (
+                <em className="co-field-err">{T("Має відповідати ^[a-z][a-z0-9_]*$", "Must match ^[a-z][a-z0-9_]*$")}</em>
+              )}
+            </label>
+            <label className="colog-field">
+              <span>{T("Спеціальність", "Specialty")}</span>
+              <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} disabled={busy}
+                     placeholder="radiology" />
+            </label>
+            <label className="colog-field">
+              <span>{T("Мова", "Language")}</span>
+              <select value={language} onChange={(e) => setLanguage(e.target.value)} disabled={busy}>
+                <option value="uk">uk</option><option value="en">en</option>
+              </select>
+            </label>
+          </div>
 
-        <div className="co-formgrid">
-          <label className="colog-field">
-            <span>{T("Назва", "Name")}</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus disabled={busy} />
-          </label>
-          <label className="colog-field">
-            <span>{T("Код (slug, незмінний)", "Code (slug, immutable)")}</span>
-            <input value={code} onChange={(e) => setCode(e.target.value)} required disabled={busy}
-                   aria-invalid={code ? !isSlug(code) : undefined} />
-            {code && !isSlug(code) && (
-              <em className="co-field-err">{T("Має відповідати ^[a-z][a-z0-9_]*$", "Must match ^[a-z][a-z0-9_]*$")}</em>
-            )}
-          </label>
-          <label className="colog-field">
-            <span>{T("Спеціальність", "Specialty")}</span>
-            <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} disabled={busy}
-                   placeholder="radiology" />
-          </label>
-          <label className="colog-field">
-            <span>{T("Мова", "Language")}</span>
-            <select value={language} onChange={(e) => setLanguage(e.target.value)} disabled={busy}>
-              <option value="uk">uk</option><option value="en">en</option>
-            </select>
-          </label>
+          {!isClone && (
+            <>
+              <h3 className="co-subhead">{T("Секції", "Sections")}</h3>
+              <div className="co-sections">
+                {sections.map((s, i) => (
+                  <div className="co-section-row" key={i}>
+                    <input value={s.id} onChange={(e) => setSection(i, { id: e.target.value })}
+                           placeholder="section_id" aria-label={T("ID секції", "Section id")} disabled={busy} />
+                    <input value={s.name} onChange={(e) => setSection(i, { name: e.target.value })}
+                           placeholder={T("Назва", "Name")} aria-label={T("Назва секції", "Section name")} disabled={busy} />
+                    <select value={s.field_type} onChange={(e) => setSection(i, { field_type: e.target.value })} disabled={busy}>
+                      {FIELD_TYPES.map((f) => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                    <label className="co-check">
+                      <input type="checkbox" checked={!!s.required}
+                             onChange={(e) => setSection(i, { required: e.target.checked })} disabled={busy} />
+                      {T("обов'язкова", "required")}
+                    </label>
+                    <button type="button" className="co-search-x" disabled={busy || sections.length === 1}
+                            onClick={() => setSections((p) => p.filter((_, j) => j !== i))}
+                            aria-label={T("Видалити секцію", "Remove section")}>
+                      <Icon name="x" size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="colog-btn co-btn-sm" disabled={busy}
+                      onClick={() => setSections((p) => [...p, {
+                        id: `section_${p.length + 1}`, name: "", field_type: "free_text",
+                        required: false, order: p.length, voice_aliases: [],
+                      }])}>
+                <Icon name="plus" size={12} /> {T("Додати секцію", "Add section")}
+              </button>
+
+              {!validation.ok && Object.keys(validation.errors).length > 0 && (
+                <ul className="co-validation">
+                  {Object.entries(validation.errors).map(([k, v]) => <li key={k}><code>{k}</code> {v}</li>)}
+                </ul>
+              )}
+            </>
+          )}
+
+          {error && <ApiErrorView error={error} lang={lang} />}
         </div>
-
-        {!isClone && (
-          <>
-            <h3 className="co-subhead">{T("Секції", "Sections")}</h3>
-            <div className="co-sections">
-              {sections.map((s, i) => (
-                <div className="co-section-row" key={i}>
-                  <input value={s.id} onChange={(e) => setSection(i, { id: e.target.value })}
-                         placeholder="section_id" aria-label={T("ID секції", "Section id")} disabled={busy} />
-                  <input value={s.name} onChange={(e) => setSection(i, { name: e.target.value })}
-                         placeholder={T("Назва", "Name")} aria-label={T("Назва секції", "Section name")} disabled={busy} />
-                  <select value={s.field_type} onChange={(e) => setSection(i, { field_type: e.target.value })} disabled={busy}>
-                    {FIELD_TYPES.map((f) => <option key={f} value={f}>{f}</option>)}
-                  </select>
-                  <label className="co-check">
-                    <input type="checkbox" checked={!!s.required}
-                           onChange={(e) => setSection(i, { required: e.target.checked })} disabled={busy} />
-                    {T("обов'язкова", "required")}
-                  </label>
-                  <button type="button" className="co-search-x" disabled={busy || sections.length === 1}
-                          onClick={() => setSections((p) => p.filter((_, j) => j !== i))}
-                          aria-label={T("Видалити секцію", "Remove section")}>
-                    <Icon name="x" size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button type="button" className="colog-btn co-btn-sm" disabled={busy}
-                    onClick={() => setSections((p) => [...p, {
-                      id: `section_${p.length + 1}`, name: "", field_type: "free_text",
-                      required: false, order: p.length, voice_aliases: [],
-                    }])}>
-              <Icon name="plus" size={12} /> {T("Додати секцію", "Add section")}
-            </button>
-
-            {!validation.ok && Object.keys(validation.errors).length > 0 && (
-              <ul className="co-validation">
-                {Object.entries(validation.errors).map(([k, v]) => <li key={k}><code>{k}</code> {v}</li>)}
-              </ul>
-            )}
-          </>
-        )}
-
-        {error && <ApiErrorView error={error} lang={lang} />}
 
         <footer className="co-modal-f">
           <button type="button" className="colog-btn ghost" onClick={onClose} disabled={busy}>

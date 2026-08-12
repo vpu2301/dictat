@@ -13,6 +13,7 @@ import { Icon, Empty } from "../components/UI.jsx";
 import { Row, Section, SettingsNav, useSettingsSections } from "../components/SettingsLayout.jsx";
 import { ApiErrorView } from "../components/ApiErrorView.jsx";
 import { me as apiMe } from "../api/endpoints.js";
+import { FEATURES } from "../api/services.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { tr } from "../i18n.js";
 
@@ -151,15 +152,47 @@ export function ProfilePage({ lang = "en", navigate }) {
       {/* ── Security ───────────────────────────────────────────────── */}
       <Section id="security" icon="shield" title={T("Безпека", "Security")}>
         <InfoRow label={T("Останній вхід", "Last login")} value={u.last_login_at} mono />
+        {/* Not "soon": the change-password form is built and live on
+            /settings → Акаунт і безпека (AccountSecuritySection). This row
+            was still advertising a placeholder for something that works, so
+            it now opens the real one. The form stays in ONE place — two
+            entrances to a flow that ends the user's other sessions is two
+            things to keep correct. */}
         <Row label={T("Пароль", "Password")} hint={T("Змінити пароль облікового запису", "Change your account password")}>
-          <button className="btn ghost sm" disabled>{T("Змінити", "Change")} <SoonPill lang={lang} /></button>
+          <button className="btn ghost sm" onClick={() => go("/settings?s=account")}>
+            {T("Змінити", "Change")} <Icon name="chevRight" size={12} />
+          </button>
         </Row>
+        {/* Sprint 16: no longer "coming soon". `mfa` says whether THIS session
+            was authenticated with a second factor; `mfa_enrolled_at` says
+            whether the account has one at all — which is the question this row
+            is actually answering, so it is the one shown.
+
+            The ACTION is flag-gated (VITE_FEAT_MFA_ENROLMENT) while the state
+            is not: a deployment that has not switched the endpoints on should
+            not invite a clinician into a flow whose first call 403s, but it
+            should still tell them where they stand. Someone already enrolled
+            always keeps the link — their reason to visit is the lost-phone
+            instructions, which are true regardless of any flag. */}
         <Row label={T("Двофакторна автентифікація", "Two-factor authentication")}
-          hint={c.mfa ? T("Увімкнено", "Enabled") : T("Вимкнено", "Disabled")}>
-          <button className="btn ghost sm" disabled>{T("Керувати", "Manage")} <SoonPill lang={lang} /></button>
+          hint={u.mfa_enrolled_at
+            ? T("Застосунок зареєстровано", "Authenticator enrolled")
+            : T("Не налаштовано — рекомендуємо увімкнути", "Not set up — recommended")}>
+          {FEATURES.mfaEnrolment || u.mfa_enrolled_at ? (
+            <button className="btn ghost sm" onClick={() => go("/mfa")}>
+              {u.mfa_enrolled_at ? T("Переглянути", "View") : T("Налаштувати", "Set up")}
+              <Icon name="chevRight" size={12} />
+            </button>
+          ) : (
+            <button className="btn ghost sm" disabled>{T("Налаштувати", "Set up")} <SoonPill lang={lang} /></button>
+          )}
         </Row>
+        {/* Same story: the session list and "sign out everywhere" are live in
+            the same settings section. */}
         <Row label={T("Активні сеанси", "Active sessions")} hint={T("Вийти на всіх пристроях", "Sign out everywhere")}>
-          <button className="btn ghost sm" disabled>{T("Переглянути", "Review")} <SoonPill lang={lang} /></button>
+          <button className="btn ghost sm" onClick={() => go("/settings?s=account")}>
+            {T("Переглянути", "Review")} <Icon name="chevRight" size={12} />
+          </button>
         </Row>
       </Section>
 

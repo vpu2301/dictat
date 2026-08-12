@@ -1,0 +1,201 @@
+/* admin-templates.css — sprint-17 templates admin surface (FE-B slice).
+   Class prefix: admt-. Design tokens only — no raw colors. Destructive
+   affordances ride --rec (there is no --danger token). The live
+   cosmetic/structural banner (.tpl-live-banner) is styled here too: it lives
+   in the shared TemplateFormModal, which this surface and /library both
+   mount. */
+
+/* ── list ─────────────────────────────────────────────────────────────── */
+.admt-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.admt-head > div { flex: 1; min-width: 0; }
+.admt-head h1 { margin: 0 0 2px; }
+.admt-head .sub { margin: 0; color: var(--text-2); }
+
+.admt-toolbar { margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+
+.admt-limit-note {
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 8px);
+  background: var(--warn-soft);
+  color: var(--text-1);
+  font-size: 12px;
+}
+
+.admt-table {
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 8px);
+  background: var(--surface);
+  overflow-x: auto;
+}
+.admt-thead, .admt-trow {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) minmax(120px, 1.2fr) 52px 52px
+    minmax(96px, .9fr) minmax(96px, .9fr) minmax(88px, .8fr) minmax(96px, .9fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  min-width: 780px;
+}
+.admt-thead {
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-3);
+}
+.admt-trow {
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  font-size: 13px;
+}
+.admt-trow:last-child { border-bottom: 0; }
+.admt-trow:hover, .admt-trow:focus-visible { background: var(--surface-2); outline: none; }
+.admt-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.admt-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admt-mut { color: var(--text-2); font-size: 12px; }
+
+.admt-lineage {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.admt-lineage:hover { color: var(--accent-text); border-color: var(--accent); }
+
+/* ── detail ───────────────────────────────────────────────────────────── */
+.admt-back { margin-bottom: 10px; }
+.admt-detail-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.admt-detail-head h1 { margin: 0 0 6px; }
+.admt-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.admt-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.admt-sec-h { padding: 14px 0 8px; font-size: 11px; }
+
+.admt-dep-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 8px);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+
+.admt-rebind-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius, 8px);
+  background: var(--warn-soft);
+  font-size: 13px;
+}
+
+/* ── bound reports / re-bind ─────────────────────────────────────────── */
+.admt-bound { margin-top: 8px; }
+.admt-bound.highlighted {
+  border: 1px solid var(--warn);
+  border-radius: var(--radius, 8px);
+  padding: 0 12px 12px;
+  background: var(--surface);
+}
+.admt-bound-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.admt-bound-count { font-size: 12px; color: var(--text-2); }
+.admt-bound-rows {
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 8px);
+  background: var(--surface);
+}
+.admt-bound-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.admt-bound-row:last-child { border-bottom: 0; }
+.admt-bound-kept {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 8px);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.admt-bound-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+/* ── the live cosmetic/structural banner (shared editor) ─────────────── */
+.tpl-live-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: var(--radius, 8px);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.tpl-live-banner.cosmetic {
+  border-color: var(--ok);
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+.tpl-live-banner.structural {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+  color: var(--text-1);
+}
+.tpl-live-reasons {
+  margin: 6px 0 4px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.tpl-live-reasons li { margin: 2px 0; }

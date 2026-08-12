@@ -12,10 +12,14 @@
 import React from "react";
 import { Icon } from "../components/UI.jsx";
 import { TemplatesPage } from "../components/TemplatesPage.jsx";
-import { ScribeNoteStructures } from "../components/Scribe.jsx";
+import { NoteStructuresPage } from "../components/NoteStructuresPage.jsx";
 import { tr } from "../i18n.js";
 
-export const LIB_TABS = ["reports", "notes"];
+// Forms are report templates too — they come from the same service and the
+// same list endpoint — but they are a different job (a standalone document
+// rather than a visit note), so they get a tab beside the other two rather
+// than a filter buried inside the reports tab.
+export const LIB_TABS = ["reports", "forms", "notes"];
 
 export const libPath = (tab) => `/library/${tab}`;
 export function libTabFromRoute(route) {
@@ -26,11 +30,14 @@ export function libTabFromRoute(route) {
 export function TemplateLibraryPage({ tab = "reports", navigate, lang }) {
   const tabs = [
     { key: "reports", icon: "book", label: tr(lang, "Шаблони звітів", "Report templates") },
+    { key: "forms", icon: "fileText", label: tr(lang, "Форми", "Forms") },
     { key: "notes", icon: "layers", label: tr(lang, "Шаблони нотаток", "Note templates") },
   ];
   const sub = {
     reports: tr(lang, "Структуровані шаблони, у які диктує Студія.",
                       "Structured templates the Studio dictates into."),
+    forms: tr(lang, "Виписки, скерування, протоколи та анкети.",
+                    "Discharge summaries, referrals, operative notes and intake sheets."),
     notes: tr(lang, "Структури розділів для редактора нотаток.",
                     "Section structures for the note editor."),
   }[tab];
@@ -54,8 +61,13 @@ export function TemplateLibraryPage({ tab = "reports", navigate, lang }) {
         ))}
       </div>
 
-      {tab === "reports" && <TemplatesPage lang={lang} navigate={navigate} embedded />}
-      {tab === "notes" && <ScribeNoteStructures lang={lang} embedded />}
+      {/* Same list, two disjoint slices — the tab is the category. Keyed so a
+          tab switch remounts instead of carrying the other tab's search and
+          filter chips across. */}
+      {(tab === "reports" || tab === "forms") && (
+        <TemplatesPage key={tab} lang={lang} navigate={navigate} category={tab} embedded />
+      )}
+      {tab === "notes" && <NoteStructuresPage key={tab} lang={lang} embedded />}
     </div>
   );
 }

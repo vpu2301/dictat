@@ -1,5 +1,38 @@
 # todo.md
 
+## Backend asks — sprint 17 additive conveniences
+
+Filed per the sprint-17 mandate (missing list/filter/paging conveniences are
+asks, not client-side hacks). The two BLOCKING gaps — autocomplete list
+endpoints and template re-bind — were implemented backend-side as part of
+sprint 17 itself (assigned there by the backend's own runbook/409 detail);
+these remaining items are conveniences the console currently works around:
+
+- **Template `draft → active` transition.** `POST /templates`, clone, and the
+  structural-edit branch of PUT all insert `status='draft'`, and no HTTP
+  surface writes `'active'` — the runbook's workaround is SQL. Ask:
+  `PATCH /templates/{id}/status`.
+- **Machine-readable error codes on autocomplete-service.** `pii_detected`,
+  `phrase_already_exists`, `snippet_already_exists`, `rate_limited`,
+  `forbidden_scope` arrive as Python-repr strings inside problem `detail`
+  (the RFC-9457 handler stringifies dict details). Ask: move them to
+  `problem_extras` like `mfa_enrolment_required`. The FE parser
+  (`src/admin/pieces/problemCode.js`) tolerates both wire shapes.
+- **`POST /templates/validate` dry-run** returning `classify_edit`'s
+  `reasons[]` (computed server-side, currently discarded) + the two
+  CI-only checks (tiktoken asr_prompt ≤224 tokens; PII sweep over option
+  labels/aliases). Until then the live banner uses the FE `classifyEdit`
+  mirror and the API's 896-char proxy.
+- **Cursor on `GET /templates`** — keyset pagination already implemented in
+  `repository.list_templates`, router never passes it (limit-only, max 200).
+- **Filters + total on `GET /admin/users`** (status/role/email search) —
+  offset paging with no total; console filters client-side within a page.
+- **Prefix match on audit `kind` filter** (`template.*`) — exact-match only.
+- **Pagination/language filter on `GET /v1/synonyms`** — returns every
+  visible group unconditionally.
+- **`last_accepted_at` in autocomplete phrase listings** for a "last used"
+  column (selected by a sibling query, not exposed).
+
 ## S11 legal copy review (step 05 — consent gate)
 
 The following UA-facing strings encode legal meaning and need

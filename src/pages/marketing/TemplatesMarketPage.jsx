@@ -8,8 +8,9 @@
 // Marketing surface only — the catalogue is static content from templates.js.
 // The signed-in template library (clone/edit/deprecate against the report
 // service) is components/TemplatesPage.jsx and is unrelated to this file.
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Icon, Empty } from "../../components/UI.jsx";
+import { TemplateSearchModal } from "./TemplateSearchModal.jsx";
 import { MarketingShell } from "./MarketingShell.jsx";
 import {
   TEMPLATES, TEMPLATE_CATEGORIES, getTemplate, categoryLabel,
@@ -33,6 +34,12 @@ const S = {
   found:     { uk: "шаблонів знайдено", en: "templates found", pl: "znalezionych szablonów", de: "Vorlagen gefunden", ro: "șabloane găsite", cs: "nalezených šablon", sr: "pronađenih šablona", hu: "találat", ar: "قوالب موجودة", es: "plantillas encontradas", pt: "modelos encontrados" },
   none:      { uk: "Нічого не знайдено", en: "No templates found", pl: "Nie znaleziono szablonów", de: "Keine Vorlagen gefunden", ro: "Niciun șablon găsit", cs: "Nenalezeny žádné šablony", sr: "Nema pronađenih šablona", hu: "Nincs találat", ar: "لم يتم العثور على قوالب", es: "No se encontraron plantillas", pt: "Não foram encontrados modelos" },
   noneBody:  { uk: "Спробуйте іншу спеціальність або інший запит. Потрібного шаблона немає — ми зберемо його під вашу практику.", en: "Try another specialty or a different term. If the template you need is missing, we'll build it around your practice.", pl: "Spróbuj innej specjalności lub innego hasła. Jeśli brakuje potrzebnego szablonu — zbudujemy go pod Twoją praktykę.", de: "Versuchen Sie eine andere Fachrichtung oder einen anderen Begriff. Fehlt Ihre Vorlage, bauen wir sie für Ihre Praxis.", ro: "Încercați altă specialitate sau alt termen. Dacă lipsește șablonul de care aveți nevoie, îl construim pentru practica dvs.", cs: "Zkuste jinou odbornost nebo jiný výraz. Pokud potřebná šablona chybí, sestavíme ji na míru vaší praxi.", sr: "Pokušajte drugu specijalnost ili drugi pojam. Ako nedostaje šablon koji vam treba, napravićemo ga za vašu praksu.", hu: "Próbáljon másik szakterületet vagy kifejezést. Ha hiányzik a szükséges sablon, megépítjük az Ön praxisára.", ar: "جرّب تخصصًا آخر أو مصطلحًا مختلفًا. إذا كان القالب الذي تحتاجه غير موجود، فسنبنيه ليناسب ممارستك.", es: "Pruebe con otra especialidad u otro término. Si falta la plantilla que necesita, la construimos a la medida de su práctica.", pt: "Experimente outra especialidade ou outro termo. Se faltar o modelo de que precisa, construímo-lo à medida da sua prática." },
+  /* ── Search palette (TemplateSearchModal.jsx) ── */
+  close:     { uk: "Закрити", en: "Close", pl: "Zamknij", de: "Schließen", ro: "Închideți", cs: "Zavřít", sr: "Zatvori", hu: "Bezárás", ar: "إغلاق", es: "Cerrar", pt: "Fechar" },
+  suggested: { uk: "Популярні шаблони", en: "Popular templates", pl: "Popularne szablony", de: "Beliebte Vorlagen", ro: "Șabloane populare", cs: "Oblíbené šablony", sr: "Popularni šabloni", hu: "Népszerű sablonok", ar: "القوالب الشائعة", es: "Plantillas populares", pt: "Modelos populares" },
+  hintMove:  { uk: "перехід", en: "to move", pl: "nawigacja", de: "navigieren", ro: "navigare", cs: "pohyb", sr: "kretanje", hu: "mozgás", ar: "للتنقل", es: "moverse", pt: "navegar" },
+  hintOpen:  { uk: "відкрити", en: "to open", pl: "otwórz", de: "öffnen", ro: "deschideți", cs: "otevřít", sr: "otvori", hu: "megnyitás", ar: "للفتح", es: "abrir", pt: "abrir" },
+  hintClose: { uk: "закрити", en: "to close", pl: "zamknij", de: "schließen", ro: "închideți", cs: "zavřít", sr: "zatvori", hu: "bezárás", ar: "للإغلاق", es: "cerrar", pt: "fechar" },
   clear:     { uk: "Скинути фільтри", en: "Clear filters", pl: "Wyczyść filtry", de: "Filter zurücksetzen", ro: "Resetați filtrele", cs: "Zrušit filtry", sr: "Poništi filtere", hu: "Szűrők törlése", ar: "مسح عوامل التصفية", es: "Borrar los filtros", pt: "Limpar os filtros" },
   about:     { uk: "Про шаблон", en: "About this template", pl: "O tym szablonie", de: "Über diese Vorlage", ro: "Despre acest șablon", cs: "O této šabloně", sr: "O ovom šablonu", hu: "A sablonról", ar: "حول هذا القالب", es: "Sobre esta plantilla", pt: "Sobre este modelo" },
   bestFor:   { uk: "Кому підходить", en: "Best for", pl: "Dla kogo", de: "Geeignet für", ro: "Potrivit pentru", cs: "Vhodné pro", sr: "Najbolje za", hu: "Kinek ajánljuk", ar: "الأنسب لـ", es: "Ideal para", pt: "Ideal para" },
@@ -86,6 +93,11 @@ function TemplateCard({ tpl, lang, L, go }) {
 function Gallery({ lang, L, go }) {
   const [cat, setCat] = useState("all");
   const [query, setQuery] = useState("");
+  /* The toolbar field opens a palette instead of filtering as you type. See
+     TemplateSearchModal.jsx — the field itself stays a real input holding the
+     real query, so the page still reads correctly with the overlay closed. */
+  const [searching, setSearching] = useState(false);
+  const searchRef = useRef(null);
 
   const results = useMemo(() => {
     const byCat = cat === "all" ? TEMPLATES : TEMPLATES.filter((t) => t.cat === cat);
@@ -117,11 +129,20 @@ function Gallery({ lang, L, go }) {
         <label className="tpl-search">
           <Icon name="search" size={15} />
           <input
+            ref={searchRef}
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            /* Read-only rather than disabled: it still takes focus, still
+               reads out to a screen reader, and still shows the active query —
+               it just cannot be typed into, because the typing happens in the
+               palette. `onFocus` covers the click, the Tab and the label. */
+            readOnly
+            onFocus={() => setSearching(true)}
+            onClick={() => setSearching(true)}
             placeholder={L(S.search)}
             aria-label={L(S.search)}
+            aria-haspopup="dialog"
+            aria-expanded={searching}
           />
         </label>
         <div className="tpl-chips" role="tablist" aria-label={L(S.eyebrow)}>
@@ -170,6 +191,25 @@ function Gallery({ lang, L, go }) {
       </section>
 
       <TemplatesCta L={L} go={go} />
+
+      {searching && (
+        <TemplateSearchModal
+          lang={lang}
+          L={L}
+          strings={S}
+          initialQuery={query}
+          onClose={(how) => {
+            setSearching(false);
+            /* The trigger is a focusable input: returning focus to it on a
+               cancel would re-fire onFocus and reopen the dialog. Blur it. */
+            if (how === "cancel") searchRef.current?.blur();
+          }}
+          onPick={(tpl) => {
+            setSearching(false);
+            go(`/templates/${tpl.slug}`)({ preventDefault() {} });
+          }}
+        />
+      )}
     </>
   );
 }

@@ -33,7 +33,13 @@
 // audit event. SubscriptionsPanel is built on exactly those real signals.
 
 import { listTenants, getTenant, listMembers } from "./tenants.js";
-import { listAuditEvents, listUsers, readyz, healthz } from "./endpoints.js";
+import { listAuditEvents, listUsers, getUser, readyz, healthz } from "./endpoints.js";
+import { listPrivacyRequests } from "./privacy.js";
+import { listPhiAccessRequests, listAccessReasons } from "./phiAccess.js";
+import { listOpenEncounters, listSchedule } from "./encounters.js";
+import { listTemplates } from "./templates.js";
+import { listAbbreviations } from "./nlp.js";
+import { listSynonymGroups } from "./synonyms.js";
 import { SERVICES, readyPathFor } from "./services.js";
 import {
   cutoffMs,
@@ -163,7 +169,7 @@ function unique(xs) {
 const READY_WORDS = ["ready", "ok", "healthy"];
 
 // What each service powers — a red row should say what breaks, not just which
-// process is unhappy. Mirrors HealthBadge's ROLE_OF.
+// process is unhappy. Mirrors ServiceHealth's ROLE_OF.
 export const SERVICE_ROLE = {
   auth:         { uk: "Вхід, користувачі, клініки, аудит", en: "Sign-in, users, tenants, audit" },
   asr:          { uk: "Пакетна транскрипція",              en: "Batch transcription" },
@@ -380,6 +386,275 @@ export async function fetchSubscriptionPicture() {
   };
 }
 
+// ── People: the seat roster, and the two facts only the detail read carries ──
+//
+// GET /admin/users returns UserSummary — sub, email, display_name, role,
+// status. That is enough to count seats and nothing else. The two questions an
+// owner actually asks about people ("who still has no second factor?" and "who
+// stopped using this?") live on UserDetail, which is a per-user GET. So this
+// walks the roster and reads each row, bounded, with the bound disclosed.
+
+const PEOPLE_DETAIL_CAP = 120;   // detail reads per load
+const DETAIL_CONCURRENCY = 6;    // polite to auth-service; the roster is small
+export const DORMANT_DAYS = 30;  // no sign-in in this long ⇒ dormant
+
+/** Promise.all with a concurrency ceiling. Order of results matches `items`. */
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+/**
+ * The people picture for the ACTIVE tenant: every seat, enriched where the
+ * detail read succeeded, plus the rollups a security review asks for.
+ *
+ * A failed detail read is `mfa: "unknown"`, never `false` — reporting a user
+ * as lacking MFA because a request 500'd would send someone chasing a phantom.
+ */
+export async function fetchPeopleDirectory({ dormantDays = DORMANT_DAYS } = {}) {
+  const { users, capped } = await fetchAllUsers();
+  const head = users.slice(0, PEOPLE_DETAIL_CAP);
+  const details = await mapLimit(head, DETAIL_CONCURRENCY, (u) =>
+    getUser(u.sub).catch(() => null));
+  const detailOf = new Map(head.map((u, i) => [String(u.sub), details[i]]));
+
+  const dormantCut = cutoffMs(dormantDays);
+  const rows = users.map((u) => {
+    const key = String(u.sub);
+    const beyondCap = !detailOf.has(key);
+    const d = detailOf.get(key) || null;
+    const lastLogin = d?.last_login_at || null;
+    const lastLoginMs = lastLogin ? Date.parse(lastLogin) : NaN;
+    const active = String(u.status || "").toLowerCase() === "active";
+    return {
+      ...u,
+      detail: d,
+      beyondCap,
+      detailFailed: !beyondCap && d == null,
+      mfa: d ? (d.mfa_enrolled_at ? "on" : "off") : "unknown",
+      mfaEnrolledAt: d?.mfa_enrolled_at || null,
+      lastLoginAt: lastLogin,
+      lastLoginMs: Number.isFinite(lastLoginMs) ? lastLoginMs : null,
+      // "Never signed in" is only meaningful for an account that COULD sign in;
+      // an invited user who hasn't accepted yet is not dormant, just new.
+      neverSignedIn: !!d && active && !lastLogin,
+      dormant: !!d && active && Number.isFinite(lastLoginMs) && lastLoginMs < dormantCut,
+    };
+  });
+
+  rows.sort((a, b) => (b.lastLoginMs || 0) - (a.lastLoginMs || 0));
+
+  const detailed = rows.filter((r) => r.detail);
+  const activeDetailed = detailed.filter((r) => String(r.status || "").toLowerCase() === "active");
+  const mfaOn = activeDetailed.filter((r) => r.mfa === "on").length;
+
+  return {
+    people: rows,
+    seats: seatSummary(users),
+    total: rows.length,
+    detailed: detailed.length,
+    unknown: rows.length - detailed.length,
+    capped: capped || rows.length > PEOPLE_DETAIL_CAP,
+    detailCap: PEOPLE_DETAIL_CAP,
+    mfa: {
+      on: mfaOn,
+      off: activeDetailed.length - mfaOn,
+      unknown: rows.length - activeDetailed.length,
+      // Denominator is ACTIVE users we could read — the honest one. Invited
+      // accounts have not enrolled because they have not arrived yet, and
+      // counting them as gaps would make the number permanently red.
+      of: activeDetailed.length,
+      pct: activeDetailed.length ? Math.round((mfaOn / activeDetailed.length) * 100) : null,
+    },
+    dormant: rows.filter((r) => r.dormant),
+    neverSignedIn: rows.filter((r) => r.neverSignedIn),
+    dormantDays,
+  };
+}
+
+// ── Governance: the privacy queue and the break-glass log ────────────────────
+//
+// Two oversight surfaces the owner console had no view of, both fully served:
+//
+//   GET /privacy-requests          (core-service, patient.read)  — DSAR and
+//     erasure requests. Erasure is a TWO-PERSON workflow, so an item sitting in
+//     `requested`/`review` is not "in progress", it is waiting for a human.
+//   GET /v1/phi-access-requests    (report-service, phi_access.read) — every
+//     time an administrator broke glass on a patient or a report, with the
+//     reason they gave and whether the grant is still open.
+
+export const PRIVACY_OPEN_STATUSES = ["requested", "review", "approved", "executing"];
+export const PRIVACY_STATUSES = [...PRIVACY_OPEN_STATUSES, "completed", "rejected", "failed"];
+
+// A grant row is `granted` | `revoked` (DB CHECK, migration 0056); expiry is
+// carried by expires_at rather than a status, so "still open" is both.
+function grantIsOpen(g, now = Date.now()) {
+  if (String(g.status || "") !== "granted") return false;
+  const exp = Date.parse(g.expires_at || "");
+  return !Number.isFinite(exp) || exp > now;
+}
+
+function daysSince(v, now = Date.now()) {
+  const t = Date.parse(v || "");
+  if (!Number.isFinite(t)) return null;
+  return Math.floor((now - t) / 86400000);
+}
+
+/**
+ * Both queues in one read, each degrading independently: an admin without
+ * `phi_access.read` still gets the privacy queue rather than an empty page.
+ */
+export async function fetchGovernanceQueue({ grantLimit = 100 } = {}) {
+  const [privacyR, grantsR, reasonsR] = await Promise.all([
+    listPrivacyRequests().then((r) => ({ items: asItems(r, "requests") })).catch((e) => ({ error: e })),
+    listPhiAccessRequests({ limit: grantLimit }).then((r) => ({ items: asItems(r, "grants") })).catch((e) => ({ error: e })),
+    listAccessReasons().then((r) => asItems(r, "reasons")).catch(() => []),
+  ]);
+
+  const now = Date.now();
+  const privacy = (privacyR.items || []).slice().sort(
+    (a, b) => (Date.parse(b.requested_at || "") || 0) - (Date.parse(a.requested_at || "") || 0));
+  const open = privacy.filter((p) => PRIVACY_OPEN_STATUSES.includes(String(p.status)));
+  // The two-person rule's actual waiting room: an erasure nobody has approved
+  // or rejected yet. This is the number that should drive someone's day.
+  const awaitingApproval = privacy.filter(
+    (p) => String(p.kind) === "erasure" && ["requested", "review"].includes(String(p.status)));
+
+  const grants = (grantsR.items || []).slice().sort(
+    (a, b) => (Date.parse(b.granted_at || "") || 0) - (Date.parse(a.granted_at || "") || 0));
+  const openGrants = grants.filter((g) => grantIsOpen(g, now));
+
+  const reasonLabels = {};
+  for (const r of reasonsR) reasonLabels[r.code] = r;
+
+  return {
+    privacy: {
+      items: privacy,
+      error: privacyR.error || null,
+      open,
+      awaitingApproval,
+      byStatus: countBy(privacy, (p) => p.status),
+      byKind: countBy(privacy, (p) => p.kind),
+      oldestOpenDays: open.reduce((m, p) => {
+        const d = daysSince(p.requested_at, now);
+        return d != null && d > m ? d : m;
+      }, 0),
+    },
+    grants: {
+      items: grants,
+      error: grantsR.error || null,
+      open: openGrants,
+      // A grant that was minted and never used is worth a question: either the
+      // reason evaporated, or somebody is holding a key they did not need.
+      unused: openGrants.filter((g) => !Number(g.use_count)),
+      byReason: countBy(grants, (g) => g.reason_code),
+      byRequester: countBy(grants, (g) => g.requested_by || "—"),
+      reasonLabels,
+      capped: grants.length >= grantLimit,
+      cap: grantLimit,
+    },
+  };
+}
+
+// ── Clinical load: what the platform is carrying right now ───────────────────
+//
+// Everything else in this console is retrospective. `GET /encounters/open` and
+// `GET /schedule` are the only present-tense reads a tenant_admin token can
+// make (both ride `patient.read`), which makes them the difference between "the
+// service was up last week" and "eleven consultations are in flight".
+//
+// PHI note: an admin holds the REDACTED roster only. Rows here may carry a
+// `patient` stub with a name and nothing else — treat it as a label, never
+// render it next to a clinical detail.
+
+export async function fetchClinicalLoad({ date } = {}) {
+  const [openR, schedR] = await Promise.all([
+    listOpenEncounters({ mine: false, limit: 100 })
+      .then((r) => ({ items: asItems(r, "encounters") })).catch((e) => ({ error: e })),
+    listSchedule({ date }).then((r) => ({ items: asItems(r, "encounters") })).catch((e) => ({ error: e })),
+  ]);
+  const open = openR.items || [];
+  const scheduled = schedR.items || [];
+  return {
+    open,
+    openError: openR.error || null,
+    byStatus: countBy(open, (e) => e.status),
+    byKind: countBy(open, (e) => e.kind),
+    // Started long ago and never closed — usually a forgotten encounter rather
+    // than a marathon consultation, and it blocks the patient's next one.
+    stale: open.filter((e) => {
+      const t = Date.parse(e.started_at || e.occurred_at || "");
+      return Number.isFinite(t) && Date.now() - t > 8 * 3600 * 1000;
+    }),
+    scheduled,
+    scheduleError: schedR.error || null,
+    date: date || null,
+  };
+}
+
+// ── Clinical content: what the platform knows, as opposed to what it did ─────
+//
+// Templates, abbreviations and synonyms are the three registries the vendor
+// curates and every tenant inherits. They are the product's actual content, and
+// until now the console could only see one of them (templates).
+
+export async function fetchContentRegistry({ language } = {}) {
+  const [tplR, abbrR, synR] = await Promise.all([
+    listTemplates({ include_deprecated: true })
+      .then((r) => ({ items: asItems(r, "templates") })).catch((e) => ({ error: e })),
+    listAbbreviations({ language, limit: 200 })
+      .then((r) => ({ items: asItems(r, "abbreviations") })).catch((e) => ({ error: e })),
+    listSynonymGroups().then((r) => ({ items: asItems(r, "groups") })).catch((e) => ({ error: e })),
+  ]);
+
+  const templates = tplR.items || [];
+  const abbreviations = abbrR.items || [];
+  const synonyms = synR.items || [];
+  const tenantSynonyms = synonyms.filter((g) => String(g.source) === "tenant");
+
+  return {
+    templates: {
+      items: templates,
+      error: tplR.error || null,
+      total: templates.length,
+      tenant: templates.filter((t) => t.tenant_id || t.is_tenant || t.parent_template_id).length,
+      deprecated: templates.filter((t) => t.is_deprecated || t.status === "deprecated").length,
+      byLanguage: countBy(templates, (t) => t.language || "—"),
+    },
+    abbreviations: {
+      items: abbreviations,
+      error: abbrR.error || null,
+      total: abbreviations.length,
+      // A tenant override shadows the shipped expansion for this clinic only —
+      // the interesting subset, because it is what somebody chose to change.
+      overrides: abbreviations.filter((a) => a.is_tenant_override).length,
+      byLanguage: countBy(abbreviations, (a) => a.language || "—"),
+      // The list read is capped at 200 by the backend, so a full page is a
+      // truncation, not a total.
+      capped: abbreviations.length >= 200,
+      cap: 200,
+    },
+    synonyms: {
+      items: synonyms,
+      error: synR.error || null,
+      total: synonyms.length,
+      tenant: tenantSynonyms.length,
+      system: synonyms.length - tenantSynonyms.length,
+      terms: synonyms.reduce((s, g) => s + (g.terms?.length || 0), 0),
+      byLanguage: countBy(synonyms, (g) => g.language || "—"),
+    },
+  };
+}
+
 // ── The gap register ─────────────────────────────────────────────────────────
 //
 // Every owner-console capability the backend cannot serve today, with the exact
@@ -436,13 +711,52 @@ export const BACKEND_GAPS = [
     haveEn: "An email allowlist in the SPA that decides which nav entry renders.",
     haveUk: "Список email у SPA, який вирішує, який пункт навігації показати.",
     blockerEn:
-      "libs/auth/perms.py pins KNOWN_ROLES to {tenant_admin, clinician, nurse, auditor, service}. "
+      "libs/auth/perms.py now carries six roles — tenant_admin, clinician, nurse, auditor, service and "
+      + "knowledge_admin (the evidence-corpus curator added in EVA-S01) — and not one of them is "
+      + "platform-scoped: every row of the matrix is evaluated against the single tid in the JWT. "
       + "super_admin is referenced by the SPA but the server neither issues nor honours it.",
     blockerUk:
-      "libs/auth/perms.py фіксує KNOWN_ROLES = {tenant_admin, clinician, nurse, auditor, service}. "
+      "libs/auth/perms.py уже містить шість ролей — tenant_admin, clinician, nurse, auditor, service і "
+      + "knowledge_admin (куратор корпусу доказів, EVA-S01) — і жодна з них не є платформною: кожен рядок "
+      + "матриці перевіряється проти єдиного tid у токені. "
       + "super_admin згадується в SPA, але сервер його не видає й не визнає.",
     needEn: "Add a platform role to KNOWN_ROLES + ALLOW, issue it via Keycloak, and gate /platform/* on it.",
     needUk: "Додати платформну роль до KNOWN_ROLES + ALLOW, видавати через Keycloak і закрити нею /platform/*.",
+  },
+  {
+    id: "role-set-write-only",
+    titleEn: "A user's role SET cannot be read back",
+    titleUk: "Набір ролей користувача неможливо прочитати",
+    haveEn: "PUT /admin/users/{sub}/roles writes the whole set; GET returns one collapsed `role`.",
+    haveUk: "PUT /admin/users/{sub}/roles записує весь набір; GET повертає один згорнутий `role`.",
+    blockerEn:
+      "Both UserSummary and UserDetail expose `role` — the single value auth-service collapses the set "
+      + "to by precedence (tenant_admin > clinician > nurse > auditor > service). The real set lives in "
+      + "Keycloak and no endpoint reads it out, so a doctor who also administers the clinic is "
+      + "indistinguishable from an admin-only account, and any role edit is a blind overwrite.",
+    blockerUk:
+      "UserSummary і UserDetail віддають `role` — єдине значення, до якого auth-service згортає набір за "
+      + "пріоритетом (tenant_admin > clinician > nurse > auditor > service). Справжній набір лежить у "
+      + "Keycloak, і жоден ендпоінт його не віддає: лікар, який ще й адмініструє клініку, невідрізненний "
+      + "від суто адміністративного акаунта, а будь-яка зміна ролей — це запис наосліп.",
+    needEn: "Add `roles: string[]` to UserDetail (auth-service already calls keycloak.get_realm_roles inside the PUT).",
+    needUk: "Додати `roles: string[]` до UserDetail (auth-service уже викликає keycloak.get_realm_roles усередині PUT).",
+  },
+  {
+    id: "mfa-coverage-n-plus-1",
+    titleEn: "Second-factor coverage costs one request per person",
+    titleUk: "Покриття другим фактором коштує запит на людину",
+    haveEn: "Coverage assembled in the browser from GET /admin/users/{sub}, capped at 120 people per load.",
+    haveUk: "Покриття збирається у браузері з GET /admin/users/{sub}, обмежено 120 людьми на завантаження.",
+    blockerEn:
+      "`mfa_enrolled_at` and `last_login_at` are on UserDetail only — the roster list (UserSummary) omits "
+      + "both. Coverage and dormancy are therefore N+1 reads, and beyond the cap the answer is 'unknown' "
+      + "rather than a number.",
+    blockerUk:
+      "`mfa_enrolled_at` і `last_login_at` є лише в UserDetail — список ролей (UserSummary) їх не містить. "
+      + "Тому покриття й «сплячі» акаунти — це N+1 запитів, а поза лімітом відповідь — «невідомо», не число.",
+    needEn: "Put mfa_enrolled_at + last_login_at on UserSummary, or add GET /admin/users/stats.",
+    needUk: "Додати mfa_enrolled_at і last_login_at до UserSummary, або GET /admin/users/stats.",
   },
   {
     id: "infra-telemetry",

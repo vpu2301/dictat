@@ -78,6 +78,74 @@ export async function getSectionPrompt(id, sectionId) {
   return a(`/templates/${encodeURIComponent(id)}/sections/${encodeURIComponent(sectionId)}/prompt`, { method: "GET" });
 }
 
+// ── Re-bind (sprint 17) ─────────────────────────────────────────────────────
+// The deprecate flow's other half: a template referenced by DRAFT reports
+// cannot be deprecated (409) until each draft is re-bound to a successor.
+// Both endpoints are template administration (`template.update`), and the
+// listing is deliberately PHI-FREE — ids, statuses and timestamps only — a
+// tenant_admin does not hold report.read.
+
+// Exported for unit tests: the wire path/body builders.
+export function boundReportsPath(id, limit) {
+  const lim = Math.max(1, Math.min(200, Number(limit) || 50));
+  return `/templates/${encodeURIComponent(id)}/bound-reports?limit=${lim}`;
+}
+export function rebindBody({ report_id, to_template_id } = {}) {
+  return { report_id, to_template_id };
+}
+
+// GET /templates/{id}/bound-reports — bare array of
+// { report_id, status: 'draft'|'finalized'|'signed'|'amended'|'cancelled',
+//   created_at, updated_at }, updated_at DESC. 404 if the template is not
+// visible (RLS — never "forbidden").
+export async function listBoundReports(id, { limit } = {}) {
+  return a(boundReportsPath(id, limit), { method: "GET" });
+}
+
+// POST /templates/{id}/rebind — move ONE draft report to a successor template.
+// → { report_id, from_template_id, to_template_id }. Every guard is a 409
+// with a distinct detail (see rebindErrorMessage); only drafts move —
+// finalized/signed/amended reports keep their template forever.
+export async function rebindReport(id, { report_id, to_template_id }) {
+  return a(`/templates/${encodeURIComponent(id)}/rebind`, {
+    method: "POST",
+    body: JSON.stringify(rebindBody({ report_id, to_template_id })),
+  });
+}
+
+// Map the rebind endpoints' problem-details onto operator-facing copy. Matched
+// on status + detail substring: the route emits distinct details, no machine
+// codes (backlogged as a backend ask in todo.md).
+export function rebindErrorMessage(error, lang = "uk") {
+  const L = (uk, en) => (lang === "uk" ? uk : en);
+  const status = error?.status ?? 0;
+  const detail = String(error?.problem?.detail || "");
+  if (status === 404) return L("Шаблон або звіт не знайдено.", "Template or report not found.");
+  if (status === 409) {
+    if (detail.includes("not bound")) {
+      return L("Звіт більше не прив'язаний до цього шаблону — оновіть список.",
+               "The report is no longer bound to this template — refresh the list.");
+    }
+    if (detail.includes("only draft")) {
+      return L("Переприв'язати можна лише чернетки — фіналізовані й підписані звіти зберігають свій шаблон.",
+               "Only drafts can be re-bound — finalized and signed reports keep their template.");
+    }
+    if (detail.includes("already bound")) {
+      return L("Звіт уже прив'язаний до обраного шаблону.",
+               "The report is already bound to the chosen template.");
+    }
+    if (detail.includes("deprecated")) {
+      return L("Цільовий шаблон знято з використання — оберіть чинний шаблон.",
+               "The target template is deprecated — choose a current one.");
+    }
+    if (detail.includes("language")) {
+      return L("Мова цільового шаблону не збігається з мовою поточного.",
+               "The target template's language differs from the source.");
+    }
+  }
+  return error?.message || L("Помилка", "Error");
+}
+
 // ── Validation mirrors (backend enforces too) — §3 ──────────────────────────
 
 export const SLUG_RE = /^[a-z][a-z0-9_]*$/;
@@ -205,34 +273,57 @@ export function validateDefinition(def, lang = "en") {
 }
 
 // Predict the backend's cosmetic/structural classification (§2.4) so the editor
-// can warn BEFORE saving. Structural = section added/removed, id changed,
-// field_type changed, required flipped, or min_chars raised. Everything else
-// (name, aliases, asr/synthesis prompt, order, default_content, metadata,
-// min_chars lowered) is cosmetic. Backend remains authoritative.
-export function classifyEdit(original, edited) {
+// can warn BEFORE saving — live, as the admin types (sprint 17). Mirrors
+// `template_models.schema.classify_edit`: STRUCTURAL = code/language changed,
+// section added/removed (an id change reads as both), field_type changed,
+// required flipped, min_chars RAISED (loosening is cosmetic), or a choice
+// option value removed/renamed. Everything else (name, aliases, prompts,
+// order, default_content, metadata, added options, label edits) is cosmetic.
+// The backend computes reason strings too but does not return them, so this
+// mirror is the only source for the banner's reason list. Backend remains
+// authoritative for the verdict that matters (the PUT's `kind`).
+//
+// Returns { kind: 'cosmetic'|'structural'|'no_change', reasons: [...] } where
+// each reason is a structured record for formatEditReason to localize.
+export function classifyEditDetailed(original, edited) {
+  const reasons = [];
+  if ((original?.code || "") !== (edited?.code || "")) {
+    reasons.push({ rule: "code_changed", from: original?.code || "", to: edited?.code || "" });
+  }
+  if ((original?.language || "") !== (edited?.language || "")) {
+    reasons.push({ rule: "language_changed", from: original?.language || "", to: edited?.language || "" });
+  }
+
   const o = original?.sections || [];
   const e = edited?.sections || [];
   const oById = new Map(o.map((s) => [s.id, s]));
   const eById = new Map(e.map((s) => [s.id, s]));
 
-  // Added or removed section ids → structural.
-  if (o.length !== e.length) return "structural";
-  for (const id of eById.keys()) if (!oById.has(id)) return "structural";
-  for (const id of oById.keys()) if (!eById.has(id)) return "structural";
+  const added = [...eById.keys()].filter((id) => !oById.has(id));
+  const removed = [...oById.keys()].filter((id) => !eById.has(id));
+  if (added.length) reasons.push({ rule: "sections_added", values: added });
+  if (removed.length) reasons.push({ rule: "sections_removed", values: removed });
 
   let changed = false;
   for (const [id, es] of eById) {
     const os = oById.get(id);
-    if ((os.field_type || "") !== (es.field_type || "")) return "structural";
-    if (!!os.required !== !!es.required) return "structural";
-    if ((es.min_chars ?? 0) > (os.min_chars ?? 0)) return "structural"; // raised
+    if (!os) continue;
+    if ((os.field_type || "") !== (es.field_type || "")) {
+      reasons.push({ rule: "field_type_changed", section: id, from: os.field_type || "", to: es.field_type || "" });
+    }
+    if (!!os.required !== !!es.required) {
+      reasons.push({ rule: "required_flipped", section: id, from: !!os.required, to: !!es.required });
+    }
+    if ((es.min_chars ?? 0) > (os.min_chars ?? 0)) {
+      reasons.push({ rule: "min_chars_increased", section: id, from: os.min_chars ?? 0, to: es.min_chars ?? 0 });
+    }
     // Sprint-13: removing (or renaming — remove+add) an option value is
     // structural: stored selections in report field_specific_metadata would
     // dangle. Adding options / label / alias edits are cosmetic.
-    const newValues = new Set((es.options || []).map((o) => o?.value));
-    for (const o of os.options || []) {
-      if (!newValues.has(o?.value)) return "structural";
-    }
+    const newValues = new Set((es.options || []).map((x) => x?.value));
+    const lost = (os.options || []).map((x) => x?.value).filter((v) => !newValues.has(v));
+    if (lost.length) reasons.push({ rule: "option_values_removed", section: id, values: lost });
+
     if (JSON.stringify(os.options || []) !== JSON.stringify(es.options || [])) changed = true;
     // Cosmetic-only diffs.
     if (
@@ -248,7 +339,43 @@ export function classifyEdit(original, edited) {
   if ((original?.name || "") !== (edited?.name || "")) changed = true;
   if (JSON.stringify(original?.metadata || {}) !== JSON.stringify(edited?.metadata || {})) changed = true;
 
-  return changed ? "cosmetic" : "no_change";
+  if (reasons.length) return { kind: "structural", reasons };
+  return { kind: changed ? "cosmetic" : "no_change", reasons: [] };
+}
+
+// Back-compat: verdict only.
+export function classifyEdit(original, edited) {
+  return classifyEditDetailed(original, edited).kind;
+}
+
+// One structured reason → operator-facing copy for the live banner.
+export function formatEditReason(r, lang = "uk") {
+  const L = (uk, en) => (lang === "uk" ? uk : en);
+  const list = (vs) => (vs || []).map((v) => `«${v}»`).join(", ");
+  switch (r?.rule) {
+    case "code_changed":
+      return L(`Змінено код: ${r.from} → ${r.to}`, `Code changed: ${r.from} → ${r.to}`);
+    case "language_changed":
+      return L(`Змінено мову: ${r.from} → ${r.to}`, `Language changed: ${r.from} → ${r.to}`);
+    case "sections_added":
+      return L(`Додано секції: ${list(r.values)}`, `Sections added: ${list(r.values)}`);
+    case "sections_removed":
+      return L(`Вилучено секції: ${list(r.values)}`, `Sections removed: ${list(r.values)}`);
+    case "field_type_changed":
+      return L(`Секція «${r.section}»: тип поля ${r.from} → ${r.to}`,
+               `Section "${r.section}": field type ${r.from} → ${r.to}`);
+    case "required_flipped":
+      return L(`Секція «${r.section}»: змінено обов'язковість`,
+               `Section "${r.section}": required flag flipped`);
+    case "min_chars_increased":
+      return L(`Секція «${r.section}»: мінімум символів підвищено ${r.from} → ${r.to}`,
+               `Section "${r.section}": min chars raised ${r.from} → ${r.to}`);
+    case "option_values_removed":
+      return L(`Секція «${r.section}»: вилучено або перейменовано значення варіантів: ${list(r.values)}`,
+               `Section "${r.section}": option values removed/renamed: ${list(r.values)}`);
+    default:
+      return String(r?.rule || "");
+  }
 }
 
 // ── Studio adapter ──────────────────────────────────────────────────────────

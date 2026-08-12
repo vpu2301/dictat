@@ -20,6 +20,10 @@ import { startCapture } from "../dictation/audioPipeline.js";
 import { openMicStream } from "../dictation/micDevices.js";
 import { FrameQueue } from "../dictation/frameQueue.js";
 import {
+  beginRecording, checkpointRecording, completeRecording, markInterrupted, shouldCheckpoint,
+} from "../dictation/recovery.js";
+import { onSessionEnd, SESSION_END } from "../auth/sessionEnd.js";
+import {
   emptyTurns, applyFinal, applyPartial, clearPartial, setTurnSpeaker as setTurnSpeakerIn,
 } from "./turns.js";
 import {
@@ -33,7 +37,16 @@ import {
 const MAX_RESUMES = 3;
 const RESUME_BACKOFF_MS = [400, 1200, 3000];
 
-export function useConversationSession({ language = "uk", promptId, encounterId, deviceId } = {}) {
+export function useConversationSession({
+  language = "uk", promptId, encounterId, deviceId,
+  // Sprint 16. A session id whose audio survived an interruption in the local
+  // ring (src/dictation/recovery.js). When present, `start()` reopens THAT
+  // session with `resume_session_id` and replays the preserved frames instead
+  // of opening a new one — which is the difference between a clinician
+  // carrying on and a clinician re-dictating a consultation from memory.
+  recoverSessionId = null,
+  patientId = null,
+} = {}) {
   const [status, setStatus] = useState("idle"); // idle|starting|live|resuming|stopping|ended|error
   const [turns, setTurns] = useState(emptyTurns);
   const [mapping, setMapping] = useState(emptyMapping);
@@ -52,8 +65,9 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
   const resumesRef = useRef(0);
   const wantLiveRef = useRef(false);   // the clinician's intent, not the socket's state
   const pausedRef = useRef(false);
-  const optsRef = useRef({ language, promptId, encounterId, deviceId });
-  optsRef.current = { language, promptId, encounterId, deviceId };
+  const framesRef = useRef(0);         // frames pushed this session (manifest counter)
+  const optsRef = useRef({ language, promptId, encounterId, deviceId, recoverSessionId, patientId });
+  optsRef.current = { language, promptId, encounterId, deviceId, recoverSessionId, patientId };
 
   const fail = useCallback((code, message, recoverable = false) => {
     wantLiveRef.current = false;
@@ -189,13 +203,35 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
       const ring = new FrameQueue({});
       await ring.init();
       ringRef.current = ring;
+      framesRef.current = 0;
+
+      // RECOVERY (sprint 16). Hydrate the preserved frames BEFORE connecting,
+      // and point sessionIdRef at the session they belong to — `connect({
+      // resume: true })` reads both to negotiate `resume_session_id` and to
+      // replay everything the server has not committed.
+      const recovering = optsRef.current.recoverSessionId;
+      if (recovering) {
+        const loaded = await ring.load(recovering);
+        if (loaded > 0) {
+          sessionIdRef.current = recovering;
+          framesRef.current = loaded;
+        }
+      }
 
       const encoder = new WebCodecsOpusEncoder({
         onPacket: (packet) => {
           const client = clientRef.current;
           if (!client) return;
           const seq = client.sendEncoded(packet);
-          if (seq != null) ring.push(seq, encodeFrame(seq, packet)).catch(() => {});
+          if (seq != null) {
+            ring.push(seq, encodeFrame(seq, packet)).catch(() => {});
+            // Keep the recovery manifest's duration roughly honest without
+            // touching IndexedDB fifty times a second.
+            const n = ++framesRef.current;
+            if (shouldCheckpoint(n)) {
+              checkpointRecording(sessionIdRef.current, { frames: n, lastSeq: seq }).catch(() => {});
+            }
+          }
         },
         onError: () => fail("encoder_failed", null, false),
       });
@@ -205,10 +241,19 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
       const stream = await openMicStream(optsRef.current.deviceId);
       streamRef.current = stream;
 
-      await connect({ resume: false });
+      await connect({ resume: !!(recovering && ringRef.current.size() > 0) });
       if (!wantLiveRef.current) return false;   // stopped while connecting
 
-      ring.sessionId = sessionIdRef.current;
+      // Re-file any frame written before start_session answered, then open the
+      // manifest that makes this recording recoverable if the session dies.
+      await ring.adoptSession(sessionIdRef.current);
+      await beginRecording({
+        sessionId: sessionIdRef.current,
+        patientId: optsRef.current.patientId,
+        encounterId: optsRef.current.encounterId,
+        language: optsRef.current.language,
+        mode: "scribe",
+      });
       captureRef.current = startCapture({
         stream,
         onFrame: (int16) => { encoderRef.current?.push(int16); },
@@ -295,6 +340,12 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
     clientRef.current?.endSession();
     setTurns((s) => clearPartial(s));
     await teardownAudio();
+    // The clinician ended this on purpose and the server holds the transcript,
+    // so the local copy has done its job: drop the manifest AND the frames.
+    // Leaving them would mean offering to "recover" a consultation that was
+    // finished normally — and, worse, keeping consultation audio on a shared
+    // workstation's disk for no reason.
+    completeRecording(sessionIdRef.current).catch(() => {});
     // Give the server a beat to write the transcript before we read it back.
     setTimeout(() => { try { clientRef.current?.close(); } catch {} }, 250);
     setStatus("ended");
@@ -324,6 +375,53 @@ export function useConversationSession({ language = "uk", promptId, encounterId,
       return next;
     });
   }, []);
+
+  // ── the session dying underneath a live recording (sprint 16) ────────
+  //
+  // Revocation (ADR-0040) makes this a designed event, not an accident: an
+  // administrator deactivating an account, a refresh replay, or an ordinary
+  // expiry can now end a clinician's session at any instant — including the
+  // instant they are three minutes into a consultation.
+  //
+  // What must NOT happen: keep the microphone open against a socket that will
+  // never accept another frame, and let the app navigate to /login taking the
+  // audio with it. What must happen, in this order:
+  //
+  //   1. stop wanting to be live, so the reconnect ladder does not fire and
+  //      hammer a backend that is refusing this token on purpose;
+  //   2. close the microphone — a recording indicator that outlives the
+  //      session is both a privacy problem and a lie;
+  //   3. mark the manifest interrupted so the next sign-in offers it back.
+  //
+  // The ring is deliberately left untouched. That is the sprint-04 guarantee
+  // and the whole point: a revoked session must never cost a clinician their
+  // in-flight audio.
+  useEffect(() => onSessionEnd((reason) => {
+    if (reason === SESSION_END.SIGNED_OUT) {
+      // A deliberate sign-out while recording is still an interruption worth
+      // preserving — people sign out of a shared workstation in a hurry — but
+      // it is not an incident, and `stop()` may already be running.
+      if (!wantLiveRef.current) return;
+    }
+    if (!wantLiveRef.current && status !== "live" && status !== "resuming") return;
+
+    wantLiveRef.current = false;
+    pausedRef.current = false;
+    const sid = sessionIdRef.current;
+    teardownAudio().catch(() => {});
+    try { clientRef.current?.close(); } catch {}
+    markInterrupted(sid, reason).catch(() => {});
+    setStatus("ended");
+    setError({
+      code: "session_ended",
+      message: null,
+      recoverable: false,
+      // Read by ConversationRoom to say "your audio is safe" rather than
+      // leaving a clinician staring at a dead screen guessing.
+      audioPreserved: true,
+      sessionId: sid,
+    });
+  }), [status, teardownAudio]);
 
   // Navigating away mid-consultation must not leave the microphone hot or the
   // session holding two capacity slots.

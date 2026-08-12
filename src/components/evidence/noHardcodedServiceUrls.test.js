@@ -92,7 +92,18 @@ test("components never call the network directly — that is the api module's jo
 test("the ingest service has no client, and no entry in the service map", () => {
   const services = readFileSync(path.join(repoRoot, "src/api/services.js"), "utf8");
   // The comment block naming :8010 must survive; a SERVICES key must not appear.
-  const keys = [...services.matchAll(/^\s{2}(\w+):\s/gm)].map((m) => m[1]);
+  //
+  // Read the keys out of `resolveServices` rather than off a fixed indent:
+  // sprint 16 wrapped the map in that function (vite.config.js resolves the
+  // same map in Node to derive the CSP `connect-src`), and an indent-sensitive
+  // scan silently found zero keys — which passed the "no ingest" half of this
+  // test while quietly stopping the other half from checking anything.
+  const body = services.slice(
+    services.indexOf("export function resolveServices"),
+    services.indexOf("export const SERVICES"),
+  );
+  const keys = [...body.matchAll(/^\s+(\w+):\s/gm)].map((m) => m[1]);
+  assert.ok(keys.length > 5, "no SERVICES keys found — the scan is looking in the wrong place");
   assert.equal(keys.includes("evidenceIngest"), false, "evidence-ingest is operator-only (EVA-S02)");
   assert.equal(keys.includes("ingest"), false);
   assert.ok(keys.includes("evidenceRetrieval"), "evidenceRetrieval must be in SERVICES");

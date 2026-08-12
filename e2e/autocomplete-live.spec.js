@@ -87,6 +87,8 @@ async function openLiveStudio(page, errors) {
     errors.push(`console: ${txt}`);
   });
   await page.goto("/#/studio?mode=dictate");
+  // The workspace no longer opens the picker on arrival; the header asks.
+  await page.locator("[data-testid='sw-patient']").click();
   const gateRow = page.locator("[data-testid='patient-gate-row']").first();
   await expect(gateRow).toBeVisible({ timeout: 15000 });
   await gateRow.click();
@@ -233,10 +235,13 @@ test("live 4 — chaos: service stopped mid-flight → typing verbatim, silent; 
     await page.locator('button[type="submit"]').click();
   }
   await page.goto("/#/studio?mode=dictate");
-  const gateRow = page.locator("[data-testid='patient-gate-row']").first();
+  const prompt = page.getByRole("button", { name: /Обрати пацієнта|Pick a patient/ });
   const editor2 = page.locator(".ProseMirror").first();
-  await expect(editor2.or(gateRow).first()).toBeVisible({ timeout: 20000 });
-  if (await gateRow.isVisible().catch(() => false)) await gateRow.click();
+  await expect(editor2.or(prompt).first()).toBeVisible({ timeout: 20000 });
+  if (!(await editor2.isVisible().catch(() => false))) {
+    await prompt.click();
+    await page.locator("[data-testid='patient-gate-row']").first().click();
+  }
   await expect(editor2).toBeVisible({ timeout: 15000 });
   await editor2.click();
   // "." ends the sentence stem, so restored draft text can't pollute the

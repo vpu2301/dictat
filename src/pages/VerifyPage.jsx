@@ -65,10 +65,12 @@ export function VerifyPage({ envelopeId, lang }) {
 
   return (
     <div className="verify-page">
+      {/* Wordmark, no tile — this page is a public landing (anyone holding a
+          signed report can open it), so it carries the site's brand rather
+          than the platform sidebar's. */}
       <div className="verify-header">
-        <div className="sb-brand-mark" style={{ width: 32, height: 32, fontSize: 16 }}>D</div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>Klarnote</div>
+          <div className="lp-brand-name">Klarnote</div>
           <div className="muted" style={{ fontSize: 12 }}>
             {uk ? 'Верифікація цифрового підпису' : 'Digital signature verification'}
           </div>

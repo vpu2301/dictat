@@ -88,9 +88,17 @@ export function SettingsNav({ sections, active, onJump, label }) {
 }
 
 /** Wire a section list to the scroll-spy + smooth-scroll jump behaviour. */
-export function useSettingsSections(sections) {
+/**
+ * `initial` deep-links a section: /settings?s=account scrolls straight to
+ * "Account & security" instead of dropping the reader at the top of a page
+ * whose seventh card is the one they asked for. Runs once, and only for an
+ * id this page actually has — a stale link scrolls nowhere rather than
+ * throwing.
+ */
+export function useSettingsSections(sections, initial) {
   const ids = sections.map((s) => s.id);
   const [active, setActive, pinnedUntil] = useScrollSpy(ids);
+  const jumped = React.useRef(false);
   const jump = (id) => {
     // Hold the highlight for the length of the smooth scroll. Matters most for
     // the last section, which can never become the topmost intersecting one.
@@ -98,6 +106,19 @@ export function useSettingsSections(sections) {
     setActive(id);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  React.useEffect(() => {
+    if (jumped.current || !initial || !ids.includes(initial)) return;
+    // The sections mount with the page; one frame is enough for the target to
+    // have a position to scroll to.
+    const t = setTimeout(() => {
+      jumped.current = true;
+      jump(initial);
+    }, 60);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial, ids.join(",")]);
+
   return { active, jump };
 }
 
